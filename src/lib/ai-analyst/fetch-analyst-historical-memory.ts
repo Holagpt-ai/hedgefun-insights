@@ -3,6 +3,10 @@ import {
   unavailableHistoricalMemory,
   type HistoricalMemoryFacts,
 } from "@/lib/ai-analyst/historical-memory";
+import {
+  handoffIdentity,
+  repeatMoverContextMatchesHandoff,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
@@ -42,6 +46,10 @@ export async function fetchAnalystHistoricalMemory(input: {
 
   if (input.preloadedContext) {
     const coerced = coerceRepeatMoverContextForDisplay(input.preloadedContext) ?? input.preloadedContext;
+    const identity = handoffIdentity(symbol, coerced.securityId);
+    if (!identity || !repeatMoverContextMatchesHandoff(identity, coerced)) {
+      return unavailableHistoricalMemory(symbol);
+    }
     persistHistoricalWorkflowHandoff(coerced, {
       symbol,
       sourceSurface: "ai_analyst",
@@ -65,12 +73,16 @@ export async function fetchAnalystHistoricalMemory(input: {
       }),
       HISTORICAL_MEMORY_FETCH_TIMEOUT_MS,
     );
-    const match = batch.results.find((row) => row.symbol === symbol)
-      ?? batch.results[0];
+    const match = batch.results.find((row) => row.symbol.trim().toUpperCase() === symbol);
     const historicalContext = match?.historicalContext != null
       ? coerceRepeatMoverContextForDisplay(match.historicalContext)
       : null;
-    if (historicalContext) {
+    const identity = handoffIdentity(symbol, match?.securityId ?? historicalContext?.securityId ?? null);
+    if (
+      historicalContext
+      && identity
+      && repeatMoverContextMatchesHandoff(identity, historicalContext)
+    ) {
       persistHistoricalWorkflowHandoff(historicalContext, {
         symbol,
         sourceSurface: "ai_analyst",

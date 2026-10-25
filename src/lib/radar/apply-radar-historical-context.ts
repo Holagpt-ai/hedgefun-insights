@@ -10,6 +10,10 @@ import type { RadarHistoricalContextConfig } from "@/config/radar-historical-con
 import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 import { buildPrioritizedHistoricalBatches } from "@/lib/radar/radar-historical-context-priority";
 import type { RadarHistoricalContextBatchResponse } from "@/lib/radar/radar-historical-context-client";
+import {
+  handoffIdentity,
+  repeatMoverContextMatchesHandoff,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 import {
   classifyHistoricalContextBatchResult,
@@ -77,7 +81,15 @@ export function mergeHistoricalContextBatchIntoRows(
         historicalContextLoadStatus: row.historicalContextLoadStatus ?? "pending",
       };
     }
-    const historicalContext = coerceRepeatMoverContextForDisplay(match.historicalContext);
+    let historicalContext = coerceRepeatMoverContextForDisplay(match.historicalContext);
+    const identity = handoffIdentity(symbol, match.securityId ?? row.securityId ?? null);
+    if (
+      historicalContext
+      && identity
+      && !repeatMoverContextMatchesHandoff(identity, historicalContext)
+    ) {
+      historicalContext = null;
+    }
     const loadStatus = classifyHistoricalContextBatchResult({
       historicalContext: match.historicalContext,
       priorContext: row.historicalContext ?? null,
@@ -86,7 +98,11 @@ export function mergeHistoricalContextBatchIntoRows(
       ...row,
       securityId: match.securityId ?? row.securityId ?? null,
       historicalContext: historicalContext ?? row.historicalContext ?? null,
-      historicalContextLoadStatus: historicalContext ? resolveHistoricalContextLoadStatus(historicalContext) : loadStatus,
+      historicalContextLoadStatus: historicalContext
+        ? resolveHistoricalContextLoadStatus(historicalContext)
+        : historicalContext === null && match.historicalContext
+          ? "unavailable"
+          : loadStatus,
     };
   });
 }
