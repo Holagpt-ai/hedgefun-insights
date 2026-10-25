@@ -29,7 +29,7 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. PR #162 is on `main`. That integration branch was then merged forward and its file contents match `main`. Use it for Lovable sync.
+- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`e4801e81`** (2026-10-25 Batch 177 forward-merge of `main` **`788b1b93`**). Application files match `main`; integration branch may carry Lovable-only files (e.g. `bun.lock`). Do not merge `cursor/chat-single-pass-v1`.
 - Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
 
@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md`: **172** Catalyst Source Coverage V1, **173** Watchlist/Historical Handoff Integrity, **174** Monday Live Scanner Acceptance, **175** Continuation & Inbox Acceptance. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for **171–181** register (merged through **176** at `788b1b93`; **174** PR open; **175** pending; **177** watchlist scope superseded by **173**; **178** Monday-dependent; **179–181** pending). Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## How to avoid another full audit
 
