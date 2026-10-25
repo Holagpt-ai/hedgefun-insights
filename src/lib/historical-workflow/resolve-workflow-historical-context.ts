@@ -15,6 +15,11 @@ import {
   readHistoricalWorkflowContextBySecurityId,
   readPreloadedRepeatMoverContext,
 } from "@/lib/historical-workflow/workflow-handoff-storage";
+import {
+  handoffIdentity,
+  historicalWorkflowMatchesRequest,
+  repeatMoverContextMatchesHandoff,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import type { SecurityId } from "@/types/security-identity";
@@ -43,6 +48,11 @@ function resolved(
   securityId: SecurityId | null,
   nowMs: number,
 ): ResolvedWorkflowHistoricalContext {
+  const identity = handoffIdentity(symbol, securityId);
+  if (context && identity && !repeatMoverContextMatchesHandoff(identity, context)) {
+    context = null;
+  }
+
   if (context?.profile.profileAvailable) {
     persistHistoricalWorkflowHandoff(context, {
       symbol,
@@ -62,15 +72,17 @@ function resolved(
     };
   }
 
+  const compactBySymbol = readHistoricalWorkflowContext(symbol);
+  const compactById = securityId ? readHistoricalWorkflowContextBySecurityId(securityId) : null;
   const compact =
-    readHistoricalWorkflowContext(symbol)
-    ?? (securityId ? readHistoricalWorkflowContextBySecurityId(securityId) : null);
+    (identity && historicalWorkflowMatchesRequest(identity, compactBySymbol) ? compactBySymbol : null)
+    ?? (identity && historicalWorkflowMatchesRequest(identity, compactById) ? compactById : null);
 
-  if (compact) {
+  if (compact && identity) {
     return {
       workflow: {
         ...compact,
-        symbol,
+        symbol: identity.symbol,
         securityId: compact.securityId ?? securityId,
         sourceSurface,
         handoffAt: new Date(nowMs).toISOString(),
@@ -99,7 +111,8 @@ async function refetchRepeatMoverContext(input: {
       requests: [{ symbol: input.symbol }],
       fetchImpl: input.fetchImpl,
     });
-    const match = batch.results.find((row) => row.symbol === input.symbol) ?? batch.results[0];
+    const symbolKey = input.symbol.trim().toUpperCase();
+    const match = batch.results.find((row) => row.symbol.trim().toUpperCase() === symbolKey);
     return match?.historicalContext ?? null;
   } catch {
     return null;
@@ -144,7 +157,7 @@ export async function resolveWorkflowHistoricalContext(input: {
 
     let loaded: RepeatMoverContext | null = input.preloadedRepeatMoverContext ?? null;
     if (!loaded) {
-      loaded = readPreloadedRepeatMoverContext(symbol);
+      loaded = readPreloadedRepeatMoverContext(symbol, { securityId });
     }
 
     if (loaded?.profile.profileAvailable && isRepeatMoverContextFresh(loaded, nowMs)) {

@@ -1,5 +1,9 @@
 import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session-continuation-types";
 import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
+import {
+  handoffIdentity,
+  historicalWorkflowMatchesRequest,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 
 /**
  * True when symbol-keyed historical workflow cache may enrich a persisted handoff.
@@ -9,17 +13,9 @@ export function historicalWorkflowMatchesHandoff(
   context: Pick<LateSessionContinuationContext, "symbol" | "securityId">,
   workflow: HistoricalWorkflowContext | null | undefined,
 ): boolean {
-  if (!workflow) return false;
-  const handoffSymbol = context.symbol.trim().toUpperCase();
-  const workflowSymbol = workflow.symbol.trim().toUpperCase();
-  if (!handoffSymbol || handoffSymbol !== workflowSymbol) return false;
-
-  const handoffId = context.securityId;
-  const workflowId = workflow.securityId;
-  if (handoffId && workflowId && handoffId !== workflowId) return false;
-  if (handoffId && !workflowId) return false;
-
-  return true;
+  const identity = handoffIdentity(context.symbol, context.securityId);
+  if (!identity) return false;
+  return historicalWorkflowMatchesRequest(identity, workflow);
 }
 
 export function enrichHandoffContextFromHistoricalWorkflow(

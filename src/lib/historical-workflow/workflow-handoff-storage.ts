@@ -4,6 +4,10 @@ import {
 } from "@/lib/ai-analyst/radar-historical-handoff";
 import { buildHistoricalWorkflowContext } from "@/lib/historical-workflow/build-historical-workflow-context";
 import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
+import {
+  handoffIdentity,
+  repeatMoverContextMatchesHandoff,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -60,12 +64,19 @@ export function persistHistoricalWorkflowContext(context: HistoricalWorkflowCont
   }
 }
 
-export function readPreloadedRepeatMoverContext(symbol: string): RepeatMoverContext | null {
+export function readPreloadedRepeatMoverContext(
+  symbol: string,
+  hint?: { securityId?: SecurityId | null },
+): RepeatMoverContext | null {
   if (typeof sessionStorage === "undefined") return null;
+  const identity = handoffIdentity(symbol, hint?.securityId);
+  if (!identity) return null;
   try {
-    const raw = sessionStorage.getItem(`${RADAR_HISTORICAL_SESSION_PREFIX}${symbol.trim().toUpperCase()}`);
+    const raw = sessionStorage.getItem(`${RADAR_HISTORICAL_SESSION_PREFIX}${identity.symbol}`);
     if (!raw) return null;
-    return JSON.parse(raw) as RepeatMoverContext;
+    const parsed = JSON.parse(raw) as RepeatMoverContext;
+    if (!repeatMoverContextMatchesHandoff(identity, parsed)) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -80,16 +91,22 @@ export function persistHistoricalWorkflowHandoff(
     nowMs?: number;
   },
 ): HistoricalWorkflowContext {
+  const identity = handoffIdentity(input.symbol, input.securityId ?? context?.securityId ?? null);
+  const safeContext =
+    context && identity && repeatMoverContextMatchesHandoff(identity, context)
+      ? context
+      : null;
+
   const workflow = buildHistoricalWorkflowContext({
     symbol: input.symbol,
-    securityId: input.securityId ?? context?.securityId ?? null,
+    securityId: input.securityId ?? safeContext?.securityId ?? null,
     sourceSurface: input.sourceSurface,
-    repeatMoverContext: context,
+    repeatMoverContext: safeContext,
     nowMs: input.nowMs,
   });
   persistHistoricalWorkflowContext(workflow);
-  if (context) {
-    persistRadarHistoricalContextForAnalyst(input.symbol, context);
+  if (safeContext && identity) {
+    persistRadarHistoricalContextForAnalyst(identity.symbol, safeContext);
   }
   return workflow;
 }
