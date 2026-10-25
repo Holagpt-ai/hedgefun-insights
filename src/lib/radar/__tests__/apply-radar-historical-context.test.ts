@@ -35,10 +35,54 @@ function radarRow(symbol: string): RadarV2ScreenerRow {
   } as RadarV2ScreenerRow;
 }
 
-const SEC_ROW = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const SEC_OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const SEC_ROW = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" as const;
+const SEC_OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" as const;
+
+function bridgeContext(securityId: string, symbol = "AAA") {
+  return {
+    securityId,
+    currentSymbol: symbol,
+    profile: { profileAvailable: true, episodeCount: 2 },
+    comparableHistory: { comparableEpisodeCount: 0, closestComparableEpisodes: [] },
+    evidenceLabels: [],
+    assembledAt: "2026-09-22T20:00:00.000Z",
+  };
+}
 
 describe("apply-radar-historical-context identity guards", () => {
+  it("rejects previous context when row securityId conflicts with embedded context", () => {
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{
+        ...radarRow("AAA"),
+        securityId: SEC_ROW,
+        historicalContext: bridgeContext(SEC_OTHER) as never,
+        historicalContextLoadStatus: "available",
+      } as RadarV2ScreenerRow],
+      {
+        results: [{ symbol: "AAA", securityId: null, historicalContext: null }],
+      },
+    );
+    expect(merged[0]?.historicalContext).toBeNull();
+    expect(merged[0]?.historicalContextLoadStatus).toBe("unavailable");
+    expect(merged[0]?.securityId).toBe(SEC_ROW);
+  });
+
+  it("rejects incoming context when row securityId conflicts with embedded context and batch securityId is null", () => {
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{ ...radarRow("AAA"), securityId: SEC_ROW } as RadarV2ScreenerRow],
+      {
+        results: [{
+          symbol: "AAA",
+          securityId: null,
+          historicalContext: bridgeContext(SEC_OTHER) as never,
+        }],
+      },
+    );
+    expect(merged[0]?.historicalContext).toBeNull();
+    expect(merged[0]?.historicalContextLoadStatus).toBe("unavailable");
+    expect(merged[0]?.securityId).toBe(SEC_ROW);
+  });
+
   it("does not overwrite row securityId when batch result securityId conflicts", () => {
     const merged = mergeHistoricalContextBatchIntoRows(
       [{ ...radarRow("AAA"), securityId: SEC_ROW } as RadarV2ScreenerRow],

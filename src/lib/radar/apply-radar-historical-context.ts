@@ -34,9 +34,10 @@ function batchResultSecurityIdConflicts(
 function validatedRepeatMoverContextForRow(
   symbol: string,
   context: RepeatMoverContext | null | undefined,
+  expectedSecurityId: SecurityId | null,
 ): RepeatMoverContext | null {
   if (!context) return null;
-  const identity = handoffIdentity(symbol, context.securityId);
+  const identity = handoffIdentity(symbol, expectedSecurityId);
   if (!identity || !repeatMoverContextMatchesHandoff(identity, context)) return null;
   return context;
 }
@@ -102,6 +103,8 @@ export function mergeHistoricalContextBatchIntoRows(
       };
     }
     const securityIdConflict = batchResultSecurityIdConflicts(row.securityId, match.securityId);
+    const rowExpectedSecurityId = row.securityId ?? null;
+    const incomingExpectedSecurityId = row.securityId ?? match.securityId ?? null;
     let coercedIncoming = coerceRepeatMoverContextForDisplay(match.historicalContext);
     if (
       coercedIncoming
@@ -112,8 +115,12 @@ export function mergeHistoricalContextBatchIntoRows(
     }
     const incomingContext = securityIdConflict
       ? null
-      : validatedRepeatMoverContextForRow(symbol, coercedIncoming);
-    const validatedPrior = validatedRepeatMoverContextForRow(symbol, row.historicalContext ?? null);
+      : validatedRepeatMoverContextForRow(symbol, coercedIncoming, incomingExpectedSecurityId);
+    const validatedPrior = validatedRepeatMoverContextForRow(
+      symbol,
+      row.historicalContext ?? null,
+      rowExpectedSecurityId,
+    );
     const historicalContext = incomingContext ?? validatedPrior ?? null;
 
     let historicalContextLoadStatus = row.historicalContextLoadStatus ?? "pending";
