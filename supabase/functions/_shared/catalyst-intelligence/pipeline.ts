@@ -28,6 +28,10 @@ import type {
   SourceRecord,
 } from "./types.ts";
 import { verificationConfidence, verifyFromEvidence } from "./verification.ts";
+import {
+  mergedIntelPersistMetadata,
+  projectIntelCatalystEventFacts,
+} from "../catalyst/intel-catalyst-event-facts-projection.ts";
 
 export interface IngestContext {
   now: Date;
@@ -64,10 +68,11 @@ export async function ingestCandidate(
   });
   const unresolved = attribution.status !== "resolved" || !attribution.ticker || !attribution.relation;
   const { unresolvedReason } = attributionDiagnostics(attribution);
+  const persistMetadata = mergedIntelPersistMetadata(candidate);
   const claimed = await claimRaw(
     store,
     candidate,
-    attributionInsertMetadata(candidate.raw.metadata, attribution, unresolved ? unresolvedReason : null),
+    attributionInsertMetadata(persistMetadata, attribution, unresolved ? unresolvedReason : null),
   );
   const rawDisposition = rawDispositionFromClaim(claimed);
   if (claimed.duplicate) {
@@ -260,6 +265,16 @@ export async function ingestCandidate(
 
   const evidence = await store.listEvidence(event.id);
   applyScores(event, evidence, ctx.now);
+  event.scoreComponents = {
+    ...event.scoreComponents,
+    distribution_catalyst_facts: projectIntelCatalystEventFacts({
+      metadata: persistMetadata,
+      lifecycle: event.lifecycle,
+      verificationState: event.verificationState,
+      materiality: event.materiality,
+      ingestedAt: candidate.raw.discoveredAt,
+    }),
+  };
   await store.updateEvent(event);
   return { event, created };
   });
@@ -398,7 +413,7 @@ async function claimRaw(
       discoveredAt: candidate.raw.discoveredAt,
       title: candidate.title,
       bodyExcerpt: candidate.summary,
-      metadata: insertMetadata ?? boundedMetadata(candidate.raw.metadata),
+      metadata: insertMetadata ?? boundedMetadata(mergedIntelPersistMetadata(candidate)),
     });
     return { rawId, duplicate: null, inserted: true };
   } catch (err) {

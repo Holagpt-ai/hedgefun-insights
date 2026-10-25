@@ -8,6 +8,7 @@
 | --- | --- |
 | Company IR | `classifyIrEarningsDisposition`, `source_identity`, `published_at_unavailable` on normalize (`adapters/company-ir.ts`) |
 | Scheduled events | Calendar classification + earnings disposition metadata (`adapters/company-events.ts`) |
+| Metadata delivery | `mergedIntelPersistMetadata` → `catalyst_intel_raw_items.metadata`; `projectIntelCatalystEventFacts` → `catalyst_intel_events.score_components.distribution_catalyst_facts` (public `catalyst_events.facts` upsert still deferred per intel foundation migration) |
 | Client contract | `src/lib/catalyst/source-evidence-contract.ts` — provenance, schedule vs results, conflict flags |
 | Verification | Hydration + guards honor `provider_ticker_conflict` in facts |
 | Distribution | Evidence graph nodes carry verification, earnings disposition, published state; platform map unchanged except guard behavior |
