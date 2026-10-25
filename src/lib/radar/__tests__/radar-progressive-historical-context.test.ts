@@ -138,7 +138,7 @@ describe("incremental historical merge safety", () => {
   it("does not wipe successful history when a later batch fails", async () => {
     const rows = [row("AAA", 1), row("BBB", 2), row("CCC", 3)];
     const mergedFirst = mergeHistoricalContextBatchIntoRows(rows, {
-      results: [{ symbol: "AAA", securityId: "s1", historicalContext: validContext("AAA") }],
+      results: [{ symbol: "AAA", securityId: SECURITY_ID, historicalContext: validContext("AAA") }],
     });
     expect(mergedFirst[0]?.historicalContextLoadStatus).toBe("available");
     const mergedAfterFailure = mergeHistoricalContextBatchIntoRows(mergedFirst, { results: [] }, {
@@ -280,7 +280,7 @@ describe("progressive historical scheduling", () => {
       sessionKind: "market",
       tradingDate: "2026-09-22",
       fetchBatch: async () => ({
-        results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+        results: [{ symbol: "AAA", securityId: SECURITY_ID, historicalContext: validContext("AAA") }],
       }),
       onHistoricalRows: (rows) => updates.push(...rows),
       isActive: () => true,
@@ -302,7 +302,7 @@ describe("progressive historical scheduling", () => {
     const merged = mergeHistoricalContextBatchIntoRows(rows, {
       results: [{
         symbol: "BBB",
-        securityId: "sec-b",
+        securityId: SECURITY_ID,
         historicalContext: validContext("BBB"),
       }],
     });
@@ -350,7 +350,7 @@ describe("progressive historical scheduling", () => {
       sessionKind: "market",
       tradingDate: "2026-09-22",
       fetchBatch: async () => ({
-        results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+        results: [{ symbol: "AAA", securityId: SECURITY_ID, historicalContext: validContext("AAA") }],
       }),
       onHistoricalRows: () => {
         historicalUpdates += 1;
@@ -476,7 +476,7 @@ describe("progressive historical scheduling", () => {
       config: { maxBatchesPerWake: 2, transientRetryDelaysMs: [] },
     });
     publish(100, async () => ({
-      results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+      results: [{ symbol: "AAA", securityId: SECURITY_ID, historicalContext: validContext("AAA") }],
     }));
     await new Promise((resolve) => setTimeout(resolve, 30));
     clearRadarHistoricalCacheSymbol("AAA", scope);

@@ -10,6 +10,8 @@
 | Compact workflow cache could enrich requests when `securityId` disagreed | Reuse shared `historicalWorkflowMatchesRequest` (same rules as late-session inbox) in `resolveWorkflowHistoricalContext` |
 | Radar batch merge attached coerced context when bridge `currentSymbol` disagreed with the row symbol | Drop context; surface `historicalContextLoadStatus: unavailable` (not confirmed empty history) |
 | Analyst historical fetch could fall back to the first batch row when the requested symbol was absent | Require exact symbol match in batch results |
+| Analyst fetch built memory from coerced context rejected for identity | Only `validatedContext` flows into `buildHistoricalMemoryFromRepeatMoverContext` |
+| Radar merge reused `row.historicalContext` without identity re-check; batch `securityId` could overwrite row | Validate prior/incoming separately; preserve row `securityId` on batch conflict |
 
 ## Preserved evidence fields (unchanged contract)
 

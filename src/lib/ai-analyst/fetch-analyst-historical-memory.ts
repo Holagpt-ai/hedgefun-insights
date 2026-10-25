@@ -74,24 +74,28 @@ export async function fetchAnalystHistoricalMemory(input: {
       HISTORICAL_MEMORY_FETCH_TIMEOUT_MS,
     );
     const match = batch.results.find((row) => row.symbol.trim().toUpperCase() === symbol);
-    const historicalContext = match?.historicalContext != null
+    const coerced = match?.historicalContext != null
       ? coerceRepeatMoverContextForDisplay(match.historicalContext)
       : null;
-    const identity = handoffIdentity(symbol, match?.securityId ?? historicalContext?.securityId ?? null);
+    const identity = handoffIdentity(symbol, match?.securityId ?? coerced?.securityId ?? null);
+    let validatedContext: RepeatMoverContext | null = null;
     if (
-      historicalContext
+      coerced
       && identity
-      && repeatMoverContextMatchesHandoff(identity, historicalContext)
+      && repeatMoverContextMatchesHandoff(identity, coerced)
+      && (!match?.securityId || coerced.securityId === match.securityId)
     ) {
-      persistHistoricalWorkflowHandoff(historicalContext, {
+      validatedContext = coerced;
+      persistHistoricalWorkflowHandoff(validatedContext, {
         symbol,
         sourceSurface: "ai_analyst",
-        securityId: historicalContext.securityId,
+        securityId: validatedContext.securityId,
       });
     }
-    const fromNetwork = buildHistoricalMemoryFromRepeatMoverContext(historicalContext, symbol);
+    const fromNetwork = buildHistoricalMemoryFromRepeatMoverContext(validatedContext, symbol);
     if (fromNetwork.contextLoaded) return fromNetwork;
-    return readRadarHistoricalFacts(symbol) ?? fromNetwork;
+    return readRadarHistoricalFacts(symbol, { securityId: identity?.securityId ?? null })
+      ?? fromNetwork;
   } catch {
     return readRadarHistoricalFacts(symbol) ?? unavailableHistoricalMemory(symbol);
   }

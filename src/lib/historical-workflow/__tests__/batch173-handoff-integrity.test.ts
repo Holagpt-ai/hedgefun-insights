@@ -139,6 +139,70 @@ describe("Batch 173 — handoff identity integrity", () => {
     expect(readPreloadedRepeatMoverContext("AAA", { securityId: SEC_A })?.securityId).toBe(SEC_A);
   });
 
+  it("Radar merge preserves valid prior context when incoming batch identity is rejected", () => {
+    const prior = repeatContext({ currentSymbol: "AAA" });
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{
+        symbol: "AAA",
+        securityId: SEC_A,
+        historicalContext: prior,
+        historicalContextLoadStatus: "available",
+      } as never],
+      {
+        results: [{
+          symbol: "AAA",
+          securityId: SEC_A,
+          historicalContext: repeatContext({ currentSymbol: "OTHER" }) as never,
+        }],
+      },
+    );
+    expect(merged[0]?.historicalContext?.securityId).toBe(SEC_A);
+    expect(merged[0]?.historicalContext?.currentSymbol).toBe("AAA");
+    expect(merged[0]?.historicalContextLoadStatus).toBe("available");
+  });
+
+  it("Radar merge rejects conflicting batch securityId and keeps row securityId", () => {
+    const prior = repeatContext({ currentSymbol: "AAA" });
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{
+        symbol: "AAA",
+        securityId: SEC_A,
+        historicalContext: prior,
+        historicalContextLoadStatus: "available",
+      } as never],
+      {
+        results: [{
+          symbol: "AAA",
+          securityId: SEC_B,
+          historicalContext: repeatContext({ currentSymbol: "AAA", securityId: SEC_B }) as never,
+        }],
+      },
+    );
+    expect(merged[0]?.securityId).toBe(SEC_A);
+    expect(merged[0]?.historicalContext?.securityId).toBe(SEC_A);
+    expect(merged[0]?.historicalContextLoadStatus).toBe("available");
+  });
+
+  it("Radar merge drops invalid prior context instead of re-attaching it", () => {
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{
+        symbol: "AAA",
+        securityId: SEC_A,
+        historicalContext: repeatContext({ currentSymbol: "WRONG" }),
+        historicalContextLoadStatus: "available",
+      } as never],
+      {
+        results: [{
+          symbol: "AAA",
+          securityId: SEC_A,
+          historicalContext: null,
+        }],
+      },
+    );
+    expect(merged[0]?.historicalContext).toBeNull();
+    expect(merged[0]?.historicalContextLoadStatus).toBe("unavailable");
+  });
+
   it("Radar batch merge drops context when bridge symbol disagrees with row symbol", () => {
     const merged = mergeHistoricalContextBatchIntoRows(
       [{ symbol: "AAA", securityId: SEC_A } as never],
@@ -225,6 +289,29 @@ describe("Batch 173 — handoff identity integrity", () => {
   it("readRadarHistoricalFacts rejects facts cached for a different symbol", () => {
     persistRadarHistoricalContextForAnalyst("AAA", repeatContext());
     expect(readRadarHistoricalFacts("BBB")).toBeNull();
+  });
+
+  it("fetch rejects batch row when symbol matches but currentSymbol differs", async () => {
+    vi.stubEnv("VITE_SUPABASE_URL", "https://example.supabase.co");
+    sessionStorage.clear();
+    const memory = await fetchAnalystHistoricalMemory({
+      symbol: "AAA",
+      accessToken: "token",
+      fetchImpl: async () => ({
+        ok: true,
+        json: async () => ({
+          results: [{
+            symbol: "AAA",
+            securityId: SEC_A,
+            historicalContext: repeatContext({ currentSymbol: "OTHER" }),
+          }],
+        }),
+      }) as Response,
+    });
+    expect(memory.contextLoaded).toBe(false);
+    expect(memory.episodeCount).toBeNull();
+    expect(readPreloadedRepeatMoverContext("AAA")).toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it("network fetch does not attach first batch row when symbol is missing from results", async () => {

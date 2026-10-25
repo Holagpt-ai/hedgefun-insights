@@ -35,6 +35,32 @@ function radarRow(symbol: string): RadarV2ScreenerRow {
   } as RadarV2ScreenerRow;
 }
 
+const SEC_ROW = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SEC_OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+describe("apply-radar-historical-context identity guards", () => {
+  it("does not overwrite row securityId when batch result securityId conflicts", () => {
+    const merged = mergeHistoricalContextBatchIntoRows(
+      [{ ...radarRow("AAA"), securityId: SEC_ROW } as RadarV2ScreenerRow],
+      {
+        results: [{
+          symbol: "AAA",
+          securityId: SEC_OTHER,
+          historicalContext: {
+            securityId: SEC_OTHER,
+            currentSymbol: "AAA",
+            profile: { profileAvailable: true, episodeCount: 3 },
+            comparableHistory: { comparableEpisodeCount: 0, closestComparableEpisodes: [] },
+          } as never,
+        }],
+      },
+    );
+    expect(merged[0]?.securityId).toBe(SEC_ROW);
+    expect(merged[0]?.historicalContext).toBeNull();
+    expect(merged[0]?.historicalContextLoadStatus).toBe("unavailable");
+  });
+});
+
 describe("apply-radar-historical-context HTTP classification", () => {
   it("D: HTTP 200 malformed ticker context coerces to null without throwing", () => {
     const merged = mergeHistoricalContextBatchIntoRows([radarRow("AAA")], {

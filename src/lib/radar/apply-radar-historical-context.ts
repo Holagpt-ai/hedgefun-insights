@@ -15,11 +15,31 @@ import {
   repeatMoverContextMatchesHandoff,
 } from "@/lib/historical-workflow/historical-handoff-identity";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
+import type { RepeatMoverContext } from "@/types/repeat-mover";
+import type { SecurityId } from "@/types/security-identity";
 import {
   classifyHistoricalContextBatchResult,
   resolveHistoricalContextLoadStatus,
 } from "@/lib/radar/radar-historical-context-classify";
 export { resolveHistoricalContextLoadStatus } from "@/lib/radar/radar-historical-context-classify";
+
+function batchResultSecurityIdConflicts(
+  rowSecurityId: SecurityId | null | undefined,
+  matchSecurityId: SecurityId | null | undefined,
+): boolean {
+  if (!rowSecurityId || !matchSecurityId) return false;
+  return rowSecurityId !== matchSecurityId;
+}
+
+function validatedRepeatMoverContextForRow(
+  symbol: string,
+  context: RepeatMoverContext | null | undefined,
+): RepeatMoverContext | null {
+  if (!context) return null;
+  const identity = handoffIdentity(symbol, context.securityId);
+  if (!identity || !repeatMoverContextMatchesHandoff(identity, context)) return null;
+  return context;
+}
 
 export function markHistoricalContextRowsPending(
   rows: readonly RadarV2ScreenerRow[],
@@ -81,28 +101,46 @@ export function mergeHistoricalContextBatchIntoRows(
         historicalContextLoadStatus: row.historicalContextLoadStatus ?? "pending",
       };
     }
-    let historicalContext = coerceRepeatMoverContextForDisplay(match.historicalContext);
-    const identity = handoffIdentity(symbol, match.securityId ?? row.securityId ?? null);
+    const securityIdConflict = batchResultSecurityIdConflicts(row.securityId, match.securityId);
+    let coercedIncoming = coerceRepeatMoverContextForDisplay(match.historicalContext);
     if (
-      historicalContext
-      && identity
-      && !repeatMoverContextMatchesHandoff(identity, historicalContext)
+      coercedIncoming
+      && match.securityId
+      && coercedIncoming.securityId !== match.securityId
     ) {
-      historicalContext = null;
+      coercedIncoming = null;
     }
-    const loadStatus = classifyHistoricalContextBatchResult({
-      historicalContext: match.historicalContext,
-      priorContext: row.historicalContext ?? null,
-    });
+    const incomingContext = securityIdConflict
+      ? null
+      : validatedRepeatMoverContextForRow(symbol, coercedIncoming);
+    const validatedPrior = validatedRepeatMoverContextForRow(symbol, row.historicalContext ?? null);
+    const historicalContext = incomingContext ?? validatedPrior ?? null;
+
+    let historicalContextLoadStatus = row.historicalContextLoadStatus ?? "pending";
+    if (incomingContext) {
+      historicalContextLoadStatus = resolveHistoricalContextLoadStatus(incomingContext);
+    } else if (validatedPrior) {
+      historicalContextLoadStatus =
+        row.historicalContextLoadStatus
+        ?? resolveHistoricalContextLoadStatus(validatedPrior);
+    } else if (match.historicalContext != null || securityIdConflict) {
+      historicalContextLoadStatus = "unavailable";
+    } else {
+      historicalContextLoadStatus = classifyHistoricalContextBatchResult({
+        historicalContext: match.historicalContext,
+        priorContext: null,
+      });
+    }
+
+    const nextSecurityId = securityIdConflict
+      ? row.securityId ?? null
+      : match.securityId ?? row.securityId ?? null;
+
     return {
       ...row,
-      securityId: match.securityId ?? row.securityId ?? null,
-      historicalContext: historicalContext ?? row.historicalContext ?? null,
-      historicalContextLoadStatus: historicalContext
-        ? resolveHistoricalContextLoadStatus(historicalContext)
-        : historicalContext === null && match.historicalContext
-          ? "unavailable"
-          : loadStatus,
+      securityId: nextSecurityId,
+      historicalContext,
+      historicalContextLoadStatus,
     };
   });
 }
