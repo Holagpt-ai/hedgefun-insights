@@ -16,7 +16,7 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 | Field | Value |
 | --- | --- |
-| GitHub `main` | **`58aed1b1`** — PR #169 scanner live-market acceptance **merged** (includes PR #168 `b735073b`) |
+| GitHub `main` | **`dd490ae5`** — PRs **#169** (scanner reliability) and **#170** (security/performance/Monday runbook) **merged** |
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
 
@@ -24,7 +24,7 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 | PR | Branch | State | Notes |
 | --- | --- | --- | --- |
-| [#170](https://github.com/Holagpt-ai/hedgefun-insights/pull/170) | `cursor/security-performance-monday-v1` | **OPEN** | Security, bundle split, Monday runbook; merge after alignment with `58aed1b1` |
+| Batch 171 | `cursor/batch171-security-performance-v2` | **OPEN** (after push) | Security V2 + public lazy routes + backlog reset docs |
 
 ## Scanner live-market acceptance V1
 
