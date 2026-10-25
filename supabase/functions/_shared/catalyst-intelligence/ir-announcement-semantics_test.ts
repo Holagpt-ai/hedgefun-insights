@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { resolveIrIsAnnouncement } from "./ir-announcement-semantics.ts";
+import { classifyIrEarningsDisposition, resolveIrIsAnnouncement } from "./ir-announcement-semantics.ts";
 import { companyIrAdapter } from "./adapters/company-ir.ts";
 import type { SourceRecord } from "./types.ts";
 
@@ -67,4 +67,16 @@ Deno.test("company IR normalize marks bare calendar slots as schedule-only", asy
   });
   assert(normalized);
   assertEquals(normalized.isAnnouncement, false);
+});
+
+Deno.test("classifyIrEarningsDisposition separates schedule from reported results", () => {
+  assertEquals(
+    classifyIrEarningsDisposition("Intuit Announces Date for Fourth Quarter Results on August 25, 2026"),
+    "schedule_announced",
+  );
+  assertEquals(
+    classifyIrEarningsDisposition("Intuit Reports Fourth Quarter and Full Year 2026 Results"),
+    "results_reported",
+  );
+  assertEquals(classifyIrEarningsDisposition("Product launch webinar"), null);
 });

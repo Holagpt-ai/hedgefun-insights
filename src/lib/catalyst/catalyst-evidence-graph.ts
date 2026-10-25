@@ -1,4 +1,5 @@
 import { readIntelFactsFromEvent } from "@/lib/catalyst/catalyst-intel-facts";
+import { buildCatalystSourceEvidenceSummary } from "@/lib/catalyst/source-evidence-contract";
 import { mapToTaxonomyV2 } from "@/lib/catalyst/intelligence-v2";
 import type { CatalystEvent } from "@/types/catalyst";
 import type { CatalystReactionEvidence } from "@/lib/catalyst/catalyst-reaction-evidence";
@@ -6,8 +7,22 @@ import { readReactionEvidenceFromEvent } from "@/lib/catalyst/catalyst-reaction-
 
 export type CatalystEvidenceNode =
   | { kind: "company"; symbol: string; securityId: string | null; label: string | null }
-  | { kind: "event"; eventId: string; taxonomy: string; title: string }
-  | { kind: "source"; provider: string; sourceName: string; sourceUrl: string | null }
+  | {
+    kind: "event";
+    eventId: string;
+    taxonomy: string;
+    title: string;
+    verification: string | null;
+    earningsDisposition: string | null;
+  }
+  | {
+    kind: "source";
+    provider: string;
+    sourceName: string;
+    sourceUrl: string | null;
+    sourceIdentity: string | null;
+    publishedState: string;
+  }
   | { kind: "reaction"; evidence: CatalystReactionEvidence };
 
 export type CatalystEvidenceEdge =
@@ -27,6 +42,7 @@ export const CATALYST_REACTION_NON_CAUSATION =
 
 export function buildCatalystEvidenceGraph(event: CatalystEvent): CatalystEvidenceGraph {
   const intel = readIntelFactsFromEvent(event);
+  const sourceEvidence = buildCatalystSourceEvidenceSummary(event);
   const taxonomy = mapToTaxonomyV2(event.event_type, event.title, event.description);
   const reaction = readReactionEvidenceFromEvent(event);
   const nodes: CatalystEvidenceNode[] = [
@@ -41,12 +57,16 @@ export function buildCatalystEvidenceGraph(event: CatalystEvent): CatalystEviden
       eventId: event.id,
       taxonomy,
       title: event.title,
+      verification: intel.verification,
+      earningsDisposition: intel.earningsDisposition,
     },
     {
       kind: "source",
       provider: event.provider,
       sourceName: event.source_name,
       sourceUrl: event.source_url,
+      sourceIdentity: sourceEvidence.sourceIdentity,
+      publishedState: sourceEvidence.publishedState,
     },
   ];
   const edges: CatalystEvidenceEdge[] = [

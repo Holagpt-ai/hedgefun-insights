@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`dd490ae5`** (PRs **#169**, **#170** merged). Batch **171** open. ISS-001 closed on `main`. **ISS-015** blocked until previous production `chat` Edge version is recoverable.
+Baseline: `origin/main` **`88de0ae8`** (PR **#171** merged). Batch **172** open. ISS-001 closed on `main`. **ISS-015** blocked until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 
@@ -25,7 +25,7 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #170/#171 Vercel deploy. |
 | ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
 | ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |
-| ISS-006 | Catalyst source activation not executed | Batch 172 candidate. |
+| ISS-006 | Catalyst source activation not executed in production | **Code coverage improved** (Batch 172 IR/news/events contracts); **activation still deferred** — no `enabled` flags or Edge deploy this batch. |
 | ISS-007 | AI Analyst streaming failures deferred in Batch 34 | Not retested here. |
 
 ## Deferred
