@@ -66,10 +66,10 @@ describe("Batch 176 — intel distribution bridge (client mirror)", () => {
     expect(projected.row?.dedupe_key).toBe(intelDistributionDedupeKey("evt-1"));
   });
 
-  it("skips intel when earnings calendar key exists", () => {
+  it("skips intel when earnings calendar key exists for earnings rows only", () => {
     const projected = projectIntelToPublicCatalystRow({
       event: event({ eventType: "EARNINGS" }),
-      tickers: [{ ticker: "AAA", isPrimary: true }],
+      tickers: [{ ticker: "AAA", isPrimary: true, relation: "PRIMARY" }],
       evidence: [{
         evidenceRole: "primary",
         canonicalUrl: "https://example.test/a",
@@ -84,5 +84,42 @@ describe("Batch 176 — intel distribution bridge (client mirror)", () => {
       existingDedupeKeys: new Set([`earnings:AAA:${date}`]),
     });
     expect(collision.action).toBe("skip_intel_preserve_existing");
+  });
+
+  it("allows contract row when earnings calendar key exists same date", () => {
+    const projected = projectIntelToPublicCatalystRow({
+      event: event({ eventType: "CONTRACT" }),
+      tickers: [{ ticker: "AAA", isPrimary: true, relation: "PRIMARY" }],
+      evidence: [{
+        evidenceRole: "primary",
+        canonicalUrl: "https://example.test/a",
+        publishedAt: "2026-10-26T13:00:00.000Z",
+        authorityKey: "src",
+        conflict: false,
+      }],
+    });
+    const collision = assessPublicFeedCollision({
+      projected: projected.row!,
+      existingDedupeKeys: new Set([`earnings:AAA:${projected.row!.event_date}`]),
+    });
+    expect(collision.action).toBe("allow_upsert");
+  });
+
+  it("rejects schedule_announced even with announced lifecycle", () => {
+    const result = assessIntelDistributionEligibility({
+      event: event({ eventType: "EARNINGS", lifecycle: "announced" }),
+      tickers: [{ ticker: "AAA", isPrimary: true, relation: "PRIMARY" }],
+      evidence: [{
+        evidenceRole: "primary",
+        canonicalUrl: "https://example.test/a",
+        publishedAt: "2026-10-26T13:00:00.000Z",
+        authorityKey: "src",
+        conflict: false,
+      }],
+      persistMetadata: { earnings_disposition: "schedule_announced" },
+      now: NOW,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.detail).toBe("earnings_schedule_announced");
   });
 });

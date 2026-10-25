@@ -70,4 +70,5 @@ export interface EvidenceRecordLike {
 export interface TickerLinkLike {
   ticker: string;
   isPrimary: boolean;
+  relation?: string;
 }

@@ -135,7 +135,39 @@ Deno.test("Batch 176 — schedule-only earnings rejected", () => {
     now: NOW,
   });
   assertEquals(result.eligible, false);
-  assertEquals(result.rejectCode, "future_schedule_not_announced");
+  assertEquals(result.rejectCode, "schedule_only_calendar");
+});
+
+Deno.test("Batch 176 — announced lifecycle with schedule_announced metadata still rejected", () => {
+  const result = assessIntelDistributionEligibility({
+    event: baseEvent({
+      eventType: "EARNINGS",
+      lifecycle: "announced",
+      sourcePublishedAt: "2026-10-26T13:00:00.000Z",
+      announcementAt: "2026-10-26T13:00:00.000Z",
+    }),
+    tickers: tickers(),
+    evidence: evidence(),
+    persistMetadata: { earnings_disposition: "schedule_announced" },
+    now: NOW,
+  });
+  assertEquals(result.eligible, false);
+  assertEquals(result.detail, "earnings_schedule_announced");
+});
+
+Deno.test("Batch 176 — earnings results reported eligible when qualified", () => {
+  const result = assessIntelDistributionEligibility({
+    event: baseEvent({
+      eventType: "EARNINGS",
+      lifecycle: "announced",
+      title: "Acme reports Q3 earnings results",
+    }),
+    tickers: tickers(),
+    evidence: evidence(),
+    persistMetadata: { earnings_disposition: "results_reported" },
+    now: NOW,
+  });
+  assertEquals(result.eligible, true);
 });
 
 Deno.test("Batch 176 — conflicting attribution rejected", () => {
@@ -160,7 +192,35 @@ Deno.test("Batch 176 — invalidated lifecycle rejected", () => {
   assertEquals(result.rejectCode, "invalidated_lifecycle");
 });
 
-Deno.test("Batch 176 — SEC namespace collision skips intel", () => {
+Deno.test("Batch 176 — SEC exact accession match skips intel", () => {
+  const accession = "0000123456-26-000001";
+  const projected = projectIntelToPublicCatalystRow(bundle({
+    event: { eventType: "SEC_FILING" },
+    persistMetadata: { accession },
+  }));
+  const collision = assessPublicFeedCollision({
+    projected: projected.row!,
+    existingDedupeKeys: new Set([`sec:${accession}:ACME`]),
+    persistMetadata: { accession },
+  });
+  assertEquals(collision.action, "skip_intel_preserve_existing");
+  assertEquals(collision.reason, "sec_feed_exact_match");
+});
+
+Deno.test("Batch 176 — SEC different filing does not false-positive", () => {
+  const projected = projectIntelToPublicCatalystRow(bundle({
+    event: { eventType: "SEC_FILING" },
+    persistMetadata: { accession: "0000123456-26-000002" },
+  }));
+  const collision = assessPublicFeedCollision({
+    projected: projected.row!,
+    existingDedupeKeys: new Set(["sec:0000123456-26-000001:ACME"]),
+    persistMetadata: { accession: "0000123456-26-000002" },
+  });
+  assertEquals(collision.action, "allow_upsert");
+});
+
+Deno.test("Batch 176 — SEC without accession fails closed", () => {
   const projected = projectIntelToPublicCatalystRow(bundle({
     event: { eventType: "SEC_FILING" },
   }));
@@ -168,11 +228,10 @@ Deno.test("Batch 176 — SEC namespace collision skips intel", () => {
     projected: projected.row!,
     existingDedupeKeys: new Set(["sec:0000123456-26-000001:ACME"]),
   });
-  assertEquals(collision.action, "skip_intel_preserve_existing");
-  assertEquals(collision.reason, "sec_feed_namespace");
+  assertEquals(collision.action, "reject_intel_ambiguous_sec");
 });
 
-Deno.test("Batch 176 — earnings calendar dedupe collision", () => {
+Deno.test("Batch 176 — earnings calendar collision only for earnings rows", () => {
   const projected = projectIntelToPublicCatalystRow(bundle({ event: { eventType: "EARNINGS" } }));
   const key = earningsDedupeKey("ACME", projected.row!.event_date);
   const collision = assessPublicFeedCollision({
@@ -180,6 +239,35 @@ Deno.test("Batch 176 — earnings calendar dedupe collision", () => {
     existingDedupeKeys: new Set([key]),
   });
   assertEquals(collision.action, "skip_intel_preserve_existing");
+});
+
+Deno.test("Batch 176 — contract on earnings date allowed when calendar key exists", () => {
+  const projected = projectIntelToPublicCatalystRow(bundle({ event: { eventType: "CONTRACT" } }));
+  const key = earningsDedupeKey("ACME", projected.row!.event_date);
+  const collision = assessPublicFeedCollision({
+    projected: projected.row!,
+    existingDedupeKeys: new Set([key]),
+  });
+  assertEquals(collision.action, "allow_upsert");
+});
+
+Deno.test("Batch 176 — secondary-only ticker list rejected", () => {
+  const result = assessIntelDistributionEligibility({
+    event: baseEvent(),
+    tickers: [{
+      id: "t1",
+      eventId: "evt-primary-1",
+      ticker: "ACME",
+      relation: "MENTION",
+      confidence: 40,
+      isPrimary: false,
+      evidenceNote: null,
+    }],
+    evidence: evidence(),
+    now: NOW,
+  });
+  assertEquals(result.eligible, false);
+  assertEquals(result.rejectCode, "unresolved_ticker");
 });
 
 Deno.test("Batch 176 — repeated idempotent intel key allows upsert path", () => {
@@ -195,6 +283,31 @@ Deno.test("Batch 176 — default-disabled write mode", () => {
   assertEquals(resolveIntelDistributionWriteMode({ operatorAuthorized: false }), "dry_run");
   assertEquals(resolveIntelDistributionWriteMode({ operatorAuthorized: true, enableWrites: false }), "dry_run");
   assertEquals(resolveIntelDistributionWriteMode({ operatorAuthorized: true, enableWrites: true }), "blocked");
+});
+
+Deno.test("Batch 176 — upsert marked only after callback succeeds", async () => {
+  let upsertCalls = 0;
+  const prev = Deno.env.get("CATALYST_INTEL_DISTRIBUTION_WRITES_ENABLED");
+  Deno.env.set("CATALYST_INTEL_DISTRIBUTION_WRITES_ENABLED", "true");
+  try {
+    const result = await runIntelDistributionBatch({
+      bundles: [bundle()],
+      now: NOW,
+      authorization: { operatorAuthorized: true, enableWrites: true },
+      upsert: async (rows) => {
+        upsertCalls += 1;
+        assertEquals(rows.length, 1);
+        return 1;
+      },
+    });
+    assertEquals(result.mode, "write");
+    assertEquals(upsertCalls, 1);
+    assertEquals(result.summary.upserted, 1);
+    assertEquals(result.items[0]?.status, "upserted");
+  } finally {
+    if (prev === undefined) Deno.env.delete("CATALYST_INTEL_DISTRIBUTION_WRITES_ENABLED");
+    else Deno.env.set("CATALYST_INTEL_DISTRIBUTION_WRITES_ENABLED", prev);
+  }
 });
 
 Deno.test("Batch 176 — dry-run batch never upserts", async () => {

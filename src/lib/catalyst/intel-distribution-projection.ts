@@ -1,6 +1,7 @@
 /** Client mirror of supabase/functions/_shared/catalyst-intelligence/distribution-projection.ts */
 
 import { projectIntelCatalystEventFacts } from "@/lib/catalyst/intel-catalyst-event-facts-projection";
+import { resolvePrimaryDistributionTicker } from "@/lib/catalyst/intel-distribution-ticker";
 import type { CatalystEventType } from "@/types/catalyst";
 import type {
   CanonicalEventLike,
@@ -13,14 +14,12 @@ import type {
 export const CATALYST_INTELLIGENCE_PROVIDER = "catalyst_intelligence";
 export const INTEL_DISTRIBUTION_DEDUPE_PREFIX = "intel:v1:";
 
-const TICKER_REGEX = /^[A-Z][A-Z0-9.-]{0,14}$/;
-
-function isValidTicker(x: string): boolean {
-  return TICKER_REGEX.test(x);
-}
-
 function earningsDedupeKey(symbol: string, reportDate: string): string {
   return `earnings:${symbol}:${reportDate}`;
+}
+
+function secDedupeKey(accessionNumber: string, symbol: string): string {
+  return `sec:${accessionNumber}:${symbol}`;
 }
 
 const INTEL_TO_PUBLIC_TYPE: Record<IntelEventType, CatalystEventType> = {
@@ -79,6 +78,15 @@ function attributionClassForVerification(verification: VerificationState): "dire
   return "provider_associated";
 }
 
+function readSecAccession(metadata: Record<string, unknown> | undefined): string | null {
+  if (!metadata) return null;
+  for (const key of ["accession", "accession_number", "accessionNumber"] as const) {
+    const raw = metadata[key];
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  return null;
+}
+
 export interface IntelPublicRowProjection {
   dedupe_key: string;
   symbol: string;
@@ -101,11 +109,11 @@ export interface IntelDistributionProjectionInput {
 export function projectIntelToPublicCatalystRow(
   input: IntelDistributionProjectionInput,
 ): { row: IntelPublicRowProjection | null; rejectReason: "missing_event_date" | "missing_ticker" | null } {
-  const primary = input.tickers.find((row) => row.isPrimary) ?? input.tickers[0] ?? null;
-  const symbol = primary?.ticker?.trim().toUpperCase() ?? "";
-  if (!isValidTicker(symbol)) {
+  const resolved = resolvePrimaryDistributionTicker(input.tickers);
+  if (!resolved) {
     return { row: null, rejectReason: "missing_ticker" };
   }
+  const { symbol } = resolved;
 
   const eventDate = resolveEventDate(input.event);
   if (!eventDate) {
@@ -146,29 +154,38 @@ export function projectIntelToPublicCatalystRow(
   };
 }
 
-export type PublicFeedCollisionAction = "allow_upsert" | "skip_intel_preserve_existing";
+export type PublicFeedCollisionAction =
+  | "allow_upsert"
+  | "skip_intel_preserve_existing"
+  | "reject_intel_ambiguous_sec";
 
 export function assessPublicFeedCollision(input: {
   projected: Pick<IntelPublicRowProjection, "dedupe_key" | "symbol" | "event_date" | "event_type">;
   existingDedupeKeys: ReadonlySet<string>;
+  persistMetadata?: Record<string, unknown>;
 }): { action: PublicFeedCollisionAction; reason: string | null; matchedKey: string | null } {
   const { projected, existingDedupeKeys } = input;
   if (existingDedupeKeys.has(projected.dedupe_key)) {
     return { action: "allow_upsert", reason: "idempotent_intel_key", matchedKey: projected.dedupe_key };
   }
-  const earningsKey = earningsDedupeKey(projected.symbol, projected.event_date);
-  if (existingDedupeKeys.has(earningsKey)) {
-    return {
-      action: "skip_intel_preserve_existing",
-      reason: "earnings_calendar_row_present",
-      matchedKey: earningsKey,
-    };
+  if (projected.event_type === "earnings") {
+    const earningsKey = earningsDedupeKey(projected.symbol, projected.event_date);
+    if (existingDedupeKeys.has(earningsKey)) {
+      return {
+        action: "skip_intel_preserve_existing",
+        reason: "earnings_calendar_row_present",
+        matchedKey: earningsKey,
+      };
+    }
   }
   if (projected.event_type === "sec_filing_news") {
-    for (const key of existingDedupeKeys) {
-      if (key.startsWith("sec:")) {
-        return { action: "skip_intel_preserve_existing", reason: "sec_feed_namespace", matchedKey: key };
-      }
+    const accession = readSecAccession(input.persistMetadata);
+    if (!accession) {
+      return { action: "reject_intel_ambiguous_sec", reason: "sec_accession_unresolved", matchedKey: null };
+    }
+    const secKey = secDedupeKey(accession, projected.symbol);
+    if (existingDedupeKeys.has(secKey)) {
+      return { action: "skip_intel_preserve_existing", reason: "sec_feed_exact_match", matchedKey: secKey };
     }
   }
   return { action: "allow_upsert", reason: null, matchedKey: null };

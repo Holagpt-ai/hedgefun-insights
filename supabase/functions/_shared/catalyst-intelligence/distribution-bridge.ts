@@ -34,6 +34,7 @@ export type IntelDistributionItemOutcome =
   | { status: "projected"; dedupe_key: string }
   | { status: "dry_run"; dedupe_key: string }
   | { status: "upserted"; dedupe_key: string }
+  | { status: "write_failed"; dedupe_key: string; detail: string }
   | { status: "rejected"; code: IntelDistributionRejectCode | "missing_event_date" | "missing_ticker" | "collision" | "writes_disabled"; detail: string | null }
   | { status: "skipped_collision"; dedupe_key: string; collision: PublicFeedCollisionResult };
 
@@ -127,7 +128,16 @@ export function evaluateIntelDistributionBundle(
   const collision = assessPublicFeedCollision({
     projected: projected.row,
     existingDedupeKeys: ctx.existingPublicDedupeKeys ?? new Set<string>(),
+    persistMetadata: bundle.persistMetadata,
   });
+
+  if (collision.action === "reject_intel_ambiguous_sec") {
+    return {
+      status: "rejected",
+      code: "collision",
+      detail: collision.reason,
+    };
+  }
 
   if (collision.action === "skip_intel_preserve_existing") {
     return {
@@ -173,7 +183,7 @@ export async function runIntelDistributionBatch(input: {
     upserted: 0,
   };
   const items: IntelDistributionItemOutcome[] = [];
-  const toWrite: CatalystEventRow[] = [];
+  const pendingWrites: { row: CatalystEventRow; itemIndex: number }[] = [];
 
   for (const bundle of input.bundles) {
     const outcome = evaluateIntelDistributionBundle(bundle, {
@@ -203,9 +213,20 @@ export async function runIntelDistributionBatch(input: {
       continue;
     }
 
-    if (writeMode === "write" && input.upsert) {
-      toWrite.push(row);
-      items.push({ status: "upserted", dedupe_key: row.dedupe_key });
+    if (writeMode === "write") {
+      if (!input.upsert) {
+        summary.rejected += 1;
+        summary.projected -= 1;
+        items.push({
+          status: "rejected",
+          code: "writes_disabled",
+          detail: "missing_upsert_callback",
+        });
+        continue;
+      }
+      const itemIndex = items.length;
+      items.push({ status: "projected", dedupe_key: row.dedupe_key });
+      pendingWrites.push({ row, itemIndex });
     } else if (writeMode === "blocked" && input.authorization.enableWrites) {
       items.push({
         status: "rejected",
@@ -213,15 +234,44 @@ export async function runIntelDistributionBatch(input: {
         detail: CATALYST_INTEL_DISTRIBUTION_WRITES_ENV,
       });
       summary.rejected += 1;
+      summary.projected -= 1;
     } else {
       items.push({ status: "dry_run", dedupe_key: row.dedupe_key });
     }
   }
 
-  if (writeMode === "write" && toWrite.length > 0 && input.upsert) {
-    const n = await input.upsert(toWrite);
-    summary.upserted = n;
-    summary.events_upserted = n;
+  if (writeMode === "write" && pendingWrites.length > 0 && input.upsert) {
+    try {
+      const rows = pendingWrites.map((entry) => entry.row);
+      const n = await input.upsert(rows);
+      const succeeded = Math.min(Math.max(0, Math.floor(n)), pendingWrites.length);
+      summary.upserted = succeeded;
+      summary.events_upserted = succeeded;
+      for (let i = 0; i < pendingWrites.length; i++) {
+        const { itemIndex, row } = pendingWrites[i]!;
+        if (i < succeeded) {
+          items[itemIndex] = { status: "upserted", dedupe_key: row.dedupe_key };
+        } else {
+          items[itemIndex] = {
+            status: "write_failed",
+            dedupe_key: row.dedupe_key,
+            detail: i >= n ? "partial_or_failed_upsert" : "write_not_applied",
+          };
+          summary.rejected += 1;
+        }
+      }
+    } catch {
+      summary.upserted = 0;
+      summary.events_upserted = 0;
+      for (const { itemIndex, row } of pendingWrites) {
+        items[itemIndex] = {
+          status: "write_failed",
+          dedupe_key: row.dedupe_key,
+          detail: "upsert_callback_failed",
+        };
+        summary.rejected += 1;
+      }
+    }
   }
 
   const base = sanitizeSummary({

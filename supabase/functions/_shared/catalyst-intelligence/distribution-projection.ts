@@ -1,12 +1,13 @@
 import type { CatalystEventRow, CatalystEventType, TimeOfDay } from "../catalyst/contract.ts";
 import {
   earningsDedupeKey,
-  isValidTicker,
   nonEmptyTrimmed,
   polygonDedupeKey,
 } from "../catalyst/contract.ts";
 import { sanitizeFacts } from "../catalyst/sanitize.ts";
 import { projectIntelCatalystEventFacts } from "../catalyst/intel-catalyst-event-facts-projection.ts";
+import { secDedupeKey } from "../sec-edgar/ingest.ts";
+import { resolvePrimaryDistributionTicker } from "./distribution-ticker.ts";
 import type {
   CanonicalEvent,
   EvidenceRecord,
@@ -94,11 +95,11 @@ export interface IntelDistributionProjectionResult {
 export function projectIntelToPublicCatalystRow(
   input: IntelDistributionProjectionInput,
 ): IntelDistributionProjectionResult {
-  const primary = input.tickers.find((row) => row.isPrimary) ?? input.tickers[0] ?? null;
-  const symbol = primary?.ticker?.trim().toUpperCase() ?? "";
-  if (!isValidTicker(symbol)) {
+  const resolved = resolvePrimaryDistributionTicker(input.tickers);
+  if (!resolved) {
     return { row: null, rejectReason: "missing_ticker" };
   }
+  const { symbol, relatedSymbols: related } = resolved;
 
   const eventDate = resolveEventDate(input.event);
   if (!eventDate) {
@@ -108,11 +109,6 @@ export function projectIntelToPublicCatalystRow(
   const pe = primaryEvidence(input.evidence);
   const sourceUrl = pe?.canonicalUrl && pe.canonicalUrl.startsWith("https://") ? pe.canonicalUrl : null;
   const publishedAt = input.event.sourcePublishedAt ?? pe?.publishedAt ?? null;
-
-  const related = input.tickers
-    .filter((row) => row.ticker.toUpperCase() !== symbol)
-    .map((row) => row.ticker.trim().toUpperCase())
-    .filter((t) => isValidTicker(t));
 
   const facts = sanitizeFacts({
     ...projectIntelCatalystEventFacts({
@@ -154,7 +150,10 @@ export function projectIntelToPublicCatalystRow(
   return { row, rejectReason: null };
 }
 
-export type PublicFeedCollisionAction = "allow_upsert" | "skip_intel_preserve_existing";
+export type PublicFeedCollisionAction =
+  | "allow_upsert"
+  | "skip_intel_preserve_existing"
+  | "reject_intel_ambiguous_sec";
 
 export interface PublicFeedCollisionInput {
   projected: Pick<
@@ -162,6 +161,16 @@ export interface PublicFeedCollisionInput {
     "dedupe_key" | "symbol" | "event_date" | "source_url" | "provider" | "event_type"
   >;
   existingDedupeKeys: ReadonlySet<string>;
+  persistMetadata?: Record<string, unknown>;
+}
+
+function readSecAccession(metadata: Record<string, unknown> | undefined): string | null {
+  if (!metadata) return null;
+  for (const key of ["accession", "accession_number", "accessionNumber"] as const) {
+    const raw = metadata[key];
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  return null;
 }
 
 export interface PublicFeedCollisionResult {
@@ -179,20 +188,33 @@ export function assessPublicFeedCollision(input: PublicFeedCollisionInput): Publ
     return { action: "allow_upsert", reason: "idempotent_intel_key", matchedKey: intelKey };
   }
 
-  const earningsKey = earningsDedupeKey(projected.symbol, projected.event_date);
-  if (existingDedupeKeys.has(earningsKey)) {
-    return {
-      action: "skip_intel_preserve_existing",
-      reason: "earnings_calendar_row_present",
-      matchedKey: earningsKey,
-    };
+  if (projected.event_type === "earnings") {
+    const earningsKey = earningsDedupeKey(projected.symbol, projected.event_date);
+    if (existingDedupeKeys.has(earningsKey)) {
+      return {
+        action: "skip_intel_preserve_existing",
+        reason: "earnings_calendar_row_present",
+        matchedKey: earningsKey,
+      };
+    }
   }
 
   if (projected.event_type === "sec_filing_news") {
-    for (const key of existingDedupeKeys) {
-      if (key.startsWith("sec:")) {
-        return { action: "skip_intel_preserve_existing", reason: "sec_feed_namespace", matchedKey: key };
-      }
+    const accession = readSecAccession(input.persistMetadata);
+    if (!accession) {
+      return {
+        action: "reject_intel_ambiguous_sec",
+        reason: "sec_accession_unresolved",
+        matchedKey: null,
+      };
+    }
+    const secKey = secDedupeKey(accession, projected.symbol);
+    if (existingDedupeKeys.has(secKey)) {
+      return {
+        action: "skip_intel_preserve_existing",
+        reason: "sec_feed_exact_match",
+        matchedKey: secKey,
+      };
     }
   }
 

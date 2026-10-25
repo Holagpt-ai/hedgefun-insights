@@ -6,7 +6,7 @@ import type {
   TickerLink,
   VerificationState,
 } from "./types.ts";
-import { isValidTicker } from "../catalyst/contract.ts";
+import { resolvePrimaryDistributionTicker } from "./distribution-ticker.ts";
 
 export const INTEL_DISTRIBUTION_REJECT_CODES = [
   "distribution_observation_only",
@@ -52,25 +52,12 @@ const SCHEDULE_ONLY_LIFECYCLE: ReadonlySet<LifecycleState> = new Set([
   "approaching",
 ]);
 
-const ANNOUNCED_LIFECYCLE: ReadonlySet<LifecycleState> = new Set([
-  "live",
-  "announced",
-  "reacting",
-  "follow_through",
-  "resolved",
-]);
-
 const CALENDAR_HEAVY_TYPES: ReadonlySet<IntelEventType> = new Set([
   "EARNINGS",
   "INVESTOR_EVENT",
   "CONFERENCE",
 ]);
 
-function primaryTicker(tickers: readonly TickerLink[]): string | null {
-  const primary = tickers.find((row) => row.isPrimary) ?? tickers[0] ?? null;
-  const t = primary?.ticker?.trim().toUpperCase() ?? "";
-  return isValidTicker(t) ? t : null;
-}
 
 function hasProvenance(evidence: readonly EvidenceRecord[]): boolean {
   return evidence.some((row) => {
@@ -90,16 +77,8 @@ function metadataString(metadata: Record<string, unknown>, key: string): string 
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
-function isFutureScheduleOnly(input: IntelDistributionEligibilityInput, ticker: string): boolean {
+function isFutureScheduleOnly(input: IntelDistributionEligibilityInput): boolean {
   const { event, persistMetadata = {} } = input;
-  if (ANNOUNCED_LIFECYCLE.has(event.lifecycle)) return false;
-  if (event.announcementAt && Number.isFinite(Date.parse(event.announcementAt))) return false;
-  if (event.sourcePublishedAt && Number.isFinite(Date.parse(event.sourcePublishedAt))) {
-    return false;
-  }
-
-  const earningsDisposition = metadataString(persistMetadata, "earnings_disposition");
-  if (earningsDisposition === "schedule_announced") return true;
 
   if (metadataFlag(persistMetadata, "calendar_only")) return true;
 
@@ -160,8 +139,8 @@ export function assessIntelDistributionEligibility(
     };
   }
 
-  const ticker = primaryTicker(input.tickers);
-  if (!ticker) {
+  const primary = resolvePrimaryDistributionTicker(input.tickers);
+  if (!primary) {
     return { eligible: false, rejectCode: "unresolved_ticker", detail: "missing_primary_ticker" };
   }
 
@@ -178,7 +157,16 @@ export function assessIntelDistributionEligibility(
     return { eligible: false, rejectCode: "schedule_only_calendar", detail: "calendar_only" };
   }
 
-  if (isFutureScheduleOnly(input, ticker)) {
+  const earningsDisposition = metadataString(meta, "earnings_disposition");
+  if (earningsDisposition === "schedule_announced") {
+    return {
+      eligible: false,
+      rejectCode: "schedule_only_calendar",
+      detail: "earnings_schedule_announced",
+    };
+  }
+
+  if (isFutureScheduleOnly(input)) {
     return {
       eligible: false,
       rejectCode: "future_schedule_not_announced",
