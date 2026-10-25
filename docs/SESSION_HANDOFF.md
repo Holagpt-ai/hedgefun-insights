@@ -6,9 +6,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Status:** PR open on `cursor/batch172-catalyst-source-coverage-v1`. Parent **`88de0ae8`** (PR #171 merged; Vercel production deploy succeeded).
 
-**Pull request:** _(create on push)_
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/172
 
-**Head SHA:** _(after commit)_
+**Head SHA:** `72c7c120`
 
 ### Delivered in git
 
