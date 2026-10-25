@@ -64,17 +64,19 @@ export function StockPublicIntelligence({ ticker, observationMs, observationLabe
                 Source article
               </a>
             )}
-            <Link
-              to={publicWorkflowHref(ticker, "catalyst", authenticated) ?? "#"}
-              className="text-accent-blue hover:underline"
-              onClick={() => trackPublicDashboardCta({
-                symbol: ticker,
-                destination: "catalyst",
-                authenticated,
-              })}
-            >
-              {authenticated ? "Open Catalyst" : "Sign in for Catalyst"}
-            </Link>
+            {publicWorkflowHref(ticker, "catalyst", authenticated) && (
+              <Link
+                to={publicWorkflowHref(ticker, "catalyst", authenticated)!}
+                className="text-accent-blue hover:underline"
+                onClick={() => trackPublicDashboardCta({
+                  symbol: ticker,
+                  destination: "catalyst",
+                  authenticated,
+                })}
+              >
+                {authenticated ? "Open Catalyst" : "Sign in for Catalyst"}
+              </Link>
+            )}
           </div>
         </div>
       )}

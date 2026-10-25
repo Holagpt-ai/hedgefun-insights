@@ -1,5 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { publicWatchlistEntryHref } from "@/lib/public/public-workflow-links";
+import { trackAuthHandoff } from "@/lib/analytics/public-events";
 
 const toolAnimations: Record<string, string> = {
   watchlist: "star-pulse 0.5s ease",
@@ -78,11 +81,8 @@ const tools = [
         </defs>
         <rect x="6" y="10" width="36" height="32" rx="4" ry="4" stroke="url(#grad-calendar)" strokeWidth="2.2" fill="none"/>
         <line x1="6" y1="20" x2="42" y2="20" stroke="url(#grad-calendar)" strokeWidth="2.2" strokeLinecap="round"/>
-        <line x1="16" y1="6" x2="16" y2="16" stroke="url(#grad-calendar)" strokeWidth="2.2" strokeLinecap="round"/>
-        <line x1="32" y1="6" x2="32" y2="16" stroke="url(#grad-calendar)" strokeWidth="2.2" strokeLinecap="round"/>
-        <circle cx="16" cy="30" r="2" fill="url(#grad-calendar)"/>
-        <circle cx="24" cy="30" r="2" fill="url(#grad-calendar)"/>
-        <circle cx="32" cy="30" r="2" fill="url(#grad-calendar)"/>
+        <line x1="16" y1="6" x2="16" y2="14" stroke="url(#grad-calendar)" strokeWidth="2.2" strokeLinecap="round"/>
+        <line x1="32" y1="6" x2="32" y2="14" stroke="url(#grad-calendar)" strokeWidth="2.2" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -94,8 +94,8 @@ const tools = [
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="grad-trending" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#f97316"/>
-            <stop offset="100%" stopColor="#ef4444"/>
+            <stop offset="0%" stopColor="#ec4899"/>
+            <stop offset="100%" stopColor="#f43f5e"/>
           </linearGradient>
         </defs>
         <polyline points="4,36 14,26 22,30 34,16 42,10" stroke="url(#grad-trending)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -125,6 +125,14 @@ const tools = [
 export function ToolGrid() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
+
+  const resolveRoute = (tool: (typeof tools)[number]) => {
+    if (tool.labelKey === "watchlist") {
+      return publicWatchlistEntryHref(!!user);
+    }
+    return tool.route;
+  };
 
   return (
     <div className="px-4 py-4">
@@ -160,7 +168,13 @@ export function ToolGrid() {
         {tools.map((tool) => (
           <button
             key={tool.route}
-            onClick={() => navigate(tool.route)}
+            onClick={() => {
+              const dest = resolveRoute(tool);
+              if (tool.labelKey === "watchlist" && !user) {
+                trackAuthHandoff({ mode: "login", returnPath: dest, source: "homepage_tool_grid_watchlist" });
+              }
+              navigate(dest);
+            }}
             className="fintech-card p-4 flex flex-col items-start gap-2 text-left"
             style={{ transition: "transform 0.2s ease, box-shadow 0.2s ease" }}
             onMouseEnter={(e) => {
