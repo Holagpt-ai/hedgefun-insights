@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md`: **172** Catalyst Source Coverage V1, **173** Watchlist/Historical Handoff Integrity, **174** Monday Live Scanner Acceptance, **175** Continuation & Inbox Acceptance. Lovable October 24 warning classifications: `docs/release/lovable-october24-warning-register.md`.
+See `docs/release/next-approved-batches.md`: **172** Catalyst Source Coverage V1, **173** Watchlist/Historical Handoff Integrity, **174** Monday Live Scanner Acceptance, **175** Continuation & Inbox Acceptance. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## How to avoid another full audit
 

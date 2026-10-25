@@ -4,7 +4,7 @@ Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labe
 
 Baseline: `origin/main` **`dd490ae5`** (PRs **#169**, **#170** merged). Batch **171** open. ISS-001 closed on `main`. **ISS-015** blocked until previous production `chat` Edge version is recoverable.
 
-October 24 Lovable/Vercel warnings: `docs/release/lovable-october24-warning-register.md`. Next batches: `docs/release/next-approved-batches.md`.
+Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 
 ## Confirmed
 
@@ -32,8 +32,7 @@ October 24 Lovable/Vercel warnings: `docs/release/lovable-october24-warning-regi
 
 | ID | Item | Notes |
 | --- | --- | --- |
-| ISS-018 | Vercel Edge middleware runtime deprecation | LOV-03 deferred. `docs/release/vercel-middleware-runtime-2026-10-24.md`. |
-| LOV-05 | Vite chunk >500 kB informational warning | Not suppressed; further splitting optional later batch. |
+| ISS-018 | Vercel Edge middleware runtime deprecation | `docs/release/vercel-middleware-runtime-2026-10-24.md`. |
 
 ## Deferred (product)
 

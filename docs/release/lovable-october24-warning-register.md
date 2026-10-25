@@ -1,18 +1,15 @@
-# Lovable / Vercel October 24 warning register
+# October 24 npm and deploy findings
 
-Master reset classification after PRs **#169**, **#170**, and Batch **171**. Evidence is git tests and docs unless noted.
+This file does **not** list the original ten Lovable scanner warnings. Those subjects are preserved in `docs/release/lovable-scanner-reliability-warnings.md`.
 
-| # | Reported condition | Classification | Evidence / tracker |
-| --- | --- | --- | --- |
-| LOV-01 | npm audit **42** advisories on deploy | **Implemented / code mitigated** (partial) | PR #170 → 21; Batch 171 → **20**, **0 critical** (`tinypool` override). `docs/release/npm-security-remediation-2026-10-24.md` |
-| LOV-02 | Production JS bundle ~**3.45 MB** | **Implemented / code mitigated** (partial) | PR #170 lazy dashboard routes ~2.66 MB entry; Batch 171 lazy public research routes further reduces entry. ISS-017 |
-| LOV-03 | Vercel Edge **middleware runtime deprecated** | **Deferred** | `middleware.ts` uses `@vercel/functions/next`; no platform mandate to change. ISS-018 |
-| LOV-04 | **Browserslist** / caniuse-lite stale | **Implemented / code mitigated** | PR #170 `update-browserslist-db`. ISS-019 |
-| LOV-05 | Vite **>500 kB** chunk warning | **Still unresolved** (acceptable) | Entry chunk remains >500 kB after splits; warning is informational, not suppressed. ISS-017 |
-| LOV-06 | Production **`chat`** not on recovered analyst delivery | **Still unresolved** (blocked) | Git has delivery at `10723434`; previous Edge version id not captured for rollback. **ISS-015** |
-| LOV-07 | **Live RTH scanner** acceptance not signed off | **Runtime acceptance pending** | Contracts/tests green (#169); Monday **2026-10-26 ET** runbook. ISS-020 |
-| LOV-08 | Polygon snapshot **`day.v=0`** ranked as verified zero | **Implemented / code mitigated** | `polygonSnapshotVolume()` on `main` (#169); batch27 tests |
-| LOV-09 | Production **Supabase Edge revision** unknown vs git | **Still unresolved** | Not read from Lovable Cloud this batch. ISS-003 (Edge) |
-| LOV-10 | **`@modelcontextprotocol/sdk`** via `@lovable.dev/mcp-js` (high) | **Deferred** | Build/MCP codegen only; pin `0.20.0` by policy; await Lovable MCP release |
+npm, bundle, middleware, and Browserslist findings stay on the issue register:
 
-**Preserved (not defects):** Gate I.3 SEC activation (ISS-004 historical); Fly radar worker **v45** parity PASS (ISS-003 Fly).
+| Tracker | Finding |
+| --- | --- |
+| ISS-016 | npm audit count and remaining dependency blockers — `docs/release/npm-security-remediation-2026-10-24.md` |
+| ISS-017 | Production JavaScript entry size and the Vite chunk-size notice |
+| ISS-018 | Vercel Edge middleware runtime notice — `docs/release/vercel-middleware-runtime-2026-10-24.md` |
+| ISS-019 | Browserslist / caniuse-lite metadata |
+| ISS-015 | Production `chat` not yet on the recovered analyst delivery |
+
+Do not reuse LOV-01 through LOV-10 for these items.

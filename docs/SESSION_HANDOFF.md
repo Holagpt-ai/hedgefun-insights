@@ -8,13 +8,13 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/171
 
-**Head SHA:** `a1d75520`
+**Head SHA:** `34b8174c` (continuity correction follows on this branch)
 
 ### Delivered
 
 - **WS1:** `tinypool@2.2.0` npm override (clears critical vitest chain); pin `vite@5.4.21`, `vitest@3.2.7`, `@vercel/functions@3.10.3`; audit **21 → 20**, **0 critical**.
 - **WS2:** Lazy public routes (stock detail, screener, movers, watchlist, ETF detail, articles, news, earnings) via `lazyPages.ts`.
-- **WS3:** `docs/release/lovable-october24-warning-register.md` (10 Lovable warnings classified); PRs #169/#170 recorded merged; Monday acceptance unchanged (Batch 174).
+- **WS3:** PRs #169/#170 recorded merged. Original ten Lovable scanner warnings are historical in `docs/release/lovable-scanner-reliability-warnings.md` (not npm LOV ids). npm/build findings stay on ISS-015–ISS-019. Monday acceptance unchanged (Batch 174).
 - **WS4:** `docs/release/next-approved-batches.md` (172–175); issue register + deployment status updated.
 
 ### Validation
