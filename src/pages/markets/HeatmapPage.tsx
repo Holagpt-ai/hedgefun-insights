@@ -13,6 +13,11 @@ import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
 import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import {
+  heatmapPageSeoDescription,
+  heatmapUniverseDetail,
+  heatmapUniverseHeading,
+} from "@/lib/markets/heatmap-universe-label";
 
 const TIMEFRAMES = ["1D", "1W", "1M", "YTD", "1Y"] as const;
 
@@ -147,9 +152,11 @@ function HeatmapPage() {
     setHoveredStock(null);
   }, []);
 
+  const loadedStockCount = stockRows?.length ?? 0;
+
   usePageSeo({
     title: `Market Heatmap | ${BRAND.name}`,
-    description: `Sector treemap of large-cap U.S. stocks by market cap. Session change colors use ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}.`,
+    description: heatmapPageSeoDescription(),
   });
 
   const exportComingSoon = (format: string) => {
@@ -165,10 +172,10 @@ function HeatmapPage() {
         <div className="flex items-center justify-between py-4">
           <div>
             <h1 className="text-[1.5rem] font-bold" style={{ color: "hsl(var(--text-primary))" }}>
-              S&P 500 · {timeframe} Performance
+              {heatmapUniverseHeading(loadedStockCount, timeframe)}
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Tile colors reflect session % change from the stocks database ({PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}).
+              {heatmapUniverseDetail(loadedStockCount)} Tile colors reflect session % change ({PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}).
             </p>
           </div>
           <div className="flex items-center gap-2">
