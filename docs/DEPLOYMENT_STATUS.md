@@ -1,6 +1,21 @@
 ﻿# Deployment status
 
-Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+Checked **2026-10-25** (Batch 174 pre-session) from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+
+## GitHub `main` (2026-10-25)
+
+| Field | Value |
+| --- | --- |
+| HEAD | **`28cbcc9e788af9182627e36b6a7b346e003d4e03`** |
+| Last merge | PR **#173** — Watchlist & historical handoff integrity V1 (**2026-10-25T16:09:45Z**) |
+
+## Vercel SPA (2026-10-25)
+
+| Field | Value |
+| --- | --- |
+| Production manifest | `{"js":"/assets/index-vzEEFfGK.js","css":"/assets/index-CqYGeua4.css"}` from `https://stocksist.com/asset-manifest.json` |
+| Parity vs `main` `28cbcc9e` | **Unverified** — local `npm run build` at `28cbcc9e` produced **`index-hZRK9LjP.js`**; `npm run integrity -- --remote` reports deploy-sha mismatch |
+| Notes | Manifest carries no git SHA; confirm Vercel production deploy for #173 separately |
 
 ## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
 

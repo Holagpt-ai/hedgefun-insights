@@ -4,7 +4,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch 173 Watchlist & Historical Handoff Integrity V1: symbol/securityId guards on Radar→workflow→AI Analyst client handoffs; regression tests. No Edge or chat changes.
+- Batch 174 Monday scanner acceptance (2026-10-26 ET): pre-session evidence matrix in `docs/release/monday-scanner-acceptance-2026-10-26.md` — **INCOMPLETE** until ET windows observed; no new confirmed scanner defects.
+- Batch 173 Watchlist & Historical Handoff Integrity V1 merged (PR #173 → `28cbcc9e`): symbol/securityId guards on Radar→workflow→AI Analyst client handoffs; regression tests. No Edge or chat changes.
 
 ## 2026-10-25
 
