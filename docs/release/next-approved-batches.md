@@ -1,6 +1,6 @@
 # Next approved product batches
 
-Register updated **2026-10-25** after **`main` `dc42cfe5`** (PR **#177** / Batch 179 merged). Product batch ids are not always GitHub PR numbers.
+Register updated **2026-10-26** after **`main` `d4095c86`** (PR **#178** / Batch 180 merged). Product batch ids are not always GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
@@ -11,10 +11,11 @@ Register updated **2026-10-25** after **`main` `dc42cfe5`** (PR **#177** / Batch
 | **175** | Continuation & inbox acceptance | **Pending** — after Batch 174 Monday sign-off |
 | **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation still gated (**ISS-006**) |
 | **177** | Lovable forward-sync & continuity | **Merged / ops** — PR **#176** → **`1002c682`**; integration branch may forward-sync normally |
-| **178** | Post-Monday scanner follow-up | **Pending** — depends on Batch **174** findings |
+| **178** | Scanner session integrity V1 | **PR #179 OPEN** — `cursor/batch178-scanner-session-integrity-v1` |
 | **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`**; Vercel SUCCESS |
-| **180** | Public navigation & UX integrity V1 | **In progress** — PR open from `cursor/batch180-public-nav-ux-v1` |
-| **181** | — | **Pending** (not scheduled in git) |
+| **180** | Public navigation & UX integrity V1 | **Merged** — PR **#178** → **`d4095c86`** |
+| **181** | Catalyst + Watchlist source integrity V1 | **PR open** — `cursor/batch181-catalyst-watchlist-source-integrity-v1` |
+| **182** | Transparent Five Pillars qualification | **Pending** |
 
 **Ops gate (parallel):** **ISS-015** — Lovable **`chat`-only** Edge deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`). **Blocked.**
 

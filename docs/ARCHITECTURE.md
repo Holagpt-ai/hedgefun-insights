@@ -88,6 +88,8 @@ Catalyst tab discovery uses existing `catalyst_events` rows only (`catalyst-disc
 
 Radar news cells distinguish **verified catalyst** vs **historical catalyst context** vs **unverified news** vs unavailable (`radar-momentum-catalyst-context.ts`, `radar-news-display.ts`). Association is display-only and does not affect scanner rank or promotion.
 
+Client-side attribution integrity (Batch 181): `hydrateCatalystEventVerification()` recomputes headline attribution and reconciles overstated persisted classes except for authoritative providers (SEC EDGAR, earnings calendar, company IR). Shared labels and publisher/source lines live in `catalyst-attribution-presentation.ts`. Radar recent-news tiers require `headlineQualifiesForTickerScopedNews()`. Watchlist Action Center company_event rows use `watchlist-company-event-attribution.ts` so mismatched headlines are labeled, not implied as direct catalysts.
+
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.

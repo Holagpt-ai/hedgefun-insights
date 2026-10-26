@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`788b1b93`** (PR **#175** / Batch **176** merged). PR **#174** open (Monday acceptance). ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Baseline: `origin/main` **`d4095c86`** (PR **#178** / Batch **180** merged). PR **#174** open (Monday acceptance). ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 
@@ -17,6 +17,7 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-017 | Large production JS entry bundle | **Improved:** #170 ~2,656 kB entry; Batch 171 public-route lazy **~2,271 kB** (`index-C5m1D5LX.js`, gzip ~633 kB). Vite >500 kB warning remains. |
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
 | ISS-015 | Production `chat` not on recovered catalyst delivery | **Blocked** — rollback revision id unknown. `docs/release/edge-function-release-lovable.md`. No deploy this batch. |
+| ISS-022 | Ticker-specific catalyst/watchlist headlines could name unrelated issuers when persisted `direct` disagreed with title | **Fixed on branch** (Batch **181**) — live reconcile + headline gates; runbook `docs/release/batch181-catalyst-watchlist-source-integrity-v1.md`. Stale DB rows may still need sync/reconcile jobs. |
 
 ## Reported
 
