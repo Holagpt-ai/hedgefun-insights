@@ -2,39 +2,37 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
-## 2026-10-26 — Batch 183: Desktop Day Trade Radar workspace tabs V1
+## 2026-10-26 — Batch 174/175: Monday acceptance + Inbox continuation
 
-**Status:** PR **#182** open on `cursor/batch183-desktop-radar-workspace-tabs-v1` — head **`9f977766`** (not merged).
+**Status:** PR **#183** open on `cursor/batch174-175-monday-acceptance-inbox` — head **`27efb834`** (docs + acceptance matrix; no scanner engine changes).
 
 ### GitHub `main`
 
-**`0542ee10`** — Batch **182** merged (PR **#181**). Prior **`aae43f98`** (Batch **181**).
+**`3ef97ee1`** — Batch **183** merged (PR **#182**). Desktop Radar tabs on production manifest **`index-BD3GjFFl.js`** (~17:00 ET).
 
 ### Surfaces
 
 | Surface | Observed |
 | --- | --- |
-| GitHub `main` | `0542ee10` |
-| PR **#174** | **OPEN**, **CONFLICTING** — Monday acceptance not closed |
-| Batch **175** | **Pending** after Batch **174** |
-| Batch **183** | **PR open** — desktop workspace tabs |
+| GitHub `main` | `3ef97ee1` |
+| PR **#174** | **OPEN**, **CONFLICTING** — **do not merge**; supersede with this batch’s acceptance docs |
+| PR **#182** | **Merged** → `3ef97ee1` |
+| Batch **174** acceptance | **CONDITIONAL** — regression PASS; most live ET rows **NOT VERIFIED** |
+| Batch **175** inbox | Code complete; live RPC/Fly **NOT VERIFIED** |
+| Penny Continuation | **Not implemented** as named product; penny **panel** + global **continuation-v1** only |
 
-### Batch 183 (branch)
+### Next
 
-- Desktop tabs: Live Radar, Momentum, Historical (+ repeat movers), Signals, Settings.
-- Mobile: unchanged panel tabs; repeat movers still below workspace.
-- Workspace storage version **3** with `desktopTab`.
+1. Review / merge Batch **174/175** continuation PR; close **#174** with pointer to updated runbook.
+2. **2026-10-27 premarket:** re-run Batch **175** rows 1–2 with authenticated AM Inbox + read-only RPC evidence.
+3. Batch **174** optional: RTH Fly logs if another Monday session is scheduled for sign-off.
 
 ### Issues (unchanged)
 
 - **ISS-006:** activation **not** done.
 - **ISS-015:** **Blocked** (chat Edge deploy).
-
-### Next
-
-1. Review / merge Batch **183** PR.
-2. Batch **174** / **175** acceptance evidence.
+- **ISS-021:** fixed on `main`; Monday post-**178** deploy **UI observation** only at ~17:00 ET.
 
 ## Earlier sessions
 
-Batches **178**, **181**, **182** merged on `main`. See `docs/CHANGELOG.md`.
+Batches **178**, **181**, **182**, **183** merged on `main`. See `docs/CHANGELOG.md`.

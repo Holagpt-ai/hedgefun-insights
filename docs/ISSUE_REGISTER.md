@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`0542ee10`** (PR **#181** / Batch **182** merged). PR **#174** open and conflicting (pre-session Monday docs only). ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Baseline: `origin/main` **`3ef97ee1`** (PR **#182** / Batch **183** merged). PR **#174** open and conflicting — **supersede** with `docs/release/batch174-175-monday-acceptance-inbox-v1.md` on `main`; do not merge #174 blindly. Batch **174** live sign-off **CONDITIONAL** (2026-10-26). Batch **175** inbox **NOT VERIFIED** live. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 
@@ -13,7 +13,7 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-002 | Registered navigation has no broken route | `npm run integrity`: 0 errors, 0 warnings, 125 routes (2026-10-24). |
 | ISS-003 (Fly radar worker) | Live `stocksist-radar-v22-worker` **v45** matches scanner behavior on approved `main` | Read-only Fly check 2026-10-24: digest `sha256:47ff670c…`. **PASS** — redeploy not required for ranking parity. Image git SHA unverified. |
 | ISS-020 | Polygon snapshot `day.v=0` treated as verified zero volume | **Fixed on `main`** (#169) — `polygonSnapshotVolume()`; batch27 / movers-integrity tests. Regular lists still do not treat `0` as liquidity. |
-| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed on `main`** (PR **#179** → **`7c2bf094`**, Batch 178). 2026-10-26 afternoon production showed regular-session observations under Pre-Market before merge; extended rows now require a matching session timestamp. **Live Vercel acceptance after deploy not re-checked this session.** |
+| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed on `main`** (PR **#179** → **`7c2bf094`**, Batch 178). 2026-10-26 ~12:33–12:56 ET **UI observation** showed mislabeled rows pre-fix; ~17:00 ET post–Batch **183** manifest premarket page **empty** with delayed disclosure (**UI observation**, not full ET-window proof). |
 | ISS-016 | npm audit 42 advisories (Oct Vercel report) | **Partially mitigated:** #170 → 21; Batch 171 → **20** (**0 critical**), `tinypool@2.2.0` override, `vite@5.4.21`, `vitest@3.2.7`. Remaining: MCP sdk, zod/@vercel, router v7, tailwind build chain. |
 | ISS-017 | Large production JS entry bundle | **Improved:** #170 ~2,656 kB entry; Batch 171 public-route lazy **~2,271 kB** (`index-C5m1D5LX.js`, gzip ~633 kB). Vite >500 kB warning remains. |
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
