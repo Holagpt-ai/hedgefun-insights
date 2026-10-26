@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for **171–181** register (merged through **176** at `788b1b93`; **174** PR open; **175** pending; **177** watchlist scope superseded by **173**; **178** Monday-dependent; **179–181** pending). Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`d4095c86`** (Batch **180** / PR **#178**). Batch **174** is still an open conflicting pre-session PR. Batch **178** is the scanner session-integrity follow-up. Next product work is Batch **181** catalyst/watchlist source integrity, then **182** Five Pillars labels, then **183** desktop Day Trade Radar tabs. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## How to avoid another full audit
 
@@ -90,6 +90,7 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity (`polygonSnapshotVolume` in `src/lib/markets/movers-integrity.ts`).
 - Verified zero from cache/RPC still ranks **before** unknown volume in volume-first lists.
 - Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
+- Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
 
 ## Evidence labels
 
