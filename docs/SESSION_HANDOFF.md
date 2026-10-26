@@ -4,7 +4,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 ## 2026-10-26 — Batch 174/175: Monday acceptance + Inbox continuation
 
-**Status:** PR open on `cursor/batch174-175-monday-acceptance-inbox` (docs + acceptance matrix; no scanner engine changes).
+**Status:** PR **#183** open on `cursor/batch174-175-monday-acceptance-inbox` — head **`27efb834`** (docs + acceptance matrix; no scanner engine changes).
 
 ### GitHub `main`
 
