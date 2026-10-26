@@ -4,7 +4,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 ## 2026-10-26 — Batch 181: Catalyst + Watchlist Source Integrity V1
 
-**Status:** Implementation on `cursor/batch181-catalyst-watchlist-source-integrity-v1`; PR open for review (not merged).
+**Status:** PR **#180** open on `cursor/batch181-catalyst-watchlist-source-integrity-v1` at **`a5863719`** (not merged).
 
 ### GitHub `main`
 
