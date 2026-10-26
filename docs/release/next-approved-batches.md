@@ -15,7 +15,7 @@ Register updated **2026-10-26** after **`main` `d4095c86`** (PR **#178** / Batch
 | **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`** |
 | **180** | Public navigation & UX integrity V1 | **Merged** — PR **#178** → **`d4095c86`** |
 | **181** | Catalyst + Watchlist source integrity V1 | **PR #180 OPEN** — mergeable, Vercel SUCCESS |
-| **182** | Five Pillars qualification transparency V1 | **PR open** — `cursor/batch182-five-pillars-qualification-transparency-v1` |
+| **182** | Five Pillars qualification transparency V1 | **PR #181 OPEN** — `cursor/batch182-five-pillars-qualification-transparency-v1` |
 | **183** | Desktop Day Trade Radar tab restructuring | **Pending** |
 
 **Ops gate (parallel):** **ISS-015** — Lovable **`chat`-only** Edge deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`). **Blocked.**
