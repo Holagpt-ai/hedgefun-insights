@@ -13,7 +13,7 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-002 | Registered navigation has no broken route | `npm run integrity`: 0 errors, 0 warnings, 125 routes (2026-10-24). |
 | ISS-003 (Fly radar worker) | Live `stocksist-radar-v22-worker` **v45** matches scanner behavior on approved `main` | Read-only Fly check 2026-10-24: digest `sha256:47ff670c…`. **PASS** — redeploy not required for ranking parity. Image git SHA unverified. |
 | ISS-020 | Polygon snapshot `day.v=0` treated as verified zero volume | **Fixed on `main`** (#169) — `polygonSnapshotVolume()`; batch27 / movers-integrity tests. Regular lists still do not treat `0` as liquidity. |
-| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed on this branch** (Batch 178). 2026-10-26 1:12 p.m. ET production page showed 12:33–12:56 p.m. observations under Pre-Market. Extended rows now require a matching session timestamp. Not merged or deployed. |
+| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed in PR #179** (Batch 178, `2d13dcd3`). 2026-10-26 1:12 p.m. ET production page showed 12:33–12:56 p.m. observations under Pre-Market. Extended rows now require a matching session timestamp. Not merged or deployed. |
 | ISS-016 | npm audit 42 advisories (Oct Vercel report) | **Partially mitigated:** #170 → 21; Batch 171 → **20** (**0 critical**), `tinypool@2.2.0` override, `vite@5.4.21`, `vitest@3.2.7`. Remaining: MCP sdk, zod/@vercel, router v7, tailwind build chain. |
 | ISS-017 | Large production JS entry bundle | **Improved:** #170 ~2,656 kB entry; Batch 171 public-route lazy **~2,271 kB** (`index-C5m1D5LX.js`, gzip ~633 kB). Vite >500 kB warning remains. |
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |

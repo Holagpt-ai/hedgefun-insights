@@ -11,7 +11,7 @@ Register updated **2026-10-26** against **`main` `d4095c86`** (PR **#178** / Bat
 | **175** | Continuation & inbox acceptance | **Pending** — still after a real Monday sign-off |
 | **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation still gated (**ISS-006**) |
 | **177** | Lovable forward-sync & continuity | **Merged / ops** — PR **#176** → **`1002c682`**; integration branch may forward-sync normally |
-| **178** | Scanner session integrity V1 | **In progress** on `cursor/batch178-scanner-session-integrity-v1` — premarket tab no longer relabels regular-session snapshots. See `docs/release/batch178-scanner-session-integrity-v1.md` |
+| **178** | Scanner session integrity V1 | **PR #179 OPEN** — head `2d13dcd3`. Premarket tab no longer relabels regular-session snapshots. Not merged. See `docs/release/batch178-scanner-session-integrity-v1.md` |
 | **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`**; Vercel SUCCESS |
 | **180** | Public navigation & UX integrity V1 | **Merged** — PR **#178** → **`d4095c86`** |
 | **181** | Catalyst / watchlist source-integrity corrections | **Next** — relevance and source labels. No Edge activation (**ISS-006**) |

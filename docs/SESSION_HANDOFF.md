@@ -4,7 +4,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 ## 2026-10-26 — Batch 178: Scanner session integrity V1
 
-**Status:** Implemented on `cursor/batch178-scanner-session-integrity-v1`. Not merged. Not deployed.
+**Status:** PR **#179** open. Head **`2d13dcd33f93762686acc72f46c0549c8354ae8c`**. Not merged. Not deployed.
 
 ### GitHub `main`
 
