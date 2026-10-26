@@ -289,10 +289,22 @@ export function DayTradeRadarV2({
           onOpenDetails={openDetails}
           closedSnapshot={closedSnapshot}
           livePanelsVisible={boardVisible && opportunityBoard.candidateUniverseCount > 0}
+          historicalSlot={
+            boardVisible && opportunityBoard.candidateUniverseCount > 0 ? (
+              <RadarRepeatMoversSection
+                loadState={repeatMoversLoadState}
+                onRetry={onRepeatMoversRetry}
+                onOpenDetails={(symbol, options) => {
+                  const match = lensRows.find((r) => r.symbol === symbol);
+                  if (match) openDetails(match, options);
+                }}
+              />
+            ) : null
+          }
         />
       )}
 
-      {boardVisible && opportunityBoard.candidateUniverseCount > 0 && (
+      {isMobile && boardVisible && opportunityBoard.candidateUniverseCount > 0 && (
         <RadarRepeatMoversSection
           loadState={repeatMoversLoadState}
           onRetry={onRepeatMoversRetry}

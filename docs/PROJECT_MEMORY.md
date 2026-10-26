@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`aae43f98`** (Batch **181** / PR **#180** merged atop **178** / **180**). **174** remains an open conflicting pre-session PR. **182** (PR **#181**) Five Pillars transparency open; **183** Radar tabs pending. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`0542ee10`** (through Batch **182**). **174** / **175** acceptance open. **183** desktop Radar tabs PR open. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## Catalyst attribution (client, Batch 181)
 
