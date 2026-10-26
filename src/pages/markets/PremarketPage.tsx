@@ -150,7 +150,8 @@ export default function PremarketPage() {
         />
 
         <p className="text-xs text-muted-foreground mt-4">
-          {gainersPack?.provenance.delayDisclosure ?? "15-minute delayed market data"}. Dedicated premarket feeds are not enabled on this plan.
+          {gainersPack?.provenance.universeDetail
+            ?? `${gainersPack?.provenance.delayDisclosure ?? "15-minute delayed market data"}. Dedicated premarket feeds are not enabled on this plan.`}
         </p>
 
         <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">

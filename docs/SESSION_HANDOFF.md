@@ -2,50 +2,50 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
-## 2026-10-26 — Batch 181: Catalyst + Watchlist Source Integrity V1
+## 2026-10-26 — Batch 181 + reconcile with main (`7c2bf094`)
 
-**Status:** PR **#180** open on `cursor/batch181-catalyst-watchlist-source-integrity-v1` at **`a5863719`** (not merged).
+**Status:** PR **#180** open on `cursor/batch181-catalyst-watchlist-source-integrity-v1` (rebased onto **`7c2bf094`**; not merged).
 
 ### GitHub `main`
 
-**`d4095c868d58b39a6536c96f3a366ada6e264e0c`** — Batch **180** merged (PR **#178**).
+**`7c2bf094`** — Batch **178** merged (PR **#179**). Prior tip **`d4095c86`** (Batch **180** / PR **#178**).
 
-### PR / batch register (canonical)
+### Surfaces (not the same version)
 
-| Item | State |
+| Surface | Observed |
 | --- | --- |
-| PR **#178** / Batch **180** | **Merged** at `d4095c86` |
-| PR **#179** / Batch **178** | **OPEN** — scanner session integrity (separate branch; no file overlap with 181) |
-| PR **#174** / Batch **174** | **OPEN** — Monday acceptance |
-| Batch **181** | **PR open** — catalyst/watchlist attribution + cross-surface source lines |
-| Batch **182** | **Pending** — Five Pillars qualification transparency |
+| GitHub `main` | `7c2bf094` |
+| Vercel SPA | Manifest `index-CkKMF7mN.js` / `index-CqYGeua4.css` (2026-10-26 note). Hash newer than 2026-10-24 `index-Drz78K0e.js`. Git SHA not proven on manifest. |
+| Fly radar worker | Last read-only note **v45** (2026-10-24). Not re-queried. |
+| Lovable Cloud / Supabase Edge | `chat` still **ISS-015** blocked. No Edge deploy. |
+| PR **#174** | **OPEN**, mergeable **CONFLICTING**. Pre-session docs only — not live Monday acceptance. |
+| PR **#180** / Batch **181** | **OPEN** — catalyst/watchlist source integrity (docs conflict resolved vs `main`) |
+| PR **#181** / Batch **182** | **OPEN** — needs second doc reconcile after **#180** merges or after rebase onto updated **#180** |
 
-### What landed in Batch 181 (git)
+### Batch 178 (now on `main`)
+
+Premarket/after-hours mover rows require a session-matching observation timestamp; extended volume from minute accumulation; regular `day.v = 0` stays missing. Runbook `docs/release/batch178-scanner-session-integrity-v1.md`. **ISS-021** fixed in git; production pre-merge evidence (1:12 p.m. ET) documented in that runbook.
+
+### Batch 181 (PR #180 branch)
 
 - Live attribution reconciliation on hydrate (`catalyst-event-verification.ts`); authoritative providers (SEC, earnings calendar, company IR) keep persisted class.
-- Shared presentation: tiers, labels, source line, event identity (`catalyst-attribution-presentation.ts`).
-- Radar recent-news gate + shared source line (`radar-news-display.ts`).
-- Watchlist / Action Center company_event headline match (`watchlist-company-event-attribution.ts`, `aggregate.ts`).
-- Regression: `batch181-catalyst-watchlist-source-integrity.test.ts`; fixture titles updated in batch30 / platform-context tests.
-
-### Tests (local)
-
-- `npx vitest run src/lib/catalyst/__tests__` — **153 passed**
-- `npm run typecheck` — **pass**
+- Shared presentation: `catalyst-attribution-presentation.ts`.
+- Radar recent-news gate; watchlist / Action Center company_event headline match.
+- Regression: `batch181-catalyst-watchlist-source-integrity.test.ts`.
 
 ### Issues
 
-- **ISS-006:** distribution bridge complete in source; production activation **not** done.
+- **ISS-006:** source bridge on `main`; production activation **not** done.
 - **ISS-015:** **Blocked** (chat Edge deploy).
-- **ISS-022:** mis-attributed ticker headlines on catalyst/watchlist surfaces — **fixed in git** (Batch 181); live DB rows still depend on sync/reconcile jobs.
+- **ISS-022:** fixed on PR **#180** branch; closes after merge.
 
 ### Next
 
-1. Review / merge Batch **181** PR.
-2. Batch **182** — transparent Five Pillars qualification labels.
-3. Complete Batch **174** Monday acceptance evidence when ET window allows.
-4. PR **#179** (Batch 178) remains independent for scanner session fixes.
+1. Review / merge PR **#180** (Batch **181**).
+2. Rebase PR **#181** (Batch **182**) onto `main` after **#180** merges (or onto resolved **#180** branch tip).
+3. Batch **174** / **175** Monday acceptance — still open.
+4. Batch **183** desktop Radar tabs — deferred.
 
 ## Earlier sessions
 
-See `docs/CHANGELOG.md` for PRs #167–#180 and Batch 171–180 delivery history.
+See `docs/CHANGELOG.md` for merged history through Batch **178** on `main`.

@@ -6,6 +6,7 @@ import {
 } from "@/lib/markets/movers-observation";
 import { moverFromPolygonTicker, mapPolygonMoversDetailed, toMoverListRow } from "@/lib/markets/movers-integrity";
 import {
+  moversSuccessfulEmptyMessage,
   summarizeListObservationTimes,
   summarizeMoversListProvenance,
   summarizeSessionDates,
@@ -198,5 +199,24 @@ describe("movers observation evidence", () => {
     expect(summary.isPriorSession).toBe(false);
     expect(summary.sessionLine).toMatch(/Mixed source sessions/);
     expect(summary.sessionLine).not.toMatch(/Prior source session · 2026-08-28/);
+  });
+
+  it("labels an afternoon premarket tab as ended instead of the regular-session clock alone", () => {
+    const afternoon = Date.parse("2026-10-26T17:12:00.000Z");
+    const summary = summarizeMoversListProvenance([], {
+      nowMs: afternoon,
+      universe: "top_gainers",
+      moverSession: "premarket",
+      premarket: true,
+    });
+    expect(summary.sessionLine).toMatch(/Premarket session ended/);
+    expect(summary.sessionLine).toMatch(/regular-session snapshots are not listed here/);
+    expect(summary.universeDetail).toMatch(/4:00–9:30 a.m. ET/);
+    expect(summary.universeDetail).toMatch(/delayed/);
+    expect(moversSuccessfulEmptyMessage({
+      marketClosed: false,
+      premarket: true,
+      clockSession: "market",
+    })).toMatch(/Premarket has ended/);
   });
 });

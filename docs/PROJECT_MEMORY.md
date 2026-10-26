@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for **171–182** register (`main` **`d4095c86`** through Batch **180**; **181** catalyst/watchlist attribution PR open; **182** Five Pillars transparency pending; **174** / **178** scanner PRs open). Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`7c2bf094`** (Batch **178** / PR **#179** merged atop Batch **180**). **174** remains an open conflicting pre-session PR. **181** (PR **#180**) catalyst/watchlist attribution open; **182** (PR **#181**) Five Pillars transparency open; **183** Radar tabs pending. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## Catalyst attribution (client, Batch 181)
 
@@ -94,6 +94,7 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity (`polygonSnapshotVolume` in `src/lib/markets/movers-integrity.ts`).
 - Verified zero from cache/RPC still ranks **before** unknown volume in volume-first lists.
 - Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
+- Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
 
 ## Evidence labels
 
