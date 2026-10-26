@@ -47,6 +47,9 @@ import { BreakoutMomentumEvidence } from "./BreakoutMomentumEvidence";
 import { qualifiesBreakouts } from "./multi-radar";
 import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
 import { HistoricalEpisodeExplorer } from "./HistoricalEpisodeExplorer";
+import { FivePillarsQualificationSection } from "./FivePillarsQualificationSection";
+import { buildFivePillarsTransparencyView } from "@/lib/day-trade/five-pillars-transparency";
+import type { DayTradeQualificationStateRow } from "@/lib/day-trade/qualification-lifecycle-client";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -60,6 +63,8 @@ interface RadarDetailPanelProps {
   mobile?: boolean;
   nowMs?: number;
   historicalExplorerEpisodeId?: string | null;
+  qualificationState?: DayTradeQualificationStateRow | null;
+  onAuthoritativeDesk?: boolean;
 }
 
 function Metric({
@@ -99,6 +104,8 @@ export function RadarDetailPanel({
   mobile = false,
   nowMs = Date.now(),
   historicalExplorerEpisodeId = null,
+  qualificationState = null,
+  onAuthoritativeDesk = false,
 }: RadarDetailPanelProps) {
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = row ? [normalizeSymbol(row.symbol)].filter(Boolean) as string[] : [];
@@ -157,6 +164,13 @@ export function RadarDetailPanel({
     return ms === null ? null : new Date(ms).toLocaleString();
   })();
 
+  const fivePillarsView = buildFivePillarsTransparencyView({
+    row,
+    nowMs,
+    onAuthoritativeDesk,
+    persisted: qualificationState,
+  });
+
   return (
     <div
       className={`rounded-lg border border-border bg-card ${
@@ -206,6 +220,8 @@ export function RadarDetailPanel({
             No longer in active Radar. Chart retained from last verified snapshot.
           </div>
         )}
+
+        <FivePillarsQualificationSection view={fivePillarsView} />
 
         <div className="grid grid-cols-2 gap-3">
           <Metric label="Last" value={formatRadarPrice(row.price)} />

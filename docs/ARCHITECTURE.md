@@ -91,6 +91,8 @@ Radar news cells distinguish **verified catalyst** vs **historical catalyst cont
 
 Client-side attribution integrity (Batch 181): `hydrateCatalystEventVerification()` recomputes headline attribution and reconciles overstated persisted classes except for authoritative providers (SEC EDGAR, earnings calendar, company IR). Shared labels and publisher/source lines live in `catalyst-attribution-presentation.ts`. Radar recent-news tiers require `headlineQualifiesForTickerScopedNews()`. Watchlist Action Center company_event rows use `watchlist-company-event-attribution.ts` so mismatched headlines are labeled, not implied as direct catalysts.
 
+Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyView()` in `src/lib/day-trade/five-pillars-transparency.ts` evaluates price, move, float, participation, and freshness from the same scanner row fields as `day-trade-strategy` and `day-trade-freshness`, merged with persisted `day_trade_qualification_state` for grace, monitoring, and desk lifecycle. Radar detail renders `FivePillarsQualificationSection`. Ranking and desk selection are unchanged.
+
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.

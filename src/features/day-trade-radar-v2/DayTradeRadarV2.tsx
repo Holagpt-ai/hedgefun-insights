@@ -185,6 +185,18 @@ export function DayTradeRadarV2({
     }
   }, [historicalEntryDeepLink, resolved.status, ranked, isMobile]);
 
+  const activeQualificationState = useMemo(() => {
+    if (!activeRow) return null;
+    const sym = activeRow.symbol.trim().toUpperCase();
+    return qualification.states.find((s) => s.symbol.trim().toUpperCase() === sym) ?? null;
+  }, [activeRow, qualification.states]);
+
+  const activeOnAuthoritativeDesk = useMemo(() => {
+    if (!activeRow) return false;
+    const sym = activeRow.symbol.trim().toUpperCase();
+    return deskRows.some((r) => r.symbol.trim().toUpperCase() === sym);
+  }, [activeRow, deskRows]);
+
   const detailPanel = (
     <RadarDetailPanel
       row={freeBlocked ? null : activeRow}
@@ -195,6 +207,9 @@ export function DayTradeRadarV2({
       chartError={freeBlocked ? null : errorMessage}
       chartInterval={freeBlocked ? null : interval}
       historicalExplorerEpisodeId={historicalExplorerEpisodeId}
+      nowMs={nowMs}
+      qualificationState={activeQualificationState}
+      onAuthoritativeDesk={activeOnAuthoritativeDesk}
     />
   );
 
@@ -316,6 +331,9 @@ export function DayTradeRadarV2({
               mobile
               onCloseMobile={() => setMobileDetailOpen(false)}
               historicalExplorerEpisodeId={historicalExplorerEpisodeId}
+              nowMs={nowMs}
+              qualificationState={activeQualificationState}
+              onAuthoritativeDesk={activeOnAuthoritativeDesk}
             />
           )}
         </>

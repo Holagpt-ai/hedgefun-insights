@@ -79,11 +79,15 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`7c2bf094`** (Batch **178** / PR **#179** merged atop Batch **180**). **174** remains an open conflicting pre-session PR. **181** (PR **#180**) catalyst/watchlist attribution open; **182** (PR **#181**) Five Pillars transparency open; **183** Radar tabs pending. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`aae43f98`** (Batch **181** / PR **#180** merged atop **178** / **180**). **174** remains an open conflicting pre-session PR. **182** (PR **#181**) Five Pillars transparency open; **183** Radar tabs pending. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
 ## Catalyst attribution (client, Batch 181)
 
 Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. Cross-surface copy uses `catalyst-attribution-presentation.ts`; do not imply price causation without evidence.
+
+## Five Pillars presentation (client, Batch 182)
+
+Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFivePillarsTransparencyView()` and canonical `RadarRankedRow` scanner fields; grace and expired lifecycle come from `day_trade_qualification_state`. A historical pass must not read as a current pass in lifecycle copy.
 
 ## How to avoid another full audit
 
