@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`3ef97ee1`** (PR **#182** / Batch **183** merged). PR **#174** open and conflicting — **supersede** with `docs/release/batch174-175-monday-acceptance-inbox-v1.md` on `main`; do not merge #174 blindly. Batch **174** live sign-off **CONDITIONAL** (2026-10-26). Batch **175** inbox **NOT VERIFIED** live. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Baseline: `origin/main` **`13a018a9`** (PR **#183** merged). PR **#174** — **close without merge** (superseded). Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 

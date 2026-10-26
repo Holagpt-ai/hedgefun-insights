@@ -1,7 +1,8 @@
 # Batch 175 — Continuation & AM Inbox acceptance V1
 
 **Depends on:** Batch **174** live-session evidence (partial — see `monday-scanner-acceptance-2026-10-26.md`).  
-**Git baseline:** **`3ef97ee1`**. No new scanner engine in this batch.
+**Git baseline:** **`13a018a9`**. No new scanner engine in this batch.  
+**Tuesday production pass:** `docs/release/batch175-tuesday-production-acceptance-2026-10-27.md`.
 
 ## Intended workflow (canonical)
 
@@ -27,22 +28,22 @@ flowchart LR
 
 | # | Criterion | Status (2026-10-26) | Evidence |
 | --- | --- | --- | --- |
-| 1 | Worker persists qualified late-session captures | **NOT VERIFIED** | No production upsert log this session |
-| 2 | RPC returns active rows for target `p_am_session_date` | **NOT VERIFIED** | Auth + DB not queried |
+| 1 | Worker persists qualified late-session captures | **PASS (inferred)** | 2026-10-26 rows present; `source_timestamp` ~21:11 UTC cluster (see Tuesday acceptance doc) |
+| 2 | RPC returns active rows for target `p_am_session_date` | **PASS** | `list_active_v1('2026-10-27')` → 2,056 Monday-source rows (2026-10-26 ~17:12 ET probe) |
 | 3 | Categories labeled (Power Hour, AH, HOD, Day-Two) | **PASS (regression)** | `LateSessionHandoffsList` + batch12 view tests |
 | 4 | Qualified fallback when priority pool empty | **PASS (regression)** | `am-inbox-late-session-funnel.test.ts`, `am-inbox-default-list-regression.test.ts` |
 | 5 | Expired captures omitted | **PASS (regression)** | `late-session-expiry` + batch12 |
 | 6 | Security/symbol identity on handoff | **PASS (regression)** | Batch **173** + `late-session-workflow-handoff.test.ts` |
 | 7 | Morning board merges continuation symbols | **PASS (code review)** | `AMInbox.tsx` `collectMorningBoardEnrichmentSymbols` |
-| 8 | Prior-session copy (“not live market activity”) | **PASS (UI contract)** | HandoffCard disclaimer in component |
+| 8 | Prior-session copy (“not live market activity”) | **NOT VERIFIED (UI)** | HandoffCard contract in git; login required for live check |
 
 ## Completed vs remaining
 
 | Completed on `main` | Remaining for sign-off |
 | --- | --- |
-| Client funnel, collapse, priority scoring, qualified fallback UI | **Tuesday 2026-10-27 premarket:** verify Monday late captures visible with correct session date |
-| RPC list/upsert/expire in migrations | Read-only count of active handoffs for `2026-10-27` |
-| Bridge action `late_session_handoff_upsert` | Fly bridge success during **16:00–20:00 ET** Monday |
+| Client funnel, collapse, priority scoring, qualified fallback UI | **Authenticated AM Inbox** on **2026-10-27** premarket |
+| RPC list/upsert/expire in migrations | **Done** — read-only RPC probe 2026-10-26 ET |
+| Bridge action `late_session_handoff_upsert` | **Inferred PASS** from persisted Monday rows + timestamps |
 | Continuation RVOL baseline propagation (warning **#8**) | Live label spot-check on AM Inbox cards |
 
 ## Blockers

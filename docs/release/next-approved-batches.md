@@ -1,14 +1,14 @@
 # Next approved product batches
 
-Register updated **2026-10-26** after **`main` `3ef97ee1`** (PR **#182** / Batch **183** merged). Product batch ids are not always GitHub PR numbers.
+Register updated **2026-10-26** after **`main` `13a018a9`** (PR **#183** merged). Product batch ids are not always GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
 | **171** | Security & performance V2 | **Merged** → `88de0ae8` |
 | **172** | Catalyst Source Coverage V1 | **Merged** → `93a3c35d` |
 | **173** | Watchlist / historical handoff integrity | **Merged** → `28cbcc9e` (supersedes the earlier **177** watchlist-only plan) |
-| **174** | Monday live scanner acceptance | **CONDITIONAL** — matrix in `monday-scanner-acceptance-2026-10-26.md`; PR **#174** **CONFLICTING** (do not merge); continuation PR open |
-| **175** | Continuation & inbox acceptance | **In progress** — app path on `main`; live sign-off **NOT VERIFIED** (`batch175-continuation-inbox-acceptance-v1.md`) |
+| **174** | Monday live scanner acceptance | **CONDITIONAL** — matrix in `monday-scanner-acceptance-2026-10-26.md`; PR **#174** superseded — **close without merge** |
+| **175** | Continuation & inbox acceptance | **CONDITIONAL PASS (persistence)** — RPC verified 2026-10-26 ET; AM Inbox UI **NOT VERIFIED** (`batch175-tuesday-production-acceptance-2026-10-27.md`) |
 | **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation still gated (**ISS-006**) |
 | **177** | Lovable forward-sync & continuity | **Merged / ops** — PR **#176** → **`1002c682`** |
 | **178** | Scanner session integrity V1 | **Merged** — PR **#179** → **`7c2bf094`** |

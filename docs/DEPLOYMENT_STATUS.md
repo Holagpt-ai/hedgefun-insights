@@ -6,8 +6,8 @@ Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch or
 
 | Field | Value |
 | --- | --- |
-| HEAD | **`3ef97ee1c40b5fcac62f1de994cb3936bf4981b4`** |
-| Last merge | PR **#182** — Batch **183** desktop Radar workspace tabs |
+| HEAD | **`13a018a9eab70d0a8f75d51bce790b94ebd8e98f`** |
+| Last merge | PR **#183** — Batch 174/175 Monday acceptance docs |
 
 ## Open PR (GitHub)
 
