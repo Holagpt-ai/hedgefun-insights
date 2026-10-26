@@ -31,6 +31,11 @@ Desktop Day Trade Radar stacked every scanner panel vertically (desk, qualified 
 - New scanner engines or ranking changes
 - Mobile layout redesign (existing mobile panel tabs retained)
 
+## Delivery
+
+- Branch: `cursor/batch183-desktop-radar-workspace-tabs-v1`
+- PR: [#182](https://github.com/Holagpt-ai/hedgefun-insights/pull/182) — head `9f977766`
+
 ## Deployment
 
 Vercel SPA after merge only.

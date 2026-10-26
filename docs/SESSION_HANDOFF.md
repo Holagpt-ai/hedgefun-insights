@@ -4,7 +4,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 ## 2026-10-26 — Batch 183: Desktop Day Trade Radar workspace tabs V1
 
-**Status:** PR open on `cursor/batch183-desktop-radar-workspace-tabs-v1` (not merged).
+**Status:** PR **#182** open on `cursor/batch183-desktop-radar-workspace-tabs-v1` — head **`9f977766`** (not merged).
 
 ### GitHub `main`
 
