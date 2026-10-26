@@ -330,7 +330,11 @@ export function MoversTable({
           : isError
             ? moversFetchErrorMessage()
             : isFetchEmpty
-              ? moversSuccessfulEmptyMessage({ marketClosed, premarket })
+              ? moversSuccessfulEmptyMessage({
+                  marketClosed,
+                  premarket,
+                  clockSession: premarket ? resolveMarketSession() : undefined,
+                })
               : currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed });
         return (
           <div className="py-12 text-center">

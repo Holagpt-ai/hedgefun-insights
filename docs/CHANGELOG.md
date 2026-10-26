@@ -4,8 +4,9 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch 182 Five Pillars Qualification Transparency V1 (PR **#181** pending, head **`6a38f28d`**): per-pillar evidence in Radar detail, lifecycle from persisted qualification state, `five-pillars-transparency.test.ts`. No migrations or Edge deploy.
-- Batch 181 Catalyst + Watchlist Source Integrity V1 (PR **#180** open on GitHub, not on `main`): attribution reconcile + cross-surface source lines.
+- Batch 182 Five Pillars Qualification Transparency V1 (PR **#181** pending): per-pillar evidence in Radar detail, lifecycle from persisted qualification state, `five-pillars-transparency.test.ts`. No migrations or Edge deploy.
+- Batch 181 Catalyst + Watchlist Source Integrity V1 (PR **#180** pending, branch rebased to **`7c2bf094`**): live attribution reconciliation, cross-surface source lines, headline gates. Not on `main`.
+- Batch 178 Scanner session integrity V1 merged (PR **#179** → **`7c2bf094`**): premarket and after-hours mover rows require a timestamp inside that session; extended volume uses minute accumulation and stays blank when missing; regular `day.v = 0` remains missing. Runbook `docs/release/batch178-scanner-session-integrity-v1.md`.
 - Batch 180 Public navigation & UX integrity V1 merged (PR **#178** → **`d4095c86`**): trending, heatmap, IPO screener, and symbol lookup canonical nav, watchlist auth handoffs, delayed-data copy, heatmap export/timeframe honesty; tests in `batch180-public-nav-ux.test.ts`.
 - Batch 179 Public website & conversion V1 merged (PR **#177** → **`dc42cfe5`**): canonical stock detail links, auth-gated historical Radar and watchlist handoffs, delayed-data copy on homepage/stock SEO; Vercel deploy SUCCESS.
 - Batch 177 Lovable forward-sync & continuity alignment: integration branch forward-merge to `e4801e81`; PR **#176** merged at **`1002c682`**; no Lovable publish from Cursor.
@@ -40,16 +41,3 @@ Application history below is a map of `main`, not a claim that each merge was de
 | `d8d68231` | PR #152. Batch 37.1 cache-before-quota ordering. |
 | `e22a8361` | PR #151. Batch 37 shared live market-data cache. |
 | `3e730139` | PR #150. Batch 36 SEC activation readiness and verification tooling. |
-| `c0b65511` | PR #149. Batch 34 core intelligence integration. |
-| `6d659bcc` through `b499890f` | Batch 33 historical catch-up controls, entitlement recovery, and bridge identity cache. |
-| `9951b303` | Batch 32 historical episode explorer. |
-| `192e5218` | Batch 31 public experience, SEO, and onboarding. |
-| `3338905f` | Batch 30 daily intelligence and catalyst workflows. |
-| `53b1dde6` | Batch 29 catalyst source activation code. Enabling sources was a later ops plan. |
-| `be50a5a1` through `8c929211` | Batch 28 Radar historical context, shared market-data cache, and momentum continuation. |
-
-Earlier scanner, watchlist, journal, and screener releases are on `main` below those commits. Use `git log origin/main` for the full list. Feature presence is summarized in `docs/SESSION_HANDOFF.md`.
-
-## Superseded recovery copies
-
-`origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower copy of the same analyst work. This recovery used the archived-branch versions from `cursor/chat-single-pass-v1`. That archived branch was not merged. Active Lovable integration remains `cursor/lovable-sync-from-main-20261024`.

@@ -8,6 +8,8 @@ import {
   moverFromExtendedObservation,
   moverFromPolygonTicker,
   moversForAi,
+  polygonExtendedSessionVolume,
+  polygonSnapshotVolume,
   selectCanonicalCurrentMovers,
   toMoverListRow,
   validateCachedMoverRow,
@@ -18,6 +20,8 @@ import {
 } from "@/lib/markets/movers-integrity";
 
 const NOW = Date.parse("2026-08-27T16:00:00.000Z");
+const PREMARKET_NOW = Date.parse("2026-08-27T12:00:00.000Z");
+const AFTER_HOURS_NOW = Date.parse("2026-08-27T21:00:00.000Z");
 const TODAY = etSessionDate(NOW);
 
 function ticker(overrides: Record<string, unknown> = {}) {
@@ -65,14 +69,50 @@ describe("market movers integrity", () => {
       todaysChangePerc: 50,
       day: { c: 0, v: 0 },
       prevDay: { c: 10 },
-      lastTrade: { p: 12, t: NOW },
-      min: { c: 11.9 },
-    }), "premarket", NOW);
+      lastTrade: { p: 12, t: PREMARKET_NOW },
+      min: { c: 11.9, av: 125_000, t: PREMARKET_NOW },
+    }), "premarket", PREMARKET_NOW);
     expect(m.valid).toBe(true);
     expect(m.session).toBe("premarket");
     expect(m.price).toBe(12);
     expect(m.reference_price).toBe(10);
     expect(m.change_percent).toBeCloseTo(20, 5);
+    expect(m.volume).toBe(125_000);
+  });
+
+  it("does not relabel a regular-session print as premarket", () => {
+    const shared = ticker({
+      ticker: "RTH",
+      todaysChangePerc: 20,
+      day: { c: 12, v: 4_000_000, t: NOW },
+      prevDay: { c: 10 },
+      lastTrade: { p: 12, t: NOW },
+      min: { c: 12, av: 4_000_000, t: NOW },
+    });
+    const asPremarket = moverFromPolygonTicker(shared, "premarket", NOW);
+    const asRegular = moverFromPolygonTicker(shared, "regular", NOW);
+    expect(asPremarket.valid).toBe(false);
+    expect(asPremarket.reason).toBe("session_mismatch");
+    expect(asRegular.valid).toBe(true);
+    const premarketList = mapPolygonMovers([shared], "premarket", { nowMs: NOW });
+    const regularList = mapPolygonMovers([shared], "regular", { nowMs: NOW });
+    expect(premarketList.rows).toEqual([]);
+    expect(regularList.rows.map((row) => row.symbol)).toEqual(["RTH"]);
+  });
+
+  it("leaves premarket volume blank when day.v is 0 and minute accumulation is missing", () => {
+    expect(polygonSnapshotVolume({ v: 0 }, { av: 80_000, v: 1_000 })).toBeNull();
+    expect(polygonExtendedSessionVolume({ av: 0, v: 0 })).toBeNull();
+    expect(polygonExtendedSessionVolume({})).toBeNull();
+    const m = moverFromPolygonTicker(ticker({
+      ticker: "NOVOL",
+      day: { c: 0, v: 0 },
+      prevDay: { c: 10 },
+      lastTrade: { p: 11, t: PREMARKET_NOW },
+      min: { c: 11, v: 0, t: PREMARKET_NOW },
+    }), "premarket", PREMARKET_NOW);
+    expect(m.valid).toBe(true);
+    expect(m.volume).toBeNull();
   });
 
   it("maps after-hours last trade against the current regular close", () => {
@@ -81,9 +121,9 @@ describe("market movers integrity", () => {
       todaysChangePerc: 5,
       day: { c: 10, v: 1_000_000 },
       prevDay: { c: 9.5 },
-      lastTrade: { p: 11, t: NOW },
-      min: { c: 10.9 },
-    }), "afterhours", NOW);
+      lastTrade: { p: 11, t: AFTER_HOURS_NOW },
+      min: { c: 10.9, av: 40_000, t: AFTER_HOURS_NOW },
+    }), "afterhours", AFTER_HOURS_NOW);
     expect(m.valid).toBe(true);
     expect(m.session).toBe("afterhours");
     expect(m.price).toBe(11);
