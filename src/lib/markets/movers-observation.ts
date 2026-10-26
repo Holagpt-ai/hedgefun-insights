@@ -6,6 +6,7 @@
 import { getEtParts, tradingSessionDateForInstant } from "@/lib/market-calendar";
 import { dailyAggregateBarDate } from "@/lib/etf/snapshot-volume";
 import { polygonSnapshotFieldToMs } from "@/lib/market-data/polygon-snapshot-timestamps";
+import { resolveMarketSessionAt } from "@/lib/market-session";
 import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
 import { etSessionDate, type MoverSession } from "./movers-integrity";
 
@@ -152,6 +153,31 @@ export function resolvePolygonMoverSourceEvidence(
     sessionDateUnverified: true,
     observationTimeUnavailable: true,
   };
+}
+
+/** Clock session that an extended-hours mover label is allowed to describe. */
+export function expectedSessionKindForMoverSession(
+  session: MoverSession,
+): "pre-market" | "market" | "after-hours" | null {
+  if (session === "premarket") return "pre-market";
+  if (session === "afterhours") return "after-hours";
+  return null;
+}
+
+/**
+ * Extended-hours rows must be observed inside that session.
+ * A missing timestamp stays eligible so the UI can say the observation time
+ * is unavailable. A regular-session or other-session timestamp is not eligible.
+ * Regular-session lists keep their own day-bar checks.
+ */
+export function observationMatchesRequestedMoverSession(
+  session: MoverSession,
+  observationMs: number | null,
+): boolean {
+  const expected = expectedSessionKindForMoverSession(session);
+  if (expected === null) return true;
+  if (observationMs === null || !Number.isFinite(observationMs)) return true;
+  return resolveMarketSessionAt(observationMs) === expected;
 }
 
 export function isPriorRegularDayBar(dayBarMs: number, nowMs: number): boolean {
