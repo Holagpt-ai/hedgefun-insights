@@ -14,7 +14,7 @@ import { scannerAlertCanonicalToastKey } from "@/lib/scanner-alerts/canonical-ev
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
-import { boundWatchlistAlertReason } from "@/lib/watchlist-v2/signal-assertion-provenance";
+import { formatWatchlistAlertFeedDetail } from "@/lib/watchlist-v2/watchlist-company-event-attribution";
 import {
   countDistinctScannerAlertsForFocus,
   countWatchlistAlertsForSummary,
@@ -247,7 +247,19 @@ export function buildActionFeed(input: {
       symbol: a.ticker.toUpperCase(),
       title: humanAlertType(a.alert_type),
       detail: a.reason
-        ? boundWatchlistAlertReason(a.reason, a.alert_type ?? "company_event")
+        ? formatWatchlistAlertFeedDetail({
+            ticker: a.ticker,
+            reason: a.reason,
+            alertType: a.alert_type ?? "company_event",
+            companyName:
+              typeof a.facts?.company_name === "string" ? a.facts.company_name : null,
+            sourceName:
+              typeof a.facts?.source_name === "string" ? a.facts.source_name : null,
+            providerHeadline:
+              typeof a.facts?.provider_headline === "string"
+                ? a.facts.provider_headline
+                : null,
+          })
         : null,
       timestampMs: timing.sortMs,
       timestampLabel: formatFeedTimestampLabel(

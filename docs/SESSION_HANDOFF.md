@@ -2,40 +2,50 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
-## 2026-10-26 — Batch 178: Scanner session integrity V1
+## 2026-10-26 — Batch 181 + reconcile with main (`7c2bf094`)
 
-**Status:** PR **#179** open. Head **`2d13dcd33f93762686acc72f46c0549c8354ae8c`**. Not merged. Not deployed.
+**Status:** PR **#180** open on `cursor/batch181-catalyst-watchlist-source-integrity-v1` (rebased onto **`7c2bf094`**; not merged).
 
 ### GitHub `main`
 
-**`d4095c868d58b39a6536c96f3a366ada6e264e0c`** — PR **#178** / Batch **180** merged 2026-10-25. Vercel production manifest observed 2026-10-26: `index-CkKMF7mN.js` (no git SHA).
+**`7c2bf094`** — Batch **178** merged (PR **#179**). Prior tip **`d4095c86`** (Batch **180** / PR **#178**).
 
 ### Surfaces (not the same version)
 
 | Surface | Observed |
 | --- | --- |
-| GitHub `main` | `d4095c86` |
-| Vercel SPA | Manifest `index-CkKMF7mN.js` / `index-CqYGeua4.css`. Hash is newer than the 2026-10-24 note `index-Drz78K0e.js`. SHA not proven. |
-| Fly radar worker | Last read-only note remains **v45** (2026-10-24). Not re-queried. |
-| Lovable Cloud / Supabase Edge | `chat` still **ISS-015** blocked. No Edge deploy this session. |
-| PR **#174** | **OPEN**, mergeable **CONFLICTING**. Pre-session docs only. Not live acceptance. |
+| GitHub `main` | `7c2bf094` |
+| Vercel SPA | Manifest `index-CkKMF7mN.js` / `index-CqYGeua4.css` (2026-10-26 note). Hash newer than 2026-10-24 `index-Drz78K0e.js`. Git SHA not proven on manifest. |
+| Fly radar worker | Last read-only note **v45** (2026-10-24). Not re-queried. |
+| Lovable Cloud / Supabase Edge | `chat` still **ISS-015** blocked. No Edge deploy. |
+| PR **#174** | **OPEN**, mergeable **CONFLICTING**. Pre-session docs only — not live Monday acceptance. |
+| PR **#180** / Batch **181** | **OPEN** — catalyst/watchlist source integrity (docs conflict resolved vs `main`) |
+| PR **#181** / Batch **182** | **OPEN** — needs second doc reconcile after **#180** merges or after rebase onto updated **#180** |
 
-### Afternoon evidence (1:12 p.m. ET)
+### Batch 178 (now on `main`)
 
-`https://stocksist.com/markets/premarket` listed regular-session names with observations from **12:33–12:56 p.m. ET** under Pre-Market Gainers and Losers, while the clock said market open. That is the afternoon fill of the premarket tab. Morning blank state was not replayed; the code path that accepts any current snapshot as premarket explains a tab that is empty until the regular snapshot exists and then shows the wrong session.
+Premarket/after-hours mover rows require a session-matching observation timestamp; extended volume from minute accumulation; regular `day.v = 0` stays missing. Runbook `docs/release/batch178-scanner-session-integrity-v1.md`. **ISS-021** fixed in git; production pre-merge evidence (1:12 p.m. ET) documented in that runbook.
 
-### Fix
+### Batch 181 (PR #180 branch)
 
-Premarket and after-hours rows with a timestamp must fall in that session. Regular lists keep the same ticker. Extended volume uses minute accumulation and leaves a blank when it is missing. `day.v = 0` stays missing on regular lists.
+- Live attribution reconciliation on hydrate (`catalyst-event-verification.ts`); authoritative providers (SEC, earnings calendar, company IR) keep persisted class.
+- Shared presentation: `catalyst-attribution-presentation.ts`.
+- Radar recent-news gate; watchlist / Action Center company_event headline match.
+- Regression: `batch181-catalyst-watchlist-source-integrity.test.ts`.
+
+### Issues
+
+- **ISS-006:** source bridge on `main`; production activation **not** done.
+- **ISS-015:** **Blocked** (chat Edge deploy).
+- **ISS-022:** fixed on PR **#180** branch; closes after merge.
 
 ### Next
 
-1. Catalyst and watchlist relevance / source-integrity corrections (no ISS-006 activation).
-2. Transparent Five Pillars qualification labels.
-3. Separate batch: desktop Day Trade Radar tab restructuring.
-4. Batch **175** inbox continuation still waits on a real Monday sign-off. Batch **174** is not that sign-off.
-5. Lovable forward-sync after this branch merges. Do not merge `cursor/chat-single-pass-v1`.
+1. Review / merge PR **#180** (Batch **181**).
+2. Rebase PR **#181** (Batch **182**) onto `main` after **#180** merges (or onto resolved **#180** branch tip).
+3. Batch **174** / **175** Monday acceptance — still open.
+4. Batch **183** desktop Radar tabs — deferred.
 
 ## Earlier sessions
 
-See `docs/CHANGELOG.md` for PRs #167–#176 and Batch 171–178 delivery history.
+See `docs/CHANGELOG.md` for merged history through Batch **178** on `main`.

@@ -24,7 +24,7 @@ function verifiedEvent(overrides: Partial<CatalystEvent> = {}): CatalystEvent {
     event_date: "2026-09-12",
     event_time: null,
     time_of_day: null,
-    title: "Awarded contract",
+    title: "AAA awarded contract",
     description: null,
     source_name: "PR",
     source_url: "https://example.com/pr",
@@ -94,7 +94,7 @@ describe("Batch 30 — platform distribution", () => {
   });
 
   it("radar catalyst cell requires verified platform availability", () => {
-    const enrichment = entry(verifiedEvent({ title: "Verified headline" }));
+    const enrichment = entry(verifiedEvent({ title: "AAA verified headline" }));
     const map = buildSymbolCatalystPlatformMap({
       symbols: ["AAA"],
       enrichment: new Map([["AAA", enrichment]]),

@@ -79,7 +79,11 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`d4095c86`** (Batch **180** / PR **#178**). Batch **174** is still an open conflicting pre-session PR. Batch **178** is the scanner session-integrity follow-up. Next product work is Batch **181** catalyst/watchlist source integrity, then **182** Five Pillars labels, then **183** desktop Day Trade Radar tabs. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`7c2bf094`** (Batch **178** / PR **#179** merged atop Batch **180**). **174** remains an open conflicting pre-session PR. **181** (PR **#180**) catalyst/watchlist attribution open; **182** (PR **#181**) Five Pillars transparency open; **183** Radar tabs pending. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+
+## Catalyst attribution (client, Batch 181)
+
+Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. Cross-surface copy uses `catalyst-attribution-presentation.ts`; do not imply price causation without evidence.
 
 ## How to avoid another full audit
 

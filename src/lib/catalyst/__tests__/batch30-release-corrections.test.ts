@@ -25,7 +25,7 @@ function verifiedEvent(overrides: Partial<CatalystEvent> = {}): CatalystEvent {
     event_date: "2026-09-12",
     event_time: null,
     time_of_day: null,
-    title: "Verified headline",
+    title: "RUN verified headline",
     description: null,
     source_name: "PR",
     source_url: "https://example.com/verified",
@@ -84,7 +84,7 @@ describe("Batch 30 release corrections", () => {
     expect(verifiedCatalystHandoffFields(verifiedPlatform)).toEqual({
       catalystAvailability: "verified",
       catalystEventId: "ev-verified",
-      catalystHeadline: "Verified headline",
+      catalystHeadline: "RUN verified headline",
     });
     expect(verifiedCatalystHandoffFields(unverifiedPlatform)).toEqual({
       catalystAvailability: null,
