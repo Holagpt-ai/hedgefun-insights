@@ -79,7 +79,11 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Approved next batches (2026-10-24 master reset)
 
-See `docs/release/next-approved-batches.md` for **171–181** register (merged through **176** at `788b1b93`; **174** PR open; **175** pending; **177** watchlist scope superseded by **173**; **178** Monday-dependent; **179–181** pending). Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See `docs/release/next-approved-batches.md` for **171–183** register (`main` **`d4095c86`** through Batch **180**; **181** / **182** PRs open; **183** Radar tabs pending; **174** / **175** acceptance open). Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+
+## Five Pillars presentation (client, Batch 182)
+
+Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFivePillarsTransparencyView()` and canonical `RadarRankedRow` scanner fields; grace and expired lifecycle come from `day_trade_qualification_state`. A historical pass must not read as a current pass in lifecycle copy.
 
 ## How to avoid another full audit
 

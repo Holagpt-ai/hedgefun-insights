@@ -88,6 +88,8 @@ Catalyst tab discovery uses existing `catalyst_events` rows only (`catalyst-disc
 
 Radar news cells distinguish **verified catalyst** vs **historical catalyst context** vs **unverified news** vs unavailable (`radar-momentum-catalyst-context.ts`, `radar-news-display.ts`). Association is display-only and does not affect scanner rank or promotion.
 
+Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyView()` in `src/lib/day-trade/five-pillars-transparency.ts` evaluates price, move, float, participation, and freshness from the same scanner row fields as `day-trade-strategy` and `day-trade-freshness`, merged with persisted `day_trade_qualification_state` for grace, monitoring, and desk lifecycle. Radar detail renders `FivePillarsQualificationSection`. Ranking and desk selection are unchanged.
+
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.
