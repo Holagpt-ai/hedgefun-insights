@@ -4,7 +4,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 ## 2026-10-26 — Batch 182: Five Pillars Qualification Transparency V1
 
-**Status:** PR open on `cursor/batch182-five-pillars-qualification-transparency-v1` (not merged).
+**Status:** PR **#181** open at **`6a38f28d`** on `cursor/batch182-five-pillars-qualification-transparency-v1` (not merged).
 
 ### GitHub `main`
 

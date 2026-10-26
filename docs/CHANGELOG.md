@@ -4,7 +4,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch 182 Five Pillars Qualification Transparency V1 (PR pending): per-pillar evidence in Radar detail, lifecycle from persisted qualification state, `five-pillars-transparency.test.ts`. No migrations or Edge deploy.
+- Batch 182 Five Pillars Qualification Transparency V1 (PR **#181** pending, head **`6a38f28d`**): per-pillar evidence in Radar detail, lifecycle from persisted qualification state, `five-pillars-transparency.test.ts`. No migrations or Edge deploy.
 - Batch 181 Catalyst + Watchlist Source Integrity V1 (PR **#180** open on GitHub, not on `main`): attribution reconcile + cross-surface source lines.
 - Batch 180 Public navigation & UX integrity V1 merged (PR **#178** → **`d4095c86`**): trending, heatmap, IPO screener, and symbol lookup canonical nav, watchlist auth handoffs, delayed-data copy, heatmap export/timeframe honesty; tests in `batch180-public-nav-ux.test.ts`.
 - Batch 179 Public website & conversion V1 merged (PR **#177** → **`dc42cfe5`**): canonical stock detail links, auth-gated historical Radar and watchlist handoffs, delayed-data copy on homepage/stock SEO; Vercel deploy SUCCESS.
