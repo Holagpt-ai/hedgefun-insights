@@ -1,19 +1,26 @@
 ﻿# Deployment status
 
-Checked **2026-10-25** (Batch 177). Git SHAs from `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## GitHub `main` (2026-10-25)
+## GitHub `main` (2026-10-26)
 
 | Field | Value |
 | --- | --- |
-| HEAD | **`788b1b938f0ebe17915030f414fd96369ae91961`** |
-| Last merge | PR **#175** — Batch **176** catalyst distribution bridge |
+| HEAD | **`3ef97ee1c40b5fcac62f1de994cb3936bf4981b4`** |
+| Last merge | PR **#182** — Batch **183** desktop Radar workspace tabs |
 
 ## Open PR (GitHub)
 
 | PR | Branch | State | Notes |
 | --- | --- | --- | --- |
-| **#174** | `cursor/batch174-monday-scanner-acceptance` | **OPEN** | Monday scanner pre-session evidence; not production sign-off |
+| **#174** | `cursor/batch174-monday-scanner-acceptance` | **OPEN**, **CONFLICTING** | Supersede — do not merge; see `docs/release/batch174-175-monday-acceptance-inbox-v1.md` |
+
+## Vercel SPA (2026-10-26 ~17:00 ET)
+
+| Field | Value |
+| --- | --- |
+| Production manifest js | **`/assets/index-BD3GjFFl.js`** |
+| Git SHA on manifest | **None** — parity by hash only |
 
 ## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
 
