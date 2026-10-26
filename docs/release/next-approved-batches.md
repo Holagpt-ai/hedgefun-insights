@@ -1,6 +1,6 @@
 # Next approved product batches
 
-Register updated **2026-10-26** after **`main` `aae43f98`** (PR **#180** / Batch 181 merged). Product batch ids are not always GitHub PR numbers.
+Register updated **2026-10-26** after **`main` `0542ee10`** (PR **#181** / Batch 182 merged). Product batch ids are not always GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
@@ -15,8 +15,8 @@ Register updated **2026-10-26** after **`main` `aae43f98`** (PR **#180** / Batch
 | **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`** |
 | **180** | Public navigation & UX integrity V1 | **Merged** — PR **#178** → **`d4095c86`** |
 | **181** | Catalyst + Watchlist source integrity V1 | **Merged** — PR **#180** → **`aae43f98`** |
-| **182** | Five Pillars qualification transparency V1 | **PR #181 OPEN** — `cursor/batch182-five-pillars-qualification-transparency-v1` |
-| **183** | Desktop Day Trade Radar tab restructuring | **Pending** |
+| **182** | Five Pillars qualification transparency V1 | **Merged** — PR **#181** → **`0542ee10`** |
+| **183** | Desktop Day Trade Radar workspace tabs V1 | **PR open** — `cursor/batch183-desktop-radar-workspace-tabs-v1` |
 
 **Ops gate (parallel):** **ISS-015** — Lovable **`chat`-only** Edge deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`). **Blocked.**
 

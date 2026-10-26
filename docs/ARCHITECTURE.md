@@ -93,6 +93,8 @@ Client-side attribution integrity (Batch 181): `hydrateCatalystEventVerification
 
 Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyView()` in `src/lib/day-trade/five-pillars-transparency.ts` evaluates price, move, float, participation, and freshness from the same scanner row fields as `day-trade-strategy` and `day-trade-freshness`, merged with persisted `day_trade_qualification_state` for grace, monitoring, and desk lifecycle. Radar detail renders `FivePillarsQualificationSection`. Ranking and desk selection are unchanged.
 
+Desktop Day Trade Radar workspace tabs (Batch 183): `MultiRadarWorkspace` on desktop shows one of Live Radar, Momentum, Historical, Signals, or Settings via `desktop-radar-workspace-tabs.ts`. Existing `RadarPanelBoard` / carryover / repeat-movers components are reused; mobile keeps per-panel tabs. Status rail and qualification counts stay above the workspace.
+
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.
