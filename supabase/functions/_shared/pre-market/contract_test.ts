@@ -756,10 +756,24 @@ Deno.test("earnings: more than 20 confirmed events display 20 and disclose the t
   assertEquals(sel.rows.length, 20);
 });
 
-Deno.test("earnings: watchlist symbols sort first, then deterministic ticker order", () => {
-  const rows = [base({ symbol: "ZZZ" }), base({ symbol: "AAA" }), base({ symbol: "MMM" })];
-  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set(["ZZZ"]) });
-  assertEquals(sel.rows.map((r) => r.symbol), ["ZZZ", "AAA", "MMM"]);
+Deno.test("earnings: market-impact ranking orders before display cap", () => {
+  const rows = [
+    base({ symbol: "AB", facts: {} }),
+    base({
+      symbol: "SOFI",
+      facts: { actual_eps: 0.08, estimate_eps: 0.05, surprise_percent: 60 },
+    }),
+  ];
+  const metadata = new Map([
+    ["SOFI", { market_cap: 8e9, volume: 12e6, rvol_20d: 2.2, change_percent: 4.5, price: 8 }],
+    ["AB", { market_cap: 2e8, volume: 5e4, rvol_20d: 0.4, change_percent: 0.2, price: 30 }],
+  ]);
+  const sel = selectBeforeOpenEarnings(rows as never, {
+    etDate: ET,
+    owned: new Set(),
+    metadataBySymbol: metadata,
+  });
+  assertEquals(sel.rows[0]?.symbol, "SOFI");
 });
 
 Deno.test("catalyst: display count uses only displayed rows dated today", () => {
@@ -807,9 +821,16 @@ Deno.test("earnings: null and unknown time_of_day are timing-unconfirmed, not be
   assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: "unknown" }), ET), false);
 });
 
-Deno.test("earnings: after_close and during are not timing-unconfirmed", () => {
+Deno.test("earnings: after_close is not timing-unconfirmed", () => {
   assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "after_close" }), ET), false);
-  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "during" }), ET), false);
+});
+
+Deno.test("earnings: during with timing_unspecified is timing-unconfirmed", () => {
+  assertEquals(
+    isEarningsTodayTimingUnconfirmed(base({ time_of_day: "during", facts: { timing_unspecified: true } }), ET),
+    true,
+  );
+  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "during", facts: {} }), ET), false);
 });
 
 Deno.test("earnings: mixed BMO and timing-unconfirmed on same ET date", () => {

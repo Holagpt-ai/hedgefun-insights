@@ -8,7 +8,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **186** AM Inbox continuation reliability (branch `cursor/batch186-am-inbox-continuation`, base **`b69d7444`**): `resolveAmInboxSessionDate`, workflow lookup cache, hook refetch guard; 3,131-row acceptance fixture. **NOT MERGED**; UI **NOT VERIFIED**.
+- Batch **187** Earnings intelligence (branch `cursor/batch187-earnings-intelligence`, base **`d3cec11f`**): dedicated earnings-calendar workspace query, market-impact ranking, Finnhub timing fix, AM Inbox earnings presentation. **NOT MERGED**; Edge deploy required.
+- Batch **186** AM Inbox continuation merged (PR **#189** → **`d3cec11f`**): parallel handoff RPC, refresh-failure UX, workspace decouple; 3,131-row tests. Authenticated UI **NOT VERIFIED**.
 
 ## 2026-10-27 (integration)
 

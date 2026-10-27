@@ -12,6 +12,7 @@ import {
   readEarningsFacts,
   selectBeforeOpenEarnings,
   selectEarningsTodayTimingUnconfirmed,
+  EARNINGS_CALENDAR_PROVIDER,
 
   dedupeCatalyst,
   derivedPartialChecklistStatus,
@@ -59,6 +60,11 @@ import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/head
 import { humanizeFailureCode, validateQuote } from "../_shared/quotes/integrity.ts";
 import { loadVolumeBaselines } from "../_shared/screeners/load-volume-baselines.ts";
 import { resolveRvol20dFromSources } from "../_shared/screeners/resolve-rvol20d.ts";
+import {
+  EARNINGS_CALENDAR_FETCH_LIMIT,
+  scoreEarningsMarketImpact,
+  type EarningsSymbolMarketMetadata,
+} from "../_shared/pre-market/earnings-market-impact.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,6 +86,49 @@ const CATALYST_DISPLAY_LIMIT = 12;
 const CATALYST_LOOKBACK_DAYS = 2;
 const ALERT_LOOKBACK_HOURS = 24;
 const PROVIDER_TIMEOUT_MS = 4_000;
+
+function buildEarningsMetadataBySymbol(
+  symbols: readonly string[],
+  scrRaw: Array<Record<string, unknown>> | null,
+  capRows: Array<Record<string, unknown>> | null,
+): Map<string, EarningsSymbolMarketMetadata> {
+  const out = new Map<string, EarningsSymbolMarketMetadata>();
+  for (const symbol of symbols) {
+    out.set(symbol, {
+      market_cap: null,
+      volume: null,
+      rvol_20d: null,
+      change_percent: null,
+      price: null,
+    });
+  }
+  if (scrRaw) {
+    for (const r of scrRaw) {
+      const symbol = normalizeSymbol(r.symbol);
+      if (!symbol || !out.has(symbol)) continue;
+      out.set(symbol, {
+        market_cap: out.get(symbol)?.market_cap ?? null,
+        volume: positiveOrNull(r.volume),
+        rvol_20d: finiteOrNull(r.rvol_20d),
+        change_percent: finiteOrNull(r.change_percent),
+        price: finiteOrNull(r.price),
+      });
+    }
+  }
+  if (capRows) {
+    for (const r of capRows) {
+      const symbol = normalizeSymbol(r.symbol);
+      if (!symbol || !out.has(symbol)) continue;
+      const cap = finiteOrNull(r.market_cap);
+      const prev = out.get(symbol)!;
+      out.set(symbol, {
+        ...prev,
+        market_cap: cap !== null && cap > 0 ? cap : prev.market_cap,
+      });
+    }
+  }
+  return out;
+}
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
@@ -192,14 +241,18 @@ serve(async (req) => {
 
   // ------------------------------------------------------------- section IO
   const catalystFrom = etDateShift(et.date, -CATALYST_LOOKBACK_DAYS);
+  const catalystSelect =
+    "id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts, related_symbols, provider_article_id";
+
   const results = await Promise.allSettled([
     userClient.from("market_indexes")
       .select("symbol, name, current_value, change_amount, change_percent, updated_at")
       .in("symbol", INDEX_SYMBOLS as unknown as string[]),
     userClient.from("watchlists").select("symbol").eq("user_id", userId),
     userClient.from("catalyst_events")
-      .select("id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts, related_symbols, provider_article_id")
+      .select(catalystSelect)
       .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)
+      .neq("provider", EARNINGS_CALENDAR_PROVIDER)
       .gte("event_date", catalystFrom)
       .lte("event_date", et.date)
       .order("event_date", { ascending: false })
@@ -217,9 +270,17 @@ serve(async (req) => {
       .select("id, headline, source, url, published_at, category")
       .order("published_at", { ascending: false })
       .limit(HEADLINE_LIMIT * 2),
+    userClient.from("catalyst_events")
+      .select(catalystSelect)
+      .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)
+      .eq("provider", EARNINGS_CALENDAR_PROVIDER)
+      .eq("event_type", "earnings")
+      .eq("event_date", et.date)
+      .order("updated_at", { ascending: false })
+      .limit(EARNINGS_CALENDAR_FETCH_LIMIT),
   ]);
 
-  const [idxRes, wlRes, catRes, scrRes, jrnRes, newsRes] = results;
+  const [idxRes, wlRes, catRes, scrRes, jrnRes, newsRes, earnCalRes] = results;
 
   const ok = <T,>(r: PromiseSettledResult<{ data: T | null; error: unknown }>): T | null =>
     r.status === "fulfilled" && !r.value.error ? (r.value.data ?? ([] as unknown as T)) : null;
@@ -535,6 +596,42 @@ serve(async (req) => {
       : envelope("available", scored, newestSourceTs(scored), null);
   }
 
+  const earnCalRaw = ok<Array<Record<string, unknown>>>(earnCalRes as never);
+  const earningsCalendarRows: CatOut[] = [];
+  if (earnCalRaw !== null) {
+    for (const r of dedupeCatalyst(earnCalRaw)) {
+      if (!isProviderReported(r)) continue;
+      if (r.provider !== EARNINGS_CALENDAR_PROVIDER || r.event_type !== "earnings") continue;
+      const symbol = normalizeSymbol(r.symbol);
+      const title = typeof r.title === "string" ? r.title.trim() : "";
+      if (!symbol || !title || !isIsoDate(r.event_date)) continue;
+      if (r.event_date !== et.date) continue;
+      const updated = isoOrNull(r.updated_at);
+      const published = isoOrNull(r.published_at);
+      if (!updated && !published) continue;
+      earningsCalendarRows.push({
+        id: String(r.id),
+        symbol,
+        company_name: typeof r.company_name === "string" ? r.company_name : null,
+        provider: EARNINGS_CALENDAR_PROVIDER,
+        event_type: "earnings",
+        verification_state: "provider_reported",
+        event_date: r.event_date as string,
+        event_time: isoOrNull(r.event_time),
+        time_of_day: normalizeTimeOfDay(r.time_of_day),
+        title,
+        source_name: typeof r.source_name === "string" ? r.source_name : null,
+        source_url: isHttpsUrl(r.source_url) ? r.source_url : null,
+        published_at: published,
+        updated_at: updated,
+        facts: (r.facts ?? null) as Record<string, unknown> | null,
+        attribution_class: "direct",
+        attribution_reason: "earnings_calendar_record",
+        ticker_specific: true,
+      });
+    }
+  }
+
   // ------------------------------------------------------------- 4. earnings
   // Only CONFIRMED earnings-calendar records dated today with an explicit
   // before-open report time qualify. Provider-classified earnings NEWS
@@ -546,6 +643,8 @@ serve(async (req) => {
     actual_eps: number | null; surprise_percent: number | null;
     source_name: string | null; source_url: string | null;
     updated_at: string | null; published_at: string | null;
+    release_state: "scheduled" | "reported";
+    priority_reason: string | null;
   }
   let earnings: SectionEnvelope<EarnOut[]>;
   let earnings_timing_unconfirmed: SectionEnvelope<EarnOut[]>;
@@ -553,8 +652,14 @@ serve(async (req) => {
   let earningsConfirmedTotal = 0;
   let earningsTimingUnconfirmedTotal = 0;
 
-  const mapEarnOut = (c: typeof catalystRows[number]): EarnOut => {
+  const scrRawEarly = ok<Array<Record<string, unknown>>>(scrRes as never);
+
+  const mapEarnOut = (c: CatOut): EarnOut => {
     const f = readEarningsFacts(c.facts);
+    const impact = scoreEarningsMarketImpact(c, {
+      onWatchlist: ownedSet.has(c.symbol),
+      metadata: earningsMetadataBySymbol.get(c.symbol),
+    });
     return {
       id: c.id,
       symbol: c.symbol,
@@ -572,22 +677,47 @@ serve(async (req) => {
       source_url: c.source_url,
       updated_at: c.updated_at ?? null,
       published_at: c.published_at ?? null,
+      release_state: impact.releaseState,
+      priority_reason: impact.priorityReason,
     };
   };
 
-  if (catRaw === null) {
+  let earningsMetadataBySymbol = new Map<string, EarningsSymbolMarketMetadata>();
+  if (earnCalRaw === null) {
     earnings = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
     earnings_timing_unconfirmed = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
   } else {
-    const selection = selectBeforeOpenEarnings(catalystRows, {
+    const earnSymbols = [...new Set(earningsCalendarRows.map((r) => r.symbol))];
+    earningsMetadataBySymbol = buildEarningsMetadataBySymbol(
+      earnSymbols,
+      scrRawEarly,
+      null,
+    );
+    if (earnSymbols.length > 0) {
+      const capRes = await userClient
+        .from("ticker_search")
+        .select("symbol, market_cap")
+        .in("symbol", earnSymbols);
+      if (!capRes.error && capRes.data) {
+        earningsMetadataBySymbol = buildEarningsMetadataBySymbol(
+          earnSymbols,
+          scrRawEarly,
+          capRes.data as Array<Record<string, unknown>>,
+        );
+      }
+    }
+
+    const selection = selectBeforeOpenEarnings(earningsCalendarRows, {
       etDate: et.date,
       owned: ownedSet,
       limit: EARNINGS_DISPLAY_LIMIT,
+      metadataBySymbol: earningsMetadataBySymbol,
     });
-    const unconfirmedSelection = selectEarningsTodayTimingUnconfirmed(catalystRows, {
+    const unconfirmedSelection = selectEarningsTodayTimingUnconfirmed(earningsCalendarRows, {
       etDate: et.date,
       owned: ownedSet,
       limit: EARNINGS_DISPLAY_LIMIT,
+      metadataBySymbol: earningsMetadataBySymbol,
     });
     earningsConfirmedTotal = selection.total;
     earningsTimingUnconfirmedTotal = unconfirmedSelection.total;
@@ -830,7 +960,7 @@ serve(async (req) => {
         route: "/dashboard/watchlist", event_time: now.toISOString(), source: "system",
       });
     }
-    for (const c of catalystRows) {
+    for (const c of earningsCalendarRows) {
       if (!isConfirmedEarningsCalendarEvent(c)) continue;
       if (c.event_date !== et.date || !ownedSet.has(c.symbol)) continue;
       const detail = c.time_of_day === "before_open"

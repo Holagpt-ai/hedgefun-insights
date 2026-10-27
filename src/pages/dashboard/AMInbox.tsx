@@ -395,7 +395,7 @@ export default function AMInbox() {
           {/* Before-Open Earnings — Top 3 */}
           <SectionShell
             title="Before-Open Earnings"
-            subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
+            subtitle="Verified earnings calendar · market-impact ranking · before-open session only"
             section={data?.earnings ?? null}
             loading={loading}
             emptyMessage={buildBeforeOpenEarningsEmptyMessage(data?.earnings_timing_unconfirmed_total ?? 0)}

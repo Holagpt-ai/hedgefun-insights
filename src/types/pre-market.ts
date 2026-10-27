@@ -132,6 +132,8 @@ export interface PreMarketEarnings {
   /** Timestamp evidence — at least one must be a valid ISO string. */
   updated_at: string | null;
   published_at: string | null;
+  release_state: "scheduled" | "reported";
+  priority_reason: string | null;
 }
 
 

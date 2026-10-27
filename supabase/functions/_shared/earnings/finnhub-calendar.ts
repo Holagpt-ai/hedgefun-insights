@@ -6,7 +6,7 @@ export type EarningsCalendarUpsertRow = {
   estimate_eps: number | null;
   actual_eps: number | null;
   surprise_percent: number | null;
-  time_of_day: "before_open" | "after_close" | "during";
+  time_of_day: "before_open" | "after_close" | "during" | null;
 };
 
 export type FinnhubEarningsCalendarItem = {
@@ -37,10 +37,13 @@ export function finiteDecimalField(value: unknown): number | null {
 }
 
 export function mapFinnhubTimeOfDay(hour: string | undefined): EarningsCalendarUpsertRow["time_of_day"] {
-  if (!hour) return "during";
-  if (hour === "bmo") return "before_open";
-  if (hour === "amc") return "after_close";
-  return "during";
+  if (!hour || !String(hour).trim()) return null;
+  const normalized = String(hour).trim().toLowerCase();
+  if (normalized === "bmo") return "before_open";
+  if (normalized === "amc") return "after_close";
+  // Only explicit provider intraday buckets are stored as during; unknown hour is not intraday.
+  if (normalized === "during" || normalized === "dmh") return "during";
+  return null;
 }
 
 export function computeSurprisePercent(
