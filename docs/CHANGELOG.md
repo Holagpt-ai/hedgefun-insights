@@ -8,7 +8,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **185 / 185.1** Scanner evidence & input reliability (PR **#187**, branch `cursor/batch185-scanner-evidence-v1`, base **`0fa177dd`**): honest `publication_confirmed` reconcile (no fabricated universe/zero-match counts), partial evidence parse, guarded legacy evidence PATCH + persistence telemetry; Deno `handler_evidence_persistence_test.ts`. Runbooks `batch185-scanner-evidence-v1.md`, `batch185-lovable-production-verification-checklist.md`. **NOT MERGED**; production **NOT VERIFIED**.
+- Lovable preview **Edge type parity** hotfix (branch `cursor/lovable-preview-type-parity`, base **`e662c928`**): `get-pre-market-workspace` catalyst `facts` typing; `radar-historical-context` `createClient<any>` for `resolveSecurityId`. **NOT MERGED**.
+
+## 2026-10-27 (continued)
+
+- Batch **185 / 185.1** Scanner evidence & input reliability merged (PR **#187** → **`e662c928`**): honest `publication_confirmed` reconcile, partial evidence parse, guarded legacy evidence PATCH + persistence telemetry. Runbooks `batch185-scanner-evidence-v1.md`, `batch185-lovable-production-verification-checklist.md`. Lovable read-only Oct 27: **115 rows**, six tabs evaluated, 5-arg RPC + evidence **PASS**; migration ledger / Edge revision **UNKNOWN**.
 - Batch **184 / 184.1** Mobile navigation stability merged (PR **#186** → **`0fa177dd`**): late-session sessionStorage batch/skip; bounded RPC/Radar timeouts; deferred handoffs + same-destination nav guard; `buildLateSessionPriorityEvaluation` (850-pool regression); expanded handoff pagination. Runbook `docs/release/batch184-mobile-navigation-stability-v1.md`. Authenticated mobile acceptance **NOT VERIFIED**.
 - Batch 174/175 Monday scanner + Inbox continuation merged (PR **#183** → **`13a018a9`**): acceptance matrix, Batch **175** criteria, Penny Continuation classification.
 - Batch 175 Tuesday production acceptance (docs): production RPC verified Monday **2026-10-26** handoffs for AM **2026-10-27** — `batch175-tuesday-production-acceptance-2026-10-27.md`; read-only probe `scripts/ops/batch175-readonly-handoff-probe.mjs`.
