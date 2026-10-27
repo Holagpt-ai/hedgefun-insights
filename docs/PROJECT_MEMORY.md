@@ -104,6 +104,12 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
 - Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
 
+## Scanner tab evaluation evidence (Batch 185)
+
+- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state` (or client **publication reconcile** from validated `screener_results` when the column is null after RPC fallback).
+- Do not treat homepage **Market Pulse / Polygon snapshot movers** as Radar or Five Pillars qualification.
+- Extended-session **Gappers** may restore from verified Radar prior-close overlay via `restoreExtendedSessionGappers` when sync evidence is missing or `prerequisite_unavailable`; do not fabricate opening prints or gap percentages.
+
 ## Evidence labels
 
 Use these words in handoffs and the issue register:

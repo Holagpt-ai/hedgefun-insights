@@ -1,12 +1,14 @@
 # Session handoff — latest 2026-10-27
 
-**Canonical current main on inspection:** `4757b9de4f5d2bdada1bbed10f7ea8a41fa1df6c` (PR **#185** Master Reset V3). Prior **`e65746ab`** (PR **#184** Tuesday acceptance). **PR #174 closed without merge.** Batches **171–173, 176–183** are implemented; read `docs/release/master-reset-2026-10-27.md` before proposing another batch.
+**Canonical current main on inspection:** `0fa177ddb4a469854cf251854122263f4e6be963` (PR **#186** Batch 184 mobile navigation). Prior **`4757b9de`** (Master Reset V3 docs). **PR #174 closed without merge.** Batches **171–173, 176–184** implemented in git; read `docs/release/master-reset-2026-10-27.md` before proposing another batch.
 
 **October 27 production evidence:** Android Chrome screenshots ~08:06–08:15 ET. AM Inbox late continuation was “Loading…” despite Monday RPC persistence; scanner evidence gaps; Volume Leaders skeleton; Risk Flags blank region; workflow navigation reportedly hung browser; earnings not impact-ranked. Homepage movers ≠ Radar qualification universe. TSLA/SpaceX headline on deployed UI — verify Batch **181** paths before DB changes. Homepage AI Trader banner still visible (Batch **189**).
 
-**Batch 184 / 184.1:** Implementation on **`cursor/batch184-mobile-nav-stability`**, PR **#186** (rebased on **`4757b9de`**). Late-session mirror fix, bounded loading, priority eval at scale, nav guard, expanded handoff pagination. **NOT MERGED** — authenticated Android re-check still required.
+**Batch 184 / 184.1:** Merged **`0fa177dd`** (PR **#186**). Authenticated Android re-check for ISS-023 still **NOT VERIFIED** post-deploy.
 
-**Next (unfinished):** Merge PR **#186** after approval → mobile verify → Batch **185** scanner evidence → Batch **186** continuation UI acceptance → **187–189** per master reset. Batch **174** conditional; Batch **175** persistence PASS / UI NOT VERIFIED. ISS-006 and ISS-015 deferred/blocked. No Fly/Edge/migration without approval.
+**Batch 185:** Implementation on **`cursor/batch185-scanner-evidence-v1`** — client publication evidence reconcile, partial evidence parse, Edge evidence PATCH after 4-arg RPC fallback. Runbook `docs/release/batch185-scanner-evidence-v1.md`. **PR open** — requires Vercel + Lovable migration/Edge deploy for full production effect.
+
+**Next (unfinished):** Merge Batch **185** PR → Lovable apply screener evidence migration + deploy `sync-screener-data` → Vercel → scanner tab acceptance → Batch **186** continuation UI → **187–189**. Batch **174** conditional; Batch **175** persistence PASS / UI NOT VERIFIED. ISS-006 and ISS-015 deferred/blocked. No Fly/Edge/migration from Cursor unless approved.
 
 **Lovable branch:** `cursor/lovable-sync-from-main-20261024` diverges from `main`; controlled forward merge needed. Git and production deployment states are independent.
 

@@ -214,6 +214,29 @@ export function parseTabEvaluationEvidence(
   return out;
 }
 
+/** Keeps valid tab entries; skips unknown keys and malformed tab payloads. */
+export function parseTabEvaluationEvidencePartial(
+  raw: unknown,
+): TabEvaluationEvidenceMap | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const out: TabEvaluationEvidenceMap = {};
+  for (const key of Object.keys(obj)) {
+    if (!(MANAGED_TAB_IDS as readonly string[]).includes(key)) continue;
+    const tabId = key as ManagedTabId;
+    const parsed =
+      tabId === "gappers"
+        ? parseGappersTabEvidence(obj[key])
+        : tabId === NHL_TAB_ID
+          ? parseNhlTabEvidence(obj[key])
+          : parseGenericTabEvidence(obj[key]);
+    if (!parsed) continue;
+    out[tabId] = parsed;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function getTabEvaluationEvidence(
   map: TabEvaluationEvidenceMap | null | undefined,
   tabId: string,

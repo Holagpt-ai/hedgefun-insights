@@ -3,8 +3,10 @@
 
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
+import { reconcilePublicationTabEvidence } from "@/lib/screeners/publication-evidence-reconcile";
 import {
   parseTabEvaluationEvidence,
+  parseTabEvaluationEvidencePartial,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
 import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
@@ -254,7 +256,10 @@ export function validateGeneration(
     return fail("nhl_rows_without_available_baseline");
   }
 
-  const tabEvaluationEvidence = parseTabEvaluationEvidence(state.tab_evaluation_evidence);
+  let tabEvaluationEvidence = parseTabEvaluationEvidence(state.tab_evaluation_evidence);
+  if (tabEvaluationEvidence === null && state.tab_evaluation_evidence != null) {
+    tabEvaluationEvidence = parseTabEvaluationEvidencePartial(state.tab_evaluation_evidence);
+  }
   if (state.tab_evaluation_evidence != null && tabEvaluationEvidence === null) {
     return fail("invalid_tab_evaluation_evidence");
   }
@@ -283,18 +288,24 @@ export function validateGeneration(
         }
       }
     }
-    return {
-      ok: true,
-      generation: {
-        status: "empty",
-        state,
-        rows: [],
-        synced_at: state.synced_at,
-        provider_as_of_max: null,
-        provider_as_of_min: null,
-        tab_evaluation_evidence: tabEvaluationEvidence,
-      },
-    };
+  const emptyEvidence = reconcilePublicationTabEvidence({
+    state,
+    rows: [],
+    evidence: tabEvaluationEvidence,
+  });
+
+  return {
+    ok: true,
+    generation: {
+      status: "empty",
+      state,
+      rows: [],
+      synced_at: state.synced_at,
+      provider_as_of_max: null,
+      provider_as_of_min: null,
+      tab_evaluation_evidence: emptyEvidence,
+    },
+  };
   }
 
   // available
@@ -435,6 +446,12 @@ export function validateGeneration(
     }
   }
 
+  const reconciledEvidence = reconcilePublicationTabEvidence({
+    state,
+    rows: resultRows,
+    evidence: tabEvaluationEvidence,
+  });
+
   return {
     ok: true,
     generation: {
@@ -444,7 +461,7 @@ export function validateGeneration(
       synced_at: state.synced_at,
       provider_as_of_max: state.provider_as_of_max,
       provider_as_of_min: state.provider_as_of_min,
-      tab_evaluation_evidence: tabEvaluationEvidence,
+      tab_evaluation_evidence: reconciledEvidence,
     },
   };
 }

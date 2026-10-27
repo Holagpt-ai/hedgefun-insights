@@ -597,6 +597,18 @@ export async function handleSyncScreenerData(
       message.includes("function public.replace_screener_results_generation_v1(");
     if (missingEvidenceRpc) {
       rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
+      if (!rpcResult.error) {
+        const patch = await sb
+          .from("screener_feed_state")
+          .update({ tab_evaluation_evidence: tabEvaluationEvidence })
+          .eq("state_key", "current");
+        if (patch.error) {
+          const patchMsg = String(patch.error.message ?? "").toLowerCase();
+          if (!patchMsg.includes("tab_evaluation_evidence")) {
+            console.error("[sync-screener-data] evidence patch failed");
+          }
+        }
+      }
     }
   }
   const { data: rowsInserted, error: rpcError } = rpcResult;
