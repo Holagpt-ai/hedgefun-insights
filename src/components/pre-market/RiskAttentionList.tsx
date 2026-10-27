@@ -28,14 +28,17 @@ export function RiskAttentionList({
     <div className="flex min-w-0 max-w-full flex-col gap-2 overflow-x-hidden">
       <TopNReveal items={groups} mode="view-more" className="min-w-0 max-w-full overflow-x-hidden">
         {(visible) => (
-          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-card">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-card content-start">
             {visible.map((g) => {
               const lines = attentionDetailLines(g.items);
               const multi = g.items.length > 1;
               const stamp = g.items[0]?.event_time;
               const source = sourceLabel(g.items[0]?.source);
               const body = (
-                <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2">
+                <div
+                  className="flex min-w-0 flex-col gap-0.5 px-3 py-2"
+                  data-testid={g.symbol ? `risk-attention-group-${g.symbol}` : `risk-attention-group-${g.key}`}
+                >
                   <div className="min-w-0 break-words text-sm font-medium leading-snug">
                     {g.symbol ? (
                       multi ? (

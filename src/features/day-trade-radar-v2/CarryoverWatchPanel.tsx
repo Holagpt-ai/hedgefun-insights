@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { guardedWorkflowLinkClick } from "@/lib/navigation/guarded-link-click";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
@@ -20,7 +21,7 @@ function Handoffs({ row }: { row: CarryoverCandidateView }) {
     <div className="flex flex-wrap items-center gap-1">
       <button
         type="button"
-        className="h-7 rounded-md border border-border px-2 text-[11px] font-semibold"
+        className="inline-flex min-h-8 items-center rounded-md border border-border px-2 text-[11px] font-semibold"
         disabled={added || pending}
         onClick={() => {
           if (!added && !pending) add(row.symbol);
@@ -33,7 +34,7 @@ function Handoffs({ row }: { row: CarryoverCandidateView }) {
           key={label}
           to={href}
           onClick={(event) => guardedWorkflowLinkClick(event)}
-          className="h-7 rounded-md border border-border px-2 text-[11px] font-semibold leading-7"
+          className="inline-flex min-h-8 items-center rounded-md border border-border px-2 text-[11px] font-semibold"
         >
           {label}
         </Link>
@@ -43,6 +44,11 @@ function Handoffs({ row }: { row: CarryoverCandidateView }) {
 }
 
 function CandidateCard({ row }: { row: CarryoverCandidateView }) {
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = `carryover-details-${row.symbol}`;
+  const missingSummary =
+    row.missingEvidence.length > 0 ? row.missingEvidence.join(", ") : null;
+
   return (
     <article
       className="min-w-0 rounded-md border border-border bg-card p-3"
@@ -50,9 +56,12 @@ function CandidateCard({ row }: { row: CarryoverCandidateView }) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="font-semibold text-accent-blue">{row.symbol}</div>
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {row.classificationLabel}
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Prior session · not current
         </div>
+      </div>
+      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {row.classificationLabel}
       </div>
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tabular-nums">
         <span>{formatRadarPrice(row.price)}</span>
@@ -61,24 +70,35 @@ function CandidateCard({ row }: { row: CarryoverCandidateView }) {
         <span>{formatVolumeSpeedCompact(row.velocity)}</span>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">{row.sessionEvidence}</p>
-      <p className="text-[11px] text-muted-foreground">{row.hodLabel} · {row.floatLabel}</p>
-      <p className="text-[11px] text-muted-foreground">{row.catalystLabel}</p>
-      <ul className="mt-1 space-y-0.5 text-[11px] text-foreground">
-        {row.pillarLines.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ul>
-      {row.evaluatedAtLabel ? (
-        <p className="text-[11px] text-muted-foreground">Evaluated {row.evaluatedAtLabel}</p>
-      ) : (
-        <p className="text-[11px] text-muted-foreground">Evaluation time unavailable</p>
-      )}
-      {row.missingEvidence.length > 0 ? (
-        <p className="text-[11px] text-muted-foreground">
-          Missing evidence: {row.missingEvidence.join(", ")}
-        </p>
+      {expanded ? (
+        <div id={detailsId} className="mt-2 space-y-1 border-t border-border pt-2 text-[11px] text-muted-foreground">
+          <p>{row.hodLabel} · {row.floatLabel}</p>
+          <p>{row.catalystLabel}</p>
+          <ul className="space-y-0.5 text-foreground">
+            {row.pillarLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          {row.evaluatedAtLabel ? (
+            <p>Evaluated {row.evaluatedAtLabel}</p>
+          ) : (
+            <p>Evaluation time unavailable</p>
+          )}
+          {missingSummary ? <p>Missing evidence: {missingSummary}</p> : null}
+        </div>
+      ) : missingSummary ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">Some pillar evidence unavailable</p>
       ) : null}
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          className="min-h-8 text-[11px] font-semibold text-accent-blue hover:underline"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Hide details" : "Details"}
+        </button>
         <Handoffs row={row} />
       </div>
     </article>

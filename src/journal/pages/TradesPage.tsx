@@ -12,6 +12,7 @@ import { formatR, signedMoney } from "../lib/format";
 import { canCloseTrade } from "../lib/trade-actions";
 import { JournalTradeWorkflowLinks } from "../components/JournalTradeWorkflowLinks";
 import { JOURNAL_BASE } from "../nav";
+import { JournalStaleBanner } from "../components/JournalStaleBanner";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 import type { Outcome, TradeStatus } from "../calc/types";
 
@@ -36,11 +37,14 @@ export function TradesPage() {
   }, [trades, symbol, status, outcome]);
 
   if (loading) return <HonestState kind="loading" />;
-  if (error) return <HonestState kind="error" onRetry={() => void refresh()} />;
+  if (error) {
+    return <HonestState kind="error" body={error} onRetry={() => void refresh()} />;
+  }
   if (trades.length === 0) return <HonestState kind="empty" title={t("state.noTrades")} />;
 
   return (
     <div className="space-y-3">
+      <JournalStaleBanner />
       <h1 className="text-lg font-bold">{t("trades.title")}</h1>
       <div className="journal-filter-bar">
         <Input className="h-[34px] w-36" placeholder={t("trades.symbol")} value={symbol} onChange={(e) => setSymbol(e.target.value)} />

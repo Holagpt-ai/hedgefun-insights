@@ -34,7 +34,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | 185 | P0 Gappers, Gainers/Losers, New Highs/Lows input/evidence paths | Examine existing generator and verified prior-close restoration |
 | 186 | P0 Tuesday AM Inbox late-continuation surface | Use already-proven RPC persistence; require authenticated UI evidence |
 | 187 | P1 Earnings impact ranking and ticker attribution runtime | Preserve confirmed vs scheduled event types; verify issuer relevance |
-| 188 | P1/P2 Pre-Market brief, skeleton/empty layouts, compact Carryover mobile | Depends on correctness of data/loading states above |
-| 189 | P2 Homepage AI Trader removal, countdown and Market Pulse UX | Preserve approved homepage layout and provenance |
+| **188** | Mobile dashboard & Journal reliability V1 | **In PR** — Journal error recovery, AI Brief preview, Risk skeleton guard, Carryover disclosure |
+| **189** | Homepage AI Trader removal, countdown and Market Pulse UX | Approved; do not overlap homepage files in 188 |
 
 Separately: **Batch 174 live acceptance incomplete; Batch 175 persistence PASS, UI conditional.** Defer ISS-006 source activation; ISS-015 chat blocked; Penny Continuation unapproved; no real-time feed upgrade, AI Trader, broker or billing. No PR merges, migrations or deployments are authorized by this documentation.

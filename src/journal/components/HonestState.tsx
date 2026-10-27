@@ -53,7 +53,7 @@ export function HonestState({
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {actions}
-          {kind === "error" && onRetry ? (
+          {(kind === "error" || kind === "stale") && onRetry ? (
             <Button size="sm" variant="outline" onClick={onRetry}>{t("state.retry")}</Button>
           ) : null}
         </div>
