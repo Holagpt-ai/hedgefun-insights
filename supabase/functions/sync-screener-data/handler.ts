@@ -283,7 +283,8 @@ export async function persistTabEvaluationEvidenceAfterLegacyRpc(
     .update({ tab_evaluation_evidence: input.tabEvaluationEvidence })
     .eq("state_key", "current")
     .eq("sync_run_id", input.syncRunId)
-    .select("sync_run_id");
+    .eq("rows_inserted", String(input.expectedRowsInserted))
+    .select("sync_run_id,rows_inserted");
   if (patch.error) {
     const patchMsg = String(patch.error.message ?? "").toLowerCase();
     if (patchMsg.includes("tab_evaluation_evidence")) {
@@ -305,6 +306,23 @@ export async function persistTabEvaluationEvidenceAfterLegacyRpc(
       mode: "legacy_patch",
       persisted: false,
       reason: "patch_no_matching_row",
+    };
+  }
+  const patchedRow = patched[0];
+  const patchedRunId = typeof patchedRow.sync_run_id === "string"
+    ? patchedRow.sync_run_id
+    : null;
+  const patchedRowsInserted = typeof patchedRow.rows_inserted === "number"
+    ? patchedRow.rows_inserted
+    : null;
+  if (
+    patchedRunId !== input.syncRunId ||
+    patchedRowsInserted !== input.expectedRowsInserted
+  ) {
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: "patch_return_mismatch",
     };
   }
   return { mode: "legacy_patch", persisted: true };
@@ -702,6 +720,7 @@ export async function handleSyncScreenerData(
   let evidencePersistence: TabEvaluationEvidencePersistenceResult = {
     mode: "atomic_rpc",
   };
+  let legacyEvidenceRpcFallback = false;
   let rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, {
     ...rpcBase,
     p_tab_evaluation_evidence: tabEvaluationEvidence,
@@ -714,21 +733,7 @@ export async function handleSyncScreenerData(
       message.includes("function public.replace_screener_results_generation_v1(");
     if (missingEvidenceRpc) {
       rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
-      if (!rpcResult.error) {
-        evidencePersistence = await persistTabEvaluationEvidenceAfterLegacyRpc(sb, {
-          syncRunId,
-          expectedRowsInserted: allRows.length,
-          tabEvaluationEvidence,
-        });
-        if (
-          evidencePersistence.mode === "legacy_patch" &&
-          !evidencePersistence.persisted
-        ) {
-          console.error(
-            `[sync-screener-data] evidence legacy patch failed: ${evidencePersistence.reason}`,
-          );
-        }
-      }
+      legacyEvidenceRpcFallback = !rpcResult.error;
     }
   }
   const { data: rowsInserted, error: rpcError } = rpcResult;
@@ -744,6 +749,22 @@ export async function handleSyncScreenerData(
   ) {
     console.error("[sync-screener-data] replace generation count mismatch");
     return json({ error: "database_error" }, 500);
+  }
+
+  if (legacyEvidenceRpcFallback) {
+    evidencePersistence = await persistTabEvaluationEvidenceAfterLegacyRpc(sb, {
+      syncRunId,
+      expectedRowsInserted: rowsInserted,
+      tabEvaluationEvidence,
+    });
+    if (
+      evidencePersistence.mode === "legacy_patch" &&
+      !evidencePersistence.persisted
+    ) {
+      console.error(
+        `[sync-screener-data] evidence legacy patch failed: ${evidencePersistence.reason}`,
+      );
+    }
   }
 
   const bounds = providerAsOfBounds(allRows);

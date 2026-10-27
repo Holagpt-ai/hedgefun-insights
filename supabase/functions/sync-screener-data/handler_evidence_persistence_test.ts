@@ -66,6 +66,7 @@ function mockDb(opts: {
   feedSelectError?: string;
   patchRows?: number;
   patchError?: string;
+  patchReturnRowsInserted?: number;
 }): { client: DbClient; patchCalls: Array<{ filters: Record<string, string> }> } {
   const patchCalls: Array<{ filters: Record<string, string> }> = [];
   const client: DbClient = {
@@ -93,8 +94,15 @@ function mockDb(opts: {
             return { data: null, error: { message: opts.patchError } };
           }
           const rows = opts.patchRows ?? 1;
+          const rowsInserted = opts.patchReturnRowsInserted ??
+            Number(filters.rows_inserted ?? "3");
           return {
-            data: rows > 0 ? [{ sync_run_id: filters.sync_run_id ?? RUN_ID }] : [],
+            data: rows > 0
+              ? [{
+                sync_run_id: filters.sync_run_id ?? RUN_ID,
+                rows_inserted: rowsInserted,
+              }]
+              : [],
             error: null,
           };
         });
@@ -112,7 +120,7 @@ function mockDb(opts: {
 }
 
 Deno.test("evidence persistence: legacy patch succeeds when generation matches", async () => {
-  const { client } = mockDb({
+  const { client, patchCalls } = mockDb({
     feed: { sync_run_id: RUN_ID, rows_inserted: 3 },
     patchRows: 1,
   });
@@ -122,6 +130,12 @@ Deno.test("evidence persistence: legacy patch succeeds when generation matches",
     tabEvaluationEvidence: SAMPLE_EVIDENCE,
   });
   assertEquals(out, { mode: "legacy_patch", persisted: true });
+  assertEquals(patchCalls.length, 1);
+  assertEquals(patchCalls[0].filters, {
+    state_key: "current",
+    sync_run_id: RUN_ID,
+    rows_inserted: "3",
+  });
 });
 
 Deno.test("evidence persistence: rejects sync_run_id mismatch (newer generation)", async () => {
@@ -173,6 +187,19 @@ Deno.test("evidence persistence: missing evidence column", async () => {
     tabEvaluationEvidence: SAMPLE_EVIDENCE,
   });
   assertEquals(legacyPatchFailureReason(out), "evidence_column_unavailable");
+});
+
+Deno.test("evidence persistence: patch return row mismatch fails closed", async () => {
+  const { client } = mockDb({
+    feed: { sync_run_id: RUN_ID, rows_inserted: 2 },
+    patchReturnRowsInserted: 99,
+  });
+  const out = await persistTabEvaluationEvidenceAfterLegacyRpc(client, {
+    syncRunId: RUN_ID,
+    expectedRowsInserted: 2,
+    tabEvaluationEvidence: SAMPLE_EVIDENCE,
+  });
+  assertEquals(legacyPatchFailureReason(out), "patch_return_mismatch");
 });
 
 Deno.test("evidence persistence: patch matched zero rows", async () => {

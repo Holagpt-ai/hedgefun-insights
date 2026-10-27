@@ -1,21 +1,41 @@
 # Batch 185 — Lovable Cloud production verification (read-only)
 
-**Do not apply migrations or deploy from this checklist alone.** Use it after PR **#187** merges to confirm what production already has before ordering remaining work.
+**Do not apply migrations or deploy from this checklist alone.** Use it after PR **#187** merges to learn what production **already has** before proposing any remaining work.
 
-## 1. Applied migration records
+## 1. Inspect all relevant applied migrations (do not replay old RPC bodies)
 
-In Lovable Cloud → Supabase → **Database → Migrations** (or `supabase_migrations.schema_migrations`), confirm presence and order:
+In Lovable Cloud → **Database → Migrations** (or `supabase_migrations.schema_migrations`), list **every applied version** that touches screener publication, not only the evidence migration.
 
-| Migration file (git) | Purpose |
+Relevant git history (newest effective definition wins):
+
+| Migration (git filename) | Typical effect on screener publish |
 | --- | --- |
-| `20260914200000_screener_tab_evaluation_evidence_v1.sql` | `tab_evaluation_evidence` column + 5-arg `replace_screener_results_generation_v1` |
-| `20260917180200_screener_rvol20d_results_rpc_v1.sql` | Supersedes RPC body (still 5-arg signature with evidence param) |
+| `20260727200000_screeners_p1_r2_atomic_generation.sql` | Base `replace_screener_results_generation_v1` (3-arg) |
+| `20260727203000_screeners_p1_r3_honest_volume_metrics.sql` | RPC body replace |
+| `20260729235741_*.sql` / `20260730002653_*.sql` | RPC body replace |
+| `20260813190000_screener_52w_baselines.sql` | 4-arg RPC (`p_nhl_baseline_status`) |
+| `20260814154404_*.sql` | NHL/baseline RPC extensions |
+| `20260914200000_screener_tab_evaluation_evidence_v1.sql` | `tab_evaluation_evidence` column + 5-arg RPC |
+| `20260917180200_screener_rvol20d_results_rpc_v1.sql` | **Current git RPC** (5-arg + `rvol_20d` / row shape) |
 
-Later NHL/baseline migrations do **not** remove the evidence column; they extend RPC/rows. If `20260914200000` is **missing**, the 4-arg fallback path is expected until it is applied.
+**Rules:**
+
+- Compare **applied** versions to this table. Note the **highest applied** screener RPC migration.
+- **Never** “fix” production by re-applying an **older** `replace_screener_results_generation_v1` migration — that can **downgrade** a newer function (e.g. rvol20d) or drop the evidence parameter.
+- If a migration is **missing**, apply only the **missing forward migrations in timestamp order** via Lovable Cloud after explicit approval — not a cherry-picked subset from an earlier batch.
+
+Optional read-only inventory:
+
+```sql
+SELECT version, name
+FROM supabase_migrations.schema_migrations
+WHERE version >= '20260727200000'
+ORDER BY version;
+```
+
+(Adjust schema/table name if Lovable uses a different migrations table.)
 
 ## 2. Column: `screener_feed_state.tab_evaluation_evidence`
-
-Read-only SQL (service role / Lovable SQL editor):
 
 ```sql
 SELECT column_name, data_type
@@ -25,30 +45,48 @@ WHERE table_schema = 'public'
   AND column_name = 'tab_evaluation_evidence';
 ```
 
-**Pass:** one `jsonb` column. **Fail:** no row → frontend publication reconcile only; Edge PATCH cannot persist evidence.
+**Pass:** one `jsonb` column. **Fail:** no row → client `publication_confirmed` only; Edge legacy PATCH cannot persist evidence.
 
-## 3. RPC signature
+## 3. Current effective RPC (required before any migration proposal)
+
+Inspect **live** function metadata — not an old file from git:
 
 ```sql
-SELECT pg_get_function_arguments(p.oid) AS args
+SELECT
+  p.proname,
+  pg_get_function_arguments(p.oid) AS arguments,
+  pg_get_function_result(p.oid) AS result_type
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
   AND p.proname = 'replace_screener_results_generation_v1';
 ```
 
-**Pass:** includes `p_tab_evaluation_evidence jsonb DEFAULT NULL` (5-parameter form). **Fail:** only 3–4 parameters → sync will use legacy 4-arg call + PATCH (requires column + Edge deploy from Batch 185.1).
+**Pass (expected on current git `main`):** arguments include `p_nhl_baseline_status` **and** `p_tab_evaluation_evidence jsonb DEFAULT NULL`, plus row fields consistent with the latest applied RPC migration (e.g. `rvol_20d` after `20260917180200`).
+
+**Fail:** fewer parameters → `sync-screener-data` uses 4-arg fallback + guarded PATCH (requires column + Edge **185.1** deploy).
+
+Optional body spot-check (read-only):
+
+```sql
+SELECT left(pg_get_functiondef(p.oid), 400) AS definition_prefix
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'replace_screener_results_generation_v1';
+```
+
+Compare prefix to the **latest applied** migration file in git — not to an superseded earlier migration.
 
 ## 4. Edge deployment revision
 
-In Lovable Cloud → Edge Functions → **`sync-screener-data`**:
+Lovable Cloud → Edge Functions → **`sync-screener-data`**:
 
-- Note deployed git SHA / revision id.
-- Compare to merged `main` containing Batch **185.1** handler (`persistTabEvaluationEvidenceAfterLegacyRpc`, response `tab_evaluation_evidence_persistence`).
+- Record deployed revision / source SHA.
+- **Pass:** includes Batch **185.1** (`persistTabEvaluationEvidenceAfterLegacyRpc`, PATCH on `state_key` + `sync_run_id` + `rows_inserted`, response `tab_evaluation_evidence_persistence`).
+- **Fail:** older revision — legacy PATCH may be unsafe or omit partial-failure telemetry.
 
-**Pass:** revision includes 185.1 safety PATCH. **Fail:** older revision may omit guarded PATCH or return false success.
-
-## 5. Current feed generation snapshot
+## 5. Current feed generation snapshot (null-safe evidence)
 
 ```sql
 SELECT
@@ -59,19 +97,18 @@ SELECT
   rows_inserted,
   tab_counts,
   nhl_baseline_status,
-  tab_evaluation_evidence IS NOT NULL AS has_evidence,
-  jsonb_object_keys(tab_evaluation_evidence) AS evidence_tabs
+  (tab_evaluation_evidence IS NOT NULL) AS has_evidence,
+  (
+    SELECT coalesce(array_agg(k ORDER BY k), ARRAY[]::text[])
+    FROM jsonb_object_keys(COALESCE(tab_evaluation_evidence, '{}'::jsonb)) AS k
+  ) AS evidence_tab_keys
 FROM public.screener_feed_state
 WHERE state_key = 'current';
 ```
 
-Record for acceptance notes:
+Record: `sync_run_id`, `synced_at`, `tab_counts`, `has_evidence`, `evidence_tab_keys`. Symptom for Batch 185: `has_evidence = false` while `rows_inserted > 0`.
 
-- `sync_run_id` / `synced_at` (Oct 27 ~08:15 ET reference: compare to UI screenshots)
-- Per-tab counts in `tab_counts`
-- Whether `tab_evaluation_evidence` is null while `rows_inserted > 0` (Batch 185 root symptom)
-
-Optional row spot-check:
+Optional:
 
 ```sql
 SELECT tab_id, count(*) AS published
@@ -80,17 +117,17 @@ GROUP BY tab_id
 ORDER BY tab_id;
 ```
 
-## 6. Required deployment order (remaining work)
+## 6. Deployment order (only for confirmed gaps)
 
-1. **Apply missing migrations** (at minimum `20260914200000`, then `20260917180200` if not applied) via Lovable Cloud — only if step 1–3 show gaps.
-2. **Deploy Edge** `sync-screener-data` from merged `main` (185.1 PATCH + persistence telemetry).
-3. **Vercel** production deploy (publication-confirmed truth states + partial parse).
-4. **Trigger one screener sync** (existing cron/ops — not from Cursor unless approved).
-5. Re-run section 5 queries; expect `has_evidence = true` and provider `evaluated` payloads when 5-arg RPC succeeds.
+1. **Forward-apply missing migrations** in timestamp order (never re-run an older RPC over a newer one).
+2. **Deploy Edge** `sync-screener-data` from merged `main` (185.1).
+3. **Vercel** production (client `publication_confirmed` + partial parse).
+4. **One screener sync** (existing ops/cron — not from Cursor unless approved).
+5. Re-run sections 3 and 5; expect provider `evaluated` evidence when 5-arg RPC succeeds atomically.
 
 ## 7. Acceptance boundaries
 
-- **Client-only (Vercel):** tabs with published rows may show **Published results** + advisory when evidence JSON is null; empty tabs (Gappers/G-L/NHL) remain **Evaluation evidence unavailable** until provider evidence is persisted.
-- **Full fix:** 5-arg RPC + Edge deploy restores provider evaluation evidence; publication reconcile defers to persisted JSON when present.
+- **Vercel only:** published rows → **Published results** + advisory; empty tabs stay **Evaluation evidence unavailable**.
+- **Full provider evidence:** 5-arg atomic RPC + Edge deploy; client keeps persisted JSON when valid.
 
-**Production state for this document:** NOT VERIFIED in Cursor session — complete sections 1–5 in Lovable Cloud and attach results to PR **#187** or Session Handoff.
+**Production state:** NOT VERIFIED in Cursor — complete sections 1–5 in Lovable Cloud and attach to PR **#187** or Session Handoff.
