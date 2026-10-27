@@ -38,6 +38,7 @@ import { collectMorningBoardEnrichmentSymbols } from "@/lib/am-inbox/am-inbox-ca
 import { buildMorningOpportunityBoard } from "@/lib/am-inbox/morning-opportunity-board";
 import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useAmInboxLateSessionHandoffs } from "@/hooks/useAmInboxLateSessionHandoffs";
+import { resolveAmInboxSessionDate } from "@/lib/am-inbox/resolve-am-inbox-session-date";
 import {
   applyPresentedVolumeLeadersToChecklist,
   buildFreshnessVerifyState,
@@ -51,7 +52,7 @@ import { PRE_MARKET_SCREENER_STALE_MS } from "@/lib/market-data/trust-states";
 import { amCatalystWatchNotice } from "@/lib/pre-market/am-catalyst-section-notice";
 
 export default function AMInbox() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const pmDebug = isPmDebugEnabled(searchParams);
@@ -94,15 +95,18 @@ export default function AMInbox() {
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
 
-  const amSessionDate = etDate || data?.market_context.et_date || "";
+  const amSessionDate = resolveAmInboxSessionDate(data?.market_context.et_date ?? etDate);
   const lateSessionQuery = useAmInboxLateSessionHandoffs(amSessionDate);
   const lateSessionView =
     lateSessionQuery.data?.asOfSessionDate === amSessionDate
       ? lateSessionQuery.data
       : undefined;
   const lateSessionLoading =
-    !!amSessionDate && lateSessionQuery.isLoading && lateSessionQuery.data === undefined;
-  const showLateSessionSection = !!amSessionDate && !ws.isUnavailable;
+    !!amSessionDate &&
+    lateSessionQuery.isLoading &&
+    lateSessionQuery.fetchStatus !== "idle" &&
+    lateSessionQuery.data === undefined;
+  const showLateSessionSection = !!user?.id && !ws.isUnavailable;
 
   const morningBoardSymbols = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;

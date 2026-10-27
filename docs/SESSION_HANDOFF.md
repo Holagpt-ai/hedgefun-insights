@@ -1,19 +1,19 @@
 # Session handoff — latest 2026-10-27
 
-**Canonical current main:** `e662c928` (PR **#187** Batch 185 scanner evidence merged). Prior **`0fa177dd`** (PR **#186** Batch 184).
+**Canonical current main:** `b69d7444` (PR **#188** Lovable Edge type parity). PR **#187** Batch 185 @ `e662c928`.
 
-**Batch 185:** Source complete on `main`. Lovable **Oct 27 read-only** screener verification: **115 rows**, six tabs **evaluated**, **5-arg RPC** and valid **`tab_evaluation_evidence`** — **PASS**. Migration apply history and exact Edge revision id remain **UNKNOWN** (not failed). **No** screener migration or Edge redeploy justified by that evidence check alone.
+**Lovable integration:** Forward-sync completed @ **`a03407c2`** — branch **`cursor/lovable-sync-from-main-20261024`** is **not behind** GitHub `main`.
 
-**Lovable preview type parity:** Hotfix PR (from `e662c928`) carries `get-pre-market-workspace` + `radar-historical-context` type-only fixes already on integration branch `cursor/lovable-sync-from-main-20261024` @ `a4a27a01`. After hotfix merge → **forward-sync integration branch** from `main` (non-destructive; do not merge whole integration branch into `main`).
+**Batch 185:** Source complete; Lovable Oct 27 read-only screener evidence (**115 rows**, six tabs evaluated, 5-arg RPC + valid evidence) **PASS**. Migration ledger / Edge revision id **UNKNOWN** (not failed). No screener migration or Edge redeploy required by that check alone.
 
-**Open UI:** JournalWorkspace terminal-error loading defect **confirmed** — unfinished; not in this hotfix.
+**Batch 186 (ISS-025):** PR open — parallel handoff RPC session date, workflow lookup cache, hook refetch guard. **Authenticated AM Inbox UI NOT VERIFIED.**
 
-**Next:** Merge Lovable type parity PR → forward-sync Lovable branch → Batch **186** AM Inbox continuation UI → **187–189** per master reset. ISS-006 / ISS-015 deferred. No Fly/Edge/migration from Cursor unless approved.
+**Open:** ISS-032 JournalWorkspace terminal loading; ISS-026 earnings ranking.
 
-**Lovable branch:** `cursor/lovable-sync-from-main-20261024` @ `a4a27a01` (Batch 185 read-only commit on branch). Git and production deployment states are independent.
+**Next:** Merge Batch **186** → Vercel → authenticated AM Inbox sign-off → Batches **187–189** per master reset. No Fly/Edge/migration unless approved.
 
 ---
 
 # Session handoff (archive)
 
-See `docs/CHANGELOG.md` and batch runbooks under `docs/release/` for prior sessions.
+See `docs/CHANGELOG.md` and `docs/release/` runbooks.

@@ -23,6 +23,20 @@ const EMPTY_VIEW = (amSessionDate: string): AmInboxLateSessionView => ({
     },
 });
 
+export async function loadAmInboxLateSessionViewForDate(
+  amSessionDate: string,
+): Promise<AmInboxLateSessionView> {
+  const rows = await withTimeout(
+    fetchActiveLateSessionHandoffs(amSessionDate),
+    LATE_SESSION_HANDOFF_FETCH_TIMEOUT_MS,
+    "late_session_handoff_list_active_v1",
+  );
+  const contexts = rows.map((row) => mapPersistedLateSessionRow(row, amSessionDate));
+  return buildAmInboxLateSessionViewFromContexts(amSessionDate, contexts, {
+    mirrorCollapsedToSessionStorage: false,
+  });
+}
+
 export function useAmInboxLateSessionHandoffs(amSessionDate: string) {
   const { user } = useAuth();
   return useQuery({
@@ -30,19 +44,10 @@ export function useAmInboxLateSessionHandoffs(amSessionDate: string) {
     enabled: !!user?.id && !!amSessionDate,
     staleTime: 60_000,
     refetchInterval: 120_000,
+    refetchOnWindowFocus: false,
     retry: 2,
     retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
-    queryFn: async () => {
-      const rows = await withTimeout(
-        fetchActiveLateSessionHandoffs(amSessionDate),
-        LATE_SESSION_HANDOFF_FETCH_TIMEOUT_MS,
-        "late_session_handoff_list_active_v1",
-      );
-      const contexts = rows.map((row) => mapPersistedLateSessionRow(row, amSessionDate));
-      return buildAmInboxLateSessionViewFromContexts(amSessionDate, contexts, {
-        mirrorCollapsedToSessionStorage: false,
-      });
-    },
+    queryFn: () => loadAmInboxLateSessionViewForDate(amSessionDate),
     placeholderData: (previousData) => {
       if (previousData?.asOfSessionDate === amSessionDate) return previousData;
       return undefined;
