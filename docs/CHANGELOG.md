@@ -4,6 +4,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- Batch 184 Mobile navigation stability & loading lifecycle V1 (branch `cursor/batch184-mobile-nav-stability`): late-session view build no longer mirrors ~800+ rows into sessionStorage per fetch; bounded RPC/Radar timeouts; Pre-Market/Carryover guarded workflow links. Runbook `docs/release/batch184-mobile-navigation-stability-v1.md`. Authenticated mobile acceptance **NOT VERIFIED**.
 - Batch 174/175 Monday scanner + Inbox continuation merged (PR **#183** → **`13a018a9`**): acceptance matrix, Batch **175** criteria, Penny Continuation classification.
 - Batch 175 Tuesday production acceptance (docs): production RPC verified Monday **2026-10-26** handoffs for AM **2026-10-27** — `batch175-tuesday-production-acceptance-2026-10-27.md`; read-only probe `scripts/ops/batch175-readonly-handoff-probe.mjs`.
 - Batch 183 Desktop Day Trade Radar workspace tabs V1 merged (PR **#182** → **`3ef97ee1`**): desktop tabbed workspace (Live Radar, Momentum, Historical, Signals, Settings); mobile behavior unchanged.

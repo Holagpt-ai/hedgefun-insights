@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import type {
   AmInboxLateSessionCandidate,
   LateSessionContinuationFunnel,
@@ -103,6 +104,7 @@ export function LateSessionHandoffsList({
   visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
   loading = false,
   error = false,
+  onRetry,
   expiredCount = 0,
 }: {
   candidates: readonly AmInboxLateSessionCandidate[];
@@ -111,6 +113,7 @@ export function LateSessionHandoffsList({
   visibleLimit?: number;
   loading?: boolean;
   error?: boolean;
+  onRetry?: () => void;
   expiredCount?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -131,10 +134,20 @@ export function LateSessionHandoffsList({
     return (
       <div
         role="alert"
-        className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-6 text-center text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100"
+        className="flex flex-col items-center gap-3 rounded-xl border border-red-200 bg-red-50/80 px-4 py-6 text-center text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100"
         data-testid="am-inbox-late-session-handoffs-error"
       >
-        Could not load continuation candidates. Prior-session cards are hidden until retry succeeds.
+        <p>Could not load continuation candidates. Prior-session cards are hidden until retry succeeds.</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
+        ) : null}
       </div>
     );
   }

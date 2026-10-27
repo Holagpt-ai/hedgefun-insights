@@ -101,9 +101,7 @@ export default function AMInbox() {
       ? lateSessionQuery.data
       : undefined;
   const lateSessionLoading =
-    !!amSessionDate &&
-    (lateSessionQuery.isLoading ||
-      (lateSessionQuery.isFetching && lateSessionView === undefined));
+    !!amSessionDate && lateSessionQuery.isLoading && lateSessionQuery.data === undefined;
   const showLateSessionSection = !!amSessionDate && !ws.isUnavailable;
 
   const morningBoardSymbols = useMemo(() => {
@@ -321,6 +319,9 @@ export default function AMInbox() {
               <LateSessionHandoffsList
                 loading={lateSessionLoading}
                 error={lateSessionQuery.isError}
+                onRetry={() => {
+                  void lateSessionQuery.refetch();
+                }}
                 expiredCount={lateSessionView?.expiredCount ?? 0}
                 candidates={lateSessionView?.candidates ?? []}
                 qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}

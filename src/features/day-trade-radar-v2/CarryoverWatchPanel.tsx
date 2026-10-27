@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { guardedWorkflowLinkClick } from "@/lib/navigation/guarded-link-click";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCarryoverWatch } from "@/hooks/useCarryoverWatch";
 import type { CarryoverCandidateView } from "@/lib/radar/carryover-watch";
@@ -31,6 +32,7 @@ function Handoffs({ row }: { row: CarryoverCandidateView }) {
         <Link
           key={label}
           to={href}
+          onClick={(event) => guardedWorkflowLinkClick(event)}
           className="h-7 rounded-md border border-border px-2 text-[11px] font-semibold leading-7"
         >
           {label}

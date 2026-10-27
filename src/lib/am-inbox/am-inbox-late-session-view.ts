@@ -5,7 +5,10 @@ import type {
   LateSessionContinuationFunnel,
 } from "@/lib/am-inbox/late-session-continuation-types";
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
-import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
+import {
+  listStoredLateSessionHandoffs,
+  persistLateSessionHandoffBatch,
+} from "@/lib/am-inbox/late-session-handoff-storage";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { enrichHandoffContextFromHistoricalWorkflow } from "@/lib/am-inbox/late-session-workflow-handoff";
 import { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
@@ -112,10 +115,21 @@ function mergeContextWithWorkflow(
 
 export { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
 
+export type BuildAmInboxLateSessionViewOptions = {
+  /**
+   * Mirror collapsed rows into sessionStorage for offline/tests.
+   * Server-driven AM Inbox should disable this — large Monday captures otherwise
+   * block the main thread on every refetch.
+   */
+  mirrorCollapsedToSessionStorage?: boolean;
+};
+
 export function buildAmInboxLateSessionViewFromContexts(
   amSessionDate: string,
   contexts: readonly LateSessionContinuationContext[],
+  options: BuildAmInboxLateSessionViewOptions = {},
 ): AmInboxLateSessionView {
+  const mirrorCollapsed = options.mirrorCollapsedToSessionStorage !== false;
   const raw: AmInboxLateSessionCandidate[] = [];
   let expiredCount = 0;
 
@@ -129,8 +143,8 @@ export function buildAmInboxLateSessionViewFromContexts(
   }
 
   const collapsed = collapseLateSessionCandidates(raw);
-  for (const entry of collapsed) {
-    persistLateSessionHandoff(entry.context);
+  if (mirrorCollapsed) {
+    persistLateSessionHandoffBatch(collapsed.map((entry) => entry.context));
   }
   const { defaultDisplay, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
     raw,

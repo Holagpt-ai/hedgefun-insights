@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`13a018a9`** (PR **#183** merged). PR **#174** — **close without merge** (superseded). Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Baseline: `origin/main` **`e65746ab`** (docs PR **#184** merged). PR **#174** — **close without merge** (superseded). Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
 
@@ -19,11 +19,14 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
 | ISS-015 | Production `chat` not on recovered catalyst delivery | **Blocked** — rollback revision id unknown. `docs/release/edge-function-release-lovable.md`. No deploy this batch. |
 | ISS-022 | Ticker-specific catalyst/watchlist headlines could name unrelated issuers when persisted `direct` disagreed with title | **Fixed on `main`** (Batch **181**, PR **#180** → **`aae43f98`**) — live reconcile + headline gates; runbook `docs/release/batch181-catalyst-watchlist-source-integrity-v1.md`. Stale DB rows may still need sync/reconcile jobs. |
+| ISS-023 | Mobile browser freeze after workflow link taps (Pre-Market, Carryover) | **Root cause confirmed in code** (Batch **184** branch) — per-row sessionStorage mirror in late-session view build blocked main thread; mitigations: batch/skip mirror, defer handoff writes, guarded links. Production mobile re-check **NOT VERIFIED**. |
+| ISS-027 | Volume Leaders / section skeletons not terminating | **Partial fix (Batch 184 branch)** — Radar V2 volume-leader fetch timeout + late-session initial-load-only skeleton. Risk Flags layout (Batch **188**) still open. |
 
 ## Reported
 
 | ID | Item | Why it is not confirmed |
 | --- | --- | --- |
+| ISS-025 | AM Inbox Late-Session Continuation stuck loading despite Monday RPC rows | **Observed UI** 2026-10-27; Batch **184** addresses client mirror/refetch loading; full display acceptance → Batch **186**. |
 | ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #179/#180 Vercel deploy. |
 | ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
 | ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |
