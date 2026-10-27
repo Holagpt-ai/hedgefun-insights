@@ -2,9 +2,26 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`e65746ab`** (docs PR **#184** merged). PR **#174** — **close without merge** (superseded). Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Historical baseline: `origin/main` **`13a018a9`** (PR **#183** merged). **Current baseline `4757b9de`** (PR **#185** Master Reset V3 docs); **`e65746ab`** (PR **#184** Tuesday acceptance). **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
+
+## Current active triage — 2026-10-27 screenshots (reported, not backend-confirmed)
+
+Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check at `main` `4757b9de`. Full evidence/order: `docs/release/master-reset-2026-10-27.md`. Old fixes stay in changelog; do not relabel those as open defects.
+
+| ID | Priority | Open item | Status / next action |
+| --- | --- | --- | --- |
+| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Observed UI**; Cursor Batch 185 track existing generation/restore path, do not infer quotes |
+| ISS-025 | P0 | AM Inbox continuation never exits loading despite 2,056 Monday records | **Observed UI / persistence previously PASS**; Batch **186** authenticated display; Batch **184** client fixes in PR **#186** (merge + mobile verify pending) |
+| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Observed UI / code filter+cap verified**; Batch 187 deterministic ranking and confirmed schedule coverage |
+| ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Observed UI**; Batch **188** mobile layout (Volume Leaders skeleton addressed in PR **#186**, not production-verified) |
+| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **Observed UI**; verify Batch 181 production paths before DB changes; bounded reconciliation only |
+| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
+| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Observed UI**; Batch 188 compact/expand disclosure |
+| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Observed UI**, not equivalent candidate universe; Batch 185 compare provenance/eligibility |
+
+**Acceptance:** PR #174 CLOSED unmerged; PR #184 MERGED (`e65746ab`); PR #185 MERGED (`4757b9de`). Batch 174 conditional; Batch 175 Monday→Tuesday persistence PASS, authenticated AM display NOT VERIFIED. Batch **184** code in PR **#186** — **NOT MERGED**. Remaining issuer-specific attribution DB rewrite is not authorized.
 
 ## Confirmed
 
@@ -19,14 +36,12 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
 | ISS-015 | Production `chat` not on recovered catalyst delivery | **Blocked** — rollback revision id unknown. `docs/release/edge-function-release-lovable.md`. No deploy this batch. |
 | ISS-022 | Ticker-specific catalyst/watchlist headlines could name unrelated issuers when persisted `direct` disagreed with title | **Fixed on `main`** (Batch **181**, PR **#180** → **`aae43f98`**) — live reconcile + headline gates; runbook `docs/release/batch181-catalyst-watchlist-source-integrity-v1.md`. Stale DB rows may still need sync/reconcile jobs. |
-| ISS-023 | Mobile browser freeze after workflow link taps (Pre-Market, Carryover) | **Root cause confirmed in code** (Batch **184** branch) — per-row sessionStorage mirror in late-session view build blocked main thread; mitigations: batch/skip mirror, defer handoff writes, guarded links. Production mobile re-check **NOT VERIFIED**. |
-| ISS-027 | Volume Leaders / section skeletons not terminating | **Partial fix (Batch 184 branch)** — Radar V2 volume-leader fetch timeout + late-session initial-load-only skeleton. Risk Flags layout (Batch **188**) still open. |
+| ISS-023 | Mobile browser freeze after workflow link taps (Pre-Market, Carryover) | **Fixed in git (PR #186, not merged)** — sessionStorage mirror batching/skip, deferred handoffs, same-destination nav guard; runbook `batch184-mobile-navigation-stability-v1.md`. Production mobile re-check **NOT VERIFIED**. |
 
 ## Reported
 
 | ID | Item | Why it is not confirmed |
 | --- | --- | --- |
-| ISS-025 | AM Inbox Late-Session Continuation stuck loading despite Monday RPC rows | **Observed UI** 2026-10-27; Batch **184** addresses client mirror/refetch loading; full display acceptance → Batch **186**. |
 | ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #179/#180 Vercel deploy. |
 | ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
 | ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |

@@ -77,7 +77,11 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 - Further SEC schedule, write-gate, or function changes. Gate I.3 activation already happened (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule.
 - Catalyst source enablement (`docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
 
-## Approved next batches (2026-10-24 master reset)
+## Active master reset (2026-10-27)
+
+Latest GitHub `main` baseline: **`4757b9de`**, PR **#185** Master Reset V3 docs merged; **`e65746ab`** (PR **#184** Tuesday acceptance). PR **#174** closed without merge. Batch **184** application fix in PR **#186** — **not merged**. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
+
+## Historical batch register (2026-10-24 master reset)
 
 See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`13a018a9`** (PR **#183** merged). **174** acceptance **CONDITIONAL**. **175** persistence **PASS** via production RPC (2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. PR **#174** — close without merge. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
 
