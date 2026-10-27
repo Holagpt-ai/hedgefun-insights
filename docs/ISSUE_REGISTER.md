@@ -12,14 +12,14 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Observed UI**; Cursor Batch 185 track existing generation/restore path, do not infer quotes |
+| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Partial fix in git (Batch 185 PR)** — null/malformed `tab_evaluation_evidence` + RPC 4-arg fallback; extended-session Gappers still use Radar restore when sync marks `prerequisite_unavailable`. Production **NOT VERIFIED**. |
 | ISS-025 | P0 | AM Inbox continuation never exits loading despite 2,056 Monday records | **Observed UI / persistence previously PASS**; Batch **186** authenticated display; Batch **184** client fixes in PR **#186** (merge + mobile verify pending) |
 | ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Observed UI / code filter+cap verified**; Batch 187 deterministic ranking and confirmed schedule coverage |
 | ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Observed UI**; Batch **188** mobile layout (Volume Leaders skeleton addressed in PR **#186**, not production-verified) |
 | ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **Observed UI**; verify Batch 181 production paths before DB changes; bounded reconciliation only |
 | ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
 | ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Observed UI**; Batch 188 compact/expand disclosure |
-| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Observed UI**, not equivalent candidate universe; Batch 185 compare provenance/eligibility |
+| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; evidence column gap caused dashboard “unavailable” while homepage showed provider movers. Not a universe substitute. |
 
 **Acceptance:** PR #174 CLOSED unmerged; PR #184 MERGED (`e65746ab`); PR #185 MERGED (`4757b9de`). Batch 174 conditional; Batch 175 Monday→Tuesday persistence PASS, authenticated AM display NOT VERIFIED. Batch **184** code in PR **#186** — **NOT MERGED**. Remaining issuer-specific attribution DB rewrite is not authorized.
 
