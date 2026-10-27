@@ -190,4 +190,36 @@ describe("LateSessionHandoffsList", () => {
     );
     expect(screen.getByText("PRI00")).toBeTruthy();
   });
+
+  it("shows refresh warning without hiding cards when error follows a successful load", () => {
+    const candidates = makePriorityCandidates(2);
+    render(
+      <MemoryRouter>
+        <LateSessionHandoffsList
+          candidates={candidates}
+          qualifiedCandidates={candidates}
+          error
+          refreshWarning
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("am-inbox-late-session-handoffs-refresh-warning")).toBeInTheDocument();
+    expect(screen.getByTestId("am-inbox-late-session-handoffs")).toBeInTheDocument();
+    expect(screen.queryByTestId("am-inbox-late-session-handoffs-error")).not.toBeInTheDocument();
+  });
+
+  it("keeps cards visible while a background refresh is in progress", () => {
+    const candidates = makePriorityCandidates(2);
+    render(
+      <MemoryRouter>
+        <LateSessionHandoffsList
+          candidates={candidates}
+          qualifiedCandidates={candidates}
+          loading
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("am-inbox-late-session-handoffs")).toBeInTheDocument();
+    expect(screen.queryByTestId("am-inbox-late-session-handoffs-loading")).not.toBeInTheDocument();
+  });
 });

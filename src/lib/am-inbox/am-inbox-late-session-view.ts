@@ -98,6 +98,7 @@ export function buildLateSessionContinuationFunnel(
 function mergeContextWithWorkflow(
   context: LateSessionContinuationContext,
   amSessionDate: string,
+  workflowBySymbol: Map<string, ReturnType<typeof readHistoricalWorkflowContext>>,
 ): AmInboxLateSessionCandidate | null {
   const expiry = resolveLateSessionExpiryState({
     sourceSessionDate: context.sourceSessionDate,
@@ -106,7 +107,12 @@ function mergeContextWithWorkflow(
   });
   if (expiry.expiryState === "expired") return null;
 
-  const workflow = readHistoricalWorkflowContext(context.symbol);
+  const symbolKey = context.symbol.trim().toUpperCase();
+  let workflow = workflowBySymbol.get(symbolKey);
+  if (workflow === undefined) {
+    workflow = readHistoricalWorkflowContext(context.symbol);
+    workflowBySymbol.set(symbolKey, workflow);
+  }
   const enriched = enrichHandoffContextFromHistoricalWorkflow(
     { ...context, ...expiry },
     workflow,
@@ -137,9 +143,10 @@ export function buildAmInboxLateSessionViewFromContexts(
   const mirrorCollapsed = options.mirrorCollapsedToSessionStorage !== false;
   const raw: AmInboxLateSessionCandidate[] = [];
   let expiredCount = 0;
+  const workflowBySymbol = new Map<string, ReturnType<typeof readHistoricalWorkflowContext>>();
 
   for (const context of contexts) {
-    const merged = mergeContextWithWorkflow(context, amSessionDate);
+    const merged = mergeContextWithWorkflow(context, amSessionDate, workflowBySymbol);
     if (!merged) {
       expiredCount += 1;
       continue;

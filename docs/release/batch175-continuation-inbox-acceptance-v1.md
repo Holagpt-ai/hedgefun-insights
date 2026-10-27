@@ -29,13 +29,14 @@ flowchart LR
 | # | Criterion | Status (2026-10-26) | Evidence |
 | --- | --- | --- | --- |
 | 1 | Worker persists qualified late-session captures | **PASS (inferred)** | 2026-10-26 rows present; `source_timestamp` ~21:11 UTC cluster (see Tuesday acceptance doc) |
-| 2 | RPC returns active rows for target `p_am_session_date` | **PASS** | `list_active_v1('2026-10-27')` → 2,056 Monday-source rows (2026-10-26 ~17:12 ET probe) |
+| 2 | RPC returns active rows for target `p_am_session_date` | **PASS** | Lovable Oct 27: **3,131** rows (`2026-10-27`); **2,272** Monday `2026-10-26` source; **859** Fri Day-Two |
 | 3 | Categories labeled (Power Hour, AH, HOD, Day-Two) | **PASS (regression)** | `LateSessionHandoffsList` + batch12 view tests |
 | 4 | Qualified fallback when priority pool empty | **PASS (regression)** | `am-inbox-late-session-funnel.test.ts`, `am-inbox-default-list-regression.test.ts` |
 | 5 | Expired captures omitted | **PASS (regression)** | `late-session-expiry` + batch12 |
 | 6 | Security/symbol identity on handoff | **PASS (regression)** | Batch **173** + `late-session-workflow-handoff.test.ts` |
 | 7 | Morning board merges continuation symbols | **PASS (code review)** | `AMInbox.tsx` `collectMorningBoardEnrichmentSymbols` |
 | 8 | Prior-session copy (“not live market activity”) | **NOT VERIFIED (UI)** | HandoffCard contract in git; login required for live check |
+| 9 | Large payload client processing / loading lifecycle | **CONDITIONAL** | Batch **186** code + tests; UI **NOT VERIFIED** |
 
 ## Completed vs remaining
 

@@ -133,6 +133,7 @@ async function ingestEarnings(
     if (isFiniteNumber(r.surprise_percent)) facts.surprise_percent = r.surprise_percent;
 
     const tod = normalizeTimeOfDay(r.time_of_day);
+    if (tod === null) facts.timing_unspecified = true;
 
     const companyName = nonEmptyTrimmed(r.company_name);
     rows.push({

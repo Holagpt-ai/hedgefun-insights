@@ -11,8 +11,13 @@ import {
   type UpcomingRow,
 } from "../watchlist-v2/session.ts";
 import { boundWatchlistAlertReason } from "../watchlist-v2/signal-assertion-provenance.ts";
+import {
+  rankEarningsByMarketImpact,
+  type EarningsSymbolMarketMetadata,
+} from "./earnings-market-impact.ts";
 
 export type { UpcomingRow };
+export type { EarningsSymbolMarketMetadata };
 
 
 export type SectionStatus = "available" | "empty" | "stale" | "unavailable";
@@ -949,7 +954,13 @@ export function isConfirmedBeforeOpenEarnings(row: CatalystLike, etDate: string)
 export function isEarningsTodayTimingUnconfirmed(row: CatalystLike, etDate: string): boolean {
   if (!isConfirmedEarningsCalendarEvent(row)) return false;
   if (row.event_date !== etDate) return false;
-  return normalizeTimeOfDay(row.time_of_day) === null;
+  const tod = normalizeTimeOfDay(row.time_of_day);
+  if (tod === null) return true;
+  if (tod === "during") {
+    const rowFacts = row as CatalystLike & { facts?: unknown };
+    return readEarningsTimingFacts(rowFacts.facts).timing_unspecified;
+  }
+  return false;
 }
 
 /** Only the persisted ingestion fact keys are read. Nothing is synthesized. */
@@ -968,38 +979,55 @@ export function readEarningsFacts(facts: unknown): {
   };
 }
 
+export function readEarningsTimingFacts(facts: unknown): { timing_unspecified: boolean } {
+  const f = (facts && typeof facts === "object" && !Array.isArray(facts))
+    ? facts as Record<string, unknown>
+    : {};
+  return { timing_unspecified: f.timing_unspecified === true };
+}
+
 /**
- * Deterministic selection: watchlist symbols first, then alphabetical ticker.
- * No scoring, no ranking. Returns the bounded page plus the true total.
+ * Deterministic selection: market-impact ranking before the display cap.
+ * Returns the bounded page plus the true eligible total.
  */
 export function selectBeforeOpenEarnings<T extends CatalystLike & { symbol: string }>(
   rows: T[],
-  opts: { etDate: string; owned: ReadonlySet<string>; limit?: number },
+  opts: {
+    etDate: string;
+    owned: ReadonlySet<string>;
+    limit?: number;
+    metadataBySymbol?: ReadonlyMap<string, EarningsSymbolMarketMetadata>;
+  },
 ): { rows: T[]; total: number } {
   const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
   const qualifying = rows.filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate));
-  const sorted = [...qualifying].sort((a, b) => {
-    const aw = opts.owned.has(a.symbol) ? 0 : 1;
-    const bw = opts.owned.has(b.symbol) ? 0 : 1;
-    if (aw !== bw) return aw - bw;
-    return a.symbol.localeCompare(b.symbol);
+  const metadataBySymbol = opts.metadataBySymbol ?? new Map<string, EarningsSymbolMarketMetadata>();
+  const ranked = rankEarningsByMarketImpact(qualifying, {
+    owned: opts.owned,
+    metadataBySymbol,
   });
+  const sorted = ranked.map((entry) => entry.row);
   return { rows: sorted.slice(0, Math.max(0, limit)), total: qualifying.length };
 }
 
 /** Deterministic selection for today ET with unconfirmed reporting time. */
 export function selectEarningsTodayTimingUnconfirmed<T extends CatalystLike & { symbol: string }>(
   rows: T[],
-  opts: { etDate: string; owned: ReadonlySet<string>; limit?: number },
+  opts: {
+    etDate: string;
+    owned: ReadonlySet<string>;
+    limit?: number;
+    metadataBySymbol?: ReadonlyMap<string, EarningsSymbolMarketMetadata>;
+  },
 ): { rows: T[]; total: number } {
   const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
   const qualifying = rows.filter((r) => isEarningsTodayTimingUnconfirmed(r, opts.etDate));
-  const sorted = [...qualifying].sort((a, b) => {
-    const aw = opts.owned.has(a.symbol) ? 0 : 1;
-    const bw = opts.owned.has(b.symbol) ? 0 : 1;
-    if (aw !== bw) return aw - bw;
-    return a.symbol.localeCompare(b.symbol);
+  const metadataBySymbol = opts.metadataBySymbol ?? new Map<string, EarningsSymbolMarketMetadata>();
+  const ranked = rankEarningsByMarketImpact(qualifying, {
+    owned: opts.owned,
+    metadataBySymbol,
   });
+  const sorted = ranked.map((entry) => entry.row);
   return { rows: sorted.slice(0, Math.max(0, limit)), total: qualifying.length };
 }
 

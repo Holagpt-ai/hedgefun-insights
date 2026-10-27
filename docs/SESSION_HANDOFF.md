@@ -1,19 +1,19 @@
 # Session handoff — latest 2026-10-27
 
-**Canonical current main:** `e662c928` (PR **#187** Batch 185 scanner evidence merged). Prior **`0fa177dd`** (PR **#186** Batch 184).
+**Canonical current main:** `d3cec11f` (PR **#189** Batch 186 AM Inbox continuation merged).
 
-**Batch 185:** Source complete on `main`. Lovable **Oct 27 read-only** screener verification: **115 rows**, six tabs **evaluated**, **5-arg RPC** and valid **`tab_evaluation_evidence`** — **PASS**. Migration apply history and exact Edge revision id remain **UNKNOWN** (not failed). **No** screener migration or Edge redeploy justified by that evidence check alone.
+**Lovable integration:** Forward-sync @ **`a03407c2`** — refresh from `d3cec11f` when approved.
 
-**Lovable preview type parity:** Hotfix PR (from `e662c928`) carries `get-pre-market-workspace` + `radar-historical-context` type-only fixes already on integration branch `cursor/lovable-sync-from-main-20261024` @ `a4a27a01`. After hotfix merge → **forward-sync integration branch** from `main` (non-destructive; do not merge whole integration branch into `main`).
+**Batch 186 (ISS-025):** Merged **`d3cec11f`** — handoff parallel fetch, refresh-failure UX, workspace decouple. **Authenticated AM Inbox production UI NOT VERIFIED.**
 
-**Open UI:** JournalWorkspace terminal-error loading defect **confirmed** — unfinished; not in this hotfix.
+**Batch 187 / 187.1 / 187.2 (ISS-026):** PR **#190** (`cursor/batch187-earnings-intelligence`) — earnings calendar fetch, market-impact ranking, truncation disclosure, bounded activity metadata, MCP diff removed. **NOT MERGED.**
 
-**Next:** Merge Lovable type parity PR → forward-sync Lovable branch → Batch **186** AM Inbox continuation UI → **187–189** per master reset. ISS-006 / ISS-015 deferred. No Fly/Edge/migration from Cursor unless approved.
+**Open:** ISS-032 JournalWorkspace; ISS-028 prod UI verify only (Batch 181 guards unchanged in git).
 
-**Lovable branch:** `cursor/lovable-sync-from-main-20261024` @ `a4a27a01` (Batch 185 read-only commit on branch). Git and production deployment states are independent.
+**Next:** Merge PR **#190** → Lovable Edge activation (1. `get-pre-market-workspace`, 2. `sync-earnings-finnhub`, 3. `sync-catalyst-events`) → Vercel → AM earnings sign-off. No Fly/migration apply unless approved.
 
 ---
 
 # Session handoff (archive)
 
-See `docs/CHANGELOG.md` and batch runbooks under `docs/release/` for prior sessions.
+See `docs/CHANGELOG.md` and `docs/release/` runbooks.
