@@ -6,7 +6,10 @@ import {
 } from "@/lib/screeners/contract";
 import { reconcilePublicationTabEvidence } from "@/lib/screeners/publication-evidence-reconcile";
 import { resolveScreenerTruthState } from "@/lib/screeners/screener-truth-state";
-import { parseTabEvaluationEvidencePartial } from "@/lib/screeners/tab-evaluation-evidence";
+import {
+  parseTabEvaluationEvidencePartial,
+  type TabEvaluationEvidenceMap,
+} from "@/lib/screeners/tab-evaluation-evidence";
 
 const SYNC = "11111111-1111-4111-8111-111111111111";
 const SYNCED = "2026-10-27T12:10:00.000Z";
@@ -69,19 +72,30 @@ function gainersRow(symbol: string): ScreenerResultRow {
   };
 }
 
-describe("Batch 185 — publication evidence reconcile", () => {
-  it("derives gainers_losers evaluated evidence from published rows when column is null", () => {
+function radarRow(symbol: string): ScreenerResultRow {
+  return {
+    ...gainersRow(symbol),
+    tab_id: "day_trade_radar",
+    prior_session_volume: 500_000,
+    volume_ratio_prior_session: 2,
+    day_high: 11,
+    day_low: 9,
+  };
+}
+
+describe("Batch 185.1 — publication evidence honesty (Oct 27 regression fixtures)", () => {
+  it("1) Gainers/Losers rows + null evidence → publication-confirmed rows, not full evaluation", () => {
     const rows = [gainersRow("BRAI")];
     const reconciled = reconcilePublicationTabEvidence({
       state: state(),
       rows,
       evidence: null,
     });
-    expect(reconciled?.gainers_losers).toMatchObject({
-      status: "evaluated",
-      selected_count: 1,
-      qualified_count: 1,
+    expect(reconciled?.gainers_losers).toEqual({
+      status: "publication_confirmed",
+      published_count: 1,
     });
+    expect(reconciled?.gainers_losers).not.toHaveProperty("universe_count");
 
     const truth = resolveScreenerTruthState({
       tabId: "gainers_losers",
@@ -91,20 +105,80 @@ describe("Batch 185 — publication evidence reconcile", () => {
       tabEvaluationEvidence: reconciled,
       source: "screener-results",
     });
-    expect(truth.reason).toBe("evaluated_with_results");
+    expect(truth.reason).toBe("publication_confirmed_results");
+    expect(truth.showRows).toBe(true);
+    expect(truth.advisory).toMatch(/5-argument replace RPC/);
   });
 
-  it("validateGeneration attaches reconciled evidence for null tab_evaluation_evidence", () => {
-    const rows = [gainersRow("AXG")];
-    const outcome = validateGeneration([state()], rows, NOW);
-    expect(outcome.ok).toBe(true);
-    if (!outcome.ok) return;
-    expect(outcome.generation.tab_evaluation_evidence?.gainers_losers?.status).toBe(
-      "evaluated",
-    );
+  it("2) Other tabs have rows, G/L zero + null evidence → empty G/L stays evidence missing (Oct 27 screen)", () => {
+    const rows = [radarRow("AXG")];
+    const feedState = state({
+      rows_inserted: 1,
+      tab_counts: { ...emptyCounts(), day_trade_radar: 1 },
+    });
+    const reconciled = reconcilePublicationTabEvidence({
+      state: feedState,
+      rows,
+      evidence: null,
+    });
+    expect(reconciled?.gainers_losers).toBeUndefined();
+
+    const truth = resolveScreenerTruthState({
+      tabId: "gainers_losers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: reconciled,
+      source: "screener-results",
+    });
+    expect(truth.reason).toBe("evaluation_evidence_missing");
+    expect(truth.title).toBe("Evaluation evidence unavailable");
   });
 
-  it("parseTabEvaluationEvidencePartial keeps valid tabs when one tab payload is malformed", () => {
+  it("3) NHL zero rows, baseline available, missing evidence → not a verified zero match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: null,
+      source: "screener-results",
+    });
+    expect(truth.reason).toBe("evaluation_evidence_missing");
+    expect(truth.reason).not.toBe("validated_zero_matches");
+  });
+
+  it("4) NHL provider evaluation evidence supports genuine zero-match", () => {
+    const evidence: TabEvaluationEvidenceMap = {
+      new_highs_lows: {
+        status: "evaluated",
+        baseline_status: "available",
+        baseline_quote_count: 500,
+        universe_count: 400,
+        eligible_count: 50,
+        evaluated_count: 48,
+        policy_excluded_count: 1,
+        no_history_count: 1,
+        unresolved_count: 0,
+        qualified_count: 0,
+        selected_count: 0,
+      },
+    };
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: evidence,
+      source: "screener-results",
+    });
+    expect(truth.reason).toBe("validated_zero_matches");
+    expect(truth.title).toBe("Baseline ready");
+  });
+
+  it("5) malformed gappers evidence skipped; valid gainers evidence retained", () => {
     const partial = parseTabEvaluationEvidencePartial({
       gainers_losers: {
         status: "evaluated",
@@ -122,5 +196,31 @@ describe("Batch 185 — publication evidence reconcile", () => {
     });
     expect(partial?.gainers_losers).toBeTruthy();
     expect(partial?.gappers).toBeUndefined();
+  });
+
+  it("validateGeneration attaches publication_confirmed only for tabs with published rows", () => {
+    const rows = [gainersRow("XXII")];
+    const outcome = validateGeneration([state()], rows, NOW);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.generation.tab_evaluation_evidence?.gainers_losers).toEqual({
+      status: "publication_confirmed",
+      published_count: 1,
+    });
+  });
+
+  it("does not infer universe counts from tab_counts when reconciling", () => {
+    const rows = [gainersRow("CLRO")];
+    const reconciled = reconcilePublicationTabEvidence({
+      state: state({ tab_counts: { ...emptyCounts(), gainers_losers: 20 } }),
+      rows,
+      evidence: null,
+    });
+    expect(
+      reconciled?.gainers_losers &&
+        "published_count" in reconciled.gainers_losers &&
+        reconciled.gainers_losers.published_count,
+    ).toBe(1);
+    expect(reconciled?.gainers_losers).not.toHaveProperty("qualified_count");
   });
 });

@@ -83,9 +83,24 @@ export type DbQuery = {
   ) => Promise<R1 | R2>;
 };
 
+export type DbUpdateResult = {
+  data: Array<Record<string, unknown>> | null;
+  error: { message: string } | null;
+};
+
+export type DbUpdateQuery = {
+  eq: (col: string, value: string) => DbUpdateQuery;
+  select: (cols: string) => DbUpdateQuery;
+  then: <R1 = DbUpdateResult, R2 = never>(
+    onfulfilled?: ((value: DbUpdateResult) => R1 | PromiseLike<R1>) | null,
+    onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ) => Promise<R1 | R2>;
+};
+
 export type DbClient = {
   from: (table: string) => {
     select: (cols: string) => DbQuery;
+    update: (values: Record<string, unknown>) => DbUpdateQuery;
   };
   rpc: (
     fn: string,
@@ -195,6 +210,106 @@ async function loadPolicyExclusions(
   });
 }
 
+async function loadCurrentFeedGenerationRow(
+  sb: DbClient,
+  columns: string,
+): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }> {
+  try {
+    const res = await sb
+      .from("screener_feed_state")
+      .select(columns)
+      .eq("state_key", "current")
+      .limit(1);
+    if (res.error || !res.data || res.data.length === 0) {
+      return { data: null, error: res.error ?? { message: "missing_feed_state" } };
+    }
+    return { data: res.data[0], error: null };
+  } catch {
+    return { data: null, error: { message: "feed_state_query_failed" } };
+  }
+}
+
+export type TabEvaluationEvidencePersistenceResult =
+  | { mode: "atomic_rpc" }
+  | { mode: "legacy_patch"; persisted: true }
+  | { mode: "legacy_patch"; persisted: false; reason: string };
+
+/** After 4-arg RPC only — never overwrites a newer generation. */
+export async function persistTabEvaluationEvidenceAfterLegacyRpc(
+  sb: DbClient,
+  input: {
+    syncRunId: string;
+    expectedRowsInserted: number;
+    tabEvaluationEvidence: TabEvaluationEvidenceMap;
+  },
+): Promise<TabEvaluationEvidencePersistenceResult> {
+  const rowRes = await loadCurrentFeedGenerationRow(
+    sb,
+    "sync_run_id,rows_inserted",
+  );
+  const row = rowRes.data;
+  if (!row) {
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: "no_matching_generation",
+    };
+  }
+  const feedSyncRunId = typeof row.sync_run_id === "string" ? row.sync_run_id : null;
+  const feedRowsInserted = typeof row.rows_inserted === "number"
+    ? row.rows_inserted
+    : null;
+  if (!feedSyncRunId || feedSyncRunId !== input.syncRunId) {
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: "generation_sync_run_mismatch",
+    };
+  }
+  if (
+    feedRowsInserted === null ||
+    !Number.isInteger(feedRowsInserted) ||
+    feedRowsInserted !== input.expectedRowsInserted
+  ) {
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: "generation_row_count_mismatch",
+    };
+  }
+
+  const patch = await sb
+    .from("screener_feed_state")
+    .update({ tab_evaluation_evidence: input.tabEvaluationEvidence })
+    .eq("state_key", "current")
+    .eq("sync_run_id", input.syncRunId)
+    .select("sync_run_id");
+  if (patch.error) {
+    const patchMsg = String(patch.error.message ?? "").toLowerCase();
+    if (patchMsg.includes("tab_evaluation_evidence")) {
+      return {
+        mode: "legacy_patch",
+        persisted: false,
+        reason: "evidence_column_unavailable",
+      };
+    }
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: patch.error.message,
+    };
+  }
+  const patched = patch.data ?? [];
+  if (patched.length !== 1) {
+    return {
+      mode: "legacy_patch",
+      persisted: false,
+      reason: "patch_no_matching_row",
+    };
+  }
+  return { mode: "legacy_patch", persisted: true };
+}
+
 async function loadCurrentFeedEvidenceContext(
   sb: DbClient,
 ): Promise<{
@@ -202,15 +317,14 @@ async function loadCurrentFeedEvidenceContext(
   syncedAt: string | null;
 }> {
   try {
-    const res = await sb
-      .from("screener_feed_state")
-      .select(`${FEED_EVIDENCE_SELECT},synced_at`)
-      .eq("state_key", "current")
-      .limit(1);
-    if (res.error || !res.data || res.data.length === 0) {
+    const rowRes = await loadCurrentFeedGenerationRow(
+      sb,
+      `${FEED_EVIDENCE_SELECT},synced_at`,
+    );
+    if (rowRes.error || !rowRes.data) {
       return { evidence: null, syncedAt: null };
     }
-    const row = res.data[0];
+    const row = rowRes.data;
     const syncedAt = typeof row.synced_at === "string" ? row.synced_at : null;
     const raw = row.tab_evaluation_evidence;
     if (raw === null || raw === undefined) {
@@ -585,6 +699,9 @@ export async function handleSyncScreenerData(
     p_synced_at: syncedAt,
     p_nhl_baseline_status: nhlBaseline.status,
   };
+  let evidencePersistence: TabEvaluationEvidencePersistenceResult = {
+    mode: "atomic_rpc",
+  };
   let rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, {
     ...rpcBase,
     p_tab_evaluation_evidence: tabEvaluationEvidence,
@@ -598,15 +715,18 @@ export async function handleSyncScreenerData(
     if (missingEvidenceRpc) {
       rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
       if (!rpcResult.error) {
-        const patch = await sb
-          .from("screener_feed_state")
-          .update({ tab_evaluation_evidence: tabEvaluationEvidence })
-          .eq("state_key", "current");
-        if (patch.error) {
-          const patchMsg = String(patch.error.message ?? "").toLowerCase();
-          if (!patchMsg.includes("tab_evaluation_evidence")) {
-            console.error("[sync-screener-data] evidence patch failed");
-          }
+        evidencePersistence = await persistTabEvaluationEvidenceAfterLegacyRpc(sb, {
+          syncRunId,
+          expectedRowsInserted: allRows.length,
+          tabEvaluationEvidence,
+        });
+        if (
+          evidencePersistence.mode === "legacy_patch" &&
+          !evidencePersistence.persisted
+        ) {
+          console.error(
+            `[sync-screener-data] evidence legacy patch failed: ${evidencePersistence.reason}`,
+          );
         }
       }
     }
@@ -647,6 +767,7 @@ export async function handleSyncScreenerData(
     sync_run_id: syncRunId,
     tickers_scanned: allTickers.length,
     rows_inserted: rowsInserted,
+    tab_evaluation_evidence_persistence: evidencePersistence,
     nhl_baseline_status: nhlBaseline.status,
     tabs: {
       day_trade_radar: dayTradeRows.length,

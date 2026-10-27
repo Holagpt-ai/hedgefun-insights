@@ -5,6 +5,7 @@ import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-type
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import { reconcilePublicationTabEvidence } from "@/lib/screeners/publication-evidence-reconcile";
 import {
+  isPublicationConfirmedTabEvidence,
   parseTabEvaluationEvidence,
   parseTabEvaluationEvidencePartial,
   type TabEvaluationEvidenceMap,
@@ -426,6 +427,12 @@ export function validateGeneration(
     for (const tab of MANAGED_TAB_IDS) {
       const evidence = tabEvaluationEvidence[tab];
       if (!evidence) continue;
+      if (isPublicationConfirmedTabEvidence(evidence)) {
+        if (evidence.published_count !== actualCounts[tab]) {
+          return fail("publication_confirmed_count_mismatch");
+        }
+        continue;
+      }
       if ("selected_count" in evidence && evidence.selected_count !== actualCounts[tab]) {
         return fail("tab_evaluation_selected_count_mismatch");
       }

@@ -6,7 +6,16 @@ import {
   type NhlBaselineStatus,
 } from "@/lib/screeners/contract";
 
-export type TabEvidenceEvaluationStatus = "evaluated" | "prerequisite_unavailable";
+export type TabEvidenceEvaluationStatus =
+  | "evaluated"
+  | "prerequisite_unavailable"
+  | "publication_confirmed";
+
+/** Rows verified from screener_results only — not a full universe evaluation. */
+export interface PublicationConfirmedTabEvidence {
+  status: "publication_confirmed";
+  published_count: number;
+}
 
 export interface GappersTabEvidence {
   status: TabEvidenceEvaluationStatus;
@@ -48,7 +57,8 @@ export interface GenericTabEvidence {
 export type TabEvaluationEvidence =
   | GappersTabEvidence
   | NhlTabEvidence
-  | GenericTabEvidence;
+  | GenericTabEvidence
+  | PublicationConfirmedTabEvidence;
 
 export type TabEvaluationEvidenceMap = Partial<
   Record<ManagedTabId, TabEvaluationEvidence>
@@ -71,6 +81,29 @@ function parseBoundedSymbolSample(value: unknown): string[] | null | undefined {
     out.push(item);
   }
   return out;
+}
+
+export function parsePublicationConfirmedTabEvidence(
+  raw: unknown,
+): PublicationConfirmedTabEvidence | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  if (obj.status !== "publication_confirmed") return null;
+  if (!isNonNegativeInt(obj.published_count)) return null;
+  return {
+    status: "publication_confirmed",
+    published_count: obj.published_count,
+  };
+}
+
+export function isPublicationConfirmedTabEvidence(
+  evidence: TabEvaluationEvidence | null | undefined,
+): evidence is PublicationConfirmedTabEvidence {
+  return (
+    evidence != null &&
+    "status" in evidence &&
+    evidence.status === "publication_confirmed"
+  );
 }
 
 function parseGenericTabEvidence(raw: unknown): GenericTabEvidence | null {
@@ -192,6 +225,17 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
   };
 }
 
+function parseTabEvidenceEntry(
+  tabId: ManagedTabId,
+  raw: unknown,
+): TabEvaluationEvidence | null {
+  const publication = parsePublicationConfirmedTabEvidence(raw);
+  if (publication) return publication;
+  if (tabId === "gappers") return parseGappersTabEvidence(raw);
+  if (tabId === NHL_TAB_ID) return parseNhlTabEvidence(raw);
+  return parseGenericTabEvidence(raw);
+}
+
 export function parseTabEvaluationEvidence(
   raw: unknown,
 ): TabEvaluationEvidenceMap | null {
@@ -202,12 +246,7 @@ export function parseTabEvaluationEvidence(
   for (const key of Object.keys(obj)) {
     if (!(MANAGED_TAB_IDS as readonly string[]).includes(key)) return null;
     const tabId = key as ManagedTabId;
-    const parsed =
-      tabId === "gappers"
-        ? parseGappersTabEvidence(obj[key])
-        : tabId === NHL_TAB_ID
-          ? parseNhlTabEvidence(obj[key])
-          : parseGenericTabEvidence(obj[key]);
+    const parsed = parseTabEvidenceEntry(tabId, obj[key]);
     if (!parsed) return null;
     out[tabId] = parsed;
   }
@@ -225,12 +264,7 @@ export function parseTabEvaluationEvidencePartial(
   for (const key of Object.keys(obj)) {
     if (!(MANAGED_TAB_IDS as readonly string[]).includes(key)) continue;
     const tabId = key as ManagedTabId;
-    const parsed =
-      tabId === "gappers"
-        ? parseGappersTabEvidence(obj[key])
-        : tabId === NHL_TAB_ID
-          ? parseNhlTabEvidence(obj[key])
-          : parseGenericTabEvidence(obj[key]);
+    const parsed = parseTabEvidenceEntry(tabId, obj[key]);
     if (!parsed) continue;
     out[tabId] = parsed;
   }

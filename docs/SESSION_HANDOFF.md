@@ -6,7 +6,7 @@
 
 **Batch 184 / 184.1:** Merged **`0fa177dd`** (PR **#186**). Authenticated Android re-check for ISS-023 still **NOT VERIFIED** post-deploy.
 
-**Batch 185:** Implementation on **`cursor/batch185-scanner-evidence-v1`** — client publication evidence reconcile, partial evidence parse, Edge evidence PATCH after 4-arg RPC fallback. Runbook `docs/release/batch185-scanner-evidence-v1.md`. **PR open** — requires Vercel + Lovable migration/Edge deploy for full production effect.
+**Batch 185 / 185.1:** PR **#187** on **`cursor/batch185-scanner-evidence-v1`** — honest `publication_confirmed` reconcile, guarded legacy evidence PATCH, Lovable read-only checklist. **NOT MERGED** — Vercel fixes partial row display; empty-tab Oct 27 states need Edge + 5-arg RPC for provider evidence.
 
 **Next (unfinished):** Merge Batch **185** PR → Lovable apply screener evidence migration + deploy `sync-screener-data` → Vercel → scanner tab acceptance → Batch **186** continuation UI → **187–189**. Batch **174** conditional; Batch **175** persistence PASS / UI NOT VERIFIED. ISS-006 and ISS-015 deferred/blocked. No Fly/Edge/migration from Cursor unless approved.
 

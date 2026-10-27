@@ -106,7 +106,7 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 
 ## Scanner tab evaluation evidence (Batch 185)
 
-- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state` (or client **publication reconcile** from validated `screener_results` when the column is null after RPC fallback).
+- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state`. When null, client may attach **`publication_confirmed`** evidence (published row counts only) — not a substitute for provider universe evaluation or verified zero-match claims.
 - Do not treat homepage **Market Pulse / Polygon snapshot movers** as Radar or Five Pillars qualification.
 - Extended-session **Gappers** may restore from verified Radar prior-close overlay via `restoreExtendedSessionGappers` when sync evidence is missing or `prerequisite_unavailable`; do not fabricate opening prints or gap percentages.
 
