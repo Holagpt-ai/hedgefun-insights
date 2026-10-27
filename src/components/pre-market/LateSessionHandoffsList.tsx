@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type {
   AmInboxLateSessionCandidate,
   LateSessionContinuationFunnel,
 } from "@/lib/am-inbox/late-session-continuation-types";
-import { isLateSessionPriorityCandidate } from "@/lib/am-inbox/am-inbox-late-session-view";
-import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
+import { buildLateSessionPriorityEvaluation } from "@/lib/am-inbox/am-inbox-late-session-view";
+import {
+  AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE,
+  AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
+} from "@/config/late-session-handoff.config";
 import {
   buildContinuationCapturedRvolDisplay,
   formatContinuationCaptureTimestampEt,
@@ -116,7 +119,22 @@ export function LateSessionHandoffsList({
   onRetry?: () => void;
   expiredCount?: number;
 }) {
+  const qualifiedPool = qualifiedCandidates ?? candidates;
   const [expanded, setExpanded] = useState(false);
+  const [expandedRenderCount, setExpandedRenderCount] = useState(
+    AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
+  );
+
+  useEffect(() => {
+    if (!expanded) {
+      setExpandedRenderCount(AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+    }
+  }, [expanded]);
+
+  const priorityEval = useMemo(() => {
+    if (qualifiedPool.length === 0) return null;
+    return buildLateSessionPriorityEvaluation(qualifiedPool);
+  }, [qualifiedPool]);
 
   if (loading) {
     return (
@@ -152,7 +170,6 @@ export function LateSessionHandoffsList({
     );
   }
 
-  const qualifiedPool = qualifiedCandidates ?? candidates;
   const hasQualified = qualifiedPool.length > 0;
   const hasPriority = candidates.length > 0;
 
@@ -183,8 +200,12 @@ export function LateSessionHandoffsList({
           qualifiedPool.length > 0
         ? qualifiedPool.slice(0, visibleLimit)
         : [];
-  const visible = expanded ? qualifiedPool : defaultVisible;
+  const visible = expanded
+    ? qualifiedPool.slice(0, expandedRenderCount)
+    : defaultVisible;
   const canViewAllQualified = qualifiedPool.length > defaultVisible.length;
+  const canLoadMoreExpanded =
+    expanded && expandedRenderCount < qualifiedPool.length;
 
   return (
     <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
@@ -199,16 +220,35 @@ export function LateSessionHandoffsList({
         <HandoffCard
           key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}-${entry.context.sourceTimestamp}`}
           entry={entry}
-          showQualifiedLabel={
-            !isLateSessionPriorityCandidate(entry, qualifiedPool)
-          }
+          showQualifiedLabel={priorityEval ? !priorityEval.isPriority(entry) : false}
         />
       ))}
+      {canLoadMoreExpanded ? (
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedRenderCount((n) =>
+              Math.min(n + AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE, qualifiedPool.length),
+            )
+          }
+          className="text-xs font-medium text-accent-blue hover:underline"
+        >
+          Load more ({qualifiedPool.length - expandedRenderCount} remaining)
+        </button>
+      ) : null}
       {canViewAllQualified && (
         <button
           type="button"
           aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            setExpanded((v) => {
+              const next = !v;
+              if (next) {
+                setExpandedRenderCount(AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE);
+              }
+              return next;
+            });
+          }}
           className="mt-2 text-xs font-medium text-accent-blue hover:underline"
         >
           {expanded

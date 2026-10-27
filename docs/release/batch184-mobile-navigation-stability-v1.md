@@ -23,11 +23,18 @@
 - Full Tuesday continuation display acceptance (ISS-025, Batch 186).
 - Carryover card density (ISS-030, Batch 188).
 
+## Batch 184.1 (release-safety)
+
+- `buildLateSessionPriorityEvaluation()` — one score + cutoff pass per funnel/render (850-pool fixture in `batch1841-late-session-priority-performance.test.ts`).
+- Navigation guard keys on **same `href` only**; modified clicks and other destinations pass through.
+- Expanded continuation list paginates at 40 cards per “Load more”.
+- Handoff lifecycle: `batch184-handoff-lifecycle.test.ts`.
+
 ## Verification
 
 ```sh
 npm run typecheck
-npm run test -- src/lib/am-inbox/__tests__/batch184-mobile-navigation-lifecycle.test.ts
+npm run test -- src/lib/am-inbox/__tests__/batch1841-late-session-priority-performance.test.ts src/lib/navigation/__tests__/batch184-handoff-lifecycle.test.ts
 npm run build
 ```
 

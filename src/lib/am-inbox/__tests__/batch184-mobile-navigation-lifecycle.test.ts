@@ -58,12 +58,25 @@ describe("Batch 184 — mobile navigation & loading lifecycle", () => {
     ).rejects.toBeInstanceOf(AsyncTimeoutError);
   });
 
-  it("guardedWorkflowLinkClick blocks a second navigation while armed", () => {
+  it("guardedWorkflowLinkClick blocks only duplicate same-destination taps", () => {
     const prevent = vi.fn();
-    const first = { preventDefault: prevent } as unknown as MouseEvent<HTMLAnchorElement>;
-    const second = { preventDefault: prevent } as unknown as MouseEvent<HTMLAnchorElement>;
-    guardedWorkflowLinkClick(first);
-    guardedWorkflowLinkClick(second);
+    const mk = (href: string) => {
+      const anchor = document.createElement("a");
+      anchor.setAttribute("href", href);
+      return {
+        currentTarget: anchor,
+        preventDefault: prevent,
+        button: 0,
+        metaKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        defaultPrevented: false,
+      } as unknown as MouseEvent<HTMLAnchorElement>;
+    };
+    guardedWorkflowLinkClick(mk("/dashboard/catalyst?symbol=AAA"));
+    guardedWorkflowLinkClick(mk("/dashboard/catalyst?symbol=AAA"));
+    guardedWorkflowLinkClick(mk("/dashboard/screeners?symbol=AAA"));
     expect(prevent).toHaveBeenCalledTimes(1);
   });
 });
