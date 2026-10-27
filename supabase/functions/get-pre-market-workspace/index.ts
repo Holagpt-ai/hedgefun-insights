@@ -462,7 +462,7 @@ serve(async (req) => {
     event_type: string; verification_state: string;
     event_date: string; event_time: string | null; time_of_day: string | null;
     title: string; source_name: string | null; source_url: string | null;
-    published_at: string | null; updated_at: string | null; facts: unknown;
+    published_at: string | null; updated_at: string | null; facts: Record<string, unknown> | null;
     attribution_class: "direct" | "provider_associated" | "sector_related" | "unverified";
     attribution_reason: string;
     ticker_specific: boolean;
