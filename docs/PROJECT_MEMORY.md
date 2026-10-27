@@ -29,7 +29,7 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`e4801e81`** (2026-10-25 Batch 177 forward-merge of `main` **`788b1b93`**). Application files match `main`; integration branch may carry Lovable-only files (e.g. `bun.lock`). Do not merge `cursor/chat-single-pass-v1`.
+- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`a4a27a01`** (2026-10-27 Batch 185 read-only verification on branch). After each `main` merge, **forward-sync** integration branch from `main` without merging the whole integration branch into `main`. Lovable-only files (e.g. `bun.lock`) stay on integration branch. Do not merge `cursor/chat-single-pass-v1`.
 - Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
 
@@ -109,6 +109,12 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state`. When null, client may attach **`publication_confirmed`** evidence (published row counts only) — not a substitute for provider universe evaluation or verified zero-match claims.
 - Do not treat homepage **Market Pulse / Polygon snapshot movers** as Radar or Five Pillars qualification.
 - Extended-session **Gappers** may restore from verified Radar prior-close overlay via `restoreExtendedSessionGappers` when sync evidence is missing or `prerequisite_unavailable`; do not fabricate opening prints or gap percentages.
+- **Lovable Oct 27 read-only (integration branch):** production feed **115 rows**, six tabs evaluated, **5-arg RPC** and valid evidence JSON — **PASS**. Whether every historical migration row is applied and the live Edge revision id are **UNKNOWN** (not failed). That check alone does **not** justify a new screener migration or Edge redeploy.
+
+## Lovable preview Edge type parity
+
+- `get-pre-market-workspace`: catalyst row `facts` typed as `Record<string, unknown> | null` (Lovable preview typecheck).
+- `radar-historical-context`: `resolveSecurityId` accepts `ReturnType<typeof createClient<any>>`. Type-only; keep in sync with integration branch on forward-sync.
 
 ## Evidence labels
 
