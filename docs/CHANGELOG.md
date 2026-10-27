@@ -8,7 +8,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Lovable preview **Edge type parity** hotfix (branch `cursor/lovable-preview-type-parity`, base **`e662c928`**): `get-pre-market-workspace` catalyst `facts` typing; `radar-historical-context` `createClient<any>` for `resolveSecurityId`. **NOT MERGED**.
+- Batch **186** AM Inbox continuation reliability (branch `cursor/batch186-am-inbox-continuation`, base **`b69d7444`**): `resolveAmInboxSessionDate`, workflow lookup cache, hook refetch guard; 3,131-row acceptance fixture. **NOT MERGED**; UI **NOT VERIFIED**.
+
+## 2026-10-27 (integration)
+
+- Lovable preview Edge type parity merged (PR **#188** → **`b69d7444`**). Integration branch forward-sync **`a03407c2`**.
 
 ## 2026-10-27 (continued)
 

@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Historical baseline: `origin/main` **`e662c928`** (PR **#187** Batch 185 merged). Prior **`0fa177dd`** (PR **#186**). **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Historical baseline: `origin/main` **`b69d7444`** (PR **#188**). Batch **185** @ `e662c928`; Batch **184** @ `0fa177dd`. **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (Lovable Oct 27: **3,131** active handoffs); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked**.
 
 Original ten Lovable scanner warnings (historical): `docs/release/lovable-scanner-reliability-warnings.md` — treat as **fixed in git**, **mitigated** (Batch 185 client/Edge), or **operationally unverified** (Vercel/mobile) per item; Oct 27 Lovable read-only feed evidence **PASS** for RPC/evidence column. October 24 npm/deploy: ISS-015–019. Next batches: `docs/release/next-approved-batches.md`.
 
@@ -13,16 +13,15 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
 | ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Lovable **Oct 27 read-only**: feed **115 rows**, tabs evaluated, 5-arg RPC + evidence **PASS**. Gappers premarket may still need Radar restore when sync marks inputs unavailable. Vercel deploy + UI acceptance **NOT VERIFIED** here. |
-| ISS-025 | P0 | AM Inbox continuation never exits loading despite 2,056 Monday records | **Observed UI / persistence previously PASS**; Batch **186** authenticated display; Batch **184** client fixes in PR **#186** (merge + mobile verify pending) |
+| ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 in PR** — parallel session date, workflow read cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
+| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Confirmed** — deferred UI batch |
 | ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Observed UI / code filter+cap verified**; Batch 187 deterministic ranking and confirmed schedule coverage |
 | ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Observed UI**; Batch **188** mobile layout (Volume Leaders skeleton addressed in PR **#186**, not production-verified) |
 | ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **Observed UI**; verify Batch 181 production paths before DB changes; bounded reconciliation only |
 | ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
 | ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Observed UI**; Batch 188 compact/expand disclosure |
 | ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |
-| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Confirmed defect** — journal routes can surface terminal error during load; fix deferred to dedicated UI batch. |
-
-**Acceptance:** PR #174 CLOSED unmerged; PR #184 MERGED (`0fa177dd`); PR #185 MERGED (`e662c928`). Batch 174 conditional; Batch 175 Monday→Tuesday persistence PASS, authenticated AM display NOT VERIFIED. Lovable screener read-only Oct 27 **PASS**; migration history / Edge revision **UNKNOWN**. No screener migration or Edge redeploy required by that check alone.
+**Acceptance:** PR #174 CLOSED; #184 MERGED; #185 MERGED (`e662c928`); #188 MERGED (`b69d7444`). Lovable integration forward-sync **`a03407c2`**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**.
 
 ## Confirmed
 
