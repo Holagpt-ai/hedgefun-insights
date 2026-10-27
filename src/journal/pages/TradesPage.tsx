@@ -40,7 +40,14 @@ export function TradesPage() {
   if (error) {
     return <HonestState kind="error" body={error} onRetry={() => void refresh()} />;
   }
-  if (trades.length === 0) return <HonestState kind="empty" title={t("state.noTrades")} />;
+  if (trades.length === 0) {
+    return (
+      <div className="space-y-3">
+        <JournalStaleBanner />
+        <HonestState kind="empty" title={t("state.noTrades")} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

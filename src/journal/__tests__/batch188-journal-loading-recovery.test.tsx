@@ -71,6 +71,144 @@ function shell(page: "overview" | "trades" | "calendar") {
   );
 }
 
+describe("Batch 188.1 — Journal load lifecycle", () => {
+  beforeEach(() => {
+    window.localStorage.setItem(HIDE_DEMO_KEY, "true");
+    writeUserJson(FILTERS_KEY, "user-a", { accountId: "all", range: "all", asset: "all" });
+    authMock.current = { user: { id: "user-a" } };
+    loadMock.mockReset();
+  });
+
+  it("hydrates once per authenticated user on mount", async () => {
+    loadMock.mockResolvedValue({ ok: true, trades: [trade("ONE")], accounts: [] });
+    render(shell("overview"));
+    await waitFor(() => expect(screen.getByText("Overview")).toBeInTheDocument());
+    expect(loadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refetch when the provider rerenders after successful hydration", async () => {
+    loadMock.mockResolvedValue({ ok: true, trades: [trade("ONE")], accounts: [] });
+    const view = render(shell("overview"));
+    await waitFor(() => expect(screen.getByText("Overview")).toBeInTheDocument());
+    expect(loadMock).toHaveBeenCalledTimes(1);
+    view.rerender(shell("overview"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(loadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("manual refresh triggers exactly one additional load", async () => {
+    loadMock.mockResolvedValue({ ok: true, trades: [trade("ONE")], accounts: [] });
+
+    function RefreshProbe() {
+      const { refresh } = useJournalWorkspace();
+      return (
+        <button type="button" onClick={() => void refresh()}>
+          Force refresh
+        </button>
+      );
+    }
+
+    render(
+      <TooltipProvider>
+        <MemoryRouter>
+          <JournalWorkspaceProvider>
+            <RefreshProbe />
+          </JournalWorkspaceProvider>
+        </MemoryRouter>
+      </TooltipProvider>,
+    );
+
+    await waitFor(() => expect(loadMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      screen.getByText("Force refresh").click();
+    });
+    await waitFor(() => expect(loadMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("empty live journal shows stale recovery after a failed refresh", async () => {
+    let calls = 0;
+    loadMock.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) return { ok: true, trades: [], accounts: [] };
+      return { ok: false, error: "refresh failed on empty" };
+    });
+
+    function RefreshProbe() {
+      const { refresh } = useJournalWorkspace();
+      return (
+        <>
+          <button type="button" onClick={() => void refresh()}>
+            Force refresh
+          </button>
+          <OverviewPage />
+        </>
+      );
+    }
+
+    render(
+      <TooltipProvider>
+        <MemoryRouter>
+          <JournalWorkspaceProvider>
+            <RefreshProbe />
+          </JournalWorkspaceProvider>
+        </MemoryRouter>
+      </TooltipProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Build your trading edge/i)).toBeInTheDocument());
+    await act(async () => {
+      screen.getByText("Force refresh").click();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Could not refresh journal data/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText("Retry")).toBeInTheDocument();
+    expect(screen.queryByText(/You are viewing illustrative Demo Workspace/i)).toBeNull();
+  });
+
+  it("empty live Trades shows stale recovery after a failed refresh", async () => {
+    let calls = 0;
+    loadMock.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) return { ok: true, trades: [], accounts: [] };
+      return { ok: false, error: "refresh failed on empty trades" };
+    });
+
+    function RefreshProbe() {
+      const { refresh } = useJournalWorkspace();
+      return (
+        <>
+          <button type="button" onClick={() => void refresh()}>
+            Force refresh
+          </button>
+          <TradesPage />
+        </>
+      );
+    }
+
+    render(
+      <TooltipProvider>
+        <MemoryRouter>
+          <JournalWorkspaceProvider>
+            <RefreshProbe />
+          </JournalWorkspaceProvider>
+        </MemoryRouter>
+      </TooltipProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/No trades in this filter/i)).toBeInTheDocument());
+    await act(async () => {
+      screen.getByText("Force refresh").click();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Could not refresh journal data/i)).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Retry").length).toBeGreaterThan(0);
+  });
+});
+
 describe("Batch 188 — Journal loading and error recovery", () => {
   beforeEach(() => {
     window.localStorage.setItem(HIDE_DEMO_KEY, "true");

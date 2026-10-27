@@ -121,6 +121,8 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const loadGenerationRef = useRef(0);
+  /** Mirrors `dataOwnerId` for retain-on-failure without re-binding `loadLive`. */
+  const dataOwnerIdRef = useRef<string | null>(null);
 
   const [liveTrades, setLiveTrades] = useState<TradeInput[]>([]);
   const [liveAccounts, setLiveAccounts] = useState<JournalAccount[]>([]);
@@ -140,6 +142,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     setLiveTrades([]);
     setLiveAccounts([]);
     setDataOwnerId(null);
+    dataOwnerIdRef.current = null;
     setFetchInFlight(Boolean(userId));
     setError(null);
     setStaleError(null);
@@ -159,6 +162,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       setLiveTrades([]);
       setLiveAccounts([]);
       setDataOwnerId(null);
+      dataOwnerIdRef.current = null;
       setFetchInFlight(false);
       setError(null);
       setStaleError(null);
@@ -168,7 +172,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     const expectedGeneration = nextJournalLoadGeneration(loadGenerationRef.current);
     loadGenerationRef.current = expectedGeneration;
 
-    retainDataOnFailureRef.current = dataOwnerId === expectedUserId;
+    retainDataOnFailureRef.current = dataOwnerIdRef.current === expectedUserId;
     setFetchInFlight(true);
     if (!retainDataOnFailureRef.current) {
       setError(null);
@@ -210,6 +214,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
         setLiveTrades([]);
         setLiveAccounts([]);
         setDataOwnerId(null);
+        dataOwnerIdRef.current = null;
       }
       setFetchInFlight(false);
       return;
@@ -235,6 +240,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
         setLiveTrades([]);
         setLiveAccounts([]);
         setDataOwnerId(null);
+        dataOwnerIdRef.current = null;
       }
       setFetchInFlight(false);
       return;
@@ -248,14 +254,18 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       ),
     );
     setDataOwnerId(expectedUserId);
+    dataOwnerIdRef.current = expectedUserId;
     setError(null);
     setStaleError(null);
     setFetchInFlight(false);
-  }, [userId, dataOwnerId]);
+  }, [userId]);
+
+  const loadLiveRef = useRef(loadLive);
+  loadLiveRef.current = loadLive;
 
   useEffect(() => {
-    void loadLive();
-  }, [userId, loadLive]);
+    void loadLiveRef.current();
+  }, [userId]);
 
   const liveDataReady = dataOwnerId === userId && userId != null;
   const ownedLiveTrades = liveDataReady ? liveTrades : [];
@@ -276,6 +286,10 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     if (ownedLiveTrades.length > 0) return "live";
     if (userId && error && !liveDataReady) return "empty";
     if (userId && !liveDataReady && (initialLoading || fetchInFlight)) return "empty";
+    if (userId && liveDataReady) {
+      if (staleError) return "empty";
+      return !demoHidden ? "demo" : "empty";
+    }
     if (!demoHidden) return "demo";
     return "empty";
   }, [
@@ -283,6 +297,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     demoHidden,
     userId,
     error,
+    staleError,
     liveDataReady,
     initialLoading,
     fetchInFlight,

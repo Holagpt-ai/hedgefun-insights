@@ -24,16 +24,19 @@ export function OverviewPage() {
   }
   if (mode === "empty") {
     return (
-      <HonestState
-        kind="empty"
-        actions={
-          <>
-            <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/settings?section=imports`}>{t("state.uploadCsv")}</Link>
-            <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/trades/new`}>{t("state.addTrade")}</Link>
-            {demoHidden ? <button type="button" className="text-sm font-semibold text-accent-blue" onClick={showDemo}>{t("state.exploreDemo")}</button> : null}
-          </>
-        }
-      />
+      <div className="space-y-3">
+        <JournalStaleBanner />
+        <HonestState
+          kind="empty"
+          actions={
+            <>
+              <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/settings?section=imports`}>{t("state.uploadCsv")}</Link>
+              <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/trades/new`}>{t("state.addTrade")}</Link>
+              {demoHidden ? <button type="button" className="text-sm font-semibold text-accent-blue" onClick={showDemo}>{t("state.exploreDemo")}</button> : null}
+            </>
+          }
+        />
+      </div>
     );
   }
 

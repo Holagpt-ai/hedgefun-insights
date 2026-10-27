@@ -19,6 +19,11 @@
 - **Risk:** Skeleton only when `loading && !section`; content-height regression fixture for SPCX two-signal layout.
 - **Carryover:** Compact default card + accessible Details / Hide details toggle; workflow handoffs preserved.
 
+### Batch 188.1 (PR #191 amendment)
+
+- **Hydration loop:** Removed `dataOwnerId` from `loadLive` dependencies; initial fetch effect runs on `userId` only via `loadLiveRef`. Retain-on-failure reads `dataOwnerIdRef` synced on successful load / user switch.
+- **Empty stale refresh:** Overview and Trades empty states include `JournalStaleBanner`; `mode` stays `empty` (not demo) when `staleError` is set on a hydrated live journal.
+
 ## Production dependencies
 
 | Surface | Required |
