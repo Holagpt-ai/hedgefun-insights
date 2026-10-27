@@ -1,3 +1,5 @@
+> **Current Git state correction (2026-10-27):** GitHub `main` `e65746aba706e50ed0fec42a40f88140d99da0c2` (PR #184 merged); PR #174 closed without merge. The Vercel commit-to-asset, current Fly image SHA, live Edge versions, and updated Lovable integration branch remain **unverified for this exact head**. Do not infer production parity from this docs-only reconciliation. No production deployment was performed. New issues and current proposed batches: `docs/release/master-reset-2026-10-27.md`.
+
 ﻿# Deployment status
 
 Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.

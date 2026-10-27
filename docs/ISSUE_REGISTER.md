@@ -2,9 +2,27 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`13a018a9`** (PR **#183** merged). PR **#174** — **close without merge** (superseded). Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
+Historical baseline: `origin/main` **`13a018a9`** (PR **#183** merged). **Current baseline `e65746ab`** (PR #184 merged); **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (RPC, 2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked** until previous production `chat` Edge version is recoverable.
 
 Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
+
+## Current active triage — 2026-10-27 screenshots (reported, not backend-confirmed)
+
+Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check at `main` `e65746ab`. Full evidence/order: `docs/release/master-reset-2026-10-27.md`. Old fixes stay in changelog; do not relabel those as open defects.
+
+| ID | Priority | Open item | Status / next action |
+| --- | --- | --- | --- |
+| ISS-023 | P0 | Mobile browser navigation freeze after linked actions | **Reported**; Cursor Batch 184 reproduce by route/performance, then bounded fix |
+| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Observed UI**; Cursor Batch 185 track existing generation/restore path, do not infer quotes |
+| ISS-025 | P0 | AM Inbox continuation never exits loading despite 2,056 Monday records | **Observed UI / persistence previously PASS**; Cursor Batch 186 trace query/auth/date/funnel/cap; Batch 175 still conditional |
+| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Observed UI / code filter+cap verified**; Batch 187 deterministic ranking and confirmed schedule coverage |
+| ISS-027 | P1 | Volume Leaders skeleton / risk flags blank height / brief preview text clipping | **Observed UI**; Batches 184/188 ensure bounded states and mobile layout |
+| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **Observed UI**; verify Batch 181 production paths before DB changes; bounded reconciliation only |
+| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
+| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Observed UI**; Batch 188 compact/expand disclosure |
+| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Observed UI**, not equivalent candidate universe; Batch 185 compare provenance/eligibility |
+
+**Acceptance:** PR #174 CLOSED unmerged; PR #184 MERGED (`e65746ab`). Batch 174 conditional; Batch 175 Monday→Tuesday persistence PASS, authenticated AM display NOT VERIFIED. Remaining issuer-specific attribution DB rewrite is not authorized. 
 
 ## Confirmed
 

@@ -2,6 +2,10 @@
 
 Application history below is a map of `main`, not a claim that each merge was deployed. Deploy facts belong in `docs/DEPLOYMENT_STATUS.md`.
 
+## Documentation-only continuity reconciliation (2026-10-27)
+
+- Confirmed GitHub PR #184 merged at `e65746ab` and stale PR #174 closed without merge; no application/production rollout implied. Archived implementation Batches 171–173, 176–183. October 27 user-reported mobile/scanner/Inbox/earnings/UI issues recorded as **open observations** in `docs/release/master-reset-2026-10-27.md` and `docs/ISSUE_REGISTER.md`; no fixes claimed here.
+
 ## Unreleased
 
 - Batch 174/175 Monday scanner + Inbox continuation merged (PR **#183** → **`13a018a9`**): acceptance matrix, Batch **175** criteria, Penny Continuation classification.
