@@ -4,10 +4,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Documentation-only continuity reconciliation (2026-10-27)
 
-- Confirmed GitHub PR #184 merged at `e65746ab` and stale PR #174 closed without merge; no application/production rollout implied. Archived implementation Batches 171–173, 176–183. October 27 user-reported mobile/scanner/Inbox/earnings/UI issues recorded as **open observations** in `docs/release/master-reset-2026-10-27.md` and `docs/ISSUE_REGISTER.md`; no fixes claimed here.
+- PR **#185** merged at **`4757b9de`**: Master Reset V3 + continuity (`master-reset-2026-10-27.md`). PR **#184** docs at **`e65746ab`**; PR **#174** closed without merge. October 27 observations in issue register; no production deploy implied.
 
 ## Unreleased
 
+- Batch **184 / 184.1** Mobile navigation stability (PR **#186**, branch `cursor/batch184-mobile-nav-stability`, rebased on **`4757b9de`**): late-session sessionStorage batch/skip; bounded RPC/Radar timeouts; deferred handoffs + same-destination nav guard; `buildLateSessionPriorityEvaluation` (850-pool regression); expanded handoff pagination. Runbook `docs/release/batch184-mobile-navigation-stability-v1.md`. **NOT MERGED**; authenticated mobile acceptance **NOT VERIFIED**.
 - Batch 174/175 Monday scanner + Inbox continuation merged (PR **#183** → **`13a018a9`**): acceptance matrix, Batch **175** criteria, Penny Continuation classification.
 - Batch 175 Tuesday production acceptance (docs): production RPC verified Monday **2026-10-26** handoffs for AM **2026-10-27** — `batch175-tuesday-production-acceptance-2026-10-27.md`; read-only probe `scripts/ops/batch175-readonly-handoff-probe.mjs`.
 - Batch 183 Desktop Day Trade Radar workspace tabs V1 merged (PR **#182** → **`3ef97ee1`**): desktop tabbed workspace (Live Radar, Momentum, Historical, Signals, Settings); mobile behavior unchanged.

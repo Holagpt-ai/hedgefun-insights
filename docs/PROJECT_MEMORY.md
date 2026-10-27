@@ -79,7 +79,7 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Active master reset (2026-10-27)
 
-Latest GitHub `main` baseline: **`e65746ab`**, PR **#184** merged. PR **#174** closed without merge. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
+Latest GitHub `main` baseline: **`4757b9de`**, PR **#185** Master Reset V3 docs merged; **`e65746ab`** (PR **#184** Tuesday acceptance). PR **#174** closed without merge. Batch **184** application fix in PR **#186** — **not merged**. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
 
 ## Historical batch register (2026-10-24 master reset)
 

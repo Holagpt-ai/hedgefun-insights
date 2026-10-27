@@ -26,11 +26,11 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 ## Active proposal — 2026-10-27, NOT yet approved for production
 
-**Current main:** `e65746ab` (PR #184). Batch 171–173, 176–183 **merged; archive as completed**. PR #174 was **closed unmerged**. This historical batch table must not be treated as an active implementation queue. Full reconciliation: `master-reset-2026-10-27.md`.
+**Current main:** `4757b9de` (PR **#185**). **`e65746ab`** (PR **#184** docs). Batch 171–173, 176–183 **merged; archive as completed**. PR #174 **closed unmerged**. Full reconciliation: `master-reset-2026-10-27.md`.
 
 | Proposed batch | Focus | Precondition |
 | --- | --- | --- |
-| 184 | P0 Android/mobile navigation freeze and terminal loading states | Reproduce exact route / UI traces; no speculative backend surgery |
+| **184** | P0 Android/mobile navigation freeze and terminal loading states | **In PR #186** — merge + authenticated mobile verify; not production until Vercel deploy |
 | 185 | P0 Gappers, Gainers/Losers, New Highs/Lows input/evidence paths | Examine existing generator and verified prior-close restoration |
 | 186 | P0 Tuesday AM Inbox late-continuation surface | Use already-proven RPC persistence; require authenticated UI evidence |
 | 187 | P1 Earnings impact ranking and ticker attribution runtime | Preserve confirmed vs scheduled event types; verify issuer relevance |
