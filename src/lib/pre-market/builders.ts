@@ -378,6 +378,11 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     server_now: r.server_now,
     earnings_confirmed_total: earningsConfirmedTotal,
     earnings_timing_unconfirmed_total: earningsTimingUnconfirmedTotal,
+    earnings_calendar_fetch_limit:
+      typeof r.earnings_calendar_fetch_limit === "number" && r.earnings_calendar_fetch_limit > 0
+        ? r.earnings_calendar_fetch_limit
+        : 320,
+    earnings_calendar_source_truncated: r.earnings_calendar_source_truncated === true,
 
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,

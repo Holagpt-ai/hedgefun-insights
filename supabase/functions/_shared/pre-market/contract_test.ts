@@ -765,8 +765,14 @@ Deno.test("earnings: market-impact ranking orders before display cap", () => {
     }),
   ];
   const metadata = new Map([
-    ["SOFI", { market_cap: 8e9, volume: 12e6, rvol_20d: 2.2, change_percent: 4.5, price: 8 }],
-    ["AB", { market_cap: 2e8, volume: 5e4, rvol_20d: 0.4, change_percent: 0.2, price: 30 }],
+    ["SOFI", {
+      market_cap: 8e9, volume: 12e6, rvol_20d: 2.2, change_percent: 4.5, price: 8,
+      activity_verified: true, activity_as_of: "2026-10-27T12:50:00.000Z", activity_tab_id: "volume_spikes",
+    }],
+    ["AB", {
+      market_cap: 2e8, volume: 5e4, rvol_20d: 0.4, change_percent: 0.2, price: 30,
+      activity_verified: false, activity_as_of: null, activity_tab_id: null,
+    }],
   ]);
   const sel = selectBeforeOpenEarnings(rows as never, {
     etDate: ET,

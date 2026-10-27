@@ -60,11 +60,13 @@ import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/head
 import { humanizeFailureCode, validateQuote } from "../_shared/quotes/integrity.ts";
 import { loadVolumeBaselines } from "../_shared/screeners/load-volume-baselines.ts";
 import { resolveRvol20dFromSources } from "../_shared/screeners/resolve-rvol20d.ts";
+import { assessEarningsCalendarSource } from "../_shared/pre-market/earnings-calendar-source.ts";
 import {
   EARNINGS_CALENDAR_FETCH_LIMIT,
   scoreEarningsMarketImpact,
   type EarningsSymbolMarketMetadata,
 } from "../_shared/pre-market/earnings-market-impact.ts";
+import { loadEarningsMarketMetadataForSymbols } from "../_shared/pre-market/load-earnings-market-metadata.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,49 +88,6 @@ const CATALYST_DISPLAY_LIMIT = 12;
 const CATALYST_LOOKBACK_DAYS = 2;
 const ALERT_LOOKBACK_HOURS = 24;
 const PROVIDER_TIMEOUT_MS = 4_000;
-
-function buildEarningsMetadataBySymbol(
-  symbols: readonly string[],
-  scrRaw: Array<Record<string, unknown>> | null,
-  capRows: Array<Record<string, unknown>> | null,
-): Map<string, EarningsSymbolMarketMetadata> {
-  const out = new Map<string, EarningsSymbolMarketMetadata>();
-  for (const symbol of symbols) {
-    out.set(symbol, {
-      market_cap: null,
-      volume: null,
-      rvol_20d: null,
-      change_percent: null,
-      price: null,
-    });
-  }
-  if (scrRaw) {
-    for (const r of scrRaw) {
-      const symbol = normalizeSymbol(r.symbol);
-      if (!symbol || !out.has(symbol)) continue;
-      out.set(symbol, {
-        market_cap: out.get(symbol)?.market_cap ?? null,
-        volume: positiveOrNull(r.volume),
-        rvol_20d: finiteOrNull(r.rvol_20d),
-        change_percent: finiteOrNull(r.change_percent),
-        price: finiteOrNull(r.price),
-      });
-    }
-  }
-  if (capRows) {
-    for (const r of capRows) {
-      const symbol = normalizeSymbol(r.symbol);
-      if (!symbol || !out.has(symbol)) continue;
-      const cap = finiteOrNull(r.market_cap);
-      const prev = out.get(symbol)!;
-      out.set(symbol, {
-        ...prev,
-        market_cap: cap !== null && cap > 0 ? cap : prev.market_cap,
-      });
-    }
-  }
-  return out;
-}
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
@@ -652,7 +611,9 @@ serve(async (req) => {
   let earningsConfirmedTotal = 0;
   let earningsTimingUnconfirmedTotal = 0;
 
-  const scrRawEarly = ok<Array<Record<string, unknown>>>(scrRes as never);
+  const earnCalSourceStats = assessEarningsCalendarSource(
+    ok<Array<Record<string, unknown>>>(earnCalRes as never),
+  );
 
   const mapEarnOut = (c: CatOut): EarnOut => {
     const f = readEarningsFacts(c.facts);
@@ -688,24 +649,29 @@ serve(async (req) => {
     earnings_timing_unconfirmed = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
   } else {
     const earnSymbols = [...new Set(earningsCalendarRows.map((r) => r.symbol))];
-    earningsMetadataBySymbol = buildEarningsMetadataBySymbol(
-      earnSymbols,
-      scrRawEarly,
-      null,
-    );
+    const capRows: Array<{ symbol: string; market_cap: number | null }> = [];
     if (earnSymbols.length > 0) {
       const capRes = await userClient
         .from("ticker_search")
         .select("symbol, market_cap")
         .in("symbol", earnSymbols);
       if (!capRes.error && capRes.data) {
-        earningsMetadataBySymbol = buildEarningsMetadataBySymbol(
-          earnSymbols,
-          scrRawEarly,
-          capRes.data as Array<Record<string, unknown>>,
-        );
+        for (const r of capRes.data as Array<Record<string, unknown>>) {
+          const symbol = normalizeSymbol(r.symbol);
+          if (!symbol) continue;
+          capRows.push({ symbol, market_cap: finiteOrNull(r.market_cap) });
+        }
       }
     }
+    earningsMetadataBySymbol = await loadEarningsMarketMetadataForSymbols(
+      userClient as never,
+      earnSymbols,
+      {
+        nowMs,
+        sessionActive: active,
+        capRows,
+      },
+    );
 
     const selection = selectBeforeOpenEarnings(earningsCalendarRows, {
       etDate: et.date,
@@ -1061,6 +1027,8 @@ serve(async (req) => {
     watchlist_lifecycle: lifecycle,
     earnings_confirmed_total: earningsConfirmedTotal,
     earnings_timing_unconfirmed_total: earningsTimingUnconfirmedTotal,
+    earnings_calendar_fetch_limit: earnCalSourceStats.fetchLimit,
+    earnings_calendar_source_truncated: earnCalSourceStats.sourceTruncated,
     alerts_included: alertsOk,
     headlines_feed_sync: null as string | null,
     headlines_feed_sync_note: FEED_SYNC_UNAVAILABLE,

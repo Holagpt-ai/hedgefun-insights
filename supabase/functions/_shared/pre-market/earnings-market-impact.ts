@@ -18,6 +18,23 @@ export interface EarningsSymbolMarketMetadata {
   rvol_20d: number | null;
   change_percent: number | null;
   price: number | null;
+  /** True only when screener activity fields passed freshness and tab provenance checks. */
+  activity_verified: boolean;
+  activity_as_of: string | null;
+  activity_tab_id: string | null;
+}
+
+export function emptyEarningsSymbolMetadata(): EarningsSymbolMarketMetadata {
+  return {
+    market_cap: null,
+    volume: null,
+    rvol_20d: null,
+    change_percent: null,
+    price: null,
+    activity_verified: false,
+    activity_as_of: null,
+    activity_tab_id: null,
+  };
 }
 
 export interface EarningsMarketImpactScore {
@@ -55,39 +72,27 @@ export function scoreEarningsMarketImpact(
   },
 ): EarningsMarketImpactScore {
   const facts = readEarningsFacts(row.facts);
-  const meta = opts.metadata ?? {
-    market_cap: null,
-    volume: null,
-    rvol_20d: null,
-    change_percent: null,
-    price: null,
-  };
+  const meta = opts.metadata ?? emptyEarningsSymbolMetadata();
 
   const hasActual = facts.actual_eps !== null;
   const releaseState: EarningsReleaseState = hasActual ? "reported" : "scheduled";
 
-  let surprise = 0;
-  if (facts.surprise_percent !== null) {
-    surprise = Math.min(500, Math.round(Math.abs(facts.surprise_percent) * 12));
-  } else if (facts.actual_eps !== null && facts.estimate_eps !== null) {
-    const delta = Math.abs(facts.actual_eps - facts.estimate_eps);
-    surprise = Math.min(350, Math.round(delta * 120));
-  } else if (hasActual) {
-    surprise = 120;
-  }
+  const surprisePoints = scoreEarningsSurprisePoints(facts);
 
-  const rvol = finiteOrNull(meta.rvol_20d);
-  const volume = finiteOrNull(meta.volume);
-  const changePct = finiteOrNull(meta.change_percent);
   let activity = 0;
-  if (rvol !== null) {
-    activity = Math.min(420, Math.round(rvol * 85));
-  }
-  if (volume !== null) {
-    activity = Math.max(activity, Math.round(log10Cap(volume, 7) * 55));
-  }
-  if (changePct !== null) {
-    activity = Math.max(activity, Math.min(280, Math.round(Math.abs(changePct) * 18)));
+  if (meta.activity_verified) {
+    const rvol = finiteOrNull(meta.rvol_20d);
+    const volume = finiteOrNull(meta.volume);
+    const changePct = finiteOrNull(meta.change_percent);
+    if (rvol !== null) {
+      activity = Math.min(420, Math.round(rvol * 85));
+    }
+    if (volume !== null) {
+      activity = Math.max(activity, Math.round(log10Cap(volume, 7) * 55));
+    }
+    if (changePct !== null) {
+      activity = Math.max(activity, Math.min(280, Math.round(Math.abs(changePct) * 18)));
+    }
   }
 
   const cap = finiteOrNull(meta.market_cap);
@@ -99,17 +104,23 @@ export function scoreEarningsMarketImpact(
     else if (cap >= 2_000_000_000) significance = Math.max(significance, 160);
   }
 
-  // Unusual small-cap activity can compete with large-cap significance without a % move override alone.
   const blendedSignificance =
-    activity >= 220 ? Math.max(significance, Math.min(activity, 280)) : significance;
+    meta.activity_verified && activity >= 220
+      ? Math.max(significance, Math.min(activity, 280))
+      : significance;
 
   const watchlist = opts.onWatchlist ? 80 : 0;
 
-  const total = surprise * 1_000_000 + activity * 1_000 + blendedSignificance * 10 + watchlist;
+  const total =
+    surprisePoints * 1_000 +
+    activity * 10 +
+    blendedSignificance * 100 +
+    watchlist;
 
   const priorityReason = pickEarningsPriorityReason({
-    surprise,
+    surprisePoints,
     activity,
+    activityVerified: meta.activity_verified,
     significance: blendedSignificance,
     onWatchlist: opts.onWatchlist,
     releaseState,
@@ -117,7 +128,7 @@ export function scoreEarningsMarketImpact(
 
   return {
     total,
-    surprise,
+    surprise: surprisePoints,
     activity,
     significance: blendedSignificance,
     watchlist,
@@ -126,20 +137,48 @@ export function scoreEarningsMarketImpact(
   };
 }
 
+/** Bounded surprise points — negligible beats do not dominate cap/activity bands. */
+export function scoreEarningsSurprisePoints(facts: {
+  estimate_eps: number | null;
+  actual_eps: number | null;
+  surprise_percent: number | null;
+}): number {
+  if (facts.surprise_percent !== null) {
+    const abs = Math.abs(facts.surprise_percent);
+    if (abs < 3) return Math.round(abs * 4);
+    if (abs < 12) return 12 + Math.round((abs - 3) * 6);
+    return Math.min(450, 66 + Math.round((abs - 12) * 10));
+  }
+  if (facts.actual_eps !== null && facts.estimate_eps !== null) {
+    const delta = Math.abs(facts.actual_eps - facts.estimate_eps);
+    if (delta < 0.05) return Math.round(delta * 80);
+    return Math.min(320, 4 + Math.round(delta * 100));
+  }
+  if (facts.actual_eps !== null) return 40;
+  return 0;
+}
+
 function pickEarningsPriorityReason(input: {
-  surprise: number;
+  surprisePoints: number;
   activity: number;
+  activityVerified: boolean;
   significance: number;
   onWatchlist: boolean;
   releaseState: EarningsReleaseState;
 }): EarningsPriorityReason | null {
   const ranked: Array<{ score: number; reason: EarningsPriorityReason }> = [];
-  if (input.surprise >= 120) ranked.push({ score: input.surprise, reason: "Earnings surprise" });
-  if (input.releaseState === "reported" && input.surprise < 120) {
-    ranked.push({ score: 100, reason: "Reported results" });
+  if (input.surprisePoints >= 66) {
+    ranked.push({ score: input.surprisePoints, reason: "Earnings surprise" });
   }
-  if (input.activity >= 180) ranked.push({ score: input.activity, reason: "High trading activity" });
-  if (input.significance >= 200) ranked.push({ score: input.significance, reason: "Large-cap report" });
+  if (input.releaseState === "reported" && input.surprisePoints < 66) {
+    ranked.push({ score: 40, reason: "Reported results" });
+  }
+  if (input.activityVerified && input.activity >= 180) {
+    ranked.push({ score: input.activity, reason: "High trading activity" });
+  }
+  if (input.significance >= 200) {
+    ranked.push({ score: input.significance, reason: "Large-cap report" });
+  }
   if (input.onWatchlist) ranked.push({ score: 80, reason: "On your watchlist" });
   ranked.sort((a, b) => b.score - a.score || a.reason.localeCompare(b.reason));
   return ranked[0]?.reason ?? null;
