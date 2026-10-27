@@ -30,7 +30,7 @@ export const TRACKED_GAINERS_LOSERS_UNIVERSE_DETAIL =
   "Lists reflect the provider top gainers and losers snapshot — not every listed stock.";
 
 export const PREMARKET_CANDIDATE_UNIVERSE_DETAIL =
-  "Pre-market movers are derived from the same provider mover snapshot, validated against the prior regular close. Dedicated extended-hours feeds are not enabled on this plan.";
+  "A row appears only when its provider observation is inside the 4:00–9:30 a.m. ET premarket window and is measured against the prior regular close. Regular-session snapshots are not shown here. Dedicated extended-hours feeds are not enabled. Quotes are delayed about 15 minutes. Volume stays blank when premarket accumulation is missing. This table does not show RVOL or catalyst.";
 
 export const DELAYED_MARKET_DATA_SEO_PHRASE = "15-minute delayed market data";
 
@@ -249,6 +249,9 @@ export function summarizeMoversListProvenance(
   } else if (sessionSummary.mode === "unverified") {
     sessionLine = `Source session unverified · ${sessionLine}`;
   }
+  if (opts.premarket && resolveMarketSession(new Date(nowMs)) !== "pre-market") {
+    sessionLine = `Premarket session ended · regular-session snapshots are not listed here · ${sessionLine}`;
+  }
 
   const isPriorSession = sessionSummary.mode === "homogeneous_prior";
 
@@ -275,12 +278,16 @@ export function moversFetchErrorMessage(): string {
 export function moversSuccessfulEmptyMessage(opts: {
   marketClosed: boolean;
   premarket?: boolean;
+  clockSession?: "pre-market" | "market" | "after-hours" | "closed";
 }): string {
   if (opts.marketClosed) {
     return "Markets are currently closed. Verified movers for the next session will appear when activity resumes.";
   }
+  if (opts.premarket && opts.clockSession && opts.clockSession !== "pre-market") {
+    return "Premarket has ended for this session. Regular-session snapshots are not listed as premarket movers.";
+  }
   if (opts.premarket) {
-    return "No verified pre-market movers matched our validation rules in the current provider snapshot.";
+    return "No verified pre-market observations were in the current provider snapshot. Missing volume stays blank.";
   }
   return "No verified movers matched our validation rules in the current provider snapshot.";
 }

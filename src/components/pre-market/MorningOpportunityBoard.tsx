@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { guardedWorkflowLinkClick } from "@/lib/navigation/guarded-link-click";
 import { useAuth } from "@/contexts/AuthContext";
 import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
 import type { MorningOpportunityBoard as BoardModel, MorningOpportunityCard } from "@/lib/am-inbox/morning-opportunity-board";
@@ -95,7 +96,7 @@ function Card({
             <Link
               key={link.label}
               to={link.href}
-              onClick={persistEvidence}
+              onClick={(event) => guardedWorkflowLinkClick(event, persistEvidence)}
               className="text-[10px] font-medium text-accent-blue hover:underline"
             >
               {link.label}

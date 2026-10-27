@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { withTimeout } from "@/lib/async/with-timeout";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import {
@@ -24,6 +25,7 @@ import {
 } from "@/lib/pre-market/pm-verify";
 
 export const RADAR_REFRESH_MS = 60_000;
+export const RADAR_V2_VOLUME_LEADERS_FETCH_TIMEOUT_MS = 20_000;
 
 export {
   isTransientRadarV2SoftFailure,
@@ -69,7 +71,11 @@ export function useRadarV2VolumeLeaders(enabled: boolean): UseRadarV2VolumeLeade
       if (!soft) setLoading(true);
       let next: RadarV2Decision;
       try {
-        next = await loadRadarV2Decision("day_trade_radar", Date.now());
+        next = await withTimeout(
+          loadRadarV2Decision("day_trade_radar", Date.now()),
+          RADAR_V2_VOLUME_LEADERS_FETCH_TIMEOUT_MS,
+          "radar_v2_volume_leaders",
+        );
       } catch {
         next = radarV2FetchThrewDecision();
       }

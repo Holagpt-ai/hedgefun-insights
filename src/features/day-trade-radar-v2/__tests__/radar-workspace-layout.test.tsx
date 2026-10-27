@@ -147,13 +147,14 @@ function renderRadar() {
 }
 
 describe("Radar workspace layout", () => {
-  it("stacks desk panels including Day Trade Qualified monitoring and does not auto-select Core Momentum", () => {
+  it("uses desktop workspace tabs and shows Live Radar panel by default", () => {
     renderRadar();
     expect(screen.getByText("DAY TRADE DESK")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-desktop-tabs")).toBeInTheDocument();
     expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
-    expect(screen.getByTestId("radar-panel-day_trade_qualified")).toBeInTheDocument();
-    expect(screen.getByTestId("radar-panel-breakouts")).toBeInTheDocument();
-    expect(screen.getByTestId("radar-panel-penny")).toBeInTheDocument();
+    expect(screen.queryByTestId("radar-panel-day_trade_qualified")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("radar-panel-breakouts")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("radar-panel-penny")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Trader Lens preset")).not.toBeInTheDocument();
     expect(screen.queryByText("Core Momentum $2–$20")).not.toBeInTheDocument();
     expect(screen.queryByTestId("halts-rail")).not.toBeInTheDocument();
@@ -161,7 +162,9 @@ describe("Radar workspace layout", () => {
     const feed = screen.getByTestId("radar-feed-line").textContent ?? "";
     expect(feed).toMatch(/Data Status/i);
     expect(within(screen.getByTestId("panel-leader-day_trade")).getAllByText("AEHL").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: "Momentum" }));
     expect(within(screen.getByTestId("radar-panel-penny")).getAllByText("PENNY").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: "Live Radar" }));
     expect(within(screen.getByTestId("radar-panel-day_trade")).queryByText("PENNY")).not.toBeInTheDocument();
     expect(within(screen.getByTestId("radar-panel-day_trade")).getAllByText("AEHL").length).toBeGreaterThan(0);
     expect(screen.getByText("Select a ticker")).toBeInTheDocument();
@@ -179,13 +182,28 @@ describe("Radar workspace layout", () => {
     fireEvent.click(within(screen.getByTestId("active-symbol-rail")).getByRole("button", { name: "Details" }));
     expect(within(screen.getByTestId("radar-detail-drawer")).getByText("AEHL")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Momentum" }));
     fireEvent.click(within(screen.getByTestId("panel-leader-penny")).getByRole("button", { name: "PENNY" }));
     expect(within(screen.getByTestId("active-symbol-rail")).getByText("PENNY")).toBeInTheDocument();
     expect(screen.getByTestId("panel-leader-penny")).toHaveAttribute("data-selected", "true");
+    expect(within(screen.getByTestId("radar-panel-penny")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY")).toHaveAttribute("data-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Live Radar" }));
     expect(
       within(screen.getByTestId("radar-panel-day_trade")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY"),
     ).toBeUndefined();
-    expect(within(screen.getByTestId("radar-panel-penny")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY")).toHaveAttribute("data-selected", "true");
+  });
+
+  it("persists active symbol when switching desktop workspace tabs", () => {
+    renderRadar();
+    const dayTrade = screen.getByTestId("radar-panel-day_trade");
+    fireEvent.click(within(dayTrade).getAllByRole("row").find((row) => row.textContent?.includes("AEHL"))!);
+    fireEvent.click(screen.getByRole("tab", { name: "Signals" }));
+    expect(screen.queryByTestId("radar-panel-day_trade")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("active-symbol-rail")).getByText("AEHL")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Live Radar" }));
+    expect(
+      within(screen.getByTestId("radar-panel-day_trade")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "AEHL"),
+    ).toHaveAttribute("data-selected", "true");
   });
 
   it("shows one mobile panel at a time", () => {

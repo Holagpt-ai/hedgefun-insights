@@ -42,7 +42,7 @@ export function generateMetaTitle(ticker: string, companyName?: string): string 
 
 export function generateMetaDescription(ticker: string, companyName?: string): string {
   const name = companyName ? `${companyName} (${ticker})` : ticker;
-  return `Get the latest ${name} stock price, news, financials, analyst ratings, and market analysis on Stocksist.`;
+  return `Research ${name} with delayed market data, news, and fundamentals on Stocksist. Quotes are not real-time.`;
 }
 
 // STUBBED — do not implement generation logic in V1

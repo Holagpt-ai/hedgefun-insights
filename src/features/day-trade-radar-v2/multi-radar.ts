@@ -17,12 +17,14 @@ import {
   qualifiesDayTradeMomentum,
 } from "./day-trade-strategy";
 import type { RadarRankedRow } from "./types";
+import type { DesktopRadarWorkspaceTabId } from "./desktop-radar-workspace-tabs";
+import { isDesktopRadarWorkspaceTabId } from "./desktop-radar-workspace-tabs";
 
 export { DAY_TRADE_EMPTY_MESSAGE, DAY_TRADE_RADAR_MAX_ROWS } from "./day-trade-strategy";
 
 export const MULTI_RADAR_DESK_NAME = "DAY TRADE DESK";
 export const MULTI_RADAR_STORAGE_KEY = "stocksist.day-trade-radar.workspace.v1";
-export const MULTI_RADAR_STORAGE_VERSION = 2;
+export const MULTI_RADAR_STORAGE_VERSION = 3;
 export const PANEL_NEW_WINDOW_MS = 3 * 60 * 1000;
 
 export {
@@ -183,6 +185,8 @@ export interface MultiRadarWorkspaceState {
   version: number;
   desk: typeof MULTI_RADAR_DESK_NAME;
   mobilePanel: RadarPanelId;
+  /** Desktop workspace tab (Batch 183). Mobile uses `mobilePanel`. */
+  desktopTab: DesktopRadarWorkspaceTabId;
   panels: Record<RadarPanelId, PanelWorkspaceState>;
 }
 
@@ -277,6 +281,7 @@ export function defaultWorkspaceState(): MultiRadarWorkspaceState {
     version: MULTI_RADAR_STORAGE_VERSION,
     desk: MULTI_RADAR_DESK_NAME,
     mobilePanel: "day_trade",
+    desktopTab: "live",
     panels: {
       day_trade: defaultPanelState("day_trade"),
       day_trade_qualified: defaultPanelState("day_trade_qualified"),
@@ -364,6 +369,7 @@ export function parseWorkspaceState(raw: string | null | undefined): MultiRadarW
       version: MULTI_RADAR_STORAGE_VERSION,
       desk: MULTI_RADAR_DESK_NAME,
       mobilePanel: isPanelId(record.mobilePanel) ? record.mobilePanel : "day_trade",
+      desktopTab: isDesktopRadarWorkspaceTabId(record.desktopTab) ? record.desktopTab : "live",
       panels: {
         day_trade: readPanelState("day_trade", panelRecord.day_trade),
         day_trade_qualified: readPanelState(

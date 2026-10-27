@@ -38,3 +38,35 @@ export function publicStockDetailPath(symbol: string): string {
   const routes = symbolRoutes(symbol);
   return routes?.stock ?? `/stocks/${encodeURIComponent(symbol.trim().toUpperCase())}`;
 }
+
+/** Stock vs ETF/FUND detail route; returns null when the symbol fails validation. */
+export function publicInstrumentDetailPath(
+  symbol: string,
+  instrumentType?: string | null,
+): string | null {
+  const routes = symbolRoutes(symbol);
+  if (!routes) return null;
+  const kind = (instrumentType ?? "").trim().toUpperCase();
+  if (kind === "ETF" || kind === "FUND") {
+    return `/etf/${encodeURIComponent(routes.symbol)}`;
+  }
+  return routes.stock;
+}
+
+/** Dashboard watchlist entry (no symbol context). */
+export function publicWatchlistEntryHref(authenticated: boolean): string {
+  return authGatedHref("/dashboard/watchlist", authenticated);
+}
+
+/** Historical Radar / screener focus for a symbol (auth-gated for guests). */
+export function publicHistoricalRadarHref(symbol: string, authenticated: boolean): string | null {
+  const routes = symbolRoutes(symbol);
+  if (!routes) return null;
+  const dest = `/dashboard/screeners?symbol=${encodeURIComponent(routes.symbol)}&focus=historical`;
+  return authGatedHref(dest, authenticated);
+}
+
+export function publicChartPath(symbol: string): string | null {
+  const routes = symbolRoutes(symbol);
+  return routes?.chart ?? null;
+}

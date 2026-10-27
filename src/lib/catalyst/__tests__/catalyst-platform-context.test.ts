@@ -14,7 +14,7 @@ describe("catalyst platform context", () => {
       event_date: "2026-09-22",
       event_time: null,
       time_of_day: null,
-      title: "Deal",
+      title: "AAA closes deal",
       description: null,
       source_name: "PR",
       source_url: "https://example.com",

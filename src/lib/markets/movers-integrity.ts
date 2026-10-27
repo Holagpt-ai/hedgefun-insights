@@ -16,6 +16,7 @@ import { shouldExcludeHomepageMover } from "./mover-universe";
 import {
   formatMoverObservationLine,
   formatMoverObservationUnavailable,
+  observationMatchesRequestedMoverSession,
   observationMsFromIso,
   referenceTradingSessionDate,
   resolveDisplayedPriceSource,
@@ -483,6 +484,20 @@ export function polygonSnapshotVolume(
 }
 
 /**
+ * Premarket and after-hours volume. `day.v = 0` is unavailable regular-session
+ * accumulation, not a verified zero, and is not copied onto an extended print.
+ * Positive minute accumulated volume, then that minute's volume, is the
+ * session evidence. Missing stays null.
+ */
+export function polygonExtendedSessionVolume(min: Record<string, unknown>): number | null {
+  for (const raw of [min.av, min.v]) {
+    const value = finiteOrNull(raw);
+    if (value !== null && value > 0) return value;
+  }
+  return null;
+}
+
+/**
  * Map a Polygon snapshot ticker (or market-data enrichment) into a validated mover.
  * Regular session uses day close vs previous regular close — never todaysChangePerc
  * as the displayed percent.
@@ -534,6 +549,23 @@ export function moverFromPolygonTicker(
       ? new Date(sourceEvidence.providerAsOfMs).toISOString()
       : null;
 
+  if (
+    session !== "regular" &&
+    !observationMatchesRequestedMoverSession(
+      session,
+      sourceEvidence.providerAsOfMs,
+    )
+  ) {
+    return fail({
+      symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
+      name: raw.name,
+      session,
+      sessionDate,
+      source: SOURCE_POLYGON,
+      providerAsOf: providerAsOfForValidation,
+    }, normalizeSymbol(extracted?.symbol ?? raw.ticker ?? raw.symbol), "session_mismatch");
+  }
+
   if (session === "regular" && dayClose !== null && dayClose > 0 && current === dayClose && providerPct !== null && prevClose !== null && prevClose > 0) {
     const dayPct = canonicalChangePercent(dayClose, prevClose);
     const extPrice = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null)
@@ -575,7 +607,9 @@ export function moverFromPolygonTicker(
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: polygonSnapshotVolume(day, min),
+    volume: session === "regular"
+      ? polygonSnapshotVolume(day, min)
+      : polygonExtendedSessionVolume(min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,

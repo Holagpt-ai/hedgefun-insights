@@ -46,6 +46,7 @@ Radar and historical jobs call `radar-worker-bridge` with `RADAR_WORKER_SECRET`.
 | AI Analyst | `src/pages/dashboard/AIAnalyst.tsx`, `src/lib/ai-analyst/`, `supabase/functions/chat/` |
 | Journal | `src/journal/` |
 | Homepage | `src/pages/Index.tsx` |
+| Public mover tabs | `src/lib/markets/movers-integrity.ts`, `src/pages/markets/PremarketPage.tsx` |
 
 ## Chat catalyst contract
 

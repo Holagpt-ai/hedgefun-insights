@@ -29,7 +29,7 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. PR #162 is on `main`. That integration branch was then merged forward and its file contents match `main`. Use it for Lovable sync.
+- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`a4a27a01`** (2026-10-27 Batch 185 read-only verification on branch). After each `main` merge, **forward-sync** integration branch from `main` without merging the whole integration branch into `main`. Lovable-only files (e.g. `bun.lock`) stay on integration branch. Do not merge `cursor/chat-single-pass-v1`.
 - Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
 
@@ -77,9 +77,21 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 - Further SEC schedule, write-gate, or function changes. Gate I.3 activation already happened (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule.
 - Catalyst source enablement (`docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
 
-## Approved next batches (2026-10-24 master reset)
+## Active master reset (2026-10-27)
 
-See `docs/release/next-approved-batches.md`: **172** Catalyst Source Coverage V1, **173** Watchlist/Historical Handoff Integrity, **174** Monday Live Scanner Acceptance, **175** Continuation & Inbox Acceptance. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+Latest GitHub `main` baseline: **`4757b9de`**, PR **#185** Master Reset V3 docs merged; **`e65746ab`** (PR **#184** Tuesday acceptance). PR **#174** closed without merge. Batch **184** application fix in PR **#186** — **not merged**. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
+
+## Historical batch register (2026-10-24 master reset)
+
+See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`13a018a9`** (PR **#183** merged). **174** acceptance **CONDITIONAL**. **175** persistence **PASS** via production RPC (2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. PR **#174** — close without merge. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+
+## Catalyst attribution (client, Batch 181)
+
+Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. Cross-surface copy uses `catalyst-attribution-presentation.ts`; do not imply price causation without evidence.
+
+## Five Pillars presentation (client, Batch 182)
+
+Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFivePillarsTransparencyView()` and canonical `RadarRankedRow` scanner fields; grace and expired lifecycle come from `day_trade_qualification_state`. A historical pass must not read as a current pass in lifecycle copy.
 
 ## How to avoid another full audit
 
@@ -90,6 +102,19 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity (`polygonSnapshotVolume` in `src/lib/markets/movers-integrity.ts`).
 - Verified zero from cache/RPC still ranks **before** unknown volume in volume-first lists.
 - Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
+- Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
+
+## Scanner tab evaluation evidence (Batch 185)
+
+- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state`. When null, client may attach **`publication_confirmed`** evidence (published row counts only) — not a substitute for provider universe evaluation or verified zero-match claims.
+- Do not treat homepage **Market Pulse / Polygon snapshot movers** as Radar or Five Pillars qualification.
+- Extended-session **Gappers** may restore from verified Radar prior-close overlay via `restoreExtendedSessionGappers` when sync evidence is missing or `prerequisite_unavailable`; do not fabricate opening prints or gap percentages.
+- **Lovable Oct 27 read-only (integration branch):** production feed **115 rows**, six tabs evaluated, **5-arg RPC** and valid evidence JSON — **PASS**. Whether every historical migration row is applied and the live Edge revision id are **UNKNOWN** (not failed). That check alone does **not** justify a new screener migration or Edge redeploy.
+
+## Lovable preview Edge type parity
+
+- `get-pre-market-workspace`: catalyst row `facts` typed as `Record<string, unknown> | null` (Lovable preview typecheck).
+- `radar-historical-context`: `resolveSecurityId` accepts `ReturnType<typeof createClient<any>>`. Type-only; keep in sync with integration branch on forward-sync.
 
 ## Evidence labels
 

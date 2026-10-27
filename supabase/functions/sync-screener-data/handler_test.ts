@@ -3,6 +3,7 @@ import {
   type DbClient,
   type DbQuery,
   type DbSelectResult,
+  type DbUpdateQuery,
   handleSyncScreenerData,
   REPLACE_GENERATION_RPC,
   type SyncDeps,
@@ -116,6 +117,18 @@ function mockDb(
         builder.range = (from: number, to: number) => {
           usedRange = true;
           return originalRange(from, to);
+        };
+        return builder;
+      },
+      update: (_values: Record<string, unknown>) => {
+        const builder: DbUpdateQuery = {
+          eq: () => builder,
+          select: () => builder,
+          then: (onFulfilled, onRejected) =>
+            Promise.resolve({ data: [{ sync_run_id: RUN_ID }], error: null }).then(
+              onFulfilled ?? undefined,
+              onRejected ?? undefined,
+            ) as Promise<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>,
         };
         return builder;
       },

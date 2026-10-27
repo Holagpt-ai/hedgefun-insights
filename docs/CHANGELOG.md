@@ -2,13 +2,32 @@
 
 Application history below is a map of `main`, not a claim that each merge was deployed. Deploy facts belong in `docs/DEPLOYMENT_STATUS.md`.
 
+## Documentation-only continuity reconciliation (2026-10-27)
+
+- PR **#185** merged at **`4757b9de`**: Master Reset V3 + continuity (`master-reset-2026-10-27.md`). PR **#184** docs at **`e65746ab`**; PR **#174** closed without merge. October 27 observations in issue register; no production deploy implied.
+
 ## Unreleased
 
-- Batch 176 Catalyst intelligence distribution bridge V1: eligibility, public projection, idempotent dedupe, disabled-by-default dry-run writer. No migration, Edge deploy, or production writes. **ISS-006** activation still pending.
-- Batch 173 Watchlist & Historical Handoff Integrity V1 merged (PR #173 → `28cbcc9e`): symbol/securityId handoff guards; regression tests. No Edge or chat changes.
+- Lovable preview **Edge type parity** hotfix (branch `cursor/lovable-preview-type-parity`, base **`e662c928`**): `get-pre-market-workspace` catalyst `facts` typing; `radar-historical-context` `createClient<any>` for `resolveSecurityId`. **NOT MERGED**.
+
+## 2026-10-27 (continued)
+
+- Batch **185 / 185.1** Scanner evidence & input reliability merged (PR **#187** → **`e662c928`**): honest `publication_confirmed` reconcile, partial evidence parse, guarded legacy evidence PATCH + persistence telemetry. Runbooks `batch185-scanner-evidence-v1.md`, `batch185-lovable-production-verification-checklist.md`. Lovable read-only Oct 27: **115 rows**, six tabs evaluated, 5-arg RPC + evidence **PASS**; migration ledger / Edge revision **UNKNOWN**.
+- Batch **184 / 184.1** Mobile navigation stability merged (PR **#186** → **`0fa177dd`**): late-session sessionStorage batch/skip; bounded RPC/Radar timeouts; deferred handoffs + same-destination nav guard; `buildLateSessionPriorityEvaluation` (850-pool regression); expanded handoff pagination. Runbook `docs/release/batch184-mobile-navigation-stability-v1.md`. Authenticated mobile acceptance **NOT VERIFIED**.
+- Batch 174/175 Monday scanner + Inbox continuation merged (PR **#183** → **`13a018a9`**): acceptance matrix, Batch **175** criteria, Penny Continuation classification.
+- Batch 175 Tuesday production acceptance (docs): production RPC verified Monday **2026-10-26** handoffs for AM **2026-10-27** — `batch175-tuesday-production-acceptance-2026-10-27.md`; read-only probe `scripts/ops/batch175-readonly-handoff-probe.mjs`.
+- Batch 183 Desktop Day Trade Radar workspace tabs V1 merged (PR **#182** → **`3ef97ee1`**): desktop tabbed workspace (Live Radar, Momentum, Historical, Signals, Settings); mobile behavior unchanged.
+- Batch 182 Five Pillars Qualification Transparency V1 merged (PR **#181** → **`0542ee10`**): per-pillar evidence in Radar detail, lifecycle from persisted qualification state, `five-pillars-transparency.test.ts`. No migrations or Edge deploy.
+- Batch 181 Catalyst + Watchlist Source Integrity V1 merged (PR **#180** → **`aae43f98`**): live attribution reconciliation on hydrate, shared tier/source presentation, Radar recent-news headline gate, watchlist company_event mismatch labeling, regression suite `batch181-catalyst-watchlist-source-integrity.test.ts`. No ISS-006 activation, no Edge deploy.
+- Batch 178 Scanner session integrity V1 merged (PR **#179** → **`7c2bf094`**): premarket and after-hours mover rows require a timestamp inside that session; extended volume uses minute accumulation and stays blank when missing; regular `day.v = 0` remains missing. Runbook `docs/release/batch178-scanner-session-integrity-v1.md`.
+- Batch 180 Public navigation & UX integrity V1 merged (PR **#178** → **`d4095c86`**): trending, heatmap, IPO screener, and symbol lookup canonical nav, watchlist auth handoffs, delayed-data copy, heatmap export/timeframe honesty; trending volume-only ranking (no fabricated views/SEED), heatmap universe label; tests in `batch180-public-nav-ux.test.ts`.
+- Batch 179 Public website & conversion V1 merged (PR **#177** → **`dc42cfe5`**): canonical stock detail links, auth-gated historical Radar and watchlist handoffs, delayed-data copy on homepage/stock SEO; Vercel deploy SUCCESS.
+- Batch 177 Lovable forward-sync & continuity alignment: integration branch forward-merge to `e4801e81`; PR **#176** merged at **`1002c682`**; no Lovable publish from Cursor.
 
 ## 2026-10-25
 
+- Batch 176 Catalyst intelligence distribution bridge V1 merged (PR **#175** → **`788b1b93`**): eligibility, projection, collision-safe dedupe, disabled-by-default dry-run writer. **ISS-006** production activation still pending.
+- Batch 173 Watchlist & Historical Handoff Integrity V1 merged (PR #173 → `28cbcc9e`): symbol/securityId handoff guards; regression tests. Supersedes the earlier Batch 177 watchlist-only plan.
 - Batch 172 Catalyst Source Coverage V1 merged (PR #172 → `93a3c35d`): IR/events metadata, source-evidence contract, intel-layer metadata persistence/projection; public `catalyst_events` upsert still deferred. No Edge deploy or source activation in git.
 - Batch 171 continuity correction: original ten Lovable scanner warnings restored in `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019. npm override `tinypool@2.2.0` (0 critical advisories), vite/vitest/@vercel/functions pins, additional public-route code splitting, Lovable October 24 warning register, next-batch register 172–175.
 - Security, performance & Monday readiness V1 (PR #170, merged `dd490ae5`): npm audit 42→21 without `--force`, `react-router-dom@6.30.6`, route lazy loading (~2,656 kB entry vs ~3,461 kB baseline), Browserslist DB refresh, middleware investigation deferred (ISS-018), Monday scanner runbook + read-only ops script. **ISS-015** open.
@@ -35,16 +54,3 @@ Application history below is a map of `main`, not a claim that each merge was de
 | `d8d68231` | PR #152. Batch 37.1 cache-before-quota ordering. |
 | `e22a8361` | PR #151. Batch 37 shared live market-data cache. |
 | `3e730139` | PR #150. Batch 36 SEC activation readiness and verification tooling. |
-| `c0b65511` | PR #149. Batch 34 core intelligence integration. |
-| `6d659bcc` through `b499890f` | Batch 33 historical catch-up controls, entitlement recovery, and bridge identity cache. |
-| `9951b303` | Batch 32 historical episode explorer. |
-| `192e5218` | Batch 31 public experience, SEO, and onboarding. |
-| `3338905f` | Batch 30 daily intelligence and catalyst workflows. |
-| `53b1dde6` | Batch 29 catalyst source activation code. Enabling sources was a later ops plan. |
-| `be50a5a1` through `8c929211` | Batch 28 Radar historical context, shared market-data cache, and momentum continuation. |
-
-Earlier scanner, watchlist, journal, and screener releases are on `main` below those commits. Use `git log origin/main` for the full list. Feature presence is summarized in `docs/SESSION_HANDOFF.md`.
-
-## Superseded recovery copies
-
-`origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower copy of the same analyst work. This recovery used the archived-branch versions from `cursor/chat-single-pass-v1`. That archived branch was not merged. Active Lovable integration remains `cursor/lovable-sync-from-main-20261024`.

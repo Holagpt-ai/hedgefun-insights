@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { guardedWorkflowLinkClick } from "@/lib/navigation/guarded-link-click";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bot, CalendarClock, LayoutDashboard, LineChart, MoreHorizontal, NotebookPen, Star } from "lucide-react";
 import {
@@ -64,7 +65,7 @@ export function PreMarketSymbolActions({
     <Link
       key={label}
       to={to}
-      onClick={touch}
+      onClick={(event) => guardedWorkflowLinkClick(event, touch)}
       aria-label={`${label} for ${routes.symbol}`}
       className={`inline-flex min-h-8 min-w-8 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-foreground/30 ${className}`}
     >
@@ -91,7 +92,12 @@ export function PreMarketSymbolActions({
         <DropdownMenuContent align="start" className="min-w-[10rem]">
           {overflow.map(({ to, label, Icon }) => (
             <DropdownMenuItem key={label} asChild>
-              <Link to={to} onClick={touch} aria-label={`${label} for ${routes.symbol}`} className="flex items-center gap-2">
+              <Link
+                to={to}
+                onClick={(event) => guardedWorkflowLinkClick(event, touch)}
+                aria-label={`${label} for ${routes.symbol}`}
+                className="flex items-center gap-2"
+              >
                 <Icon className="h-3.5 w-3.5" />
                 {label}
               </Link>

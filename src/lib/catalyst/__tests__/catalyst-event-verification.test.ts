@@ -35,6 +35,18 @@ describe("hydrateCatalystEventVerification", () => {
     expect(hydrated.ticker_specific).toBe(true);
   });
 
+  it("downgrades persisted direct when the headline is about another company", () => {
+    const row = base({
+      symbol: "TSLA",
+      company_name: "Tesla, Inc.",
+      title: "Nvidia unveils next-generation AI accelerator, shares jump",
+      facts: { attribution_class: "direct", ticker_specific: true },
+    });
+    const hydrated = hydrateCatalystEventVerification(row);
+    expect(hydrated.attribution_class).not.toBe("direct");
+    expect(hydrated.ticker_specific).toBe(false);
+  });
+
   it("marks earnings calendar rows as direct ticker-specific", () => {
     const row = base({
       provider: "earnings_calendar",

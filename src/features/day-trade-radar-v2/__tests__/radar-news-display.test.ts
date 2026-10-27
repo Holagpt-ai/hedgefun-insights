@@ -13,7 +13,11 @@ const catalyst = {
   kind: "recent",
   sortMs: 1,
   event: {
-    title: "Company awarded $22M defense contract",
+    symbol: "AAA",
+    provider: "polygon",
+    source_name: "GlobeNewswire",
+    dedupe_key: "dk:aaa",
+    title: "AAA awarded $22M defense contract",
     event_type: "product_contract",
     published_at: "2026-09-16T11:00:00.000Z",
   },
@@ -26,7 +30,7 @@ describe("Radar news / catalyst hierarchy", () => {
       catalyst,
       {
         ticker: "AAA",
-        title: "Company announces new distribution agreement",
+        title: "AAA announces new distribution agreement",
         publishedAt: "2026-09-16T19:42:00.000Z",
         url: "https://example.com/news",
         source: "GlobeNewswire",
@@ -49,7 +53,7 @@ describe("Radar news / catalyst hierarchy", () => {
       undefined,
       {
         ticker: "AAA",
-        title: "Company announces new distribution agreement",
+        title: "AAA announces new distribution agreement",
         publishedAt: "2026-09-16T19:42:00.000Z",
         url: null,
         source: "GlobeNewswire",
@@ -114,7 +118,7 @@ describe("Radar news / catalyst hierarchy", () => {
       catalyst: undefined,
       recent: {
         ticker: "AAA",
-        title: "Company announces new distribution agreement",
+        title: "AAA announces new distribution agreement",
         publishedAt: "2026-09-16T19:42:00.000Z",
         url: null,
         source: "GlobeNewswire",

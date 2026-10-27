@@ -125,6 +125,44 @@ export function isTickerSpecificCatalyst(a: AttributionResult): boolean {
   return a.ticker_specific;
 }
 
+const ATTRIBUTION_CONSERVATISM_RANK: Record<AttributionClass, number> = {
+  direct: 0,
+  provider_associated: 1,
+  sector_related: 2,
+  unverified: 3,
+};
+
+/** Prefer the more conservative class when live rules disagree with persisted facts. */
+export function reconcileAttributionWithLiveRules(
+  persistedClass: AttributionClass | null,
+  persistedTickerSpecific: boolean | null,
+  live: AttributionResult,
+): Pick<AttributionResult, "class" | "ticker_specific" | "reason"> {
+  const baseClass = persistedClass ?? live.class;
+  const className =
+    ATTRIBUTION_CONSERVATISM_RANK[live.class] > ATTRIBUTION_CONSERVATISM_RANK[baseClass]
+      ? live.class
+      : baseClass;
+  let ticker_specific = live.ticker_specific;
+  if (className === "sector_related" || className === "unverified") {
+    ticker_specific = false;
+  } else if (persistedTickerSpecific === false) {
+    ticker_specific = false;
+  }
+  const reason =
+    className === live.class
+      ? live.reason
+      : `persisted_${baseClass}_downgraded_to_${className}`;
+  return { class: className, ticker_specific, reason };
+}
+
+/** Headline is eligible for ticker-scoped “recent news” surfacing (not a verified catalyst). */
+export function headlineQualifiesForTickerScopedNews(input: AttributionInput): boolean {
+  const live = attributeSymbol(input);
+  if (!live.ticker_specific) return false;
+  return live.class === "direct" || live.class === "provider_associated";
+}
+
 function uniqueTickers(raw: unknown[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();

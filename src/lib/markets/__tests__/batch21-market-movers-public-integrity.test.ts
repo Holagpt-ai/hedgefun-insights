@@ -63,6 +63,8 @@ describe("Batch 21 — market movers public integrity", () => {
       day: { c: 10, v: 0 },
       prevDay: { c: 10 },
     }), "regular", NOW);
+    // Polygon day.v=0 is missing, not a verified zero. Cache/RPC may still store 0.
+    knownZero.volume = 0;
     const unknown = moverFromPolygonTicker(ticker({
       ticker: "UNK",
       day: { c: 11, v: undefined },
@@ -81,7 +83,7 @@ describe("Batch 21 — market movers public integrity", () => {
     expect(ordered.map((r) => r.symbol)).toEqual(["HIV", "ZERO", "UNK"]);
   });
 
-  it("preserves zero volume above unknown volume in list rows", () => {
+  it("treats Polygon day.v=0 as missing volume on regular list rows", () => {
     const zero = toMoverListRow(moverFromPolygonTicker(ticker({
       ticker: "ZERO",
       day: { c: 10, v: 0 },
@@ -91,7 +93,7 @@ describe("Batch 21 — market movers public integrity", () => {
       ...moverFromPolygonTicker(ticker({ ticker: "MISS" }), "regular", NOW),
       volume: null,
     });
-    expect(zero?.volume).toBe(0);
+    expect(zero?.volume).toBeNull();
     expect(missing?.volume).toBeNull();
   });
 
@@ -157,13 +159,14 @@ describe("Batch 21 — market movers public integrity", () => {
   });
 
   it("keeps after-hours reference against regular close", () => {
+    const afterHours = Date.parse("2026-08-27T21:00:00.000Z");
     const m = moverFromPolygonTicker(ticker({
       ticker: "AH",
       day: { c: 10, v: 1_000_000 },
       prevDay: { c: 9 },
-      lastTrade: { p: 11, t: NOW },
-      min: { c: 10.9 },
-    }), "afterhours", NOW);
+      lastTrade: { p: 11, t: afterHours },
+      min: { c: 10.9, av: 12_000, t: afterHours },
+    }), "afterhours", afterHours);
     expect(m.valid).toBe(true);
     expect(m.reference_price).toBe(10);
     expect(m.price).toBe(11);

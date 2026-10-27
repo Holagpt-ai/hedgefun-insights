@@ -19,6 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { trackEvent } from "@/lib/analytics";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicStockDetailPath, publicWatchlistEntryHref } from "@/lib/public/public-workflow-links";
+import { symbolRoutes } from "@/lib/pre-market/builders";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 interface ScreenerIpo {
   symbol: string;
@@ -43,6 +49,11 @@ export default function IpoScreenerPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [viewTab, setViewTab] = useState<string>("General");
+
+  usePageSeo({
+    title: `IPO Screener | ${BRAND.name}`,
+    description: `Browse recent and upcoming IPO listings. Offer details are informational; listed symbols link to public stock research when available.`,
+  });
 
   const EDGE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
 
@@ -81,8 +92,16 @@ export default function IpoScreenerPage() {
       header: "Symbol",
       cell: (info) => {
         const val = info.getValue();
-        return val && val !== "TBD" ? (
-          <button onClick={() => navigate(`/stocks/${val.toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
+        const routes = val && val !== "TBD" ? symbolRoutes(val) : null;
+        return routes ? (
+          <button
+            onClick={() => {
+              trackEvent("stock_search", { ticker: val });
+              trackPublicDiscoveryNav({ from: "ipo_screener", to: "stock_detail", symbol: val });
+              navigate(publicStockDetailPath(val));
+            }}
+            className="font-semibold text-accent-blue hover:underline text-sm"
+          >
             {val}
           </button>
         ) : (
@@ -233,7 +252,11 @@ export default function IpoScreenerPage() {
               <Input placeholder="Find..." className="pl-8 h-8 w-[100px] text-sm" />
             </div>
             <Button variant="outline" size="sm" className="text-xs" onClick={handleDownload}>Download ▾</Button>
-            <Button size="sm" className="text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground gap-1 relative" onClick={() => navigate(user ? "/watchlist" : "/auth")}>
+            <Button
+              size="sm"
+              className="text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground gap-1 relative"
+              onClick={() => navigate(publicWatchlistEntryHref(Boolean(user)))}
+            >
               + Watchlist
               <span className="absolute -top-1.5 -right-1.5 bg-green text-primary-foreground text-[0.625rem] px-1 rounded-full font-bold leading-tight">New</span>
             </Button>
