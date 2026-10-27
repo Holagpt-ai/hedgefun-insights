@@ -106,7 +106,33 @@ export default function AMInbox() {
     lateSessionQuery.isLoading &&
     lateSessionQuery.fetchStatus !== "idle" &&
     lateSessionQuery.data === undefined;
-  const showLateSessionSection = !!user?.id && !ws.isUnavailable;
+  const lateSessionInitialError =
+    lateSessionQuery.isError && lateSessionView === undefined;
+  const lateSessionRefreshWarning =
+    lateSessionQuery.isError && lateSessionView !== undefined;
+  const showLateSessionSection = !!user?.id;
+
+  const lateSessionContinuationSection =
+    showLateSessionSection ? (
+      <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
+        <SectionHeading
+          title="Late-Session Continuation"
+          subtitle="Prior-session captures · volume-first ordering · not live quotes"
+        />
+        <LateSessionHandoffsList
+          loading={lateSessionLoading}
+          error={lateSessionInitialError}
+          refreshWarning={lateSessionRefreshWarning}
+          onRetry={() => {
+            void lateSessionQuery.refetch();
+          }}
+          expiredCount={lateSessionView?.expiredCount ?? 0}
+          candidates={lateSessionView?.candidates ?? []}
+          qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}
+          funnel={lateSessionView?.funnel}
+        />
+      </section>
+    ) : null;
 
   const morningBoardSymbols = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;
@@ -267,7 +293,10 @@ export default function AMInbox() {
       )}
 
       {ws.isUnavailable ? (
-        <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+        <>
+          <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+          {lateSessionContinuationSection}
+        </>
       ) : (
         <>
           {/* Session status */}
@@ -314,25 +343,7 @@ export default function AMInbox() {
             />
           </section>
 
-          {showLateSessionSection && (
-            <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
-              <SectionHeading
-                title="Late-Session Continuation"
-                subtitle="Prior-session captures · volume-first ordering · not live quotes"
-              />
-              <LateSessionHandoffsList
-                loading={lateSessionLoading}
-                error={lateSessionQuery.isError}
-                onRetry={() => {
-                  void lateSessionQuery.refetch();
-                }}
-                expiredCount={lateSessionView?.expiredCount ?? 0}
-                candidates={lateSessionView?.candidates ?? []}
-                qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}
-                funnel={lateSessionView?.funnel}
-              />
-            </section>
-          )}
+          {lateSessionContinuationSection}
 
           {/* Volume Leaders — Radar V2 during confirmed pre-market; screener_results otherwise. Not Radar V2.2. */}
           <SectionShell

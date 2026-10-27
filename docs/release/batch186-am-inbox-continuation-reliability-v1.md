@@ -20,6 +20,13 @@ Production **`late_session_handoff_list_active_v1('2026-10-27')`** holds **3,131
 | View build | Per-symbol workflow lookup cache during `buildAmInboxLateSessionViewFromContexts` |
 | Hook | `refetchOnWindowFocus: false`; exported `loadAmInboxLateSessionViewForDate` for tests |
 
+### Batch 186.1 (PR #189)
+
+| Area | Change |
+| --- | --- |
+| Refresh failure | Initial error vs `refreshWarning` when prior view exists; cards stay mounted during in-flight refetch |
+| Workspace outage | Late-Session Continuation renders when workspace query fails but handoff RPC succeeded (single section, no duplicate) |
+
 ## Batch 175 acceptance matrix (post Batch 186 code)
 
 | Criterion | Status | Notes |

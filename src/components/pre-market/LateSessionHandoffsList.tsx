@@ -107,6 +107,7 @@ export function LateSessionHandoffsList({
   visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
   loading = false,
   error = false,
+  refreshWarning = false,
   onRetry,
   expiredCount = 0,
 }: {
@@ -115,7 +116,10 @@ export function LateSessionHandoffsList({
   funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
   loading?: boolean;
+  /** Initial load failed with no prior view to show. */
   error?: boolean;
+  /** Background refresh failed; cards below are from the last successful load. */
+  refreshWarning?: boolean;
   onRetry?: () => void;
   expiredCount?: number;
 }) {
@@ -136,7 +140,11 @@ export function LateSessionHandoffsList({
     return buildLateSessionPriorityEvaluation(qualifiedPool);
   }, [qualifiedPool]);
 
-  if (loading) {
+  const hasQualified = qualifiedPool.length > 0;
+  const hasPriority = candidates.length > 0;
+  const hasVisiblePool = hasQualified || hasPriority;
+
+  if (loading && !hasVisiblePool) {
     return (
       <div
         className="rounded-xl border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground"
@@ -148,7 +156,7 @@ export function LateSessionHandoffsList({
     );
   }
 
-  if (error) {
+  if (error && !hasVisiblePool) {
     return (
       <div
         role="alert"
@@ -170,10 +178,7 @@ export function LateSessionHandoffsList({
     );
   }
 
-  const hasQualified = qualifiedPool.length > 0;
-  const hasPriority = candidates.length > 0;
-
-  if (!hasQualified && !hasPriority) {
+  if (!hasVisiblePool) {
     return (
       <div
         className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground"
@@ -209,6 +214,25 @@ export function LateSessionHandoffsList({
 
   return (
     <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
+      {refreshWarning ? (
+        <div
+          role="status"
+          className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400"
+          data-testid="am-inbox-late-session-handoffs-refresh-warning"
+        >
+          Could not refresh continuation candidates — showing the last successful load.
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="ml-2 inline-flex items-center gap-1 font-medium text-amber-800 underline hover:no-underline dark:text-amber-300"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <p className="text-[11px] text-muted-foreground">
         {stats.detectedCount} detected · {stats.qualifiedCount} qualified ·{" "}
         {stats.priorityCount} priority
