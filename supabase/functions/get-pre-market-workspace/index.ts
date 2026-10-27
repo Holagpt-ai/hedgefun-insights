@@ -520,7 +520,7 @@ serve(async (req) => {
         source_url: isHttpsUrl(r.source_url) ? r.source_url : null,
         published_at: published,
         updated_at: updated,
-        facts: r.facts ?? null,
+        facts: (r.facts ?? null) as Record<string, unknown> | null,
         attribution_class: attr.class,
         attribution_reason: attr.reason,
         ticker_specific: attr.ticker_specific,
