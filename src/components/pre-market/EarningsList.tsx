@@ -18,13 +18,22 @@ export function EarningsList({
             <div key={e.id} className="flex flex-col gap-2 rounded-xl border bg-card p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold">{e.symbol}</span>
+                {e.company_name ? (
+                  <span className="text-xs text-muted-foreground">{e.company_name}</span>
+                ) : null}
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                   {sessionBadge}
+                </span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {e.release_state === "reported" ? "Results reported" : "Scheduled"}
                 </span>
                 <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                   Earnings Calendar · provider reported
                 </span>
               </div>
+              {e.priority_reason ? (
+                <p className="text-[11px] font-medium text-accent-blue">{e.priority_reason}</p>
+              ) : null}
               <p className="break-words text-sm leading-snug">{e.title}</p>
               <div className="text-[11px] text-muted-foreground">
                 {e.event_date}

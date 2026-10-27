@@ -1,16 +1,16 @@
 # Session handoff — latest 2026-10-27
 
-**Canonical current main:** `b69d7444` (PR **#188** Lovable Edge type parity). PR **#187** Batch 185 @ `e662c928`.
+**Canonical current main:** `d3cec11f` (PR **#189** Batch 186 AM Inbox continuation merged).
 
-**Lovable integration:** Forward-sync completed @ **`a03407c2`** — branch **`cursor/lovable-sync-from-main-20261024`** is **not behind** GitHub `main`.
+**Lovable integration:** Forward-sync @ **`a03407c2`** — refresh from `d3cec11f` when approved.
 
-**Batch 185:** Source complete; Lovable Oct 27 read-only screener evidence (**115 rows**, six tabs evaluated, 5-arg RPC + valid evidence) **PASS**. Migration ledger / Edge revision id **UNKNOWN** (not failed). No screener migration or Edge redeploy required by that check alone.
+**Batch 186 (ISS-025):** Merged **`d3cec11f`** — handoff parallel fetch, refresh-failure UX, workspace decouple. **Authenticated AM Inbox production UI NOT VERIFIED.**
 
-**Batch 186 (ISS-025):** PR open — parallel handoff RPC session date, workflow lookup cache, hook refetch guard. **Authenticated AM Inbox UI NOT VERIFIED.**
+**Batch 187 / 187.1 / 187.2 (ISS-026):** PR **#190** (`cursor/batch187-earnings-intelligence`) — earnings calendar fetch, market-impact ranking, truncation disclosure, bounded activity metadata, MCP diff removed. **NOT MERGED.**
 
-**Open:** ISS-032 JournalWorkspace terminal loading; ISS-026 earnings ranking.
+**Open:** ISS-032 JournalWorkspace; ISS-028 prod UI verify only (Batch 181 guards unchanged in git).
 
-**Next:** Merge Batch **186** → Vercel → authenticated AM Inbox sign-off → Batches **187–189** per master reset. No Fly/Edge/migration unless approved.
+**Next:** Merge PR **#190** → Lovable Edge activation (1. `get-pre-market-workspace`, 2. `sync-earnings-finnhub`, 3. `sync-catalyst-events`) → Vercel → AM earnings sign-off. No Fly/migration apply unless approved.
 
 ---
 

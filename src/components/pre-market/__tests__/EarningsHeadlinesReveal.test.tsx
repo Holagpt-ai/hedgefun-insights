@@ -23,6 +23,8 @@ function earn(symbol: string, id: string): PreMarketEarnings {
     source_url: null,
     updated_at: "2026-08-26T10:00:00.000Z",
     published_at: null,
+    release_state: "scheduled",
+    priority_reason: null,
   };
 }
 

@@ -395,7 +395,7 @@ export default function AMInbox() {
           {/* Before-Open Earnings — Top 3 */}
           <SectionShell
             title="Before-Open Earnings"
-            subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
+            subtitle="Verified earnings calendar · market-impact ranking · before-open session only"
             section={data?.earnings ?? null}
             loading={loading}
             emptyMessage={buildBeforeOpenEarningsEmptyMessage(data?.earnings_timing_unconfirmed_total ?? 0)}
@@ -411,6 +411,15 @@ export default function AMInbox() {
             }
           >
             <div className="flex flex-col gap-3">
+              {data?.earnings_calendar_source_truncated ? (
+                <p
+                  className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-400"
+                  data-testid="am-inbox-earnings-calendar-truncated-warning"
+                >
+                  The earnings calendar source reached its fetch limit — ranked events and totals shown
+                  here may be incomplete. Open Catalyst for the full calendar.
+                </p>
+              ) : null}
               {(data?.earnings.data.length ?? 0) === 0 && (data?.earnings_timing_unconfirmed_total ?? 0) > 0 && (
                 <SectionEmpty
                   message={buildBeforeOpenEarningsEmptyMessage(data!.earnings_timing_unconfirmed_total)}

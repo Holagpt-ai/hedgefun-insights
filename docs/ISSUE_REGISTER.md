@@ -13,11 +13,11 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
 | ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Lovable **Oct 27 read-only**: feed **115 rows**, tabs evaluated, 5-arg RPC + evidence **PASS**. Gappers premarket may still need Radar restore when sync marks inputs unavailable. Vercel deploy + UI acceptance **NOT VERIFIED** here. |
-| ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 in PR** — parallel session date, workflow read cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
+| ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 merged (`d3cec11f`)** — parallel session date, workflow cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
 | ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Confirmed** — deferred UI batch |
-| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Observed UI / code filter+cap verified**; Batch 187 deterministic ranking and confirmed schedule coverage |
+| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Batch 187 in PR** — dedicated calendar fetch + market-impact ranking; Edge deploy pending |
 | ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Observed UI**; Batch **188** mobile layout (Volume Leaders skeleton addressed in PR **#186**, not production-verified) |
-| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **Observed UI**; verify Batch 181 production paths before DB changes; bounded reconciliation only |
+| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **No new regression in Batch 187** — Batch 181 precedence tests still classify comparison headlines secondary; prod UI **NOT RE-VERIFIED** |
 | ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
 | ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Observed UI**; Batch 188 compact/expand disclosure |
 | ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |

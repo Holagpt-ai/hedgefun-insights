@@ -66,6 +66,15 @@ Deno.test("missing EPS fields remain null", () => {
   assertEquals(built.rows[0]?.estimate_eps, null);
   assertEquals(built.rows[0]?.actual_eps, null);
   assertEquals(built.rows[0]?.surprise_percent, null);
+  assertEquals(built.rows[0]?.time_of_day, "during");
+});
+
+Deno.test("unknown Finnhub hour does not map to intraday during", () => {
+  const built = buildEarningsRowsFromFinnhubItems([{
+    symbol: "XYZ",
+    date: "2026-10-01",
+  }]);
+  assertEquals(built.rows[0]?.time_of_day, null);
 });
 
 Deno.test("duplicate symbol/date keeps row with actual EPS", () => {
