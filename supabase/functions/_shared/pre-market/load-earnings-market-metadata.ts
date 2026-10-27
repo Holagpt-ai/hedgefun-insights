@@ -23,6 +23,11 @@ export const EARNINGS_ACTIVITY_SCREENER_TABS = new Set([
 
 export const EARNINGS_SCREENER_SYMBOL_CHUNK_SIZE = 40;
 export const EARNINGS_SCREENER_ROWS_PER_CHUNK_LIMIT = 600;
+/** Caps screener round-trips so a large earnings pool cannot stall the workspace. */
+export const EARNINGS_SCREENER_MAX_CHUNKS = 4;
+/** At most two symbol-chunk queries in flight. */
+export const EARNINGS_SCREENER_CONCURRENT_CHUNKS = 2;
+export const EARNINGS_SCREENER_CHUNK_TIMEOUT_MS = 4_000;
 
 export type ScreenerActivityRow = {
   symbol: string;
@@ -68,6 +73,7 @@ export function isFreshScreenerActivityRow(
   if (!opts.sessionActive) return false;
   const age = ageMinutes(updatedAt, opts.nowMs);
   if (age === null) return false;
+  if (age < 0) return false;
   return age <= SCREENER_STALE_MINUTES;
 }
 
@@ -135,32 +141,59 @@ export function mergeEarningsMarketMetadata(
   return out;
 }
 
+function mapScreenerRecord(r: Record<string, unknown>): ScreenerActivityRow {
+  return {
+    symbol: String(r.symbol ?? ""),
+    tab_id: String(r.tab_id ?? ""),
+    volume: positiveOrNull(r.volume),
+    rvol_20d: finiteOrNull(r.rvol_20d),
+    change_percent: finiteOrNull(r.change_percent),
+    price: finiteOrNull(r.price),
+    updated_at: isoOrNull(r.updated_at),
+  };
+}
+
+async function fetchEarningsScreenerChunk(
+  db: EarningsMetadataDb,
+  chunk: string[],
+): Promise<ScreenerActivityRow[]> {
+  const query = db.from("screener_results")
+    .select("symbol, tab_id, volume, rvol_20d, change_percent, price, updated_at")
+    .in("symbol", chunk)
+    .order("updated_at", { ascending: false })
+    .limit(EARNINGS_SCREENER_ROWS_PER_CHUNK_LIMIT);
+
+  const result = await Promise.race([
+    query,
+    new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      setTimeout(
+        () => resolve({ data: null, error: { message: "earnings_screener_chunk_timeout" } }),
+        EARNINGS_SCREENER_CHUNK_TIMEOUT_MS,
+      );
+    }),
+  ]);
+
+  if (result.error || !result.data) return [];
+  return result.data.map(mapScreenerRecord);
+}
+
 export async function fetchEarningsScreenerActivityRows(
   db: EarningsMetadataDb,
   symbols: readonly string[],
 ): Promise<ScreenerActivityRow[]> {
   const normalized = [...new Set(symbols.map((s) => normalizeSymbol(s)).filter(Boolean))] as string[];
-  const screenerRows: ScreenerActivityRow[] = [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < normalized.length && chunks.length < EARNINGS_SCREENER_MAX_CHUNKS; i += EARNINGS_SCREENER_SYMBOL_CHUNK_SIZE) {
+    chunks.push(normalized.slice(i, i + EARNINGS_SCREENER_SYMBOL_CHUNK_SIZE));
+  }
 
-  for (let i = 0; i < normalized.length; i += EARNINGS_SCREENER_SYMBOL_CHUNK_SIZE) {
-    const chunk = normalized.slice(i, i + EARNINGS_SCREENER_SYMBOL_CHUNK_SIZE);
-    const { data, error } = await db.from("screener_results")
-      .select("symbol, tab_id, volume, rvol_20d, change_percent, price, updated_at")
-      .in("symbol", chunk)
-      .order("updated_at", { ascending: false })
-      .limit(EARNINGS_SCREENER_ROWS_PER_CHUNK_LIMIT);
-    if (error || !data) continue;
-    for (const r of data) {
-      screenerRows.push({
-        symbol: String(r.symbol ?? ""),
-        tab_id: String(r.tab_id ?? ""),
-        volume: positiveOrNull(r.volume),
-        rvol_20d: finiteOrNull(r.rvol_20d),
-        change_percent: finiteOrNull(r.change_percent),
-        price: finiteOrNull(r.price),
-        updated_at: isoOrNull(r.updated_at),
-      });
-    }
+  const screenerRows: ScreenerActivityRow[] = [];
+  for (let i = 0; i < chunks.length; i += EARNINGS_SCREENER_CONCURRENT_CHUNKS) {
+    const batch = chunks.slice(i, i + EARNINGS_SCREENER_CONCURRENT_CHUNKS);
+    const batchResults = await Promise.all(
+      batch.map((chunk) => fetchEarningsScreenerChunk(db, chunk)),
+    );
+    for (const rows of batchResults) screenerRows.push(...rows);
   }
 
   return screenerRows;
@@ -176,7 +209,12 @@ export async function loadEarningsMarketMetadataForSymbols(
   },
 ): Promise<Map<string, EarningsSymbolMarketMetadata>> {
   const normalized = [...new Set(symbols.map((s) => normalizeSymbol(s)).filter(Boolean))] as string[];
-  const screenerRows = await fetchEarningsScreenerActivityRows(db, normalized);
+  let screenerRows: ScreenerActivityRow[] = [];
+  try {
+    screenerRows = await fetchEarningsScreenerActivityRows(db, normalized);
+  } catch {
+    screenerRows = [];
+  }
   return mergeEarningsMarketMetadata(normalized, screenerRows, opts.capRows, {
     nowMs: opts.nowMs,
     sessionActive: opts.sessionActive,

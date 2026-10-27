@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   isFreshScreenerActivityRow,
+  loadEarningsMarketMetadataForSymbols,
   mergeEarningsMarketMetadata,
   type ScreenerActivityRow,
 } from "./load-earnings-market-metadata.ts";
@@ -19,6 +20,45 @@ Deno.test("Batch 187.1 — stale screener row does not verify activity", () => {
     isFreshScreenerActivityRow(freshUpdated, { nowMs: NOW, sessionActive: true }),
     true,
   );
+});
+
+Deno.test("Batch 187.2 — future-dated screener timestamps are rejected", () => {
+  assertEquals(
+    isFreshScreenerActivityRow("2026-10-27T14:00:00.000Z", { nowMs: NOW, sessionActive: true }),
+    false,
+  );
+});
+
+Deno.test("Batch 187.2 — missing timestamp is not fresh", () => {
+  assertEquals(
+    isFreshScreenerActivityRow(null, { nowMs: NOW, sessionActive: true }),
+    false,
+  );
+});
+
+Deno.test("Batch 187.2 — activity lookup failure retains market cap merge", async () => {
+  const db = {
+    from: () => ({
+      select: () => ({
+        in: () => ({
+          order: () => ({
+            limit: async () => ({ data: null, error: { message: "query_failed" } }),
+          }),
+        }),
+      }),
+    }),
+  };
+  const meta = await loadEarningsMarketMetadataForSymbols(
+    db as never,
+    ["AAA"],
+    {
+      nowMs: NOW,
+      sessionActive: true,
+      capRows: [{ symbol: "AAA", market_cap: 5_000_000_000 }],
+    },
+  );
+  assertEquals(meta.get("AAA")?.market_cap, 5_000_000_000);
+  assertEquals(meta.get("AAA")?.activity_verified, false);
 });
 
 Deno.test("Batch 187.1 — activity from non-radar tab counts when fresh", () => {

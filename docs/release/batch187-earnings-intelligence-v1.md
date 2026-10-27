@@ -29,6 +29,15 @@
 | Completeness | `earnings_calendar_source_truncated` + `earnings_calendar_fetch_limit` on workspace when bounded query hits cap |
 | Dedup | `assessEarningsCalendarSource()` documents raw vs deduped counts |
 
+### Batch 187.2 (PR #190 amendment)
+
+| Area | Change |
+| --- | --- |
+| MCP diff | Restore `supabase/functions/mcp/index.ts` from `main` — no generated bundle changes in this release |
+| Activity freshness | Reject future-dated screener `updated_at` (negative age); keep 30-minute active-session rule |
+| Metadata bounds | Cap screener chunk fan-out (`EARNINGS_SCREENER_MAX_CHUNKS`, concurrent chunk limit, per-chunk timeout); fail-soft retains cap/earnings merge |
+| AM Inbox | Compact warning when `earnings_calendar_source_truncated` — events/totals may be incomplete; Top 3 + Catalyst link unchanged |
+
 **Oct 27 read-only:** 65 BMO symbols · 0 in top-24 radar · 0 anywhere on day_trade_radar tab · 3 on other screener tabs — ranking must use per-symbol screener hits, not radar leader slice.
 
 ## Oct 27 regression references (read-only prod)
@@ -46,6 +55,14 @@
 | **`sync-catalyst-events`** | Propagate `facts.timing_unspecified` on catalyst rows synced from calendar | **UNKNOWN** — timing-activation sequence |
 
 Steps **2–3** are a **separately authorized timing-activation sequence**. Do not rewrite historical earnings rows or replay migrations. Confirm live Edge revision ids in Lovable before deploy.
+
+### Edge activation sequence (exact order after merge)
+
+1. Deploy **`get-pre-market-workspace`** — required for calendar fetch, ranking, truncation flags, bounded activity metadata, and workspace contract fields.
+2. Deploy **`sync-earnings-finnhub`** — required for unknown-hour → null in calendar ingestion (timing normalization).
+3. Deploy **`sync-catalyst-events`** — required for `facts.timing_unspecified` on catalyst rows synced from calendar.
+
+Record each live revision id from Lovable Cloud after deploy. **Do not** deploy `mcp` or other Edge functions as part of Batch 187 unless separately authorized.
 
 **Vercel:** required for AM Inbox earnings card fields (`priority_reason`, scheduled/reported).
 

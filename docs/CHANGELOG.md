@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **187 / 187.1** Earnings intelligence (PR **#190**, branch `cursor/batch187-earnings-intelligence`): dedicated calendar query, per-symbol screener activity with freshness gates, recalibrated scoring, truncation flags, timing ingestion fix, AM Inbox cards. **NOT MERGED**; Edge deploy required.
+- Batch **187 / 187.1 / 187.2** Earnings intelligence (PR **#190**, branch `cursor/batch187-earnings-intelligence`): dedicated calendar query, per-symbol screener activity (future-timestamp reject, bounded chunk fetch), recalibrated scoring, truncation AM Inbox warning, timing ingestion fix; generated MCP bundle excluded from PR diff. **NOT MERGED**; Edge activation sequence in `docs/release/batch187-earnings-intelligence-v1.md`.
 - Batch **186** AM Inbox continuation merged (PR **#189** → **`d3cec11f`**): parallel handoff RPC, refresh-failure UX, workspace decouple; 3,131-row tests. Authenticated UI **NOT VERIFIED**.
 
 ## 2026-10-27 (integration)
