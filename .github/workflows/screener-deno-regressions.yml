@@ -66,7 +66,7 @@ jobs:
           deno-version: 2.9.4
       - name: Screener regression tests
         run: >
-          deno test --frozen --allow-env
+          deno test --frozen --allow-env --allow-net=localhost:5432,127.0.0.1:5432
           supabase/functions/_shared/screeners/extended-session-move_test.ts
           supabase/functions/_shared/screeners/gappers-premarket_test.ts
           supabase/functions/_shared/screeners/premarket-rollover_test.ts
