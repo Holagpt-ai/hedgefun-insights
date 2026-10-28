@@ -2,8 +2,10 @@ import {
   advanceChunkInMemory,
   claimLeaseInMemory,
   completePublishInMemory,
+  expireStaleJobsInMemory,
   finalizeLeaseActive,
   leaseActive,
+  publishStagedGenerationInMemory,
   recordPublishRpcInMemory,
 } from "./sync-staging-cas.ts";
 import {
@@ -73,6 +75,20 @@ export interface SyncStagingStore {
   }): Promise<
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   >;
+  publishStagedGeneration(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    syncedAt: string;
+    nhlBaselineStatus: string;
+    tabEvaluationEvidence: unknown;
+    rows: unknown[];
+    nowMs: number;
+  }): Promise<
+    | { ok: true; rowsInserted: number; job: StagedGenerationJob }
+    | { ok: false; reason: string }
+  >;
   failJob(jobId: string, reason: string, nowMs: number): Promise<void>;
   abortJob(jobId: string, nowMs: number): Promise<void>;
   recordContinueDispatch(params: {
@@ -118,22 +134,7 @@ export class MemorySyncStagingStore implements SyncStagingStore {
   }
 
   async abortExpired(nowMs: number): Promise<number> {
-    let n = 0;
-    for (const [id, job] of this.jobs) {
-      if (
-        job.status === "chunking" &&
-        nowMs - job.createdAtMs > SCREENER_SYNC_JOB_TTL_MS
-      ) {
-        job.status = "aborted";
-        job.leaseToken = null;
-        job.leaseExpiresMs = null;
-        job.finalizeLeaseToken = null;
-        job.finalizeLeaseExpiresMs = null;
-        this.jobs.set(id, job);
-        n += 1;
-      }
-    }
-    return n;
+    return expireStaleJobsInMemory(this.jobs, nowMs);
   }
 
   async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
@@ -261,6 +262,38 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     if (!recorded.ok) return recorded;
     this.jobs.set(job.id, job);
     return { ok: true, job: cloneJob(job) };
+  }
+
+  async publishStagedGeneration(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    syncedAt: string;
+    nhlBaselineStatus: string;
+    tabEvaluationEvidence: unknown;
+    rows: unknown[];
+    nowMs: number;
+  }): Promise<
+    | { ok: true; rowsInserted: number; job: StagedGenerationJob }
+    | { ok: false; reason: string }
+  > {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    const published = publishStagedGenerationInMemory(job, {
+      finalizeLeaseToken: params.finalizeLeaseToken,
+      expectedStateVersion: params.expectedStateVersion,
+      syncRunId: params.syncRunId,
+      expectedRowCount: params.rows.length,
+      nowMs: params.nowMs,
+    });
+    if (!published.ok) return published;
+    this.jobs.set(job.id, job);
+    return {
+      ok: true,
+      rowsInserted: published.rowsInserted,
+      job: cloneJob(job),
+    };
   }
 
   async completePublish(params: {

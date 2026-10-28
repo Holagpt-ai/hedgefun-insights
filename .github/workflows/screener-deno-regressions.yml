@@ -58,4 +58,5 @@ jobs:
           supabase/functions/_shared/screeners/sync-chunk-handoff_test.ts
           supabase/functions/_shared/screeners/policy-exclusion-serialize_test.ts
           supabase/functions/_shared/screeners/sync-staging-postgres-integration_test.ts
+          supabase/functions/_shared/screeners/sync-staging-expiry_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

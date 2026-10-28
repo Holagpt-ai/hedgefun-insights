@@ -24,8 +24,9 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 1. `20261028200000_screener_sync_generation_staging_v1.sql` — table + columns (`state_version`, `nhl_baseline_snapshot`, continue/finalize lease fields)
 2. `20261028210000_screener_sync_staging_rpc_v1.sql` — `claim_screener_sync_lease_v1`, initial chunk advance / complete RPCs
 3. `20261028220000_screener_sync_staging_hardening_v1.sql` — **lease handoff** on chunk advance (NULL lease after commit), **one active generation** partial unique index, **`record_screener_sync_publish_rpc_v1`**, publish-complete requires recorded RPC
+4. `20261028230000_screener_sync_staging_recovery_v1.sql` — **`expire_screener_sync_stale_jobs_v1`**, atomic **`publish_screener_sync_staged_generation_v1`** (replace + job record in one transaction), **DROP** obsolete 7-arg `advance_screener_sync_chunk_v1`
 
-**Postgres integration tests:** set `SCREENER_SYNC_PG_TEST_URL` locally after applying all three migrations (`sync-staging-postgres-integration_test.ts`). CI skips these when unset.
+**Postgres integration tests:** disposable DB only (`node scripts/supabase/screener-sync-pg-test-setup.mjs` after setting `SCREENER_SYNC_PG_TEST_URL`). Never Lovable production. CI skips when URL unset.
 
 Validate locally: `node scripts/supabase/migration-order.mjs`
 

@@ -90,28 +90,43 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   constructor(private sb: StagingTableClient) {}
 
   async abortExpired(nowMs: number): Promise<number> {
+    const nowIso = new Date(nowMs).toISOString();
+    const ttlMinutes = Math.round(SCREENER_SYNC_JOB_TTL_MS / 60_000);
+    const rpc = await this.sb.rpc("expire_screener_sync_stale_jobs_v1", {
+      p_now: nowIso,
+      p_job_ttl: `${ttlMinutes} minutes`,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean; aborted_count?: number };
+      if (parsed?.ok && typeof parsed.aborted_count === "number") {
+        return parsed.aborted_count;
+      }
+    }
+    if (!isMissingRpc(rpc.error)) return 0;
     const cutoffMs = nowMs - SCREENER_SYNC_JOB_TTL_MS;
-    const res = await this.sb
-      .from(TABLE)
-      .select("id,created_at")
-      .eq("status", "chunking")
-      .limit(32);
-    if (res.error) return 0;
     let n = 0;
-    for (const row of res.data ?? []) {
-      const created = Date.parse(String(row.created_at ?? ""));
-      if (!Number.isFinite(created) || created >= cutoffMs) continue;
-      const upd = await this.sb
+    for (const status of ["chunking", "finalizing"] as const) {
+      const res = await this.sb
         .from(TABLE)
-        .update({
-          status: "aborted",
-          lease_token: null,
-          lease_expires_at: null,
-          finalize_lease_token: null,
-          finalize_lease_expires_at: null,
-        })
-        .eq("id", String(row.id));
-      if (!upd.error) n += 1;
+        .select("id,created_at")
+        .eq("status", status)
+        .limit(32);
+      if (res.error) continue;
+      for (const row of res.data ?? []) {
+        const created = Date.parse(String(row.created_at ?? ""));
+        if (!Number.isFinite(created) || created >= cutoffMs) continue;
+        const upd = await this.sb
+          .from(TABLE)
+          .update({
+            status: "aborted",
+            lease_token: null,
+            lease_expires_at: null,
+            finalize_lease_token: null,
+            finalize_lease_expires_at: null,
+          })
+          .eq("id", String(row.id));
+        if (!upd.error) n += 1;
+      }
     }
     return n;
   }
@@ -345,6 +360,63 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       return { ok: false, reason: "publish_rpc_record_failed" };
     }
     return { ok: false, reason: "staging_rpc_missing" };
+  }
+
+  async publishStagedGeneration(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    syncedAt: string;
+    nhlBaselineStatus: string;
+    tabEvaluationEvidence: unknown;
+    rows: unknown[];
+    nowMs: number;
+  }): Promise<
+    | { ok: true; rowsInserted: number; job: StagedGenerationJob }
+    | { ok: false; reason: string }
+  > {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("publish_screener_sync_staged_generation_v1", {
+      p_job_id: params.jobId,
+      p_finalize_lease_token: params.finalizeLeaseToken,
+      p_expected_state_version: params.expectedStateVersion,
+      p_rows: params.rows,
+      p_sync_run_id: params.syncRunId,
+      p_synced_at: params.syncedAt,
+      p_nhl_baseline_status: params.nhlBaselineStatus,
+      p_tab_evaluation_evidence: params.tabEvaluationEvidence,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as {
+        ok?: boolean;
+        reason?: string;
+        rows_inserted?: number;
+        job?: StagingJobRow;
+      };
+      if (
+        parsed?.ok &&
+        typeof parsed.rows_inserted === "number" &&
+        parsed.job
+      ) {
+        return {
+          ok: true,
+          rowsInserted: parsed.rows_inserted,
+          job: jobFromRow(parsed.job),
+        };
+      }
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "staged_publish_rejected",
+      };
+    }
+    if (isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "staging_rpc_missing" };
+    }
+    return { ok: false, reason: "staged_publish_failed" };
   }
 
   async completePublish(params: {

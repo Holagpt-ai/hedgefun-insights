@@ -1,4 +1,9 @@
-import { SCREENER_SYNC_LEASE_MS, type StagedChunkArtifacts, type StagedGenerationJob } from "./sync-staging-types.ts";
+import {
+  SCREENER_SYNC_JOB_TTL_MS,
+  SCREENER_SYNC_LEASE_MS,
+  type StagedChunkArtifacts,
+  type StagedGenerationJob,
+} from "./sync-staging-types.ts";
 
 export type StoreOk<T> = { ok: true } & T;
 export type StoreErr = { ok: false; reason: string };
@@ -162,4 +167,98 @@ export function recordPublishRpcInMemory(
   job.stateVersion = input.expectedStateVersion + 1;
   job.updatedAtMs = input.nowMs;
   return { ok: true, job };
+}
+
+export function shouldExpireStagedJob(
+  job: StagedGenerationJob,
+  nowMs: number,
+  jobTtlMs: number = SCREENER_SYNC_JOB_TTL_MS,
+): boolean {
+  if (job.status !== "chunking" && job.status !== "finalizing") return false;
+  if (job.status === "finalizing" && job.publishRowsInserted !== null) {
+    return false;
+  }
+  if (nowMs - job.createdAtMs > jobTtlMs) return true;
+  if (
+    job.status === "finalizing" &&
+    job.publishRowsInserted === null &&
+    job.finalizeLeaseExpiresMs !== null &&
+    job.finalizeLeaseExpiresMs <= nowMs
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function expireStaleJobsInMemory(
+  jobs: Map<string, StagedGenerationJob>,
+  nowMs: number,
+): number {
+  let n = 0;
+  for (const [id, job] of jobs) {
+    if (!shouldExpireStagedJob(job, nowMs)) continue;
+    job.status = "aborted";
+    job.leaseToken = null;
+    job.leaseExpiresMs = null;
+    job.finalizeLeaseToken = null;
+    job.finalizeLeaseExpiresMs = null;
+    job.updatedAtMs = nowMs;
+    jobs.set(id, job);
+    n += 1;
+  }
+  return n;
+}
+
+/** Atomic replace+record simulation for in-memory tests (no feed monotonic check). */
+export function publishStagedGenerationInMemory(
+  job: StagedGenerationJob,
+  input: {
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    expectedRowCount: number;
+    nowMs: number;
+  },
+): StoreOk<{ rowsInserted: number; job: StagedGenerationJob }> | StoreErr {
+  if (job.status === "published") {
+    return {
+      ok: true,
+      rowsInserted: job.publishRowsInserted ?? input.expectedRowCount,
+      job,
+    };
+  }
+  if (job.status !== "finalizing") {
+    return { ok: false, reason: "not_finalizing" };
+  }
+  if (job.observation.syncRunId !== input.syncRunId) {
+    return { ok: false, reason: "sync_run_id_mismatch" };
+  }
+  if (job.finalizeLeaseToken !== input.finalizeLeaseToken) {
+    return { ok: false, reason: "finalize_owner_conflict" };
+  }
+  if (!finalizeLeaseActive(job, input.nowMs)) {
+    return { ok: false, reason: "finalize_lease_expired" };
+  }
+  if (job.publishRowsInserted !== null) {
+    if (job.publishRowsInserted !== input.expectedRowCount) {
+      return { ok: false, reason: "publish_rows_replay_mismatch" };
+    }
+    return {
+      ok: true,
+      rowsInserted: job.publishRowsInserted,
+      job,
+    };
+  }
+  if (job.stateVersion !== input.expectedStateVersion) {
+    return { ok: false, reason: "state_version_conflict" };
+  }
+  job.publishRowsInserted = input.expectedRowCount;
+  job.publishRpcRecordedAtMs = input.nowMs;
+  job.stateVersion = input.expectedStateVersion + 1;
+  job.updatedAtMs = input.nowMs;
+  return {
+    ok: true,
+    rowsInserted: input.expectedRowCount,
+    job,
+  };
 }
