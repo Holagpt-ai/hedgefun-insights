@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Apply all repo migrations to a disposable Postgres (local Docker only).
- * Usage: SCREENER_SYNC_PG_TEST_URL=postgresql://postgres:test@127.0.0.1:5433/postgres node scripts/supabase/screener-sync-pg-test-setup.mjs
+ * Bootstrap disposable Postgres for Batch 190 integration tests.
+ *
+ * Usage:
+ *   SCREENER_SYNC_PG_TEST_URL=postgresql://postgres:pass@127.0.0.1:5432/postgres \
+ *     node scripts/supabase/screener-sync-pg-test-setup.mjs
  *
  * Never point at Lovable production or shared databases.
  */
 
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -20,26 +22,36 @@ if (/lovable|supabase\.co|zcjptaolpumhtlwhlemq/i.test(url)) {
   process.exit(1);
 }
 
-const migrationsDir = join(process.cwd(), "supabase", "migrations");
-const files = (await readdir(migrationsDir))
-  .filter((f) => f.endsWith(".sql"))
-  .sort();
+const cwd = process.cwd();
+const migrationsDir = join(cwd, "supabase", "migrations");
+const bootstrap = join(cwd, "supabase", "tests", "screener-sync-pg", "00-bootstrap.sql");
 
-console.log(`Applying ${files.length} migrations to disposable DB…`);
+/** Publication RPC deps + Batch 190 migrations (exact order). */
+const MIGRATION_CHAIN = [
+  "20260914200000_screener_tab_evaluation_evidence_v1.sql",
+  "20260917180200_screener_rvol20d_results_rpc_v1.sql",
+  "20261028200000_screener_sync_generation_staging_v1.sql",
+  "20261028210000_screener_sync_staging_rpc_v1.sql",
+  "20261028220000_screener_sync_staging_hardening_v1.sql",
+  "20261028230000_screener_sync_staging_recovery_v1.sql",
+];
 
-for (const file of files) {
-  const path = join(migrationsDir, file);
-  const sql = await readFile(path, "utf8");
+function runSql(label, filePath) {
   const psql = spawnSync(
     "psql",
-    [url, "-v", "ON_ERROR_STOP=1", "-f", path],
+    [url, "-v", "ON_ERROR_STOP=1", "-f", filePath],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   if (psql.status !== 0) {
-    console.error(`Failed on ${file}:\n${psql.stderr || psql.stdout}`);
+    console.error(`Failed on ${label}:\n${psql.stderr || psql.stdout}`);
     process.exit(psql.status ?? 1);
   }
   process.stdout.write(".");
 }
 
-console.log("\nDone.");
+console.log("Screener sync PG test bootstrap…");
+runSql("00-bootstrap", bootstrap);
+for (const file of MIGRATION_CHAIN) {
+  runSql(file, join(migrationsDir, file));
+}
+console.log("\nBootstrap complete.");

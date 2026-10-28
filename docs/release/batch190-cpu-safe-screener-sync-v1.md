@@ -15,7 +15,7 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 
 1. **Cron / start (`action: cron`)** — One Polygon snapshot triple, optional radar previous-close overlay, immutable `observation` context. NHL baseline **frozen** into `nhl_baseline_snapshot` on the job row. If a resumable in-progress job exists (expired lease or failed continue dispatch), cron **resumes** it instead of starting a conflicting generation.
 2. **Chunk steps (`action: continue`)** — At most `SCREENER_SYNC_CHUNK_SIZE` (2200) symbols per invocation. Chunk advance uses **CAS** (`state_version`, `next_chunk_index`, lease token) via `advance_screener_sync_chunk_v1`. Continue dispatch uses `EdgeRuntime.waitUntil` + awaited fetch with timeout; failures recorded on the job for cron recovery.
-3. **Finalize** — `claim_screener_sync_lease_v1` (finalize mode) ensures a single finalizer. Publication uses frozen NHL snapshot only; live baseline generation drift **fails closed**. After successful `replace_screener_results_generation_v1`, `complete_screener_sync_publish_v1` marks the job `published` (idempotent retry if RPC succeeded but state update lagged).
+3. **Finalize** — `claim_screener_sync_lease_v1` (finalize mode) ensures a single finalizer. Publication uses frozen NHL snapshot only; live baseline generation drift **fails closed**. **`publish_screener_sync_staged_generation_v1`** atomically runs `replace_screener_results_generation_v1` and records `publish_rows_inserted` (no non-atomic fallback in staged mode). Then **`complete_screener_sync_publish_v1`** marks the job `published`.
 
 **Monolithic path** remains when `SCREENER_SYNC_STAGED` is `0` or `off` (default).
 
@@ -26,7 +26,9 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 3. `20261028220000_screener_sync_staging_hardening_v1.sql` — **lease handoff** on chunk advance (NULL lease after commit), **one active generation** partial unique index, **`record_screener_sync_publish_rpc_v1`**, publish-complete requires recorded RPC
 4. `20261028230000_screener_sync_staging_recovery_v1.sql` — **`expire_screener_sync_stale_jobs_v1`**, atomic **`publish_screener_sync_staged_generation_v1`** (replace + job record in one transaction), **DROP** obsolete 7-arg `advance_screener_sync_chunk_v1`
 
-**Postgres integration tests:** disposable DB only (`node scripts/supabase/screener-sync-pg-test-setup.mjs` after setting `SCREENER_SYNC_PG_TEST_URL`). Never Lovable production. CI skips when URL unset.
+**Postgres integration gate (mandatory on PR #196):** GitHub Actions provisions **PostgreSQL 16**, runs `scripts/supabase/screener-sync-pg-test-setup.mjs` (bootstrap + migrations **20260914200000** → **20261028230000**), then `sync-staging-postgres-integration_test.ts`. Local: disposable Docker Postgres only — never Lovable production.
+
+**Production migration prerequisite:** Postgres CI must be green on the PR head **before** Lovable applies migrations `20261028200000`–`20261028230000`.
 
 Validate locally: `node scripts/supabase/migration-order.mjs`
 

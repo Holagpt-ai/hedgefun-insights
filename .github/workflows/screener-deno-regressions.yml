@@ -6,6 +6,8 @@ on:
     paths:
       - "supabase/functions/_shared/screeners/**"
       - "supabase/functions/sync-screener-data/**"
+      - "supabase/tests/screener-sync-pg/**"
+      - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
   push:
@@ -14,6 +16,8 @@ on:
     paths:
       - "supabase/functions/_shared/screeners/**"
       - "supabase/functions/sync-screener-data/**"
+      - "supabase/tests/screener-sync-pg/**"
+      - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
 
@@ -28,7 +32,23 @@ jobs:
   regressions:
     name: Critical screener tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: screener_pg_ci_test
+          POSTGRES_DB: screener_sync_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d screener_sync_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SCREENER_SYNC_PG_TEST_URL: postgresql://postgres:screener_pg_ci_test@localhost:5432/screener_sync_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +57,10 @@ jobs:
           cache: npm
       - name: Install Node dependencies
         run: npm ci --ignore-scripts
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Bootstrap disposable Postgres (Batch 190 migrations)
+        run: node scripts/supabase/screener-sync-pg-test-setup.mjs
       - uses: denoland/setup-deno@v2
         with:
           deno-version: 2.9.4

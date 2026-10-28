@@ -807,77 +807,6 @@ async function finalizeStagedScreenerGeneration(
       rowsInserted = atomicPublish.rowsInserted;
       publishVersion = atomicPublish.job.stateVersion;
       evidencePersistence = { mode: "atomic_rpc" };
-    } else if (atomicPublish.reason === "staging_rpc_missing") {
-      const rpcBase = {
-        p_rows: allRows,
-        p_sync_run_id: syncRunId,
-        p_synced_at: syncedAt,
-        p_nhl_baseline_status: nhlBaseline.status,
-      };
-      let legacyEvidenceRpcFallback = false;
-      let rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, {
-        ...rpcBase,
-        p_tab_evaluation_evidence: tabEvaluationEvidence,
-      });
-      if (rpcResult.error) {
-        const message = String(rpcResult.error.message ?? "").toLowerCase();
-        const missingEvidenceRpc =
-          message.includes("p_tab_evaluation_evidence") ||
-          message.includes("could not find the function") ||
-          message.includes("function public.replace_screener_results_generation_v1(");
-        if (missingEvidenceRpc) {
-          rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
-          legacyEvidenceRpcFallback = !rpcResult.error;
-        }
-      }
-      const rpcError = rpcResult.error;
-      rowsInserted = rpcResult.data;
-      if (rpcError) {
-        console.error("[sync-screener-data] staged replace generation failed");
-        await store.failJob(job.id, "replace_generation_failed", wallNowMs);
-        return json({ error: "database_error" }, 500);
-      }
-      if (
-        typeof rowsInserted !== "number" ||
-        !Number.isInteger(rowsInserted) ||
-        rowsInserted < 0 ||
-        rowsInserted !== allRows.length
-      ) {
-        console.error("[sync-screener-data] staged replace generation count mismatch");
-        await store.failJob(job.id, "replace_generation_count_mismatch", wallNowMs);
-        return json({ error: "database_error" }, 500);
-      }
-
-      if (legacyEvidenceRpcFallback) {
-        evidencePersistence = await persistTabEvaluationEvidenceAfterLegacyRpc(sb, {
-          syncRunId,
-          expectedRowsInserted: rowsInserted,
-          tabEvaluationEvidence,
-        });
-      }
-
-      const recorded = await store.recordPublishRpc({
-        jobId: job.id,
-        finalizeLeaseToken: finalizeLease,
-        expectedStateVersion: publishVersion,
-        syncRunId,
-        rowsInserted,
-        nowMs: wallNowMs,
-      });
-      if (!recorded.ok) {
-        console.error(
-          `[sync-screener-data] staged publish_rpc_record_failed reason=${recorded.reason}`,
-        );
-        return json({
-          ok: true,
-          staged: true,
-          publish_rpc_ok: true,
-          publish_state_pending: true,
-          sync_run_id: syncRunId,
-          generation_id: job.id,
-        });
-      }
-      publishVersion = recorded.job.stateVersion;
     } else if (atomicPublish.reason === "newer_generation_live") {
       await store.abortJob(job.id, wallNowMs);
       return json({
@@ -889,11 +818,15 @@ async function finalizeStagedScreenerGeneration(
         generation_id: job.id,
       });
     } else {
+      const reason = atomicPublish.reason === "staging_rpc_missing"
+        ? "staged_publish_rpc_unavailable"
+        : atomicPublish.reason;
       console.error(
-        `[sync-screener-data] staged atomic_publish_failed reason=${atomicPublish.reason}`,
+        `[sync-screener-data] staged atomic_publish_failed reason=${reason}`,
       );
-      await store.failJob(job.id, atomicPublish.reason, wallNowMs);
-      return json({ error: atomicPublish.reason }, 409);
+      await store.failJob(job.id, reason, wallNowMs);
+      const status = reason === "staged_publish_rpc_unavailable" ? 503 : 409;
+      return json({ error: reason, generation_id: job.id }, status);
     }
   } else if (rowsInserted !== allRows.length) {
     await store.failJob(job.id, "publish_rows_replay_mismatch", wallNowMs);
