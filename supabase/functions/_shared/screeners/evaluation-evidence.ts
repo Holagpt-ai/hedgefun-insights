@@ -186,7 +186,7 @@ export function isSafelyClassifiableNoHistory(
   return true;
 }
 
-function boundedSymbolSample(symbols: string[]): string[] | undefined {
+export function boundedSymbolSample(symbols: string[]): string[] | undefined {
   if (symbols.length === 0) return undefined;
   const sorted = [...symbols].sort((a, b) => a.localeCompare(b));
   if (sorted.length <= NHL_DIAGNOSTIC_SYMBOL_CAP) return sorted;

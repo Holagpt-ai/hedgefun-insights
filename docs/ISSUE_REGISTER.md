@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** PR **#194** merged + Lovable deployed **17:29:52 UTC**; **17:30 / 17:35 UTC** **CPU Time exceeded**, no fresh publish. Last DB gen **16:15:04 UTC**, 108 rows. **Batch 190** — **DO NOT CLOSE**. |
+| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** PR **#194** deployed **17:29:52 UTC**; **17:30 / 17:35 UTC** **CPU Time exceeded**. Last DB gen **16:15:04 UTC**, 108 rows. **Batch 190** staged sync in PR — **DO NOT CLOSE** until production six-tab publish verified. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |

@@ -8,7 +8,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Master Continuity Sync V4** (PR **#195**, documentation): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`; continuity refresh for **`1398d16a`**. **Batch 190** authorized as next development assignment; implementation **not started**.
+- **Batch 190** CPU-safe staged screener sync (PR pending): Architecture A — chunked Edge + `screener_sync_generation_jobs` staging, global merge/finalize, atomic RPC unchanged. Migration **not applied**; **ISS-034** remains open until production publish verified.
+- **Master Continuity Sync V4** (PR **#195** → **`4eaa8504`** / doc head **`b98e2724`**): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 ## 2026-10-28
 
