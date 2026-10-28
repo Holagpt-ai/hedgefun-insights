@@ -5,6 +5,7 @@ import {
   extendedQuoteSemanticsForObservation,
   sessionQualificationVolume,
   volumeContextFromOpts,
+  type SessionVolumeCache,
   type SessionVolumeContext,
 } from "./session-volume.ts";
 
@@ -15,6 +16,7 @@ export type TabSelectionOpts = {
   extendedSession?: boolean;
   observationSessionFields?: boolean;
   nowMs?: number;
+  sessionVolumeCache?: SessionVolumeCache;
 };
 
 export function extendedQuoteSemanticsForTicker(
@@ -22,7 +24,11 @@ export function extendedQuoteSemanticsForTicker(
   opts?: TabSelectionOpts,
 ): boolean | null {
   if (opts?.observationSessionFields && opts.nowMs !== undefined) {
-    return extendedQuoteSemanticsForObservation(t, opts.nowMs);
+    return extendedQuoteSemanticsForObservation(
+      t,
+      opts.nowMs,
+      opts.sessionVolumeCache,
+    );
   }
   return opts?.extendedSession ?? false;
 }

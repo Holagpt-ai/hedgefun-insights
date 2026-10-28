@@ -49,4 +49,5 @@ jobs:
           supabase/functions/_shared/screeners/evaluation-evidence_test.ts
           supabase/functions/_shared/screeners/rows_test.ts
           supabase/functions/_shared/screeners/selection_test.ts
+          supabase/functions/_shared/screeners/sync-screener-universe-cpu_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

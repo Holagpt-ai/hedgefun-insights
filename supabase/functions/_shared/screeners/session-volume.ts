@@ -23,12 +23,28 @@ function safeNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Per-sync memo keyed by snapshot object identity (one Polygon payload per run). */
+export type SessionVolumeCache = {
+  observationMs: WeakMap<VolumeTicker, number | null>;
+  qualificationVolume: WeakMap<VolumeTicker, number | null>;
+  extendedQuoteSemantics: WeakMap<VolumeTicker, boolean | null>;
+};
+
+export function createSessionVolumeCache(): SessionVolumeCache {
+  return {
+    observationMs: new WeakMap(),
+    qualificationVolume: new WeakMap(),
+    extendedQuoteSemantics: new WeakMap(),
+  };
+}
+
 export type SessionVolumeContext = {
   /** Server clock extended sync (pre-market / after-hours). */
   extendedSession?: boolean;
   /** Live surveillance sync: resolve volume from each ticker's observation session. */
   observationSessionVolume?: boolean;
   nowMs?: number;
+  cache?: SessionVolumeCache;
 };
 
 function usesObservationVolumeResolution(ctx: SessionVolumeContext): boolean {
@@ -112,7 +128,7 @@ export function parseProviderTimestampMs(
  * Verified observation instant for volume session classification.
  * Prefers min.t (same bar as min.av), then updated; rejects contradictory pairs.
  */
-export function resolveVerifiedObservationMs(
+function resolveVerifiedObservationMsUncached(
   t: VolumeTicker,
   nowMs: number,
 ): number | null {
@@ -138,11 +154,28 @@ export function resolveVerifiedObservationMs(
   return null;
 }
 
+export function resolveVerifiedObservationMs(
+  t: VolumeTicker,
+  nowMs: number,
+  cache?: SessionVolumeCache,
+): number | null {
+  if (cache) {
+    if (cache.observationMs.has(t)) {
+      return cache.observationMs.get(t)!;
+    }
+    const resolved = resolveVerifiedObservationMsUncached(t, nowMs);
+    cache.observationMs.set(t, resolved);
+    return resolved;
+  }
+  return resolveVerifiedObservationMsUncached(t, nowMs);
+}
+
 export function resolveObservationSessionKind(
   t: VolumeTicker,
   nowMs: number,
+  cache?: SessionVolumeCache,
 ): SyncSessionKind | null {
-  const observationMs = resolveVerifiedObservationMs(t, nowMs);
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, cache);
   if (observationMs === null) return null;
   return resolveSyncSessionKind(observationMs);
 }
@@ -174,22 +207,29 @@ function isCurrentSurveillanceObservation(
 export function extendedQuoteSemanticsForObservation(
   t: VolumeTicker,
   nowMs: number,
+  cache?: SessionVolumeCache,
 ): boolean | null {
-  const kind = resolveObservationSessionKind(t, nowMs);
-  if (kind === null) return null;
-  return kind === "pre-market" || kind === "after-hours";
+  if (cache?.extendedQuoteSemantics.has(t)) {
+    return cache.extendedQuoteSemantics.get(t)!;
+  }
+  const kind = resolveObservationSessionKind(t, nowMs, cache);
+  const result = kind === null
+    ? null
+    : kind === "pre-market" || kind === "after-hours";
+  cache?.extendedQuoteSemantics.set(t, result);
+  return result;
 }
 
-export function sessionQualificationVolume(
+function sessionQualificationVolumeUncached(
   t: VolumeTicker,
-  ctx: SessionVolumeContext = {},
+  ctx: SessionVolumeContext,
 ): number | null {
   if (!usesObservationVolumeResolution(ctx)) return regularSessionVolume(t);
 
   const nowMs = ctx.nowMs;
   if (nowMs === undefined || !Number.isFinite(nowMs)) return null;
 
-  const observationMs = resolveVerifiedObservationMs(t, nowMs);
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx.cache);
   if (observationMs === null) return null;
   if (!isCurrentSurveillanceObservation(observationMs, nowMs)) return null;
 
@@ -197,15 +237,33 @@ export function sessionQualificationVolume(
   return volumeForObservationSession(t, kind);
 }
 
+export function sessionQualificationVolume(
+  t: VolumeTicker,
+  ctx: SessionVolumeContext = {},
+): number | null {
+  const cache = ctx.cache;
+  if (cache) {
+    if (cache.qualificationVolume.has(t)) {
+      return cache.qualificationVolume.get(t)!;
+    }
+    const resolved = sessionQualificationVolumeUncached(t, ctx);
+    cache.qualificationVolume.set(t, resolved);
+    return resolved;
+  }
+  return sessionQualificationVolumeUncached(t, ctx);
+}
+
 export function volumeContextFromMeta(meta: {
   extendedSession?: boolean;
   observationSessionFields?: boolean;
   nowMs: number;
+  sessionVolumeCache?: SessionVolumeCache;
 }): SessionVolumeContext {
   return {
     extendedSession: meta.extendedSession ?? false,
     observationSessionVolume: meta.observationSessionFields ?? false,
     nowMs: meta.nowMs,
+    cache: meta.sessionVolumeCache,
   };
 }
 
@@ -213,10 +271,12 @@ export function volumeContextFromOpts(opts?: {
   extendedSession?: boolean;
   observationSessionFields?: boolean;
   nowMs?: number;
+  sessionVolumeCache?: SessionVolumeCache;
 }): SessionVolumeContext {
   return {
     extendedSession: opts?.extendedSession ?? false,
     observationSessionVolume: opts?.observationSessionFields ?? false,
     nowMs: opts?.nowMs,
+    cache: opts?.sessionVolumeCache,
   };
 }

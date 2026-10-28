@@ -23,10 +23,11 @@ import {
   selectForTab,
 } from "../_shared/screeners/selection.ts";
 import {
-  evaluateDayTradeRadar,
+  accumulateRadarDiagnostic,
+  createEmptyRadarRejectionSummary,
   formatRadarRejectionLog,
-  summarizeRadarDiagnostics,
 } from "../_shared/screeners/diagnostics.ts";
+import { createSessionVolumeCache } from "../_shared/screeners/session-volume.ts";
 import {
   attachRvol20dToRows,
   easternTradingDateFromMs,
@@ -557,12 +558,21 @@ export async function handleSyncScreenerData(
     }
   }
 
-  const dayTradeDiagnostics = allTickers.map((t) =>
-    evaluateDayTradeRadar(t, nowMs, { syncSessionKind: sessionKind })
-  );
-  console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
+  const sessionVolumeCache = createSessionVolumeCache();
+  const radarSummary = createEmptyRadarRejectionSummary();
+  for (const t of allTickers) {
+    accumulateRadarDiagnostic(radarSummary, t, nowMs, {
+      syncSessionKind: sessionKind,
+    });
+  }
+  console.log(`[sync-screener-data] ${formatRadarRejectionLog(radarSummary)}`);
 
-  const extendedTabOpts = { extendedSession, observationSessionFields, nowMs };
+  const extendedTabOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    sessionVolumeCache,
+  };
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
   const gapperSelected = selectForTab("gappers", allTickers, undefined, extendedTabOpts);
   const volumeSpikeSelected = selectForTab("volume_spikes", allTickers, undefined, extendedTabOpts);
@@ -608,6 +618,7 @@ export async function handleSyncScreenerData(
       extendedSession,
       nowMs,
       observationSessionFields,
+      sessionVolumeCache,
     )
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
@@ -633,6 +644,7 @@ export async function handleSyncScreenerData(
     nowMs,
     extendedSession,
     observationSessionFields,
+    sessionVolumeCache,
   };
 
   const dayTradeRows = mapTabRows(
@@ -692,6 +704,7 @@ export async function handleSyncScreenerData(
     extendedSession,
     observationSessionFields,
     nowMs,
+    sessionVolumeCache,
   });
 
   const nhlEvidence = tabEvaluationEvidence.new_highs_lows;

@@ -96,7 +96,7 @@ export function classifyNewHighLow(
   if (sessionQualificationVolume(t, ctx) === null) return null;
   let priceExtended = extendedSession;
   if (observationSessionFields && nowMs !== undefined) {
-    const ext = extendedQuoteSemanticsForObservation(t, nowMs);
+    const ext = extendedQuoteSemanticsForObservation(t, nowMs, ctx.cache);
     if (ext === null) return null;
     priceExtended = ext;
   }
@@ -123,6 +123,7 @@ export function selectNewHighsLows(
   extendedSession = false,
   nowMs?: number,
   observationSessionFields = false,
+  sessionVolumeCache?: SessionVolumeContext["cache"],
 ): NhlClassification[] {
   if (baselines.size === 0) return [];
 
@@ -130,6 +131,7 @@ export function selectNewHighsLows(
     extendedSession,
     observationSessionVolume: observationSessionFields,
     nowMs,
+    cache: sessionVolumeCache,
   };
   const qualified: PolygonTicker[] = [];
   for (const t of universe) {

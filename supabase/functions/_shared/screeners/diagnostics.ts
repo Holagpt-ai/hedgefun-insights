@@ -70,6 +70,38 @@ export function evaluateDayTradeRadar(
   return { symbol, qualified, reasons: qualified ? [] : reasons };
 }
 
+export function createEmptyRadarRejectionSummary(): RadarRejectionSummary {
+  return {
+    evaluated: 0,
+    qualified: 0,
+    rejected: 0,
+    counts: {
+      missing_invalid_snapshot: 0,
+      price_range_failure: 0,
+      minimum_volume_failure: 0,
+      percentage_move_failure: 0,
+      volume_ratio_failure: 0,
+    },
+  };
+}
+
+/** Incremental summary — avoids materializing one diagnostic object per universe symbol. */
+export function accumulateRadarDiagnostic(
+  summary: RadarRejectionSummary,
+  t: PolygonTicker,
+  nowMs: number,
+  opts?: { syncSessionKind?: SyncSessionKind },
+): void {
+  summary.evaluated += 1;
+  const diag = evaluateDayTradeRadar(t, nowMs, opts);
+  if (diag.qualified) {
+    summary.qualified += 1;
+    return;
+  }
+  summary.rejected += 1;
+  for (const r of diag.reasons) summary.counts[r] += 1;
+}
+
 export function summarizeRadarDiagnostics(
   diags: RadarCandidateDiagnostic[],
 ): RadarRejectionSummary {
