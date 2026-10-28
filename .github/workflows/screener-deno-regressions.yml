@@ -53,4 +53,6 @@ jobs:
           supabase/functions/_shared/screeners/session-volume-cache-parity_test.ts
           supabase/functions/_shared/screeners/chunked-selection-parity_test.ts
           supabase/functions/_shared/screeners/sync-orchestrator-concurrency_test.ts
+          supabase/functions/_shared/screeners/sync-continue-dispatch_test.ts
+          supabase/functions/_shared/screeners/sync-staged-e2e_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

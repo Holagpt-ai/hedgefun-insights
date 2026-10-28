@@ -13,7 +13,10 @@ import {
   type PolygonTicker,
 } from "./selection.ts";
 import { createSessionVolumeCache } from "./session-volume.ts";
-import { resolveSyncSessionKind } from "./session-sync-context.ts";
+import {
+  isExtendedSyncSession,
+  resolveSyncSessionKind,
+} from "./session-sync-context.ts";
 import { isLiveSurveillanceSessionKind } from "./screener-session.ts";
 import { SCREENER_SYNC_CHUNK_SIZE } from "./sync-staging-types.ts";
 import { foldChunkIntoMerged, processUniverseChunk } from "./sync-chunk-processor.ts";
@@ -27,8 +30,7 @@ function tickerSymbols(tickers: PolygonTicker[]): string[] {
 Deno.test("chunked main-universe selection matches monolithic at 13262", () => {
   const nowMs = Date.parse("2026-10-28T14:30:00.000Z");
   const sessionKind = resolveSyncSessionKind(nowMs);
-  const extendedSession = sessionKind === "pre_market" ||
-    sessionKind === "after_hours";
+  const extendedSession = isExtendedSyncSession(sessionKind);
   const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
   const cache = createSessionVolumeCache({
     nowMs,

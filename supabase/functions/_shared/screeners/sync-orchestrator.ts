@@ -36,7 +36,6 @@ export type StagedOrchestratorDeps = {
   nowMs: () => number;
   newLeaseToken: () => string;
   store: SyncStagingStore;
-  /** NHL baselines for chunk evidence; empty until finalize loader runs in handler. */
   nhlBaselines: ReadonlyMap<string, NhlBaselineQuote>;
   policyExclusions: PolicyExclusionEvidence;
   scheduleContinue: (body: StagedSyncRequest) => void;
@@ -46,7 +45,16 @@ export async function runStagedSyncStep(
   request: StagedSyncRequest,
   startJob: Omit<
     StagedGenerationJob,
-    "id" | "leaseToken" | "leaseExpiresMs" | "createdAtMs" | "updatedAtMs"
+    | "id"
+    | "leaseToken"
+    | "leaseExpiresMs"
+    | "createdAtMs"
+    | "updatedAtMs"
+    | "stateVersion"
+    | "continueLastAtMs"
+    | "continueLastError"
+    | "finalizeLeaseToken"
+    | "finalizeLeaseExpiresMs"
   > | null,
   deps: StagedOrchestratorDeps,
 ): Promise<StagedStepResult> {
@@ -54,26 +62,40 @@ export async function runStagedSyncStep(
   await deps.store.abortExpired(nowMs);
 
   if (request.action === "continue") {
-    const job = await deps.store.get(request.generation_id);
-    if (!job || job.status === "aborted" || job.status === "published") {
+    const leaseToken = deps.newLeaseToken();
+    const peek = await deps.store.get(request.generation_id);
+    if (!peek || peek.status === "aborted" || peek.status === "published" ||
+      peek.status === "failed") {
       return { phase: "skipped", reason: "generation_not_active" };
     }
-    if (job.nextChunkIndex >= job.totalChunks) {
-      job.status = "finalizing";
-      await deps.store.save(job);
-      return { phase: "finalizing", generation_id: job.id };
+    const mode = peek.nextChunkIndex >= peek.totalChunks ? "finalize" : "chunk";
+    const claimed = await deps.store.claimWork({
+      jobId: request.generation_id,
+      leaseToken,
+      nowMs,
+      mode,
+    });
+    if (!claimed.ok) {
+      return { phase: "skipped", reason: claimed.reason };
     }
-    return processNextChunk(job, deps);
+    if (mode === "finalize") {
+      return { phase: "finalizing", generation_id: claimed.job.id };
+    }
+    return processNextChunk(claimed.job, deps, leaseToken);
   }
 
   if (request.action === "finalize") {
-    const job = await deps.store.get(request.generation_id);
-    if (!job || job.status === "aborted" || job.status === "published") {
-      return { phase: "skipped", reason: "generation_not_active" };
+    const leaseToken = deps.newLeaseToken();
+    const claimed = await deps.store.claimWork({
+      jobId: request.generation_id,
+      leaseToken,
+      nowMs,
+      mode: "finalize",
+    });
+    if (!claimed.ok) {
+      return { phase: "skipped", reason: claimed.reason };
     }
-    job.status = "finalizing";
-    await deps.store.save(job);
-    return { phase: "finalizing", generation_id: job.id };
+    return { phase: "finalizing", generation_id: claimed.job.id };
   }
 
   if (!startJob) {
@@ -84,18 +106,18 @@ export async function runStagedSyncStep(
   if (!acquired.ok) {
     return { phase: "skipped", reason: acquired.reason };
   }
-  return processNextChunk(acquired.job, deps);
+  return processNextChunk(acquired.job, deps, lease);
 }
 
 async function processNextChunk(
   job: StagedGenerationJob,
   deps: StagedOrchestratorDeps,
+  leaseToken: string,
 ): Promise<StagedStepResult> {
+  const nowMs = deps.nowMs();
   const idx = job.nextChunkIndex;
+  const version = job.stateVersion;
   if (idx >= job.totalChunks) {
-    job.status = "finalizing";
-    await deps.store.save(job);
-    deps.scheduleContinue({ action: "finalize", generation_id: job.id });
     return { phase: "finalizing", generation_id: job.id };
   }
   const start = idx * job.chunkSize;
@@ -120,22 +142,33 @@ async function processNextChunk(
     nhlBaselines: deps.nhlBaselines,
     policyExclusions: deps.policyExclusions,
   });
-  foldChunkIntoMerged(job.merged, chunk);
-  job.nextChunkIndex = idx + 1;
-  job.status = "chunking";
-  await deps.store.save(job);
+  const merged = structuredClone(job.merged);
+  foldChunkIntoMerged(merged, chunk);
 
-  const continueNext = job.nextChunkIndex < job.totalChunks;
+  const advanced = await deps.store.advanceChunk({
+    jobId: job.id,
+    leaseToken,
+    expectedChunkIndex: idx,
+    expectedStateVersion: version,
+    merged,
+    nowMs,
+  });
+  if (!advanced.ok) {
+    return { phase: "skipped", reason: advanced.reason };
+  }
+  const refreshed = advanced.job;
+
+  const continueNext = refreshed.nextChunkIndex < refreshed.totalChunks;
   if (continueNext) {
-    deps.scheduleContinue({ action: "continue", generation_id: job.id });
+    deps.scheduleContinue({ action: "continue", generation_id: refreshed.id });
   } else {
-    deps.scheduleContinue({ action: "finalize", generation_id: job.id });
+    deps.scheduleContinue({ action: "finalize", generation_id: refreshed.id });
   }
   return {
     phase: "chunk_processed",
-    generation_id: job.id,
+    generation_id: refreshed.id,
     chunk_index: idx,
-    total_chunks: job.totalChunks,
+    total_chunks: refreshed.totalChunks,
     continue: continueNext,
   };
 }
@@ -150,7 +183,16 @@ export function buildStagedJobFromUniverse(
   chunkSize: number = SCREENER_SYNC_CHUNK_SIZE,
 ): Omit<
   StagedGenerationJob,
-  "id" | "leaseToken" | "leaseExpiresMs" | "createdAtMs" | "updatedAtMs"
+  | "id"
+  | "leaseToken"
+  | "leaseExpiresMs"
+  | "createdAtMs"
+  | "updatedAtMs"
+  | "stateVersion"
+  | "continueLastAtMs"
+  | "continueLastError"
+  | "finalizeLeaseToken"
+  | "finalizeLeaseExpiresMs"
 > {
   const sessionKind = resolveSyncSessionKind(nowMs);
   const totalChunks = Math.max(1, Math.ceil(allTickers.length / chunkSize));
@@ -172,6 +214,7 @@ export function buildStagedJobFromUniverse(
     totalChunks,
     merged: emptyChunkArtifacts(),
     nhlBaselineLoaded: false,
+    nhlBaselineSnapshot: null,
   };
 }
 
@@ -186,17 +229,24 @@ export async function runAllChunksInProcess(
     store,
     scheduleContinue: () => {},
   };
-  await store.save(job);
-  while (job.nextChunkIndex < job.totalChunks) {
+  store.seedJob({
+    ...job,
+    leaseToken: null,
+    leaseExpiresMs: null,
+    finalizeLeaseToken: null,
+    finalizeLeaseExpiresMs: null,
+  });
+  const running = { ...job };
+  while (running.nextChunkIndex < running.totalChunks) {
     const step = await runStagedSyncStep(
-      { action: "continue", generation_id: job.id },
+      { action: "continue", generation_id: running.id },
       null,
       orchestratorDeps,
     );
     if (step.phase === "skipped") throw new Error(step.reason);
-    const refreshed = await store.get(job.id);
+    const refreshed = await store.get(running.id);
     if (!refreshed) throw new Error("job_lost");
-    Object.assign(job, refreshed);
+    Object.assign(running, refreshed);
   }
-  return job;
+  return running;
 }

@@ -1,18 +1,19 @@
 /**
- * Postgres-backed staging store (requires migration 20261028200000).
+ * Postgres-backed staging store (migrations 20261028200000 + 20261028210000).
  */
 
 import {
   emptyChunkArtifacts,
   SCREENER_SYNC_JOB_TTL_MS,
   SCREENER_SYNC_LEASE_MS,
+  type StagedChunkArtifacts,
   type StagedGenerationJob,
 } from "./sync-staging-types.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
 import {
   jobFromRow,
   jobToInsertRow,
-  jobToUpdateRow,
+  serializeMergedArtifacts,
   type StagingJobRow,
 } from "./sync-staging-serialize.ts";
 
@@ -23,19 +24,19 @@ export type StagingTableClient = {
         col: string,
         val: string,
       ) => {
-        gt: (
+        gt?: (
           col2: string,
           val2: string,
         ) => {
-          limit: (n: number) => Promise<{
-            data: Array<StagingJobRow | { id: string; created_at: string }> | null;
-            error: { message: string; code?: string } | null;
-          }>;
+          limit: (n: number) => Promise<StagingQueryResult>;
         };
-        limit: (n: number) => Promise<{
-          data: Array<StagingJobRow | { id: string; created_at: string }> | null;
-          error: { message: string; code?: string } | null;
-        }>;
+        in?: (
+          col2: string,
+          vals: string[],
+        ) => {
+          limit: (n: number) => Promise<StagingQueryResult>;
+        };
+        limit: (n: number) => Promise<StagingQueryResult>;
       };
     };
     insert: (row: Record<string, unknown>) => Promise<{
@@ -47,6 +48,15 @@ export type StagingTableClient = {
       }>;
     };
   };
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+};
+
+type StagingQueryResult = {
+  data: Array<StagingJobRow | { id: string; created_at: string }> | null;
+  error: { message: string; code?: string } | null;
 };
 
 const TABLE = "screener_sync_generation_jobs";
@@ -61,6 +71,21 @@ function isMissingTable(error: { message: string; code?: string } | null): boole
   );
 }
 
+function isMissingRpc(error: { message: string; code?: string } | null): boolean {
+  if (!error) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes("could not find the function") ||
+    msg.includes("claim_screener_sync") ||
+    msg.includes("advance_screener_sync");
+}
+
+function parseRpcJob(data: unknown): StagedGenerationJob | null {
+  if (!data || typeof data !== "object") return null;
+  const o = data as { ok?: boolean; job?: StagingJobRow; reason?: string };
+  if (o.ok === true && o.job) return jobFromRow(o.job);
+  return null;
+}
+
 export class SupabaseSyncStagingStore implements SyncStagingStore {
   constructor(private sb: StagingTableClient) {}
 
@@ -71,10 +96,7 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       .select("id,created_at")
       .eq("status", "chunking")
       .limit(32);
-    if (res.error) {
-      if (isMissingTable(res.error)) return 0;
-      return 0;
-    }
+    if (res.error) return 0;
     let n = 0;
     for (const row of res.data ?? []) {
       const created = Date.parse(String(row.created_at ?? ""));
@@ -85,6 +107,8 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
           status: "aborted",
           lease_token: null,
           lease_expires_at: null,
+          finalize_lease_token: null,
+          finalize_lease_expires_at: null,
         })
         .eq("id", String(row.id));
       if (!upd.error) n += 1;
@@ -92,10 +116,53 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     return n;
   }
 
+  async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
+    const res = await this.sb
+      .from(TABLE)
+      .select("*")
+      .eq("status", "chunking")
+      .limit(8);
+    if (res.error || !res.data) return null;
+    const cutoffMs = nowMs - SCREENER_SYNC_JOB_TTL_MS;
+    let best: StagedGenerationJob | null = null;
+    for (const row of res.data as StagingJobRow[]) {
+      const job = jobFromRow(row);
+      if (job.status !== "chunking" && job.status !== "finalizing") continue;
+      if (job.createdAtMs < cutoffMs) continue;
+      const leaseExpired = job.leaseExpiresMs === null ||
+        job.leaseExpiresMs <= nowMs;
+      const dispatchFailed = !!job.continueLastError;
+      if (!leaseExpired && !dispatchFailed) continue;
+      if (!best || job.createdAtMs > best.createdAtMs) best = job;
+    }
+    if (!best) {
+      const fin = await this.sb
+        .from(TABLE)
+        .select("*")
+        .eq("status", "finalizing")
+        .limit(4);
+      for (const row of fin.data ?? [] as StagingJobRow[]) {
+        const job = jobFromRow(row as StagingJobRow);
+        if (job.createdAtMs < cutoffMs) continue;
+        if (!best || job.createdAtMs > best.createdAtMs) best = job;
+      }
+    }
+    return best;
+  }
+
   async acquireOrCreate(
     input: Omit<
       StagedGenerationJob,
-      "id" | "leaseToken" | "leaseExpiresMs" | "createdAtMs" | "updatedAtMs"
+      | "id"
+      | "leaseToken"
+      | "leaseExpiresMs"
+      | "createdAtMs"
+      | "updatedAtMs"
+      | "stateVersion"
+      | "continueLastAtMs"
+      | "continueLastError"
+      | "finalizeLeaseToken"
+      | "finalizeLeaseExpiresMs"
     >,
     leaseToken: string,
     nowMs: number,
@@ -105,18 +172,23 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     const leaseIso = new Date(nowMs).toISOString();
     const active = await this.sb
       .from(TABLE)
-      .select("id,status,lease_expires_at")
+      .select("id,status,lease_expires_at,finalize_lease_expires_at")
       .eq("status", "chunking")
-      .gt("lease_expires_at", leaseIso)
-      .limit(1);
+      .limit(16);
     if (active.error) {
       if (isMissingTable(active.error)) {
         return { ok: false, reason: "staging_table_missing" };
       }
       return { ok: false, reason: "staging_read_failed" };
     }
-    if (active.data && active.data.length > 0) {
-      return { ok: false, reason: "generation_in_progress" };
+    for (const row of active.data ?? []) {
+      const r = row as StagingJobRow;
+      const leaseExp = r.lease_expires_at
+        ? Date.parse(r.lease_expires_at)
+        : 0;
+      if (Number.isFinite(leaseExp) && leaseExp > nowMs) {
+        return { ok: false, reason: "generation_in_progress" };
+      }
     }
 
     const id = crypto.randomUUID();
@@ -128,6 +200,12 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       leaseExpiresMs: nowMs + SCREENER_SYNC_LEASE_MS,
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
+      stateVersion: 0,
+      continueLastAtMs: null,
+      continueLastError: null,
+      finalizeLeaseToken: null,
+      finalizeLeaseExpiresMs: null,
+      nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
     };
     const ins = await this.sb.from(TABLE).insert(jobToInsertRow(job));
     if (ins.error) {
@@ -153,15 +231,142 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     return jobFromRow(res.data[0] as StagingJobRow);
   }
 
-  async save(job: StagedGenerationJob): Promise<void> {
-    job.updatedAtMs = Date.now();
-    const res = await this.sb
-      .from(TABLE)
-      .update(jobToUpdateRow(job))
-      .eq("id", job.id);
-    if (res.error && !isMissingTable(res.error)) {
-      throw new Error(`staging_save_failed: ${res.error.message}`);
+  async claimWork(params: {
+    jobId: string;
+    leaseToken: string;
+    nowMs: number;
+    mode: "chunk" | "finalize";
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const leaseUntil = new Date(params.nowMs + SCREENER_SYNC_LEASE_MS)
+      .toISOString();
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("claim_screener_sync_lease_v1", {
+      p_job_id: params.jobId,
+      p_lease_token: params.leaseToken,
+      p_now: nowIso,
+      p_lease_expires_at: leaseUntil,
+      p_mode: params.mode,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean; reason?: string; job?: StagingJobRow };
+      if (parsed?.ok && parsed.job) {
+        return { ok: true, job: jobFromRow(parsed.job) };
+      }
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "claim_rejected",
+      };
     }
+    if (!isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "claim_rpc_failed" };
+    }
+    return { ok: false, reason: "staging_rpc_missing" };
+  }
+
+  async advanceChunk(params: {
+    jobId: string;
+    leaseToken: string;
+    expectedChunkIndex: number;
+    expectedStateVersion: number;
+    merged: StagedChunkArtifacts;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const leaseUntil = new Date(params.nowMs + SCREENER_SYNC_LEASE_MS)
+      .toISOString();
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("advance_screener_sync_chunk_v1", {
+      p_job_id: params.jobId,
+      p_lease_token: params.leaseToken,
+      p_expected_chunk_index: params.expectedChunkIndex,
+      p_expected_state_version: params.expectedStateVersion,
+      p_merged_artifacts: serializeMergedArtifacts(params.merged),
+      p_lease_expires_at: leaseUntil,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean; reason?: string; job?: StagingJobRow };
+      if (parsed?.ok && parsed.job) {
+        return { ok: true, job: jobFromRow(parsed.job) };
+      }
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "chunk_advance_rejected",
+      };
+    }
+    if (!isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "advance_rpc_failed" };
+    }
+    return { ok: false, reason: "staging_rpc_missing" };
+  }
+
+  async completePublish(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("complete_screener_sync_publish_v1", {
+      p_job_id: params.jobId,
+      p_finalize_lease_token: params.finalizeLeaseToken,
+      p_expected_state_version: params.expectedStateVersion,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean; reason?: string };
+      if (parsed?.ok) return { ok: true };
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "publish_complete_rejected",
+      };
+    }
+    if (!isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "complete_rpc_failed" };
+    }
+    return { ok: false, reason: "staging_rpc_missing" };
+  }
+
+  async failJob(jobId: string, reason: string, nowMs: number): Promise<void> {
+    await this.sb.from(TABLE).update({
+      status: "failed",
+      continue_last_error: reason,
+      updated_at: new Date(nowMs).toISOString(),
+    }).eq("id", jobId);
+  }
+
+  async abortJob(jobId: string, nowMs: number): Promise<void> {
+    await this.sb.from(TABLE).update({
+      status: "aborted",
+      lease_token: null,
+      lease_expires_at: null,
+      finalize_lease_token: null,
+      finalize_lease_expires_at: null,
+      updated_at: new Date(nowMs).toISOString(),
+    }).eq("id", jobId);
+  }
+
+  async recordContinueDispatch(params: {
+    jobId: string;
+    action: string;
+    ok: boolean;
+    error?: string;
+    nowMs: number;
+  }): Promise<void> {
+    await this.sb.from(TABLE).update({
+      continue_last_at: new Date(params.nowMs).toISOString(),
+      continue_last_error: params.ok ? null : (params.error ?? "continue_failed"),
+      updated_at: new Date(params.nowMs).toISOString(),
+    }).eq("id", params.jobId);
   }
 }
 

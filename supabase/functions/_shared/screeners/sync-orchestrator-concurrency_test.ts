@@ -76,17 +76,16 @@ Deno.test("continue after all chunks reaches finalizing", async () => {
   const acquired = await store.acquireOrCreate(jobInput, "lease-a", nowMs);
   assertEquals(acquired.ok, true);
   if (!acquired.ok) return;
-  const job = acquired.job;
-  await runAllChunksInProcess(job, store, {
+  await runAllChunksInProcess(acquired.job, store, {
     nowMs: () => nowMs,
     newLeaseToken: () => "lease-b",
     nhlBaselines: new Map(),
     policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
   });
-  const refreshed = await store.get(job.id);
+  const refreshed = await store.get(acquired.job.id);
   assertEquals(refreshed?.nextChunkIndex, refreshed?.totalChunks);
   const step = await runStagedSyncStep(
-    { action: "continue", generation_id: job.id },
+    { action: "continue", generation_id: acquired.job.id },
     null,
     {
       nowMs: () => nowMs,
@@ -139,10 +138,9 @@ Deno.test("continue on aborted job is skipped", async () => {
   );
   assertEquals(acquired.ok, true);
   if (!acquired.ok) return;
-  const job = { ...acquired.job, status: "aborted" as const };
-  await store.save(job);
+  await store.abortJob(acquired.job.id, nowMs);
   const step = await runStagedSyncStep(
-    { action: "continue", generation_id: job.id },
+    { action: "continue", generation_id: acquired.job.id },
     null,
     {
       nowMs: () => nowMs,

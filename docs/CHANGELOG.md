@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190** CPU-safe staged screener sync (PR pending): Architecture A — chunked Edge + `screener_sync_generation_jobs` staging, global merge/finalize, atomic RPC unchanged. Migration **not applied**; **ISS-034** remains open until production publish verified.
+- **Batch 190** CPU-safe staged screener sync (PR **#196**): Architecture A — chunked Edge + CAS staging RPCs, frozen NHL baseline snapshot, continue dispatch + cron resume, finalize lease. Migrations **not applied**; **ISS-034** remains open until production publish verified.
 - **Master Continuity Sync V4** (PR **#195** → **`4eaa8504`** / doc head **`b98e2724`**): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 ## 2026-10-28

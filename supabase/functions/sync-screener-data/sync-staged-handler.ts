@@ -6,7 +6,6 @@
 import type { FetchLike } from "../_shared/screeners/provider.ts";
 import type { EnvReader } from "../_shared/screeners/auth.ts";
 import {
-  buildStagedJobFromUniverse,
   runStagedSyncStep,
   type StagedStepResult,
 } from "../_shared/screeners/sync-orchestrator.ts";
@@ -24,11 +23,21 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const CONTINUE_DISPATCH_TIMEOUT_MS = 8_000;
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function deferEdgeWork(work: () => Promise<void>): void {
+  const pending = work().catch(() => {});
+  const waitUntil = (globalThis as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime?.waitUntil;
+  if (typeof waitUntil === "function") waitUntil(pending);
 }
 
 export type StagedChunkContext = {
@@ -73,18 +82,15 @@ export async function handleStagedSyncStart(
   }
 
   if (step.phase === "skipped") {
-    const status = step.reason === "generation_in_progress" ? 409 : 503;
+    const status = step.reason === "generation_in_progress" ||
+        step.reason === "lease_owner_conflict" ||
+        step.reason === "finalize_owner_conflict"
+      ? 409
+      : 503;
     return json({ ok: false, staged: step, reason: step.reason }, status);
   }
 
   return json({ ok: true, staged: step });
-}
-
-export async function handleStagedSyncRequest(
-  deps: StagedHandlerDeps,
-  parsedBody: StagedSyncRequest,
-): Promise<Response> {
-  return handleStagedSyncStart(deps, parsedBody, null);
 }
 
 export async function parseStagedSyncBody(req: Request): Promise<StagedSyncRequest> {
@@ -97,21 +103,59 @@ export async function parseStagedSyncBody(req: Request): Promise<StagedSyncReque
   }
 }
 
-export function createContinueInvoker(
+export async function dispatchStagedContinue(
   deps: { env: EnvReader; fetch: FetchLike },
   functionUrl: string,
-): (body: StagedSyncRequest) => void {
+  body: StagedSyncRequest,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const secret = deps.env("SYNC_SECRET") ?? "";
-  return (body) => {
-    if (!secret) return;
-    void deps.fetch(functionUrl, {
+  if (!secret) return { ok: false, error: "missing_secret" };
+  try {
+    const res = await deps.fetch(functionUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${secret}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-    }).catch(() => {});
+      signal: AbortSignal.timeout(CONTINUE_DISPATCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg.slice(0, 200) };
+  }
+}
+
+export function createContinueInvoker(
+  deps: { env: EnvReader; fetch: FetchLike; nowMs?: () => number },
+  functionUrl: string,
+  store: SyncStagingStore,
+): (body: StagedSyncRequest) => void {
+  return (body) => {
+    const work = async () => {
+      const nowMs = (deps.nowMs ?? (() => Date.now()))();
+      const result = await dispatchStagedContinue(deps, functionUrl, body);
+      const generationId = "generation_id" in body ? body.generation_id : null;
+      if (generationId) {
+        await store.recordContinueDispatch({
+          jobId: generationId,
+          action: body.action,
+          ok: result.ok,
+          error: result.ok ? undefined : result.error,
+          nowMs,
+        });
+      }
+      if (!result.ok) {
+        console.log(
+          `[sync-screener-data] continue_dispatch_failed action=${body.action} error=${result.error}`,
+        );
+      }
+    };
+    deferEdgeWork(work);
   };
 }
 

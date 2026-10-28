@@ -1,3 +1,4 @@
+import type { FrozenNhlBaselineSnapshot } from "./nhl-baseline-snapshot.ts";
 import type { NhlCandidateRow } from "./new-highs-lows.ts";
 import {
   emptyChunkArtifacts,
@@ -88,6 +89,12 @@ export type StagingJobRow = {
   lease_token: string | null;
   lease_expires_at: string | null;
   nhl_baseline_loaded: boolean;
+  nhl_baseline_snapshot: FrozenNhlBaselineSnapshot | null;
+  state_version: number;
+  continue_last_at: string | null;
+  continue_last_error: string | null;
+  finalize_lease_token: string | null;
+  finalize_lease_expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,6 +118,16 @@ export function jobFromRow(row: StagingJobRow): StagedGenerationJob {
     createdAtMs: Date.parse(row.created_at),
     updatedAtMs: Date.parse(row.updated_at),
     nhlBaselineLoaded: row.nhl_baseline_loaded,
+    nhlBaselineSnapshot: row.nhl_baseline_snapshot,
+    stateVersion: row.state_version ?? 0,
+    continueLastAtMs: row.continue_last_at
+      ? Date.parse(row.continue_last_at)
+      : null,
+    continueLastError: row.continue_last_error,
+    finalizeLeaseToken: row.finalize_lease_token,
+    finalizeLeaseExpiresMs: row.finalize_lease_expires_at
+      ? Date.parse(row.finalize_lease_expires_at)
+      : null,
   };
 }
 
@@ -134,19 +151,15 @@ export function jobToInsertRow(
       ? new Date(job.leaseExpiresMs).toISOString()
       : null,
     nhl_baseline_loaded: job.nhlBaselineLoaded,
-  };
-}
-
-export function jobToUpdateRow(job: StagedGenerationJob): Record<string, unknown> {
-  return {
-    status: job.status,
-    next_chunk_index: job.nextChunkIndex,
-    merged_artifacts: serializeMergedArtifacts(job.merged),
-    lease_token: job.leaseToken,
-    lease_expires_at: job.leaseExpiresMs
-      ? new Date(job.leaseExpiresMs).toISOString()
+    nhl_baseline_snapshot: job.nhlBaselineSnapshot,
+    state_version: job.stateVersion,
+    continue_last_at: job.continueLastAtMs
+      ? new Date(job.continueLastAtMs).toISOString()
       : null,
-    nhl_baseline_loaded: job.nhlBaselineLoaded,
-    updated_at: new Date(job.updatedAtMs).toISOString(),
+    continue_last_error: job.continueLastError,
+    finalize_lease_token: job.finalizeLeaseToken,
+    finalize_lease_expires_at: job.finalizeLeaseExpiresMs
+      ? new Date(job.finalizeLeaseExpiresMs).toISOString()
+      : null,
   };
 }

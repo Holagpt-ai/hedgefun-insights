@@ -16,6 +16,12 @@ CREATE TABLE IF NOT EXISTS public.screener_sync_generation_jobs (
   lease_token uuid,
   lease_expires_at timestamptz,
   nhl_baseline_loaded boolean NOT NULL DEFAULT false,
+  nhl_baseline_snapshot jsonb,
+  state_version integer NOT NULL DEFAULT 0,
+  continue_last_at timestamptz,
+  continue_last_error text,
+  finalize_lease_token uuid,
+  finalize_lease_expires_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   CONSTRAINT screener_sync_generation_jobs_status_check

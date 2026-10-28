@@ -13,6 +13,7 @@ import {
   type MainUniverseQualified,
   type PolygonTicker,
 } from "./selection.ts";
+import type { FrozenNhlBaselineSnapshot } from "./nhl-baseline-snapshot.ts";
 import type { SyncSessionKind } from "./session-sync-context.ts";
 
 export const SCREENER_SYNC_CHUNK_SIZE = 2_200;
@@ -60,6 +61,12 @@ export type StagedGenerationJob = {
   createdAtMs: number;
   updatedAtMs: number;
   nhlBaselineLoaded: boolean;
+  nhlBaselineSnapshot: FrozenNhlBaselineSnapshot | null;
+  stateVersion: number;
+  continueLastAtMs: number | null;
+  continueLastError: string | null;
+  finalizeLeaseToken: string | null;
+  finalizeLeaseExpiresMs: number | null;
 };
 
 export type StagedSyncRequest =

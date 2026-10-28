@@ -1,7 +1,15 @@
 import {
+  advanceChunkInMemory,
+  claimLeaseInMemory,
+  completePublishInMemory,
+  finalizeLeaseActive,
+  leaseActive,
+} from "./sync-staging-cas.ts";
+import {
   emptyChunkArtifacts,
   SCREENER_SYNC_JOB_TTL_MS,
   SCREENER_SYNC_LEASE_MS,
+  type StagedChunkArtifacts,
   type StagedGenerationJob,
   type StagedGenerationStatus,
 } from "./sync-staging-types.ts";
@@ -10,7 +18,16 @@ export interface SyncStagingStore {
   acquireOrCreate(
     input: Omit<
       StagedGenerationJob,
-      "id" | "leaseToken" | "leaseExpiresMs" | "createdAtMs" | "updatedAtMs"
+      | "id"
+      | "leaseToken"
+      | "leaseExpiresMs"
+      | "createdAtMs"
+      | "updatedAtMs"
+      | "stateVersion"
+      | "continueLastAtMs"
+      | "continueLastError"
+      | "finalizeLeaseToken"
+      | "finalizeLeaseExpiresMs"
     >,
     leaseToken: string,
     nowMs: number,
@@ -18,12 +35,65 @@ export interface SyncStagingStore {
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   >;
   get(id: string): Promise<StagedGenerationJob | null>;
-  save(job: StagedGenerationJob): Promise<void>;
+  findResumableJob(nowMs: number): Promise<StagedGenerationJob | null>;
+  claimWork(params: {
+    jobId: string;
+    leaseToken: string;
+    nowMs: number;
+    mode: "chunk" | "finalize";
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  >;
+  advanceChunk(params: {
+    jobId: string;
+    leaseToken: string;
+    expectedChunkIndex: number;
+    expectedStateVersion: number;
+    merged: StagedChunkArtifacts;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  >;
+  completePublish(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<{ ok: true } | { ok: false; reason: string }>;
+  failJob(jobId: string, reason: string, nowMs: number): Promise<void>;
+  abortJob(jobId: string, nowMs: number): Promise<void>;
+  recordContinueDispatch(params: {
+    jobId: string;
+    action: string;
+    ok: boolean;
+    error?: string;
+    nowMs: number;
+  }): Promise<void>;
   abortExpired(nowMs: number): Promise<number>;
+}
+
+function cloneJob(job: StagedGenerationJob): StagedGenerationJob {
+  return structuredClone(job);
 }
 
 export class MemorySyncStagingStore implements SyncStagingStore {
   private jobs = new Map<string, StagedGenerationJob>();
+
+  /** Test helper: insert a fully-formed job without acquire semantics. */
+  seedJob(job: StagedGenerationJob): void {
+    this.jobs.set(job.id, cloneJob(job));
+  }
+
+  private activeBlockingJob(nowMs: number): StagedGenerationJob | null {
+    for (const job of this.jobs.values()) {
+      if (job.status !== "chunking" && job.status !== "finalizing") continue;
+      if (leaseActive(job, nowMs)) return job;
+      if (job.status === "finalizing" && finalizeLeaseActive(job, nowMs)) {
+        return job;
+      }
+    }
+    return null;
+  }
 
   async abortExpired(nowMs: number): Promise<number> {
     let n = 0;
@@ -35,6 +105,8 @@ export class MemorySyncStagingStore implements SyncStagingStore {
         job.status = "aborted";
         job.leaseToken = null;
         job.leaseExpiresMs = null;
+        job.finalizeLeaseToken = null;
+        job.finalizeLeaseExpiresMs = null;
         this.jobs.set(id, job);
         n += 1;
       }
@@ -42,21 +114,41 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     return n;
   }
 
+  async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
+    let best: StagedGenerationJob | null = null;
+    for (const job of this.jobs.values()) {
+      if (job.status !== "chunking" && job.status !== "finalizing") continue;
+      if (nowMs - job.createdAtMs > SCREENER_SYNC_JOB_TTL_MS) continue;
+      const needsResume = !leaseActive(job, nowMs) ||
+        (job.continueLastError !== null && job.continueLastError.length > 0);
+      if (!needsResume) continue;
+      if (!best || job.createdAtMs > best.createdAtMs) best = job;
+    }
+    return best ? cloneJob(best) : null;
+  }
+
   async acquireOrCreate(
     input: Omit<
       StagedGenerationJob,
-      "id" | "leaseToken" | "leaseExpiresMs" | "createdAtMs" | "updatedAtMs"
+      | "id"
+      | "leaseToken"
+      | "leaseExpiresMs"
+      | "createdAtMs"
+      | "updatedAtMs"
+      | "stateVersion"
+      | "continueLastAtMs"
+      | "continueLastError"
+      | "finalizeLeaseToken"
+      | "finalizeLeaseExpiresMs"
     >,
     leaseToken: string,
     nowMs: number,
   ): Promise<
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   > {
-    for (const job of this.jobs.values()) {
-      if (job.status !== "chunking") continue;
-      if (job.leaseExpiresMs !== null && job.leaseExpiresMs > nowMs) {
-        return { ok: false, reason: "generation_in_progress" };
-      }
+    const blocking = this.activeBlockingJob(nowMs);
+    if (blocking) {
+      return { ok: false, reason: "generation_in_progress" };
     }
     const id = crypto.randomUUID();
     const job: StagedGenerationJob = {
@@ -67,28 +159,115 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       leaseExpiresMs: nowMs + SCREENER_SYNC_LEASE_MS,
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
+      stateVersion: 0,
+      continueLastAtMs: null,
+      continueLastError: null,
+      finalizeLeaseToken: null,
+      finalizeLeaseExpiresMs: null,
+      nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
     };
     this.jobs.set(id, job);
-    return { ok: true, job };
+    return { ok: true, job: cloneJob(job) };
   }
 
   async get(id: string): Promise<StagedGenerationJob | null> {
-    return this.jobs.get(id) ?? null;
+    const job = this.jobs.get(id);
+    return job ? cloneJob(job) : null;
   }
 
-  async save(job: StagedGenerationJob): Promise<void> {
-    job.updatedAtMs = Date.now();
+  async claimWork(params: {
+    jobId: string;
+    leaseToken: string;
+    nowMs: number;
+    mode: "chunk" | "finalize";
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    const claimed = claimLeaseInMemory(
+      job,
+      params.leaseToken,
+      params.nowMs,
+      params.mode,
+    );
+    if (!claimed.ok) return claimed;
     this.jobs.set(job.id, job);
+    return { ok: true, job: cloneJob(job) };
   }
 
-  renewLease(job: StagedGenerationJob, leaseToken: string, nowMs: number): boolean {
-    if (job.leaseToken !== leaseToken && job.leaseExpiresMs !== null &&
-      job.leaseExpiresMs > nowMs) {
-      return false;
-    }
-    job.leaseToken = leaseToken;
-    job.leaseExpiresMs = nowMs + SCREENER_SYNC_LEASE_MS;
-    return true;
+  async advanceChunk(params: {
+    jobId: string;
+    leaseToken: string;
+    expectedChunkIndex: number;
+    expectedStateVersion: number;
+    merged: StagedChunkArtifacts;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    const advanced = advanceChunkInMemory(job, {
+      leaseToken: params.leaseToken,
+      expectedChunkIndex: params.expectedChunkIndex,
+      expectedStateVersion: params.expectedStateVersion,
+      merged: params.merged,
+      nowMs: params.nowMs,
+    });
+    if (!advanced.ok) return advanced;
+    this.jobs.set(job.id, job);
+    return { ok: true, job: cloneJob(job) };
+  }
+
+  async completePublish(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    const done = completePublishInMemory(job, params);
+    if (!done.ok) return done;
+    this.jobs.set(job.id, job);
+    return { ok: true };
+  }
+
+  async failJob(jobId: string, reason: string, nowMs: number): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+    job.status = "failed";
+    job.continueLastError = reason;
+    job.updatedAtMs = nowMs;
+    this.jobs.set(jobId, job);
+  }
+
+  async abortJob(jobId: string, nowMs: number): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+    job.status = "aborted";
+    job.leaseToken = null;
+    job.leaseExpiresMs = null;
+    job.finalizeLeaseToken = null;
+    job.finalizeLeaseExpiresMs = null;
+    job.updatedAtMs = nowMs;
+    this.jobs.set(jobId, job);
+  }
+
+  async recordContinueDispatch(params: {
+    jobId: string;
+    action: string;
+    ok: boolean;
+    error?: string;
+    nowMs: number;
+  }): Promise<void> {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return;
+    job.continueLastAtMs = params.nowMs;
+    job.continueLastError = params.ok ? null : (params.error ?? "continue_failed");
+    job.updatedAtMs = params.nowMs;
+    this.jobs.set(params.jobId, job);
   }
 }
 

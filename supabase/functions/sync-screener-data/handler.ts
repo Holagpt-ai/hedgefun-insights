@@ -75,6 +75,12 @@ import {
   createSupabaseSyncStagingStore,
 } from "../_shared/screeners/sync-staging-supabase.ts";
 import {
+  assertFrozenBaselineStillValid,
+  createFrozenNhlBaselineSnapshot,
+  quotesFromSnapshot,
+} from "../_shared/screeners/nhl-baseline-snapshot.ts";
+import type { StagedGenerationJob } from "../_shared/screeners/sync-staging-types.ts";
+import {
   createContinueInvoker,
   handleStagedSyncStart,
   parseStagedSyncBody,
@@ -208,12 +214,47 @@ function unavailableBaseline(status: NhlBaselineStatus = "unavailable"): {
   status: NhlBaselineStatus;
   quotes: Map<string, NhlBaselineQuote>;
   policyExclusions: PolicyExclusionEvidence;
+  baselineGenerationId: string;
+  declaredSymbolCount: number;
 } {
   return {
     status,
     quotes: new Map(),
     policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+    baselineGenerationId: "",
+    declaredSymbolCount: 0,
   };
+}
+
+function chunkContextFromJob(job: StagedGenerationJob): StagedChunkContext {
+  const snap = job.nhlBaselineSnapshot;
+  if (snap) {
+    return {
+      nhlBaselines: quotesFromSnapshot(snap),
+      policyExclusions: snap.policyExclusions,
+    };
+  }
+  return {
+    nhlBaselines: new Map(),
+    policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  };
+}
+
+async function validateJobBaselineDrift(
+  job: StagedGenerationJob,
+  sb: DbClient,
+  store: SyncStagingStore,
+): Promise<Response | null> {
+  const snap = job.nhlBaselineSnapshot;
+  if (!snap || !snap.baselineGenerationId) return null;
+  const live = await loadNhlBaseline(sb);
+  const check = assertFrozenBaselineStillValid(snap, {
+    baselineGenerationId: live.baselineGenerationId,
+    status: live.status,
+  });
+  if (check.ok) return null;
+  await store.failJob(job.id, check.reason, Date.now());
+  return json({ error: check.reason, generation_id: job.id }, 409);
 }
 
 async function loadPolicyExclusions(
@@ -407,6 +448,8 @@ export async function loadNhlBaseline(sb: DbClient): Promise<{
   status: NhlBaselineStatus;
   quotes: Map<string, NhlBaselineQuote>;
   policyExclusions: PolicyExclusionEvidence;
+  baselineGenerationId: string;
+  declaredSymbolCount: number;
 }> {
   try {
     let stateRes = await sb
@@ -492,7 +535,13 @@ export async function loadNhlBaseline(sb: DbClient): Promise<{
       row.policy_min_sessions,
       row.policy_excluded_count,
     );
-    return { status: "available", quotes, policyExclusions };
+    return {
+      status: "available",
+      quotes,
+      policyExclusions,
+      baselineGenerationId: generationId,
+      declaredSymbolCount,
+    };
   } catch {
     return unavailableBaseline("unavailable");
   }
@@ -528,25 +577,48 @@ async function finalizeStagedScreenerGeneration(
   store: SyncStagingStore,
   sb: DbClient,
 ): Promise<Response> {
-  const job = await store.get(generationId);
-  if (!job) {
+  const peek = await store.get(generationId);
+  if (!peek) {
     return json({ error: "generation_not_found" }, 404);
   }
-  if (job.status === "published") {
+  if (peek.status === "published") {
     return json({
       ok: true,
       staged: true,
       already_published: true,
-      sync_run_id: job.observation.syncRunId,
-      generation_id: job.id,
+      sync_run_id: peek.observation.syncRunId,
+      generation_id: peek.id,
     });
   }
-  if (job.nextChunkIndex < job.totalChunks) {
+  if (peek.nextChunkIndex < peek.totalChunks) {
     return json({ error: "chunks_incomplete" }, 409);
   }
-  if (job.status !== "finalizing" && job.status !== "chunking") {
-    return json({ error: "generation_not_finalizable" }, 409);
+  const drift = await validateJobBaselineDrift(peek, sb, store);
+  if (drift) return drift;
+
+  const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
+  const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
+  const claimed = await store.claimWork({
+    jobId: generationId,
+    leaseToken: finalizeLease,
+    nowMs: wallNowMs,
+    mode: "finalize",
+  });
+  if (!claimed.ok) {
+    return json({ error: claimed.reason }, 409);
   }
+  const job = claimed.job;
+
+  const snap = job.nhlBaselineSnapshot;
+  const nhlBaseline = snap
+    ? {
+      status: snap.status,
+      quotes: quotesFromSnapshot(snap),
+      policyExclusions: snap.policyExclusions,
+      baselineGenerationId: snap.baselineGenerationId,
+      declaredSymbolCount: snap.declaredSymbolCount,
+    }
+    : await loadNhlBaseline(sb);
 
   const { observation } = job;
   const nowMs = observation.nowMs;
@@ -587,10 +659,7 @@ async function finalizeStagedScreenerGeneration(
     extendedTabOpts,
   );
 
-  const [nhlBaseline, volumeBaselines] = await Promise.all([
-    loadNhlBaseline(sb),
-    loadVolumeBaselines(sb),
-  ]);
+  const volumeBaselines = await loadVolumeBaselines(sb);
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
   const nhlSelected = nhlBaseline.status === "available"
     ? finalizeNhlSelections(
@@ -703,8 +772,7 @@ async function finalizeStagedScreenerGeneration(
       priorSyncedAt: priorFeed.syncedAt,
     })
   ) {
-    job.status = "aborted";
-    await store.save(job);
+    await store.abortJob(job.id, wallNowMs);
     return json({
       ok: true,
       preserved: true,
@@ -744,8 +812,7 @@ async function finalizeStagedScreenerGeneration(
   const { data: rowsInserted, error: rpcError } = rpcResult;
   if (rpcError) {
     console.error("[sync-screener-data] staged replace generation failed");
-    job.status = "failed";
-    await store.save(job);
+    await store.failJob(job.id, "replace_generation_failed", wallNowMs);
     return json({ error: "database_error" }, 500);
   }
   if (
@@ -755,8 +822,7 @@ async function finalizeStagedScreenerGeneration(
     rowsInserted !== allRows.length
   ) {
     console.error("[sync-screener-data] staged replace generation count mismatch");
-    job.status = "failed";
-    await store.save(job);
+    await store.failJob(job.id, "replace_generation_count_mismatch", wallNowMs);
     return json({ error: "database_error" }, 500);
   }
 
@@ -768,10 +834,26 @@ async function finalizeStagedScreenerGeneration(
     });
   }
 
-  job.status = "published";
-  job.leaseToken = null;
-  job.leaseExpiresMs = null;
-  await store.save(job);
+  const publishVersion = job.stateVersion;
+  const completed = await store.completePublish({
+    jobId: job.id,
+    finalizeLeaseToken: finalizeLease,
+    expectedStateVersion: publishVersion,
+    nowMs: wallNowMs,
+  });
+  if (!completed.ok) {
+    console.error(
+      `[sync-screener-data] staged publish_complete_rejected reason=${completed.reason}`,
+    );
+    return json({
+      ok: true,
+      staged: true,
+      publish_rpc_ok: true,
+      publish_state_pending: true,
+      sync_run_id: syncRunId,
+      generation_id: job.id,
+    });
+  }
 
   try {
     const sessionDate = easternTradingDateFromMs(nowMs);
@@ -829,23 +911,58 @@ async function handleStagedSyncScreenerData(
   }
 
   const functionUrl = `${supabaseUrl}/functions/v1/sync-screener-data`;
+  const nowMs = (deps.nowMs ?? (() => Date.now()))();
   const stagedDeps = {
     ...deps,
     stagingStore: store,
-    invokeContinue: createContinueInvoker(deps, functionUrl),
+    invokeContinue: createContinueInvoker(deps, functionUrl, store),
     finalizeStagedGeneration: (generationId: string) =>
       finalizeStagedScreenerGeneration(generationId, deps, store, sb),
   };
 
+  if (parsedBody.action === "continue" || parsedBody.action === "finalize") {
+    const job = await store.get(parsedBody.generation_id);
+    if (!job) {
+      return json({ error: "generation_not_found" }, 404);
+    }
+    const drift = await validateJobBaselineDrift(job, sb, store);
+    if (drift) return drift;
+    return handleStagedSyncStart(
+      stagedDeps,
+      parsedBody,
+      null,
+      chunkContextFromJob(job),
+    );
+  }
+
+  const resume = await store.findResumableJob(nowMs);
+  if (resume && parsedBody.action === "cron") {
+    const drift = await validateJobBaselineDrift(resume, sb, store);
+    if (drift) return drift;
+    const resumeBody = resume.nextChunkIndex >= resume.totalChunks
+      ? { action: "finalize" as const, generation_id: resume.id }
+      : { action: "continue" as const, generation_id: resume.id };
+    return handleStagedSyncStart(
+      stagedDeps,
+      resumeBody,
+      null,
+      chunkContextFromJob(resume),
+    );
+  }
+
   const nhlBaseline = await loadNhlBaseline(sb);
+  const frozenSnapshot = createFrozenNhlBaselineSnapshot({
+    baselineGenerationId: nhlBaseline.baselineGenerationId,
+    status: nhlBaseline.status,
+    declaredSymbolCount: nhlBaseline.declaredSymbolCount,
+    quotes: nhlBaseline.quotes,
+    policyExclusions: nhlBaseline.policyExclusions,
+    frozenAtMs: nowMs,
+  });
   const chunkContext: StagedChunkContext = {
     nhlBaselines: nhlBaseline.quotes,
     policyExclusions: nhlBaseline.policyExclusions,
   };
-
-  if (parsedBody.action === "continue" || parsedBody.action === "finalize") {
-    return handleStagedSyncStart(stagedDeps, parsedBody, null, chunkContext);
-  }
 
   const apiKey = deps.env("POLYGON_API_KEY") ?? "";
   if (!apiKey) {
@@ -883,7 +1000,6 @@ async function handleStagedSyncScreenerData(
     return json({ error: "provider_unavailable" }, 503);
   }
 
-  const nowMs = (deps.nowMs ?? (() => Date.now()))();
   const sessionKind = resolveSyncSessionKind(nowMs);
   const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
   if (observationSessionFields) {
@@ -907,6 +1023,7 @@ async function handleStagedSyncScreenerData(
     syncRunId,
   );
   startJob.nhlBaselineLoaded = nhlBaseline.status === "available";
+  startJob.nhlBaselineSnapshot = frozenSnapshot;
 
   return handleStagedSyncStart(
     stagedDeps,
