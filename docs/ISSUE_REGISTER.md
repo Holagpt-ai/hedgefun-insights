@@ -13,7 +13,7 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
 | ISS-033 | P0 | Premarket screener rejects all symbols (`day.v=0`, positive `min.av`) | **Fixed on `main` (#193 → `4f7c10db`)** — **deployed Lovable** fingerprint `23980c31…`; premarket volume uses observation session |
-| ISS-034 | P0 | Full-universe sync CPU timeout blocks publication (~13k symbols) | **Fix in PR (CPU cache + evidence scan)** — Lovable **CPU Time exceeded** 16:45/16:50 UTC Oct 28; last publish 16:15 UTC; redeploy after merge |
+| ISS-034 | P0 | Full-universe sync CPU timeout blocks publication (~13k symbols) | **Mitigation in PR #194** (cache, single-pass selection, staged benchmark ~3–4.5s local — **NOT Edge CPU proof**). **BLOCKED** for production sign-off until Lovable redeploy + successful publish or architectural split |
 | ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Oct 28 premarket volume mismatch blocked qualification until P0 D1 deploy. |
 | ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 merged (`d3cec11f`)** — parallel session date, workflow cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
 | ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — authenticated Android acceptance **pending** |

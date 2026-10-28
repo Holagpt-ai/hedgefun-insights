@@ -23,19 +23,40 @@ function safeNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Fixed for one sync invocation — cache entries are invalid under other clocks/flags. */
+export type SessionVolumeCacheBinding = {
+  nowMs: number;
+  observationSessionVolume: boolean;
+  extendedSession: boolean;
+};
+
 /** Per-sync memo keyed by snapshot object identity (one Polygon payload per run). */
 export type SessionVolumeCache = {
+  binding: SessionVolumeCacheBinding;
   observationMs: WeakMap<VolumeTicker, number | null>;
   qualificationVolume: WeakMap<VolumeTicker, number | null>;
   extendedQuoteSemantics: WeakMap<VolumeTicker, boolean | null>;
 };
 
-export function createSessionVolumeCache(): SessionVolumeCache {
+export function createSessionVolumeCache(
+  binding: SessionVolumeCacheBinding,
+): SessionVolumeCache {
   return {
+    binding,
     observationMs: new WeakMap(),
     qualificationVolume: new WeakMap(),
     extendedQuoteSemantics: new WeakMap(),
   };
+}
+
+export function sessionVolumeCacheMatchesContext(
+  cache: SessionVolumeCache,
+  ctx: SessionVolumeContext,
+): boolean {
+  const b = cache.binding;
+  return ctx.nowMs === b.nowMs &&
+    (ctx.observationSessionVolume ?? false) === b.observationSessionVolume &&
+    (ctx.extendedSession ?? false) === b.extendedSession;
 }
 
 export type SessionVolumeContext = {
@@ -157,9 +178,10 @@ function resolveVerifiedObservationMsUncached(
 export function resolveVerifiedObservationMs(
   t: VolumeTicker,
   nowMs: number,
-  cache?: SessionVolumeCache,
+  ctx?: SessionVolumeContext,
 ): number | null {
-  if (cache) {
+  const cache = ctx?.cache;
+  if (cache && ctx && sessionVolumeCacheMatchesContext(cache, ctx)) {
     if (cache.observationMs.has(t)) {
       return cache.observationMs.get(t)!;
     }
@@ -173,9 +195,9 @@ export function resolveVerifiedObservationMs(
 export function resolveObservationSessionKind(
   t: VolumeTicker,
   nowMs: number,
-  cache?: SessionVolumeCache,
+  ctx?: SessionVolumeContext,
 ): SyncSessionKind | null {
-  const observationMs = resolveVerifiedObservationMs(t, nowMs, cache);
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
   return resolveSyncSessionKind(observationMs);
 }
@@ -207,16 +229,18 @@ function isCurrentSurveillanceObservation(
 export function extendedQuoteSemanticsForObservation(
   t: VolumeTicker,
   nowMs: number,
-  cache?: SessionVolumeCache,
+  ctx?: SessionVolumeContext,
 ): boolean | null {
-  if (cache?.extendedQuoteSemantics.has(t)) {
+  const cache = ctx?.cache;
+  const useCache = cache && ctx && sessionVolumeCacheMatchesContext(cache, ctx);
+  if (useCache && cache.extendedQuoteSemantics.has(t)) {
     return cache.extendedQuoteSemantics.get(t)!;
   }
-  const kind = resolveObservationSessionKind(t, nowMs, cache);
+  const kind = resolveObservationSessionKind(t, nowMs, ctx);
   const result = kind === null
     ? null
     : kind === "pre-market" || kind === "after-hours";
-  cache?.extendedQuoteSemantics.set(t, result);
+  if (useCache) cache.extendedQuoteSemantics.set(t, result);
   return result;
 }
 
@@ -229,7 +253,7 @@ function sessionQualificationVolumeUncached(
   const nowMs = ctx.nowMs;
   if (nowMs === undefined || !Number.isFinite(nowMs)) return null;
 
-  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx.cache);
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
   if (!isCurrentSurveillanceObservation(observationMs, nowMs)) return null;
 
@@ -242,7 +266,7 @@ export function sessionQualificationVolume(
   ctx: SessionVolumeContext = {},
 ): number | null {
   const cache = ctx.cache;
-  if (cache) {
+  if (cache && sessionVolumeCacheMatchesContext(cache, ctx)) {
     if (cache.qualificationVolume.has(t)) {
       return cache.qualificationVolume.get(t)!;
     }

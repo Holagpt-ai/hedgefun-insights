@@ -96,7 +96,7 @@ export function classifyNewHighLow(
   if (sessionQualificationVolume(t, ctx) === null) return null;
   let priceExtended = extendedSession;
   if (observationSessionFields && nowMs !== undefined) {
-    const ext = extendedQuoteSemanticsForObservation(t, nowMs, ctx.cache);
+    const ext = extendedQuoteSemanticsForObservation(t, nowMs, ctx);
     if (ext === null) return null;
     priceExtended = ext;
   }
@@ -133,30 +133,15 @@ export function selectNewHighsLows(
     nowMs,
     cache: sessionVolumeCache,
   };
-  const qualified: PolygonTicker[] = [];
+  const classified = new Map<string, {
+    ticker: PolygonTicker;
+    event: RangeEvent;
+    baseline: NhlBaselineQuote;
+  }>();
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    if (
-      classifyNewHighLow(
-        t,
-        baselines.get(sym),
-        extendedSession,
-        volumeCtx,
-        observationSessionFields,
-        nowMs,
-      ) === null
-    ) {
-      continue;
-    }
-    qualified.push(t);
-  }
-
-  const ordered = selectVolumeFirst(qualified, limit, volumeCtx);
-  const out: NhlClassification[] = [];
-  for (const t of ordered) {
-    const sym = normalizeSymbol(t.ticker)!;
-    const baseline = baselines.get(sym)!;
+    const baseline = baselines.get(sym);
     const event = classifyNewHighLow(
       t,
       baseline,
@@ -166,11 +151,28 @@ export function selectNewHighsLows(
       nowMs,
     );
     if (event === null) continue;
+    classified.set(sym, {
+      ticker: t,
+      event,
+      baseline: baseline!,
+    });
+  }
+
+  const ordered = selectVolumeFirst(
+    [...classified.values()].map((c) => c.ticker),
+    limit,
+    volumeCtx,
+  );
+  const out: NhlClassification[] = [];
+  for (const t of ordered) {
+    const sym = normalizeSymbol(t.ticker)!;
+    const row = classified.get(sym);
+    if (!row) continue;
     out.push({
       ticker: t,
-      range_event: event,
-      high_52w: baseline.high_52w,
-      low_52w: baseline.low_52w,
+      range_event: row.event,
+      high_52w: row.baseline.high_52w,
+      low_52w: row.baseline.low_52w,
     });
   }
   return out;
