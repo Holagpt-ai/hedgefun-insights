@@ -1,4 +1,8 @@
-import type { FrozenNhlBaselineSnapshot } from "./nhl-baseline-snapshot.ts";
+import {
+  parseNhlBaselineSnapshotFromStorage,
+  serializeNhlBaselineSnapshotForStorage,
+  type FrozenNhlBaselineSnapshot,
+} from "./nhl-baseline-snapshot.ts";
 import type { NhlCandidateRow } from "./new-highs-lows.ts";
 import {
   emptyChunkArtifacts,
@@ -95,6 +99,8 @@ export type StagingJobRow = {
   continue_last_error: string | null;
   finalize_lease_token: string | null;
   finalize_lease_expires_at: string | null;
+  publish_rows_inserted: number | null;
+  publish_rpc_recorded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -118,7 +124,9 @@ export function jobFromRow(row: StagingJobRow): StagedGenerationJob {
     createdAtMs: Date.parse(row.created_at),
     updatedAtMs: Date.parse(row.updated_at),
     nhlBaselineLoaded: row.nhl_baseline_loaded,
-    nhlBaselineSnapshot: row.nhl_baseline_snapshot,
+    nhlBaselineSnapshot: row.nhl_baseline_snapshot
+      ? parseNhlBaselineSnapshotFromStorage(row.nhl_baseline_snapshot)
+      : null,
     stateVersion: row.state_version ?? 0,
     continueLastAtMs: row.continue_last_at
       ? Date.parse(row.continue_last_at)
@@ -127,6 +135,10 @@ export function jobFromRow(row: StagingJobRow): StagedGenerationJob {
     finalizeLeaseToken: row.finalize_lease_token,
     finalizeLeaseExpiresMs: row.finalize_lease_expires_at
       ? Date.parse(row.finalize_lease_expires_at)
+      : null,
+    publishRowsInserted: row.publish_rows_inserted ?? null,
+    publishRpcRecordedAtMs: row.publish_rpc_recorded_at
+      ? Date.parse(row.publish_rpc_recorded_at)
       : null,
   };
 }
@@ -151,7 +163,9 @@ export function jobToInsertRow(
       ? new Date(job.leaseExpiresMs).toISOString()
       : null,
     nhl_baseline_loaded: job.nhlBaselineLoaded,
-    nhl_baseline_snapshot: job.nhlBaselineSnapshot,
+    nhl_baseline_snapshot: job.nhlBaselineSnapshot
+      ? serializeNhlBaselineSnapshotForStorage(job.nhlBaselineSnapshot)
+      : null,
     state_version: job.stateVersion,
     continue_last_at: job.continueLastAtMs
       ? new Date(job.continueLastAtMs).toISOString()
@@ -161,5 +175,18 @@ export function jobToInsertRow(
     finalize_lease_expires_at: job.finalizeLeaseExpiresMs
       ? new Date(job.finalizeLeaseExpiresMs).toISOString()
       : null,
+    publish_rows_inserted: job.publishRowsInserted,
+    publish_rpc_recorded_at: job.publishRpcRecordedAtMs
+      ? new Date(job.publishRpcRecordedAtMs).toISOString()
+      : null,
   };
+}
+
+/** Round-trip through JSON.stringify for Postgres jsonb semantics (tests). */
+export function jobInsertRowJsonRoundTrip(
+  job: StagedGenerationJob,
+): StagedGenerationJob {
+  const row = jobToInsertRow(job);
+  const parsed = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
+  return jobFromRow(parsed as StagingJobRow);
 }

@@ -87,7 +87,8 @@ export function advanceChunkInMemory(
   job.merged = input.merged;
   job.nextChunkIndex = input.expectedChunkIndex + 1;
   job.stateVersion = input.expectedStateVersion + 1;
-  job.leaseExpiresMs = input.nowMs + SCREENER_SYNC_LEASE_MS;
+  job.leaseToken = null;
+  job.leaseExpiresMs = null;
   if (job.nextChunkIndex >= job.totalChunks) {
     job.status = "finalizing";
   } else {
@@ -117,6 +118,9 @@ export function completePublishInMemory(
   if (job.stateVersion !== input.expectedStateVersion) {
     return { ok: false, reason: "state_version_mismatch" };
   }
+  if (job.publishRowsInserted === null) {
+    return { ok: false, reason: "publish_rpc_not_recorded" };
+  }
   job.status = "published";
   job.stateVersion = input.expectedStateVersion + 1;
   job.leaseToken = null;
@@ -126,4 +130,36 @@ export function completePublishInMemory(
   job.continueLastError = null;
   job.updatedAtMs = input.nowMs;
   return { ok: true, published: true };
+}
+
+export function recordPublishRpcInMemory(
+  job: StagedGenerationJob,
+  input: {
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    rowsInserted: number;
+    nowMs: number;
+  },
+): StoreOk<{ job: StagedGenerationJob }> | StoreErr {
+  if (job.finalizeLeaseToken !== input.finalizeLeaseToken) {
+    return { ok: false, reason: "finalize_lease_mismatch" };
+  }
+  if (job.observation.syncRunId !== input.syncRunId) {
+    return { ok: false, reason: "sync_run_mismatch" };
+  }
+  if (job.stateVersion !== input.expectedStateVersion) {
+    return { ok: false, reason: "state_version_mismatch" };
+  }
+  if (
+    job.publishRowsInserted !== null &&
+    job.publishRowsInserted !== input.rowsInserted
+  ) {
+    return { ok: false, reason: "publish_rows_conflict" };
+  }
+  job.publishRowsInserted = input.rowsInserted;
+  job.publishRpcRecordedAtMs = input.nowMs;
+  job.stateVersion = input.expectedStateVersion + 1;
+  job.updatedAtMs = input.nowMs;
+  return { ok: true, job };
 }

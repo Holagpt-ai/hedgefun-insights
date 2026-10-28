@@ -163,6 +163,8 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       | "continueLastError"
       | "finalizeLeaseToken"
       | "finalizeLeaseExpiresMs"
+      | "publishRowsInserted"
+      | "publishRpcRecordedAtMs"
     >,
     leaseToken: string,
     nowMs: number,
@@ -181,14 +183,16 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       }
       return { ok: false, reason: "staging_read_failed" };
     }
-    for (const row of active.data ?? []) {
-      const r = row as StagingJobRow;
-      const leaseExp = r.lease_expires_at
-        ? Date.parse(r.lease_expires_at)
-        : 0;
-      if (Number.isFinite(leaseExp) && leaseExp > nowMs) {
-        return { ok: false, reason: "generation_in_progress" };
-      }
+    const finalizing = await this.sb
+      .from(TABLE)
+      .select("id")
+      .eq("status", "finalizing")
+      .limit(1);
+    if (
+      (active.data && active.data.length > 0) ||
+      (finalizing.data && finalizing.data.length > 0)
+    ) {
+      return { ok: false, reason: "generation_in_progress" };
     }
 
     const id = crypto.randomUUID();
@@ -206,6 +210,8 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       finalizeLeaseToken: null,
       finalizeLeaseExpiresMs: null,
       nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
+      publishRowsInserted: null,
+      publishRpcRecordedAtMs: null,
     };
     const ins = await this.sb.from(TABLE).insert(jobToInsertRow(job));
     if (ins.error) {
@@ -277,8 +283,6 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   }): Promise<
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   > {
-    const leaseUntil = new Date(params.nowMs + SCREENER_SYNC_LEASE_MS)
-      .toISOString();
     const nowIso = new Date(params.nowMs).toISOString();
     const rpc = await this.sb.rpc("advance_screener_sync_chunk_v1", {
       p_job_id: params.jobId,
@@ -286,7 +290,6 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       p_expected_chunk_index: params.expectedChunkIndex,
       p_expected_state_version: params.expectedStateVersion,
       p_merged_artifacts: serializeMergedArtifacts(params.merged),
-      p_lease_expires_at: leaseUntil,
       p_now: nowIso,
     });
     if (!rpc.error) {
@@ -303,6 +306,43 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     }
     if (!isMissingRpc(rpc.error)) {
       return { ok: false, reason: "advance_rpc_failed" };
+    }
+    return { ok: false, reason: "staging_rpc_missing" };
+  }
+
+  async recordPublishRpc(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    rowsInserted: number;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("record_screener_sync_publish_rpc_v1", {
+      p_job_id: params.jobId,
+      p_finalize_lease_token: params.finalizeLeaseToken,
+      p_expected_state_version: params.expectedStateVersion,
+      p_sync_run_id: params.syncRunId,
+      p_rows_inserted: params.rowsInserted,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean; reason?: string; job?: StagingJobRow };
+      if (parsed?.ok && parsed.job) {
+        return { ok: true, job: jobFromRow(parsed.job) };
+      }
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "publish_rpc_record_rejected",
+      };
+    }
+    if (!isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "publish_rpc_record_failed" };
     }
     return { ok: false, reason: "staging_rpc_missing" };
   }

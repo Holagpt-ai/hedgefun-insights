@@ -1,5 +1,10 @@
 import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
 import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
+import {
+  deserializePolicyExclusionEvidence,
+  serializePolicyExclusionEvidence,
+  type SerializedPolicyExclusionEvidence,
+} from "./policy-exclusion-serialize.ts";
 import type { NhlBaselineQuote, NhlBaselineStatus } from "./new-highs-lows.ts";
 
 /** Immutable NHL baseline identity + inputs frozen at generation start. */
@@ -20,13 +25,54 @@ export function createFrozenNhlBaselineSnapshot(input: {
   policyExclusions: PolicyExclusionEvidence;
   frozenAtMs: number;
 }): FrozenNhlBaselineSnapshot {
+  const policyExclusions = deserializePolicyExclusionEvidence(
+    serializePolicyExclusionEvidence(input.policyExclusions),
+  );
   return {
     baselineGenerationId: input.baselineGenerationId,
     status: input.status,
     declaredSymbolCount: input.declaredSymbolCount,
     quoteEntries: [...input.quotes.entries()],
-    policyExclusions: input.policyExclusions,
+    policyExclusions,
     frozenAtMs: input.frozenAtMs,
+  };
+}
+
+export type StoredNhlBaselineSnapshot = Omit<
+  FrozenNhlBaselineSnapshot,
+  "policyExclusions"
+> & {
+  policyExclusions: SerializedPolicyExclusionEvidence;
+};
+
+export function serializeNhlBaselineSnapshotForStorage(
+  snap: FrozenNhlBaselineSnapshot,
+): StoredNhlBaselineSnapshot {
+  return {
+    baselineGenerationId: snap.baselineGenerationId,
+    status: snap.status,
+    declaredSymbolCount: snap.declaredSymbolCount,
+    quoteEntries: snap.quoteEntries,
+    policyExclusions: serializePolicyExclusionEvidence(snap.policyExclusions),
+    frozenAtMs: snap.frozenAtMs,
+  };
+}
+
+export function parseNhlBaselineSnapshotFromStorage(
+  raw: unknown,
+): FrozenNhlBaselineSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.baselineGenerationId !== "string") return null;
+  if (typeof o.status !== "string") return null;
+  if (!Array.isArray(o.quoteEntries)) return null;
+  return {
+    baselineGenerationId: o.baselineGenerationId,
+    status: o.status as NhlBaselineStatus,
+    declaredSymbolCount: Number(o.declaredSymbolCount) || 0,
+    quoteEntries: o.quoteEntries as FrozenNhlBaselineSnapshot["quoteEntries"],
+    policyExclusions: deserializePolicyExclusionEvidence(o.policyExclusions),
+    frozenAtMs: Number(o.frozenAtMs) || 0,
   };
 }
 

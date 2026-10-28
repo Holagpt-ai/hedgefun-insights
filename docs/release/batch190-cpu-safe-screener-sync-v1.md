@@ -22,7 +22,10 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 ## Migration order (Lovable Cloud — apply in sequence)
 
 1. `20261028200000_screener_sync_generation_staging_v1.sql` — table + columns (`state_version`, `nhl_baseline_snapshot`, continue/finalize lease fields)
-2. `20261028210000_screener_sync_staging_rpc_v1.sql` — `claim_screener_sync_lease_v1`, `advance_screener_sync_chunk_v1`, `complete_screener_sync_publish_v1`
+2. `20261028210000_screener_sync_staging_rpc_v1.sql` — `claim_screener_sync_lease_v1`, initial chunk advance / complete RPCs
+3. `20261028220000_screener_sync_staging_hardening_v1.sql` — **lease handoff** on chunk advance (NULL lease after commit), **one active generation** partial unique index, **`record_screener_sync_publish_rpc_v1`**, publish-complete requires recorded RPC
+
+**Postgres integration tests:** set `SCREENER_SYNC_PG_TEST_URL` locally after applying all three migrations (`sync-staging-postgres-integration_test.ts`). CI skips these when unset.
 
 Validate locally: `node scripts/supabase/migration-order.mjs`
 
@@ -60,7 +63,11 @@ deno test --frozen supabase/functions/_shared/screeners/chunked-selection-parity
 deno test --frozen supabase/functions/_shared/screeners/sync-orchestrator-concurrency_test.ts
 deno test --frozen supabase/functions/_shared/screeners/sync-continue-dispatch_test.ts
 deno test --frozen supabase/functions/_shared/screeners/sync-staged-e2e_test.ts
+deno test --frozen --allow-env=SCREENER_SYNC_PG_TEST_URL supabase/functions/_shared/screeners/sync-chunk-handoff_test.ts
+deno test --frozen --allow-env=SCREENER_SYNC_PG_TEST_URL supabase/functions/_shared/screeners/policy-exclusion-serialize_test.ts
+deno test --frozen --allow-env=SCREENER_SYNC_PG_TEST_URL supabase/functions/_shared/screeners/sync-staging-postgres-integration_test.ts
 npm run typecheck && npm run build
+node scripts/supabase/migration-order.mjs
 ```
 
 **Note:** Logged `mono_ms` / `chunk_ms` / `serialize_ms` are local wall-clock only — **not** Supabase Edge billed CPU.

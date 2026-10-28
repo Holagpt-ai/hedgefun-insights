@@ -4,6 +4,7 @@ import {
   completePublishInMemory,
   finalizeLeaseActive,
   leaseActive,
+  recordPublishRpcInMemory,
 } from "./sync-staging-cas.ts";
 import {
   emptyChunkArtifacts,
@@ -28,6 +29,8 @@ export interface SyncStagingStore {
       | "continueLastError"
       | "finalizeLeaseToken"
       | "finalizeLeaseExpiresMs"
+      | "publishRowsInserted"
+      | "publishRpcRecordedAtMs"
     >,
     leaseToken: string,
     nowMs: number,
@@ -60,6 +63,16 @@ export interface SyncStagingStore {
     expectedStateVersion: number;
     nowMs: number;
   }): Promise<{ ok: true } | { ok: false; reason: string }>;
+  recordPublishRpc(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    rowsInserted: number;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  >;
   failJob(jobId: string, reason: string, nowMs: number): Promise<void>;
   abortJob(jobId: string, nowMs: number): Promise<void>;
   recordContinueDispatch(params: {
@@ -82,6 +95,15 @@ export class MemorySyncStagingStore implements SyncStagingStore {
   /** Test helper: insert a fully-formed job without acquire semantics. */
   seedJob(job: StagedGenerationJob): void {
     this.jobs.set(job.id, cloneJob(job));
+  }
+
+  private hasActiveGeneration(): boolean {
+    for (const job of this.jobs.values()) {
+      if (job.status === "chunking" || job.status === "finalizing") {
+        return true;
+      }
+    }
+    return false;
   }
 
   private activeBlockingJob(nowMs: number): StagedGenerationJob | null {
@@ -140,14 +162,15 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       | "continueLastError"
       | "finalizeLeaseToken"
       | "finalizeLeaseExpiresMs"
+      | "publishRowsInserted"
+      | "publishRpcRecordedAtMs"
     >,
     leaseToken: string,
     nowMs: number,
   ): Promise<
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   > {
-    const blocking = this.activeBlockingJob(nowMs);
-    if (blocking) {
+    if (this.hasActiveGeneration()) {
       return { ok: false, reason: "generation_in_progress" };
     }
     const id = crypto.randomUUID();
@@ -165,6 +188,8 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       finalizeLeaseToken: null,
       finalizeLeaseExpiresMs: null,
       nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
+      publishRowsInserted: null,
+      publishRpcRecordedAtMs: null,
     };
     this.jobs.set(id, job);
     return { ok: true, job: cloneJob(job) };
@@ -216,6 +241,24 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       nowMs: params.nowMs,
     });
     if (!advanced.ok) return advanced;
+    this.jobs.set(job.id, job);
+    return { ok: true, job: cloneJob(job) };
+  }
+
+  async recordPublishRpc(params: {
+    jobId: string;
+    finalizeLeaseToken: string;
+    expectedStateVersion: number;
+    syncRunId: string;
+    rowsInserted: number;
+    nowMs: number;
+  }): Promise<
+    { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
+  > {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    const recorded = recordPublishRpcInMemory(job, params);
+    if (!recorded.ok) return recorded;
     this.jobs.set(job.id, job);
     return { ok: true, job: cloneJob(job) };
   }

@@ -67,6 +67,8 @@ export type StagedGenerationJob = {
   continueLastError: string | null;
   finalizeLeaseToken: string | null;
   finalizeLeaseExpiresMs: number | null;
+  publishRowsInserted: number | null;
+  publishRpcRecordedAtMs: number | null;
 };
 
 export type StagedSyncRequest =

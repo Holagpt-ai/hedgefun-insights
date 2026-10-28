@@ -55,6 +55,8 @@ export async function runStagedSyncStep(
     | "continueLastError"
     | "finalizeLeaseToken"
     | "finalizeLeaseExpiresMs"
+    | "publishRowsInserted"
+    | "publishRpcRecordedAtMs"
   > | null,
   deps: StagedOrchestratorDeps,
 ): Promise<StagedStepResult> {
@@ -68,34 +70,28 @@ export async function runStagedSyncStep(
       peek.status === "failed") {
       return { phase: "skipped", reason: "generation_not_active" };
     }
-    const mode = peek.nextChunkIndex >= peek.totalChunks ? "finalize" : "chunk";
+    if (peek.nextChunkIndex >= peek.totalChunks) {
+      return { phase: "finalizing", generation_id: peek.id };
+    }
     const claimed = await deps.store.claimWork({
       jobId: request.generation_id,
       leaseToken,
       nowMs,
-      mode,
+      mode: "chunk",
     });
     if (!claimed.ok) {
       return { phase: "skipped", reason: claimed.reason };
-    }
-    if (mode === "finalize") {
-      return { phase: "finalizing", generation_id: claimed.job.id };
     }
     return processNextChunk(claimed.job, deps, leaseToken);
   }
 
   if (request.action === "finalize") {
-    const leaseToken = deps.newLeaseToken();
-    const claimed = await deps.store.claimWork({
-      jobId: request.generation_id,
-      leaseToken,
-      nowMs,
-      mode: "finalize",
-    });
-    if (!claimed.ok) {
-      return { phase: "skipped", reason: claimed.reason };
+    const peek = await deps.store.get(request.generation_id);
+    if (!peek || peek.status === "aborted" || peek.status === "published" ||
+      peek.status === "failed") {
+      return { phase: "skipped", reason: "generation_not_active" };
     }
-    return { phase: "finalizing", generation_id: claimed.job.id };
+    return { phase: "finalizing", generation_id: peek.id };
   }
 
   if (!startJob) {
@@ -193,6 +189,8 @@ export function buildStagedJobFromUniverse(
   | "continueLastError"
   | "finalizeLeaseToken"
   | "finalizeLeaseExpiresMs"
+  | "publishRowsInserted"
+  | "publishRpcRecordedAtMs"
 > {
   const sessionKind = resolveSyncSessionKind(nowMs);
   const totalChunks = Math.max(1, Math.ceil(allTickers.length / chunkSize));
