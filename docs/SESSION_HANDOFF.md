@@ -6,7 +6,7 @@
 
 **P0 OPEN (ISS-034):** **17:30** and **17:35 UTC** runs evaluated ~13,262 symbols, then **CPU Time exceeded**, before atomic publication (10 / 9 qualified respectively). Cron job **25** still invokes every 5 minutes. Last verified DB generation **16:15:04.456 UTC**, `sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**, **108** rows. PR **#194** reduced local work but was **not** successful production recovery.
 
-**Batch 190 release gate (PR #196):** Head **`ea5bc527`** → pending CI after **`truncateStaging` feed cleanup**. Architecture **A** — staged Edge + Postgres; **fail-closed** staged publish (no non-atomic fallback). **Mandatory Postgres 16 CI** — bootstrap + migrations through **20261028230000**, **11** integration tests in `sync-staging-postgres-integration_test.ts`. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations **not applied**; **ISS-034** stays open. **READY for owner review** once Screener Deno + migration-order CI green.
+**Batch 190 release gate (PR #196):** Head **`ff272133ea861e8f60294e456b18add069069145`**. CI **green** — Screener Deno **`40782437394`**, migration order **`40782437369`** (158 Deno tests incl. **11** Postgres integration). Architecture **A**; **fail-closed** staged publish. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations **not applied**; **ISS-034** **OPEN**. **READY** for owner merge/Lovable gate review — no production deploy from this session.
 
 **Next after Batch 190 merge/deploy gate:** **191** timed scanner acceptance (ISS-033). No automatic migrations, Edge deploy, Fly, or cron changes from Cursor.
 
