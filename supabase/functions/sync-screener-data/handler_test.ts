@@ -4,6 +4,7 @@ import {
   type DbQuery,
   type DbSelectResult,
   type DbUpdateQuery,
+  type DbUpdateResult,
   handleSyncScreenerData,
   REPLACE_GENERATION_RPC,
   type SyncDeps,
@@ -121,15 +122,14 @@ function mockDb(
         return builder;
       },
       update: (_values: Record<string, unknown>) => {
-        type UpdateResult = Awaited<ReturnType<DbUpdateQuery["then"]>>;
         const builder: DbUpdateQuery = {
           eq: () => builder,
           select: () => builder,
-          then: <R1 = UpdateResult, R2 = never>(
-            onFulfilled?: ((value: UpdateResult) => R1 | PromiseLike<R1>) | null,
+          then: <R1 = DbUpdateResult, R2 = never>(
+            onFulfilled?: ((value: DbUpdateResult) => R1 | PromiseLike<R1>) | null,
             onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
           ): Promise<R1 | R2> =>
-            Promise.resolve<UpdateResult>({ data: [{ sync_run_id: RUN_ID }], error: null }).then(
+            Promise.resolve<DbUpdateResult>({ data: [{ sync_run_id: RUN_ID }], error: null }).then(
               onFulfilled ?? undefined,
               onRejected ?? undefined,
             ),
