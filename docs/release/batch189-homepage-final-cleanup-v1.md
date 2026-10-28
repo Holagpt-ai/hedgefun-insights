@@ -15,6 +15,7 @@ Homepage-only corrections: remove AI Trader promo, fix seven market clocks order
 | 2 | `GlobalMarketClocks.tsx` — fixed seven exchanges (NY first); local-time card last; mobile scroll hint |
 | 3 | `formatHomepageMarketSessionLine()` in `price-utils.ts`; movers provenance uses it; stock header line unchanged |
 | 4 | `MarketPulse.tsx` + `market-pulse-catalyst.ts` — per-row neutral line; section-level unexplained disclosure once |
+| 4.1 (189.1) | `MarketPulse.tsx` + `composeMoversSessionLine()` — session countdown ticks every second from wall clock; provider observation lines stay on fetch `fetchedAtMs` |
 
 ## Production dependencies
 
@@ -23,7 +24,7 @@ Homepage-only corrections: remove AI Trader promo, fix seven market clocks order
 | **Vercel** | Yes — public homepage |
 | **Edge / Supabase** | No |
 
-Batch **187** Edge activation remains **separately gated**. Batch **186** authenticated AM Inbox and Batch **188** authenticated Android Journal acceptance **pending**.
+Batch **187** Edge activation, Batch **186** AM Inbox UI acceptance, and Batch **188** Android Journal acceptance are **independent operational gates** — not merge blockers for this homepage-only PR.
 
 ## Verification
 

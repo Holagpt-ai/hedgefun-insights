@@ -9,6 +9,7 @@ import {
   formatStockHeaderSessionLine,
 } from "@/lib/price-utils";
 import { resolveMarketClock } from "@/lib/market-calendar";
+import { composeMoversSessionLine } from "@/lib/markets/movers-provenance";
 
 const root = process.cwd();
 
@@ -80,6 +81,39 @@ describe("Batch 189 — homepage session countdown", () => {
     const line = formatHomepageMarketSessionLine(mondayRegular);
     expect(line).toMatch(/Regular session/i);
     expect(line).toMatch(/Closes in \d{2}:\d{2}:\d{2}/);
+  });
+});
+
+describe("Batch 189.1 — live homepage session countdown", () => {
+  const homogeneousCurrent = {
+    sessionDateMode: "homogeneous_current" as const,
+    dominantDate: null,
+    premarketListContext: false,
+  };
+
+  it("advances countdown between ticks without refetching movers", () => {
+    const t0 = new Date("2026-08-03T12:00:00.000Z");
+    const t1 = new Date("2026-08-03T12:00:05.000Z");
+    const line0 = composeMoversSessionLine({ ...homogeneousCurrent, now: t0 });
+    const line1 = composeMoversSessionLine({ ...homogeneousCurrent, now: t1 });
+    expect(line0).toMatch(/Opens in \d{2}:\d{2}:\d{2}/);
+    expect(line1).toMatch(/Opens in \d{2}:\d{2}:\d{2}/);
+    expect(line0).not.toBe(line1);
+  });
+
+  it("updates session label across the regular-session open boundary", () => {
+    const preOpen = new Date("2026-08-03T13:29:50.000Z"); // 9:29:50 ET
+    const atOpen = new Date("2026-08-03T13:30:10.000Z"); // 9:30:10 ET
+    expect(composeMoversSessionLine({ ...homogeneousCurrent, now: preOpen })).toMatch(/Pre-market/i);
+    expect(composeMoversSessionLine({ ...homogeneousCurrent, now: atOpen })).toMatch(/Regular session/i);
+  });
+
+  it("MarketPulse ticks session clock independently of movers fetch timestamp", () => {
+    const pulse = readFileSync(resolve("src/components/home/MarketPulse.tsx"), "utf8");
+    expect(pulse).toContain("setInterval(() => setSessionClockNow(new Date()), 1000)");
+    expect(pulse).toContain("now: sessionClockNow");
+    expect(pulse).toContain("model.provenance.observationLine");
+    expect(pulse).not.toContain("provenance.sessionLine");
   });
 });
 

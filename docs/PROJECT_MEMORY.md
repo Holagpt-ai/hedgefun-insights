@@ -123,7 +123,7 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 
 - Public homepage does **not** promote AI Trader; the feature route remains for deferred product work.
 - `HOME_MARKET_CLOCK_EXCHANGES` is a fixed seven-city order (New York first); local-time card is **last**; mobile shows a horizontal scroll hint.
-- Movers/session provenance on the homepage uses `formatHomepageMarketSessionLine()` (ET wall clock + `Opens in` / `Closes in` duration). Stock detail headers keep `formatStockHeaderSessionLine()`.
+- Market Pulse session line uses `composeMoversSessionLine()` with a 1s wall-clock tick (not movers `fetchedAtMs`). Provider observation timestamps stay on fetch time. Stock detail headers keep `formatStockHeaderSessionLine()`.
 
 ## Evidence labels
 

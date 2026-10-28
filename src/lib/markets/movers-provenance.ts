@@ -57,6 +57,8 @@ export type SessionDateMode =
 
 export interface MoversListProvenance {
   sessionLine: string;
+  /** When true, live session line may prefix premarket-list context outside the pre-market window. */
+  premarketListContext: boolean;
   observationLine: string | null;
   observationTimeUnavailable: boolean;
   observationMixed: boolean;
@@ -221,6 +223,32 @@ function classifyFreshness(
   return "current_session";
 }
 
+/** Wall-clock session line plus source-session qualifiers (homepage live tick uses this). */
+export function composeMoversSessionLine(
+  opts: {
+    now?: Date;
+    sessionDateMode: SessionDateMode;
+    dominantDate: string | null;
+    premarketListContext?: boolean;
+  },
+): string {
+  const now = opts.now ?? new Date();
+  let sessionLine = formatHomepageMarketSessionLine(now);
+  if (opts.sessionDateMode === "homogeneous_prior" && opts.dominantDate) {
+    sessionLine = `Prior source session · ${opts.dominantDate} · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "mixed") {
+    sessionLine = `Mixed source sessions · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "partially_unverified") {
+    sessionLine = `Partial source-session evidence · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "unverified") {
+    sessionLine = `Source session unverified · ${sessionLine}`;
+  }
+  if (opts.premarketListContext && resolveMarketSession(now) !== "pre-market") {
+    sessionLine = `Premarket session ended · regular-session snapshots are not listed here · ${sessionLine}`;
+  }
+  return sessionLine;
+}
+
 export function summarizeMoversListProvenance(
   movers: CanonicalMover[],
   opts: {
@@ -239,24 +267,19 @@ export function summarizeMoversListProvenance(
   }
   const freshness = classifyFreshness(sessionSummary, observation, opts.moverSession, nowMs);
 
-  let sessionLine = formatHomepageMarketSessionLine(new Date(nowMs));
-  if (sessionSummary.mode === "homogeneous_prior" && sessionSummary.dominantDate) {
-    sessionLine = `Prior source session · ${sessionSummary.dominantDate} · ${sessionLine}`;
-  } else if (sessionSummary.mode === "mixed") {
-    sessionLine = `Mixed source sessions · ${sessionLine}`;
-  } else if (sessionSummary.mode === "partially_unverified") {
-    sessionLine = `Partial source-session evidence · ${sessionLine}`;
-  } else if (sessionSummary.mode === "unverified") {
-    sessionLine = `Source session unverified · ${sessionLine}`;
-  }
-  if (opts.premarket && resolveMarketSession(new Date(nowMs)) !== "pre-market") {
-    sessionLine = `Premarket session ended · regular-session snapshots are not listed here · ${sessionLine}`;
-  }
+  const premarketListContext = Boolean(opts.premarket);
+  const sessionLine = composeMoversSessionLine({
+    now: new Date(nowMs),
+    sessionDateMode: sessionSummary.mode,
+    dominantDate: sessionSummary.dominantDate,
+    premarketListContext,
+  });
 
   const isPriorSession = sessionSummary.mode === "homogeneous_prior";
 
   return {
     sessionLine,
+    premarketListContext,
     observationLine: observation.line,
     observationTimeUnavailable: observation.unavailable,
     observationMixed: observation.mixed,
