@@ -6,12 +6,13 @@ import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
 import { signedMoney } from "../lib/format";
 import { JOURNAL_BASE } from "../nav";
+import { JournalStaleBanner } from "../components/JournalStaleBanner";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 
 export function CalendarPage() {
   const t = useJournalT();
   const lang = useJournalLang();
-  const { daily, missingReviews, loading, mode } = useJournalWorkspace();
+  const { daily, missingReviews, loading, error, refresh, mode } = useJournalWorkspace();
   const [cursor, setCursor] = useState(() => mode === "demo" ? new Date(Date.UTC(2026, 7, 1)) : new Date());
 
   const year = cursor.getUTCFullYear();
@@ -19,9 +20,13 @@ export function CalendarPage() {
   const grid = useMemo(() => buildMonth(year, month, daily, missingReviews), [year, month, daily, missingReviews]);
 
   if (loading) return <HonestState kind="loading" />;
+  if (error) {
+    return <HonestState kind="error" body={error} onRetry={() => void refresh()} />;
+  }
 
   return (
     <div className="space-y-3">
+      <JournalStaleBanner />
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">{t("calendar.title")}</h1>
         <div className="flex items-center gap-2">

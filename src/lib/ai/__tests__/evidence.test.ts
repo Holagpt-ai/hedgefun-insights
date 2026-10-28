@@ -8,6 +8,7 @@ import {
   leanLabel,
   stripMarkdownMarkers,
   summarizeBrief,
+  summarizeBriefPreview,
 } from "@/lib/ai/evidence";
 import { NO_VERIFIED_CATALYST } from "@/lib/catalyst/attribution";
 import { USER_SNAPSHOT_UNAVAILABLE, validateQuote } from "@/lib/quotes/integrity";
@@ -134,6 +135,26 @@ describe("evidence-bound AI", () => {
     expect(summary).toContain("SPY slipped 0.3%.");
     expect(summary.split(/(?<=[.!?])\s+/).length).toBeLessThanOrEqual(2);
     expect(full).toContain("IWM held up");
+  });
+
+  it("preview prefers complete sentences and word-boundary ellipsis", () => {
+    const narrative =
+      "Futures drifted lower overnight as mega-cap tech weighed on sentiment. " +
+      "Bond yields ticked up while energy names outperformed on supply headlines. " +
+      "Traders await CPI tomorrow.";
+    const preview = summarizeBriefPreview(narrative, 2, 320);
+    expect(preview.endsWith(".")).toBe(true);
+    expect(preview).not.toMatch(/\b\w+…/);
+    expect(preview.length).toBeLessThanOrEqual(322);
+  });
+
+  it("preview shortens an oversized first sentence at a word boundary", () => {
+    const longSentence =
+      "Markets opened with broad-based selling across cyclicals financials energy and technology " +
+      "while defensives held up only marginally into the first hour of trade.";
+    const preview = summarizeBriefPreview(longSentence, 1, 120);
+    expect(preview.endsWith("…")).toBe(true);
+    expect(preview).not.toContain("marginally into");
   });
 
   it("carries the exact evidence cutoff", () => {

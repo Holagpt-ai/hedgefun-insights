@@ -48,10 +48,12 @@ import {
   writeUserJson,
   type FilterPrefs,
 } from "../lib/storage";
+import { AsyncTimeoutError, withTimeout } from "@/lib/async/with-timeout";
 import {
   nextJournalLoadGeneration,
   shouldApplyJournalLoad,
 } from "./journal-load-fence";
+import { JOURNAL_GRAPH_LOAD_TIMEOUT_MS } from "./journal-load-constants";
 
 export type JournalMode = "demo" | "live" | "empty";
 
@@ -70,10 +72,22 @@ export interface DataQualityIssue {
   count: number;
 }
 
+export type JournalLoadState =
+  | "initial-loading"
+  | "refreshing"
+  | "ready"
+  | "error"
+  | "stale";
+
 interface JournalWorkspaceValue {
   mode: JournalMode;
+  /** True only during the first load for the signed-in user (not background refresh). */
   loading: boolean;
+  loadState: JournalLoadState;
+  refreshing: boolean;
   error: string | null;
+  /** Set when a background refresh fails but prior same-user data is retained. */
+  staleError: string | null;
   allTrades: TradeInput[];
   trades: TradeInput[];
   calculations: TradeCalculation[];
@@ -107,12 +121,16 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const loadGenerationRef = useRef(0);
+  /** Mirrors `dataOwnerId` for retain-on-failure without re-binding `loadLive`. */
+  const dataOwnerIdRef = useRef<string | null>(null);
 
   const [liveTrades, setLiveTrades] = useState<TradeInput[]>([]);
   const [liveAccounts, setLiveAccounts] = useState<JournalAccount[]>([]);
   const [dataOwnerId, setDataOwnerId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [fetchInFlight, setFetchInFlight] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [staleError, setStaleError] = useState<string | null>(null);
+  const retainDataOnFailureRef = useRef(false);
   const [demoHidden, setDemoHidden] = useState(() => readJson<boolean>(HIDE_DEMO_KEY, false));
   const [filters, setFilters] = useState<FilterPrefs>(DEFAULT_LIVE_FILTERS);
   const [filtersUserId, setFiltersUserId] = useState<string | null>(null);
@@ -124,8 +142,10 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     setLiveTrades([]);
     setLiveAccounts([]);
     setDataOwnerId(null);
-    setLoading(Boolean(userId));
+    dataOwnerIdRef.current = null;
+    setFetchInFlight(Boolean(userId));
     setError(null);
+    setStaleError(null);
     loadGenerationRef.current = nextJournalLoadGeneration(loadGenerationRef.current);
   }
 
@@ -142,22 +162,63 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       setLiveTrades([]);
       setLiveAccounts([]);
       setDataOwnerId(null);
-      setLoading(false);
+      dataOwnerIdRef.current = null;
+      setFetchInFlight(false);
       setError(null);
+      setStaleError(null);
       return;
     }
 
     const expectedGeneration = nextJournalLoadGeneration(loadGenerationRef.current);
     loadGenerationRef.current = expectedGeneration;
 
-    setLoading(true);
-    setError(null);
+    retainDataOnFailureRef.current = dataOwnerIdRef.current === expectedUserId;
+    setFetchInFlight(true);
+    if (!retainDataOnFailureRef.current) {
+      setError(null);
+      setStaleError(null);
+    }
 
-    const result = await loadJournalGraph({
-      mode: "live",
-      userId: expectedUserId,
-      client: supabase as never,
-    });
+    let result: Awaited<ReturnType<typeof loadJournalGraph>>;
+    try {
+      result = await withTimeout(
+        loadJournalGraph({
+          mode: "live",
+          userId: expectedUserId,
+          client: supabase as never,
+        }),
+        JOURNAL_GRAPH_LOAD_TIMEOUT_MS,
+        "journal_graph_load",
+      );
+    } catch (caught: unknown) {
+      if (
+        !shouldApplyJournalLoad(
+          expectedUserId,
+          expectedGeneration,
+          userId,
+          loadGenerationRef.current,
+        )
+      ) {
+        return;
+      }
+      const message =
+        caught instanceof AsyncTimeoutError
+          ? "Journal data took too long to load. Check your connection and try again."
+          : caught instanceof Error
+            ? caught.message
+            : "Journal data could not be loaded.";
+      if (retainDataOnFailureRef.current) {
+        setStaleError(message);
+      } else {
+        setError(message);
+        setLiveTrades([]);
+        setLiveAccounts([]);
+        setDataOwnerId(null);
+        dataOwnerIdRef.current = null;
+      }
+      setFetchInFlight(false);
+      return;
+    }
 
     if (
       !shouldApplyJournalLoad(
@@ -171,11 +232,17 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     }
 
     if (!result.ok) {
-      setError(result.error ?? "Journal data could not be loaded.");
-      setLiveTrades([]);
-      setLiveAccounts([]);
-      setDataOwnerId(null);
-      setLoading(false);
+      const message = result.error ?? "Journal data could not be loaded.";
+      if (retainDataOnFailureRef.current) {
+        setStaleError(message);
+      } else {
+        setError(message);
+        setLiveTrades([]);
+        setLiveAccounts([]);
+        setDataOwnerId(null);
+        dataOwnerIdRef.current = null;
+      }
+      setFetchInFlight(false);
       return;
     }
 
@@ -187,23 +254,54 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       ),
     );
     setDataOwnerId(expectedUserId);
-    setLoading(false);
+    dataOwnerIdRef.current = expectedUserId;
+    setError(null);
+    setStaleError(null);
+    setFetchInFlight(false);
   }, [userId]);
 
+  const loadLiveRef = useRef(loadLive);
+  loadLiveRef.current = loadLive;
+
   useEffect(() => {
-    void loadLive();
-  }, [userId, loadLive]);
+    void loadLiveRef.current();
+  }, [userId]);
 
   const liveDataReady = dataOwnerId === userId && userId != null;
   const ownedLiveTrades = liveDataReady ? liveTrades : [];
   const ownedLiveAccounts = liveDataReady ? liveAccounts : [];
-  const liveAccountsReady = liveDataReady && !loading;
+  const liveAccountsReady = liveDataReady && !fetchInFlight;
+  const initialLoading = Boolean(userId) && fetchInFlight && !liveDataReady;
+  const refreshing = Boolean(userId) && fetchInFlight && liveDataReady;
+
+  const loadState: JournalLoadState = useMemo(() => {
+    if (initialLoading) return "initial-loading";
+    if (refreshing) return "refreshing";
+    if (error && !liveDataReady) return "error";
+    if (staleError && liveDataReady) return "stale";
+    return "ready";
+  }, [initialLoading, refreshing, error, staleError, liveDataReady]);
 
   const mode: JournalMode = useMemo(() => {
     if (ownedLiveTrades.length > 0) return "live";
+    if (userId && error && !liveDataReady) return "empty";
+    if (userId && !liveDataReady && (initialLoading || fetchInFlight)) return "empty";
+    if (userId && liveDataReady) {
+      if (staleError) return "empty";
+      return !demoHidden ? "demo" : "empty";
+    }
     if (!demoHidden) return "demo";
     return "empty";
-  }, [ownedLiveTrades.length, demoHidden]);
+  }, [
+    ownedLiveTrades.length,
+    demoHidden,
+    userId,
+    error,
+    staleError,
+    liveDataReady,
+    initialLoading,
+    fetchInFlight,
+  ]);
 
   const allTrades = mode === "demo" ? AUGUST_DEMO_TRADES : ownedLiveTrades;
 
@@ -355,8 +453,11 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const value: JournalWorkspaceValue = {
     mode,
-    loading: Boolean(userId) && (loading || !liveDataReady),
+    loading: initialLoading,
+    loadState,
+    refreshing,
     error,
+    staleError,
     allTrades,
     trades,
     calculations,

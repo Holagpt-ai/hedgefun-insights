@@ -148,6 +148,17 @@ EVIDENCE RULES:
 - If evidence is insufficient, return Insufficient Data.
 `.trim();
 
+function truncateAtWordBoundary(text: string, maxChars: number): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  const slice = trimmed.slice(0, maxChars);
+  const lastSpace = slice.lastIndexOf(" ");
+  if (lastSpace > Math.floor(maxChars * 0.45)) {
+    return `${slice.slice(0, lastSpace).trim()}…`;
+  }
+  return `${slice.trim()}…`;
+}
+
 /** Collapse a generated brief to a concise summary without deleting the original. */
 export function summarizeBrief(content: string, maxSentences = 2, maxChars = 320): string {
   const text = stripMarkdownMarkers(content).replace(/\s+/g, " ").trim();
@@ -156,6 +167,41 @@ export function summarizeBrief(content: string, maxSentences = 2, maxChars = 320
   let out = sentences.slice(0, Math.max(1, maxSentences)).join(" ");
   if (out.length > maxChars) {
     out = `${out.slice(0, maxChars).trim()}…`;
+  }
+  return out;
+}
+
+/**
+ * Mobile-friendly preview: prefer whole sentences; word-boundary ellipsis when a sentence must shorten.
+ * Used by the AI Pre-Market Brief card only — {@link summarizeBrief} stays unchanged for other callers.
+ */
+export function summarizeBriefPreview(content: string, maxSentences = 2, maxChars = 320): string {
+  const text = stripMarkdownMarkers(content).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length === 0) return truncateAtWordBoundary(text, maxChars);
+
+  let out = "";
+  let truncatedMidSentence = false;
+  for (let i = 0; i < Math.min(Math.max(1, maxSentences), sentences.length); i += 1) {
+    const next = out ? `${out} ${sentences[i]}` : sentences[i];
+    if (next.length <= maxChars) {
+      out = next;
+      continue;
+    }
+    if (!out) {
+      out = truncateAtWordBoundary(sentences[i], maxChars);
+      truncatedMidSentence = true;
+    }
+    break;
+  }
+
+  if (!out) {
+    out = truncateAtWordBoundary(sentences[0], maxChars);
+    truncatedMidSentence = true;
+  }
+  if (truncatedMidSentence && !out.endsWith("…")) {
+    out = `${out.trim()}…`;
   }
   return out;
 }

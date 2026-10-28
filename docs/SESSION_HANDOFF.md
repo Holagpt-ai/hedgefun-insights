@@ -1,16 +1,16 @@
 # Session handoff — latest 2026-10-27
 
-**Canonical current main:** `d3cec11f` (PR **#189** Batch 186 AM Inbox continuation merged).
+**Canonical current main:** `d86e0c69` (PR **#190** Batch 187 merged).
 
-**Lovable integration:** Forward-sync @ **`a03407c2`** — refresh from `d3cec11f` when approved.
+**Lovable integration:** @ **`491f65cc`** — synchronized with `main`; only `bun.lock` differs.
 
-**Batch 186 (ISS-025):** Merged **`d3cec11f`** — handoff parallel fetch, refresh-failure UX, workspace decouple. **Authenticated AM Inbox production UI NOT VERIFIED.**
+**Batch 187 Edge activation:** Separately gated (1. `get-pre-market-workspace`, 2. `sync-earnings-finnhub`, 3. `sync-catalyst-events`). Deployed revision ids **UNKNOWN**.
 
-**Batch 187 / 187.1 / 187.2 (ISS-026):** PR **#190** (`cursor/batch187-earnings-intelligence`) — earnings calendar fetch, market-impact ranking, truncation disclosure, bounded activity metadata, MCP diff removed. **NOT MERGED.**
+**Batch 188 (ISS-032, ISS-027, ISS-030):** PR open — Journal terminal loading recovery, AI Brief mobile preview, Risk section skeleton guard, Carryover compact cards.
 
-**Open:** ISS-032 JournalWorkspace; ISS-028 prod UI verify only (Batch 181 guards unchanged in git).
+**Open:** Batch **186** authenticated AM Inbox acceptance **pending**; Batch **187** Edge deploy pending.
 
-**Next:** Merge PR **#190** → Lovable Edge activation (1. `get-pre-market-workspace`, 2. `sync-earnings-finnhub`, 3. `sync-catalyst-events`) → Vercel → AM earnings sign-off. No Fly/migration apply unless approved.
+**Next:** Merge Batch **188** → Vercel → authenticated Android Journal / AM Inbox / Carryover sign-off. No Edge/migration apply unless approved.
 
 ---
 

@@ -6,6 +6,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { journalCount, useJournalLang, useJournalT } from "../i18n";
 import { formatAverageR, money, pnlClass, pct, ratio, signedMoney } from "../lib/format";
 import { JOURNAL_BASE } from "../nav";
+import { JournalStaleBanner } from "../components/JournalStaleBanner";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 
 export function OverviewPage() {
@@ -18,19 +19,24 @@ export function OverviewPage() {
   } = useJournalWorkspace();
 
   if (loading) return <HonestState kind="loading" />;
-  if (error) return <HonestState kind="error" onRetry={() => void refresh()} />;
+  if (error) {
+    return <HonestState kind="error" body={error} onRetry={() => void refresh()} />;
+  }
   if (mode === "empty") {
     return (
-      <HonestState
-        kind="empty"
-        actions={
-          <>
-            <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/settings?section=imports`}>{t("state.uploadCsv")}</Link>
-            <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/trades/new`}>{t("state.addTrade")}</Link>
-            {demoHidden ? <button type="button" className="text-sm font-semibold text-accent-blue" onClick={showDemo}>{t("state.exploreDemo")}</button> : null}
-          </>
-        }
-      />
+      <div className="space-y-3">
+        <JournalStaleBanner />
+        <HonestState
+          kind="empty"
+          actions={
+            <>
+              <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/settings?section=imports`}>{t("state.uploadCsv")}</Link>
+              <Link className="text-sm font-semibold text-accent-blue" to={`${JOURNAL_BASE}/trades/new`}>{t("state.addTrade")}</Link>
+              {demoHidden ? <button type="button" className="text-sm font-semibold text-accent-blue" onClick={showDemo}>{t("state.exploreDemo")}</button> : null}
+            </>
+          }
+        />
+      </div>
     );
   }
 
@@ -50,6 +56,7 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-3">
+      <JournalStaleBanner />
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">{t("overview.title")}</h1>
         <Link to={`${JOURNAL_BASE}/daily-review`} className="text-sm font-semibold text-accent-blue">{t("overview.startDay")}</Link>

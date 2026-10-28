@@ -35,6 +35,26 @@ describe("AI Pre-Market Brief presentation", () => {
     expect(screen.getByTestId("freshness-notice").textContent).toMatch(/newer update is expected/);
   });
 
+  it("collapsed preview ends on a complete sentence when possible", () => {
+    const content =
+      "Futures were softer into the open. Mega-cap tech led decliners while energy held bid. " +
+      "The desk watches CPI and earnings after the bell.";
+    render(
+      <AvailableBrief
+        content={content}
+        previousTradingDay={false}
+        briefDateDisplay={null}
+        evidenceCutoff={null}
+        expanded={false}
+        onToggle={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Expand AI brief" });
+    expect(button).toBeTruthy();
+    expect(screen.getByText(/Futures were softer into the open\./)).toBeTruthy();
+    expect(screen.queryByText(/after the bell/)).toBeNull();
+  });
+
   it("keeps the full server brief behind an accessible expand control", () => {
     const content =
       "SPY slipped 0.3 percent. QQQ lagged the tape. IWM held up. DIA was mixed into the bell with no extra color.";

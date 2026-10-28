@@ -137,7 +137,7 @@ export function SectionShell<T>({
   return (
     <section className="flex flex-col gap-3">
       <SectionHeading title={title} subtitle={subtitle} action={action} />
-      {loading ? (
+      {loading && !section ? (
         <SectionLoading />
       ) : !section || section.status === "unavailable" ? (
         <SectionUnavailable reason={section?.reason_code ?? "QUERY_FAILED"} onRetry={onRetry} />
