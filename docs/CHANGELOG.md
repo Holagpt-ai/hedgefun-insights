@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **P0 screener CPU publication** (branch `cursor/p0-screener-cpu-publication`): per-sync session-volume cache, incremental radar diagnostics, fused evidence scan. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **NOT MERGED**; requires Lovable **`sync-screener-data`** redeploy after merge.
+- **P0 screener CPU publication** PR **#194** @ **`268ffabc`**: bound session-volume cache, `selectMainUniverseTabs`, staged 13,262 benchmark, `session-volume-cache-parity_test.ts`. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **BLOCKED** for production sign-off (local ~3–4.5s ≠ Edge CPU). **NOT MERGED**.
 
 ## 2026-10-28
 

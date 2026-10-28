@@ -6,9 +6,9 @@
 
 **Production blocker (ISS-034):** Oct 28 **16:45 / 16:50 UTC** — Edge **CPU Time exceeded**, ~13,262 symbols evaluated, **no publish** (last success **16:15:04 UTC**, 108 rows). Cron job 25 still firing.
 
-**Next approved batch:** PR **`cursor/p0-screener-cpu-publication`** — session-volume memo + reduced full-universe evidence scans; 13,262-symbol Deno benchmark ~4s local. **Do not merge/deploy** until owner review.
+**Next approved batch:** PR **#194** @ **`268ffabc`** — cache binding + single-pass main tabs + staged benchmark + parity tests. **Recommendation: BLOCKED** for production-ready (optimized local sync ~3–4.5s; does not prove Edge ~2s CPU). Merge for mitigation only after owner accepts Lovable verify or phase-2 architecture.
 
-**Open:** ISS-034 until redeploy + successful cron publish verified in Lovable.
+**Open:** ISS-034 until redeploy + successful cron publish or architectural split.
 
 ---
 
