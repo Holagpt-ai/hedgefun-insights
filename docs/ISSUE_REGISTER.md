@@ -1,82 +1,71 @@
 ﻿# Issue register
 
-Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
+Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-Historical baseline: `origin/main` **`68092518`** (PR **#192** Batch 189). Batch **185** @ `e662c928`; Batch **184** @ `0fa177dd`. **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (Lovable Oct 27: **3,131** active handoffs); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked**.
+**Baseline:** `origin/main` **`1398d16a`** (2026-10-28). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
-Original ten Lovable scanner warnings (historical): `docs/release/lovable-scanner-reliability-warnings.md` — treat as **fixed in git**, **mitigated** (Batch 185 client/Edge), or **operationally unverified** (Vercel/mobile) per item; Oct 27 Lovable read-only feed evidence **PASS** for RPC/evidence column. October 24 npm/deploy: ISS-015–019. Next batches: `docs/release/next-approved-batches.md`.
+Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
-## Current active triage — 2026-10-27 screenshots (reported, not backend-confirmed)
-
-Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check at `main` `e662c928`. Full evidence/order: `docs/release/master-reset-2026-10-27.md`. Old fixes stay in changelog; do not relabel those as open defects.
+## Current active triage
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| ISS-033 | P0 | Premarket screener rejects all symbols (`day.v=0`, positive `min.av`) | **Fixed on `main` (#193 → `4f7c10db`)** — **deployed Lovable** fingerprint `23980c31…`; premarket volume uses observation session |
-| ISS-034 | P0 | Full-universe sync CPU timeout blocks publication (~13k symbols) | **Mitigation in PR #194** (cache, single-pass selection, staged benchmark ~3–4.5s local — **NOT Edge CPU proof**). **BLOCKED** for production sign-off until Lovable redeploy + successful publish or architectural split |
-| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Oct 28 premarket volume mismatch blocked qualification until P0 D1 deploy. |
-| ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 merged (`d3cec11f`)** — parallel session date, workflow cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
-| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — authenticated Android acceptance **pending** |
-| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Batch 187 merged (`d86e0c69`)** — Edge activation separately gated; Vercel **SUCCESS** |
-| ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
-| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **No new regression in Batch 187** — Batch 181 precedence tests still classify comparison headlines secondary; prod UI **NOT RE-VERIFIED** |
-| ISS-029 | P2 | Homepage AI Trader banner; session countdown | **Fixed on `main`** (Batch **189**, PR **#192** → **`68092518`**) |
-| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
-| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |
-**Acceptance:** PR #174 CLOSED; #184–#186 MERGED; #188 Lovable parity **`b69d7444`**; #191 Batch 188 **`dc965d2d`**. Batch 189 homepage PR **open**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**; Batch 188 Android **NOT VERIFIED**.
+| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** PR **#194** merged + Lovable deployed **17:29:52 UTC**; **17:30 / 17:35 UTC** **CPU Time exceeded**, no fresh publish. Last DB gen **16:15:04 UTC**, 108 rows. **Batch 190** — **DO NOT CLOSE**. |
+| ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
+| ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
+| ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |
+| ISS-032 | P2 | Journal terminal-error loading | Fixed on `main` (Batch **188**) → **Batch 193** acceptance. |
+| ISS-026 | P1 | Earnings ranking / Edge | Batch **187** merged; Edge activation **UNVERIFIED** → **Batch 194**. |
+| ISS-027 | P1 | Risk / AI Brief mobile layout | Fixed on `main` (Batch **188**) → **Batch 193**. |
+| ISS-028 | P1 | TSLA/SpaceX direct catalyst in UI | Batch **181** in git; prod **NOT RE-VERIFIED** → **Batch 195**. |
+| ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
+| ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
+| ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |
+
+**Verification (not new implementation):** Batch **174** **CONDITIONAL**; Batch **175** persistence **PASS**, UI **NOT VERIFIED**; PR **#174** **CLOSED** unmerged.
 
 ## Confirmed
 
 | ID | Item | Evidence |
 | --- | --- | --- |
-| ISS-002 | Registered navigation has no broken route | `npm run integrity`: 0 errors, 0 warnings, 125 routes (2026-10-24). |
-| ISS-003 (Fly radar worker) | Live `stocksist-radar-v22-worker` **v45** matches scanner behavior on approved `main` | Read-only Fly check 2026-10-24: digest `sha256:47ff670c…`. **PASS** — redeploy not required for ranking parity. Image git SHA unverified. |
-| ISS-020 | Polygon snapshot `day.v=0` treated as verified zero volume | **Fixed on `main`** (#169) — `polygonSnapshotVolume()`; batch27 / movers-integrity tests. Regular lists still do not treat `0` as liquidity. |
-| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed on `main`** (PR **#179** → **`7c2bf094`**, Batch 178). 2026-10-26 ~12:33–12:56 ET **UI observation** showed mislabeled rows pre-fix; ~17:00 ET post–Batch **183** manifest premarket page **empty** with delayed disclosure (**UI observation**, not full ET-window proof). |
-| ISS-016 | npm audit 42 advisories (Oct Vercel report) | **Partially mitigated:** #170 → 21; Batch 171 → **20** (**0 critical**), `tinypool@2.2.0` override, `vite@5.4.21`, `vitest@3.2.7`. Remaining: MCP sdk, zod/@vercel, router v7, tailwind build chain. |
-| ISS-017 | Large production JS entry bundle | **Improved:** #170 ~2,656 kB entry; Batch 171 public-route lazy **~2,271 kB** (`index-C5m1D5LX.js`, gzip ~633 kB). Vite >500 kB warning remains. |
-| ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
-| ISS-015 | Production `chat` not on recovered catalyst delivery | **Blocked** — rollback revision id unknown. `docs/release/edge-function-release-lovable.md`. No deploy this batch. |
-| ISS-022 | Ticker-specific catalyst/watchlist headlines could name unrelated issuers when persisted `direct` disagreed with title | **Fixed on `main`** (Batch **181**, PR **#180** → **`aae43f98`**) — live reconcile + headline gates; runbook `docs/release/batch181-catalyst-watchlist-source-integrity-v1.md`. Stale DB rows may still need sync/reconcile jobs. |
-| ISS-023 | Mobile browser freeze after workflow link taps (Pre-Market, Carryover) | **Fixed in git (PR #186 → `0fa177dd`)** — sessionStorage mirror batching/skip, deferred handoffs, same-destination nav guard. Production mobile re-check **NOT VERIFIED**. |
+| ISS-002 | Navigation routes | `npm run integrity` (2026-10-24). |
+| ISS-003 (Fly) | Radar worker v45 parity | Read-only 2026-10-24 **PASS**. |
+| ISS-020 | `day.v=0` missing volume | Fixed #169. |
+| ISS-021 | Premarket session labels | Batch **178**. |
+| ISS-016–019 | npm / bundle / browserslist | Partially mitigated; remainder **Batch 202** / **198**. |
+| ISS-015 | Production `chat` not on recovered delivery | **Blocked** — batch **204**. |
+| ISS-022 | Catalyst headline issuer mismatch | Batch **181**. |
+| ISS-023 | Mobile navigation freeze | Fixed git Batch **184**; mobile re-check **Batch 193**. |
 
 ## Reported
 
-| ID | Item | Why it is not confirmed |
-| --- | --- | --- |
-| ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #179/#180 Vercel deploy. |
-| ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
-| ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |
-| ISS-006 | Catalyst intel → public distribution | **Source bridge complete** on `main` (Batch **176**, PR **#175**, `788b1b93`). **Production activation incomplete** — no Edge deploy, no writes, no cron; source enablement still separate. |
-| ISS-007 | AI Analyst streaming failures deferred in Batch 34 | Not retested here. |
-
-## Deferred
-
 | ID | Item | Notes |
 | --- | --- | --- |
-| ISS-018 | Vercel Edge middleware runtime deprecation | `docs/release/vercel-middleware-runtime-2026-10-24.md`. |
+| ISS-003 (Vercel/Edge) | Manifest / revision ids | Partial screener fingerprints recorded Oct 28; full matrix unknown. |
+| ISS-005 | Batch 34 status | Not refreshed. |
+| ISS-006 | Catalyst distribution | Deferred — **Batch 203**. |
+| ISS-007 | AI Analyst streaming | Deferred — **Batch 204**. |
 
-## Deferred (product)
+## Deferred (product / platform)
 
-| ID | Item | Notes |
+| ID | Item | Master batch |
 | --- | --- | --- |
-| ISS-008 | Real-time feed upgrades | Out of scope. |
-| ISS-009 | AI Trader | Operating mode OFF. |
-| ISS-010 | Broker integration | Not approved. |
-| ISS-011 | Billing go-live | Stripe state not checked. |
-| ISS-012 | SEC schedule / write-gate edits | Cron job 52 is production schedule. |
-| ISS-013 | Community | Waitlist page. |
-| ISS-014 | Sitemap omissions | Integrity info only. |
+| ISS-008 | Real-time feed | **205** |
+| ISS-009 | AI Trader | **208** |
+| ISS-010 | Broker | **207** |
+| ISS-011 | Billing | **206** |
+| ISS-012 | SEC schedule edits | No new batch unless new evidence |
+| ISS-013 | Community | **209** |
+| ISS-014 | Sitemap | **202** conditional |
+| ISS-018 | Middleware deprecation | **198** / **202** |
 
 ## Historically verified
 
 | ID | Item | Boundary |
 | --- | --- | --- |
-| ISS-004 | Gate I.3 SEC activation (migration, deploy, cron 52, checkpoint) | Historical PR #163 record; not re-queried live. |
+| ISS-004 | Gate I.3 SEC activation | Historical PR #163. |
 
 ## Not a defect
 
-- MCP id `hedgefun-mcp` / generated bundle per PR #162.
-- `cursor/lovable-sync-from-main-20261024` active integration branch.
-- `cursor/chat-single-pass-v1` archived recovery source only.
-- ISS-001 closed in git; production chat waits on ISS-015.
+- MCP id `hedgefun-mcp` / generated bundle.
+- Lovable integration branch role and protected files.

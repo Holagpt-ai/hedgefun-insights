@@ -2,7 +2,18 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-Baseline for this memory: parent `origin/main` `03449198` (PR #163), with the AI Analyst catalyst recovery on this change set. Inspected 2026-10-24.
+## Current operating baseline — 2026-10-28
+
+**GitHub `main`:** `1398d16ad0041c34661e4bc76487c5a3757c207e` (PR **#194** merged).  
+**Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `04da6d7f87994c93a0c5fc64492654df2424fe0b` (preserve Lovable-only `bun.lock`, Lovable `deno.lock`, generated `supabase/functions/mcp/index.ts`, `sync-screener-data/handler_test.ts` typing).
+
+**Lovable Cloud `sync-screener-data`:** PR **#194** deployed **2026-10-28 17:29:52 UTC**. Submitted source SHA-256 `cfd9032b5d8c724bea5889a0e9888395219e0815626c2895bf1cdc705a2cc3af`; **37-file runtime closure** SHA-256 `c3a70628e6af107d10c73026b79e21850bf21f2b03427e700c859cdfcdb8a167` (**do not conflate**). Edge revision number **not reported**. **17:30 / 17:35 UTC** **CPU Time exceeded** — no fresh publish. Last verified persisted generation **16:15:04 UTC**, **108** rows (`sync_run_id` `d3b3cd1b-42de-4c93-8170-9fd036c41f4e`).
+
+**PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
+
+**ISS-034 P0** is the immediate blocker — **Batch 190** (CPU-safe publisher architecture). Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent.
+
+Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
 ## Product
 
@@ -24,14 +35,21 @@ Baseline for this memory: parent `origin/main` `03449198` (PR #163), with the AI
 
 Route production Supabase operations through **Lovable Cloud first**. Do not instruct the user to create or use a separate Supabase account or obtain a personal **`SUPABASE_ACCESS_TOKEN`** by default. If Lovable lacks a needed management capability, report the exact limitation instead of assuming direct Supabase dashboard or CLI access.
 
-Merging to `main` updates git only. Production Supabase state changes when Lovable Cloud (or an explicitly approved ops path) deploys or applies work from `main`.
+Merging to `main` updates git only. Production Supabase state changes when Lovable Cloud (or an explicitly approved ops path) deploys or applies work from `main`. Never publish the production frontend through Lovable; Vercel deploys from GitHub.
 
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`a03407c2`** (forward-sync with `main` **`b69d7444`**). After each `main` merge, **forward-sync** integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
-- Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
-- `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
+- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024` @ **`04da6d7f`**. After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
+- **Archived recovery branch:** `cursor/chat-single-pass-v1`. Source of analyst commits below; large divergence is historical — not current Lovable sync state. Do not merge it.
+- `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Recovery used archived-branch versions.
+
+## Master roadmap (2026-10-28)
+
+- **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
+- **Next authorized implementation:** **Batch 190** only (owner scope approval before coding).
+- **Historical batches 171–189:** complete in git; open work is **acceptance/ops** under **191–198**, not reimplementation.
+- **Batch 174 / 175:** unfinished **verification** (batches **191–192**). PR **#174** closed without merge.
 
 ## Recovered analyst catalyst evidence
 
@@ -54,7 +72,7 @@ Decisions kept with the port:
 
 Remaining limits:
 
-- This change does not deploy `chat`. Production chat keeps the previously deployed function until an approved Edge deploy.
+- This change does not deploy `chat`. Production chat keeps the previously deployed function until an approved Edge deploy (**ISS-015**, master batch **204**).
 - Dollar figures are extracted only from explicit text near a fiscal-year token. Headline-only evidence is not verified guidance.
 - The prompt tells the model the packet is not a live quote or a real-time feed.
 
@@ -66,26 +84,19 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 - Vercel production follows GitHub `main` via the normal Vercel Git integration. Fly workers, SEC cron, and non-Supabase infra move only in an approved ops step.
 - Edge Function **source** lives in git; **production deploy** of those functions is a Lovable Cloud responsibility unless a batch explicitly assigns another approved executor.
 - Never delete or rewrite an applied Supabase migration. Add a corrective migration.
-- Generated MCP output stays generator-owned (`scripts/mcp-edge-validate.mjs`).
+- Generated MCP output stays generator-owned (`scripts/mcp-edge-validate.mjs`). Do not hand-edit `supabase/functions/mcp/index.ts` except via the emitter on the Lovable integration branch workflow.
 
 ## Deferred until a later approved batch
 
-- Real-time feed upgrades
-- AI Trader product work (`AI_TRADER_CURRENT_OPERATING_MODE` is `OFF`)
-- Broker integration
-- Billing go-live (the UI still says payment processing is being set up)
-- Further SEC schedule, write-gate, or function changes. Gate I.3 activation already happened (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule.
-- Catalyst source enablement (`docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
+Product and platform items below remain deferred; master batches **203–209** own sequencing detail.
 
-## Active master reset (2026-10-27)
-
-Latest GitHub `main` baseline: **`d86e0c69`** (PR **#190** Batch 187 merged; Vercel **SUCCESS**). Lovable integration @ **`491f65cc`** (only `bun.lock` differs from `main`). Batch **187** Edge activation remains separately gated; deployed earnings Edge revision ids **UNKNOWN**. Batch **186** authenticated AM Inbox acceptance **pending**. Batches **184–187** are complete in git — not active implementation backlog.
-
-Prior doc baseline: **`4757b9de`**, PR **#185** Master Reset V3 docs merged; **`e65746ab`** (PR **#184** Tuesday acceptance). PR **#174** closed without merge. Batch **184** application fix in PR **#186** — **not merged**. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
-
-## Historical batch register (2026-10-24 master reset)
-
-See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`13a018a9`** (PR **#183** merged). **174** acceptance **CONDITIONAL**. **175** persistence **PASS** via production RPC (2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. PR **#174** — close without merge. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+- Real-time feed upgrades (**ISS-008**, batch **205**)
+- AI Trader product work (`AI_TRADER_CURRENT_OPERATING_MODE` is `OFF`; batch **208**)
+- Broker integration (**ISS-010**, batch **207**)
+- Billing go-live (**ISS-011**, batch **206**)
+- Further SEC schedule, write-gate, or function changes. **Gate I.3 activation already happened** (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule. **Do not rerun** Gate I.3 activation or rewrite applied migration history.
+- Catalyst source enablement / distribution activation (**ISS-006**, batch **203** — `docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
+- AI Analyst / `chat` Edge regression cleanup (**ISS-007**, **ISS-015**, batch **204**)
 
 ## Catalyst attribution (client, Batch 181)
 
@@ -99,11 +110,12 @@ Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFiveP
 
 Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTER.md`. Update those when a decision, defect, or deploy fact changes. `npm run integrity` covers navigation, sitemap/canonical agreement, brand hosts, MCP artifact agreement, and `origin/main` divergence. It does not replace an ops query of Vercel, Supabase, or Fly.
 
-## Screener session volume (P0 D1)
+## Screener session volume (P0 D1) and CPU publication
 
 - Edge qualification uses `sessionQualificationVolume()` in `supabase/functions/_shared/screeners/session-volume.ts`.
 - Premarket: positive `min.av` only. Regular: positive `day.v`. After-hours: incremental vs same-snapshot `day.v` baseline when verifiable.
 - Do not treat Polygon `day.v=0` as verified zero liquidity during extended sync.
+- **PR #194:** per-sync bound session-volume cache and reduced redundant full-universe passes — **deployed**; **ISS-034** publication still blocked (see baseline above).
 
 ## Scanner volume contract (movers)
 
@@ -138,3 +150,7 @@ Use these words in handoffs and the issue register:
 - **Confirmed** — checked against `main` or a command run in that session
 - **Reported** — stated in an older runbook or checklist and not rechecked
 - **Deferred** — intentionally out of scope
+
+## Historical continuity snapshots (superseded baselines)
+
+Older top-of-file baselines and master-reset paragraphs referenced SHAs such as `03449198`, `d86e0c69`, `a03407c2`, and pre–Oct 28 handoff states. **Do not use those for current production decisions.** Detailed triage history: `docs/release/master-reset-2026-10-27.md`. Batch **171–189** completion map: `docs/CHANGELOG.md` and `docs/release/next-approved-batches.md`.
