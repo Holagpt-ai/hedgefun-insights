@@ -6,7 +6,7 @@
 
 **P0 OPEN (ISS-034):** **17:30** and **17:35 UTC** runs evaluated ~13,262 symbols, then **CPU Time exceeded**, before atomic publication (10 / 9 qualified respectively). Cron job **25** still invokes every 5 minutes. Last verified DB generation **16:15:04.456 UTC**, `sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**, **108** rows. PR **#194** reduced local work but was **not** successful production recovery.
 
-**Batch 190 / 190.2 (PR #196):** Architecture **A** — staged Edge chunks + Postgres job table (`SCREENER_SYNC_STAGED=1` after migration apply). **190.2** adds chunk lease handoff, single finalize claim, policy-exclusion JSON serialization, DB active-generation unique index, crash-safe publish record/complete RPC split, and optional `SCREENER_SYNC_PG_TEST_URL` integration tests. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations **20261028220000** unapplied; **Not production-accepted**; ISS-034 stays open.
+**Batch 190 / 190.2 (PR #196):** branch head **`9a0bf671`** (190.2 Postgres execution corrections). Architecture **A** — staged Edge chunks + Postgres job table (`SCREENER_SYNC_STAGED=1` after migration apply). **190.2** adds chunk lease handoff, single finalize claim, policy-exclusion JSON serialization, DB active-generation unique index, crash-safe publish record/complete RPC split, and optional `SCREENER_SYNC_PG_TEST_URL` integration tests. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations **20261028220000** unapplied; **Not production-accepted**; ISS-034 stays open.
 
 **Next after Batch 190 merge/deploy gate:** **191** timed scanner acceptance (ISS-033). No automatic migrations, Edge deploy, Fly, or cron changes from Cursor.
 
