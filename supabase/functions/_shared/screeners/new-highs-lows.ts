@@ -7,12 +7,15 @@ import { isCoherent52WeekRange } from "./baseline-corporate-action.ts";
 import {
   currentSessionReferencePrice,
   dayHighLow,
-  dayVolume,
   normalizeSymbol,
   type PolygonTicker,
   SCREENER_ROW_LIMIT,
   selectVolumeFirst,
 } from "./selection.ts";
+import {
+  sessionQualificationVolume,
+  type SessionVolumeContext,
+} from "./session-volume.ts";
 
 export type RangeEvent = "new_high" | "new_low" | "both";
 
@@ -78,11 +81,12 @@ export function classifyNewHighLow(
   t: PolygonTicker,
   baseline: NhlBaselineQuote | null | undefined,
   extendedSession = false,
+  volumeCtx?: SessionVolumeContext,
 ): RangeEvent | null {
   const sym = normalizeSymbol(t?.ticker);
   if (!sym) return null;
-  const vol = dayVolume(t);
-  if (vol === null || !(vol > 0)) return null;
+  const ctx: SessionVolumeContext = volumeCtx ?? { extendedSession };
+  if (sessionQualificationVolume(t, ctx) === null) return null;
   const price = currentSessionReferencePrice(t, extendedSession);
   if (price === null || !(price > 0)) return null;
   if (!isVerifiedNhlBaseline(baseline)) return null;
@@ -104,23 +108,27 @@ export function selectNewHighsLows(
   baselines: ReadonlyMap<string, NhlBaselineQuote>,
   limit: number = SCREENER_ROW_LIMIT,
   extendedSession = false,
+  nowMs?: number,
 ): NhlClassification[] {
   if (baselines.size === 0) return [];
 
+  const volumeCtx: SessionVolumeContext = { extendedSession, nowMs };
   const qualified: PolygonTicker[] = [];
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    if (classifyNewHighLow(t, baselines.get(sym), extendedSession) === null) continue;
+    if (classifyNewHighLow(t, baselines.get(sym), extendedSession, volumeCtx) === null) {
+      continue;
+    }
     qualified.push(t);
   }
 
-  const ordered = selectVolumeFirst(qualified, limit);
+  const ordered = selectVolumeFirst(qualified, limit, volumeCtx);
   const out: NhlClassification[] = [];
   for (const t of ordered) {
     const sym = normalizeSymbol(t.ticker)!;
     const baseline = baselines.get(sym)!;
-    const event = classifyNewHighLow(t, baseline, extendedSession);
+    const event = classifyNewHighLow(t, baseline, extendedSession, volumeCtx);
     if (event === null) continue;
     out.push({
       ticker: t,

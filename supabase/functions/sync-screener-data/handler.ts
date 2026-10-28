@@ -555,14 +555,15 @@ export async function handleSyncScreenerData(
     }
   }
 
-  const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
+  const dayTradeDiagnostics = allTickers.map((t) =>
+    evaluateDayTradeRadar(t, nowMs, { syncSessionKind: sessionKind })
+  );
   console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
 
+  const extendedTabOpts = { extendedSession, nowMs };
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
-  const gapperSelected = selectForTab("gappers", allTickers, undefined, {
-    extendedSession,
-  });
-  const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
+  const gapperSelected = selectForTab("gappers", allTickers, undefined, extendedTabOpts);
+  const volumeSpikeSelected = selectForTab("volume_spikes", allTickers, undefined, extendedTabOpts);
   const providerGainersLosers = [...gainers, ...losers];
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
@@ -571,9 +572,9 @@ export async function handleSyncScreenerData(
     "gainers_losers",
     gainersLosersUniverse,
     undefined,
-    { extendedSession },
+    extendedTabOpts,
   );
-  const unusualSelected = selectForTab("unusual_volume", allTickers);
+  const unusualSelected = selectForTab("unusual_volume", allTickers, undefined, extendedTabOpts);
 
   const selectedAll = [
     ...dayTradeSelected,
@@ -598,7 +599,7 @@ export async function handleSyncScreenerData(
     loadVolumeBaselines(sb),
   ]);
   const nhlSelected = nhlBaseline.status === "available"
-    ? selectNewHighsLows(allTickers, nhlBaseline.quotes, undefined, extendedSession)
+    ? selectNewHighsLows(allTickers, nhlBaseline.quotes, undefined, extendedSession, nowMs)
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
   if (!allHaveProviderAsOf(nhlTickers, nowMs)) {
@@ -674,6 +675,7 @@ export async function handleSyncScreenerData(
     nhlSelected,
     nhlPolicyExclusions: nhlBaseline.policyExclusions,
     extendedSession,
+    nowMs,
   });
 
   const nhlEvidence = tabEvaluationEvidence.new_highs_lows;

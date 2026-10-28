@@ -1,18 +1,14 @@
-# Session handoff — latest 2026-10-27
+# Session handoff — latest 2026-10-28
 
-**Canonical current main:** **`dc965d2d`** (PR **#191** Batch 188 merged).
+**Canonical current main:** **`68092518`** (PR **#192** Batch 189 merged).
 
-**Lovable integration:** forward-sync with `main` after #191; tip **UNKNOWN** until next sync commit.
+**P0 D1 — Extended-hours screener volume:** **In PR** — session-aware `min.av` contract for Edge screeners; **`sync-screener-data` deploy gated** in Lovable after merge.
 
-**Batch 187 Edge activation:** Separately gated (`get-pre-market-workspace`, `sync-earnings-finnhub`, `sync-catalyst-events`). Deployed revision ids **UNKNOWN**.
+**Batch 187 Edge activation:** Separately gated. Deployed revision ids **UNKNOWN**.
 
-**Batch 188 (ISS-032, ISS-027, ISS-030):** **Merged** @ **`dc965d2d`**. Authenticated Android Journal / AM Inbox / Carryover acceptance **pending**.
+**Open:** Batch **186** AM Inbox UI **pending**; Batch **188** Android **pending**; P0 D1 **Edge deploy pending** after merge.
 
-**Batch 189 (ISS-029, HOME-01–03):** **PR #192** open @ **`81dc7b94`** — homepage AI Trader removal, market clocks order, session countdown line, Market Pulse disclosure density.
-
-**Open:** Batch **186** authenticated AM Inbox acceptance **pending**; Batch **187** Edge deploy **pending**; Batch **188** mobile acceptance **pending**.
-
-**Next:** Merge Batch **189** → Vercel preview → homepage mobile/desktop sign-off. No Edge/migration apply unless approved.
+**Next:** Merge P0 D1 PR → Lovable deploy `sync-screener-data` → premarket screener live verification.
 
 ---
 

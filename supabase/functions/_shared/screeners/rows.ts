@@ -6,7 +6,6 @@
 import {
   changePercentVsPriorRegularClose,
   dayHighLow,
-  dayVolume,
   extendedSessionLastPrice,
   gapPercent,
   normalizeSymbol,
@@ -17,6 +16,10 @@ import {
   regularClose,
   type ScreenerTabId,
 } from "./selection.ts";
+import {
+  sessionQualificationVolume,
+  volumeContextFromMeta,
+} from "./session-volume.ts";
 import type { NhlClassification, RangeEvent } from "./new-highs-lows.ts";
 import {
   type VolumeBaselineQuote,
@@ -155,7 +158,9 @@ function baseRow(
   meta: GenerationMeta,
 ): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
-  const vol = persistedVolume(dayVolume(t));
+  const vol = persistedVolume(
+    sessionQualificationVolume(t, volumeContextFromMeta(meta)),
+  );
   const { prior_session_volume, volume_ratio_prior_session } =
     persistedPriorRatioPair(vol, priorSessionVolume(t));
   const range = dayHighLow(t);
