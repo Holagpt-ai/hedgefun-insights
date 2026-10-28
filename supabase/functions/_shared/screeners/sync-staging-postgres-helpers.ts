@@ -50,6 +50,8 @@ export function validScreenerRow(
     price: "10",
     change_percent: "1.5",
     volume: "1000000",
+    prior_session_volume: "500000",
+    volume_ratio_prior_session: "2",
     provider_as_of: providerAsOf,
   };
 }

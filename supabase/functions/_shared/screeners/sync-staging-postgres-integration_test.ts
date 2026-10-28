@@ -166,6 +166,18 @@ Deno.test("postgres gate: expire finalizing releases slot; publish record preser
                now() - interval '30 minutes', $4::uuid, now() - interval '1 minute')`,
       [stranded, crypto.randomUUID(), JSON.stringify(sampleObservation(crypto.randomUUID())), crypto.randomUUID()],
     );
+    const expired = await client.queryObject<{ payload: string }>(
+      `SELECT public.expire_screener_sync_stale_jobs_v1(now(), interval '25 minutes')::text AS payload`,
+    );
+    const payload = JSON.parse(String(expired.rows[0]?.payload ?? "{}"));
+    assertEquals(payload.ok, true);
+    assertEquals(payload.aborted_count, 1);
+    const strandedRow = await client.queryObject<{ status: string }>(
+      `SELECT status FROM public.screener_sync_generation_jobs WHERE id = $1`,
+      [stranded],
+    );
+    assertEquals(strandedRow.rows[0]?.status, "aborted");
+
     const preserved = crypto.randomUUID();
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
@@ -175,19 +187,38 @@ Deno.test("postgres gate: expire finalizing releases slot; publish record preser
                now() - interval '30 minutes', 2, now() - interval '29 minutes')`,
       [preserved, crypto.randomUUID(), JSON.stringify(sampleObservation(crypto.randomUUID()))],
     );
-    const expired = await client.queryObject<{ payload: string }>(
-      `SELECT public.expire_screener_sync_stale_jobs_v1(now(), interval '25 minutes')::text AS payload`,
+    await client.queryObject(
+      `SELECT public.expire_screener_sync_stale_jobs_v1(now(), interval '25 minutes')`,
     );
-    const payload = JSON.parse(String(expired.rows[0]?.payload ?? "{}"));
-    assertEquals(payload.ok, true);
-    assertEquals(payload.aborted_count >= 1, true);
-    const statuses = await client.queryObject<{ id: string; status: string }>(
-      `SELECT id, status FROM public.screener_sync_generation_jobs WHERE id = ANY($1::uuid[])`,
-      [[stranded, preserved]],
+    const preservedRow = await client.queryObject<{ status: string }>(
+      `SELECT status FROM public.screener_sync_generation_jobs WHERE id = $1`,
+      [preserved],
     );
-    const map = new Map(statuses.rows.map((r) => [r.id, r.status]));
-    assertEquals(map.get(stranded), "aborted");
-    assertEquals(map.get(preserved), "finalizing");
+    assertEquals(preservedRow.rows[0]?.status, "finalizing");
+
+    let blocked = false;
+    try {
+      await client.queryObject(
+        `INSERT INTO public.screener_sync_generation_jobs
+         (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks)
+         VALUES ($1, $2, 'chunking', $3::jsonb, '[]'::jsonb, 2200, 1)`,
+        [crypto.randomUUID(), crypto.randomUUID(), JSON.stringify(sampleObservation(crypto.randomUUID()))],
+      );
+    } catch {
+      blocked = true;
+    }
+    assertEquals(blocked, true);
+
+    await client.queryObject(
+      `DELETE FROM public.screener_sync_generation_jobs WHERE id = $1`,
+      [preserved],
+    );
+    await client.queryObject(
+      `INSERT INTO public.screener_sync_generation_jobs
+       (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks)
+       VALUES ($1, $2, 'chunking', $3::jsonb, '[]'::jsonb, 2200, 1)`,
+      [crypto.randomUUID(), crypto.randomUUID(), JSON.stringify(sampleObservation(crypto.randomUUID()))],
+    );
   });
 });
 
@@ -200,7 +231,10 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
     const syncRunId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
     const syncedAt = "2026-10-28T18:00:00.000Z";
-    const rows = [validScreenerRow("AAA"), validScreenerRow("BBB", "gappers")];
+    const rows = [
+      validScreenerRow("AAA", "gappers"),
+      validScreenerRow("BBB", "gappers"),
+    ];
     const evidence = sampleTabEvidence();
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
@@ -259,7 +293,7 @@ Deno.test("postgres gate: duplicate atomic publish is idempotent", async () => {
     const syncRunId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
     const syncedAt = "2026-10-28T18:05:00.000Z";
-    const rows = [validScreenerRow("ZZZ")];
+    const rows = [validScreenerRow("ZZZ", "gappers")];
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -336,7 +370,7 @@ Deno.test("postgres gate: rejects older generation when newer feed live", async 
     );
     const jobId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
-    const rows = [validScreenerRow("OLD")];
+    const rows = [validScreenerRow("OLD", "gappers")];
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -370,7 +404,7 @@ Deno.test("postgres gate: recovery after publish before complete", async () => {
     const syncRunId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
     const syncedAt = "2026-10-28T18:10:00.000Z";
-    const rows = [validScreenerRow("REC")];
+    const rows = [validScreenerRow("REC", "gappers")];
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
