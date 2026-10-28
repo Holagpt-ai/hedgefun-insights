@@ -15,6 +15,7 @@ import {
   isExtendedSyncSession,
   resolveSyncSessionKind,
 } from "../_shared/screeners/session-sync-context.ts";
+import { isLiveSurveillanceSessionKind } from "../_shared/screeners/screener-session.ts";
 import {
   allHaveProviderAsOf,
   normalizeSymbol,
@@ -546,8 +547,9 @@ export async function handleSyncScreenerData(
   const nowMs = (deps.nowMs ?? (() => Date.now()))();
   const sessionKind = resolveSyncSessionKind(nowMs);
   const extendedSession = isExtendedSyncSession(sessionKind);
+  const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
 
-  if (extendedSession) {
+  if (observationSessionFields) {
     const sbEarly = deps.createClient(supabaseUrl, serviceRole);
     const previousCloseOverlay = await loadRadarPreviousCloseOverlay(sbEarly);
     if (previousCloseOverlay.size > 0) {
@@ -555,14 +557,15 @@ export async function handleSyncScreenerData(
     }
   }
 
-  const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
+  const dayTradeDiagnostics = allTickers.map((t) =>
+    evaluateDayTradeRadar(t, nowMs, { syncSessionKind: sessionKind })
+  );
   console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
 
+  const extendedTabOpts = { extendedSession, observationSessionFields, nowMs };
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
-  const gapperSelected = selectForTab("gappers", allTickers, undefined, {
-    extendedSession,
-  });
-  const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
+  const gapperSelected = selectForTab("gappers", allTickers, undefined, extendedTabOpts);
+  const volumeSpikeSelected = selectForTab("volume_spikes", allTickers, undefined, extendedTabOpts);
   const providerGainersLosers = [...gainers, ...losers];
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
@@ -571,9 +574,9 @@ export async function handleSyncScreenerData(
     "gainers_losers",
     gainersLosersUniverse,
     undefined,
-    { extendedSession },
+    extendedTabOpts,
   );
-  const unusualSelected = selectForTab("unusual_volume", allTickers);
+  const unusualSelected = selectForTab("unusual_volume", allTickers, undefined, extendedTabOpts);
 
   const selectedAll = [
     ...dayTradeSelected,
@@ -598,7 +601,14 @@ export async function handleSyncScreenerData(
     loadVolumeBaselines(sb),
   ]);
   const nhlSelected = nhlBaseline.status === "available"
-    ? selectNewHighsLows(allTickers, nhlBaseline.quotes, undefined, extendedSession)
+    ? selectNewHighsLows(
+      allTickers,
+      nhlBaseline.quotes,
+      undefined,
+      extendedSession,
+      nowMs,
+      observationSessionFields,
+    )
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
   if (!allHaveProviderAsOf(nhlTickers, nowMs)) {
@@ -617,7 +627,13 @@ export async function handleSyncScreenerData(
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
-  const meta: GenerationMeta = { syncedAt, syncRunId, nowMs, extendedSession };
+  const meta: GenerationMeta = {
+    syncedAt,
+    syncRunId,
+    nowMs,
+    extendedSession,
+    observationSessionFields,
+  };
 
   const dayTradeRows = mapTabRows(
     "day_trade_radar",
@@ -674,6 +690,8 @@ export async function handleSyncScreenerData(
     nhlSelected,
     nhlPolicyExclusions: nhlBaseline.policyExclusions,
     extendedSession,
+    observationSessionFields,
+    nowMs,
   });
 
   const nhlEvidence = tabEvaluationEvidence.new_highs_lows;

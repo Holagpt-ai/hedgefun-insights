@@ -7,12 +7,16 @@ import { isCoherent52WeekRange } from "./baseline-corporate-action.ts";
 import {
   currentSessionReferencePrice,
   dayHighLow,
-  dayVolume,
   normalizeSymbol,
   type PolygonTicker,
   SCREENER_ROW_LIMIT,
   selectVolumeFirst,
 } from "./selection.ts";
+import {
+  extendedQuoteSemanticsForObservation,
+  sessionQualificationVolume,
+  type SessionVolumeContext,
+} from "./session-volume.ts";
 
 export type RangeEvent = "new_high" | "new_low" | "both";
 
@@ -78,12 +82,25 @@ export function classifyNewHighLow(
   t: PolygonTicker,
   baseline: NhlBaselineQuote | null | undefined,
   extendedSession = false,
+  volumeCtx?: SessionVolumeContext,
+  observationSessionFields = false,
+  nowMs?: number,
 ): RangeEvent | null {
   const sym = normalizeSymbol(t?.ticker);
   if (!sym) return null;
-  const vol = dayVolume(t);
-  if (vol === null || !(vol > 0)) return null;
-  const price = currentSessionReferencePrice(t, extendedSession);
+  const ctx: SessionVolumeContext = volumeCtx ?? {
+    extendedSession,
+    observationSessionVolume: observationSessionFields,
+    nowMs,
+  };
+  if (sessionQualificationVolume(t, ctx) === null) return null;
+  let priceExtended = extendedSession;
+  if (observationSessionFields && nowMs !== undefined) {
+    const ext = extendedQuoteSemanticsForObservation(t, nowMs);
+    if (ext === null) return null;
+    priceExtended = ext;
+  }
+  const price = currentSessionReferencePrice(t, priceExtended);
   if (price === null || !(price > 0)) return null;
   if (!isVerifiedNhlBaseline(baseline)) return null;
   if (normalizeSymbol(baseline.symbol) !== sym) return null;
@@ -104,23 +121,48 @@ export function selectNewHighsLows(
   baselines: ReadonlyMap<string, NhlBaselineQuote>,
   limit: number = SCREENER_ROW_LIMIT,
   extendedSession = false,
+  nowMs?: number,
+  observationSessionFields = false,
 ): NhlClassification[] {
   if (baselines.size === 0) return [];
 
+  const volumeCtx: SessionVolumeContext = {
+    extendedSession,
+    observationSessionVolume: observationSessionFields,
+    nowMs,
+  };
   const qualified: PolygonTicker[] = [];
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    if (classifyNewHighLow(t, baselines.get(sym), extendedSession) === null) continue;
+    if (
+      classifyNewHighLow(
+        t,
+        baselines.get(sym),
+        extendedSession,
+        volumeCtx,
+        observationSessionFields,
+        nowMs,
+      ) === null
+    ) {
+      continue;
+    }
     qualified.push(t);
   }
 
-  const ordered = selectVolumeFirst(qualified, limit);
+  const ordered = selectVolumeFirst(qualified, limit, volumeCtx);
   const out: NhlClassification[] = [];
   for (const t of ordered) {
     const sym = normalizeSymbol(t.ticker)!;
     const baseline = baselines.get(sym)!;
-    const event = classifyNewHighLow(t, baseline, extendedSession);
+    const event = classifyNewHighLow(
+      t,
+      baseline,
+      extendedSession,
+      volumeCtx,
+      observationSessionFields,
+      nowMs,
+    );
     if (event === null) continue;
     out.push({
       ticker: t,

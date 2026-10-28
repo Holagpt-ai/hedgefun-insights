@@ -505,8 +505,9 @@ Deno.test(
     );
     assertEquals(res.status, 503);
     assertEquals((await res.json()).error, "provider_freshness_unavailable");
-    assertEquals(clientCreated, 0);
-    assertEquals(mutations.length, 0);
+    // Live surveillance may open the DB once for the Radar previous-close overlay.
+    assertEquals(clientCreated <= 1, true);
+    assertEquals(mutations.some((m) => m.kind === "rpc"), false);
   },
 );
 
@@ -1236,3 +1237,298 @@ Deno.test("handler: malformed exclusion evidence does not invalidate valid quote
     "baseline_coverage_incomplete",
   );
 });
+
+/** 2026-10-28 EDT (UTC-4) — aligns with observation-session boundary tests. */
+function etMs(hour: number, minute: number): number {
+  return Date.UTC(2026, 9, 28, hour + 4, minute, 0, 0);
+}
+
+function obsTicker(
+  sym: string,
+  opts: {
+    minTMs: number;
+    dayV: number;
+    minAv: number;
+    last?: number;
+    prevClose?: number;
+    dayO?: number;
+    dayC?: number;
+  },
+) {
+  const last = opts.last ?? 12;
+  const updatedNs = opts.minTMs * 1_000_000;
+  return {
+    ticker: sym,
+    updated: updatedNs,
+    day: {
+      v: opts.dayV,
+      c: opts.dayC ?? last,
+      o: opts.dayO ?? opts.dayC ?? last,
+    },
+    prevDay: { c: opts.prevClose ?? 8, v: 100_000 },
+    min: { av: opts.minAv, v: 1_000, t: opts.minTMs },
+    lastTrade: { p: last, t: opts.minTMs },
+  };
+}
+
+function depsAtMs(
+  mutations: Mutation[],
+  fetchImpl: SyncDeps["fetch"],
+  nowMs: number,
+  dbOpts: Parameters<typeof mockDb>[1] = {},
+): SyncDeps {
+  return {
+    env: baseEnv(),
+    fetch: fetchImpl,
+    createClient: () => mockDb(mutations, dbOpts),
+    nowIso: () => new Date(nowMs).toISOString(),
+    nowMs: () => nowMs,
+    newSyncRunId: () => RUN_ID,
+  };
+}
+
+async function runHandlerAtMs(
+  mutations: Mutation[],
+  snap: unknown[],
+  nowMs: number,
+  gainers: unknown[] = [],
+  losers: unknown[] = [],
+) {
+  const deps = depsAtMs(mutations, marketFetch(snap, gainers, losers), nowMs);
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  return { res, deps };
+}
+
+function rpcFrom(mutations: Mutation[]) {
+  return mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: {
+      p_rows: ScreenerResultRow[];
+      p_tab_evaluation_evidence?: Record<string, unknown>;
+    };
+  };
+}
+
+const SERVER_935 = etMs(9, 35);
+const OBS_920 = etMs(9, 20);
+const SERVER_946 = etMs(9, 46);
+const OBS_931 = etMs(9, 31);
+const SERVER_405PM = etMs(16, 5);
+const OBS_350PM = etMs(15, 50);
+const SERVER_420PM = etMs(16, 20);
+const OBS_405PM = etMs(16, 5);
+
+Deno.test(
+  "handler: 9:35 server / 9:20 observation persists premarket min.av for gappers",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("PMGAP", {
+        minTMs: OBS_920,
+        dayV: 0,
+        minAv: 900_000,
+        last: 12,
+        prevClose: 8,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_935);
+    assertEquals(res.status, 200);
+    const rpc = rpcFrom(mutations);
+    const gap = rpc.args.p_rows.find((r) =>
+      r.tab_id === "gappers" && r.symbol === "PMGAP"
+    );
+    assertEquals(gap?.volume, 900_000);
+    assertEquals(gap?.gap_percent, 50);
+    const gappersEv = rpc.args.p_tab_evaluation_evidence?.gappers as {
+      volume_positive_count?: number;
+      qualified_count?: number;
+    };
+    assertEquals(gappersEv?.volume_positive_count, 1);
+    assertEquals(gappersEv?.qualified_count, 1);
+  },
+);
+
+Deno.test(
+  "handler: 9:46 server / 9:31 observation uses regular day.v in RPC rows",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("REG", {
+        minTMs: OBS_931,
+        dayV: 2_000_000,
+        minAv: 2_100_000,
+        last: 10.5,
+        prevClose: 10,
+        dayO: 10.2,
+        dayC: 10.5,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_946);
+    assertEquals(res.status, 200);
+    const spikes = rpcFrom(mutations).args.p_rows.filter((r) =>
+      r.tab_id === "volume_spikes"
+    );
+    const row = spikes.find((r) => r.symbol === "REG") ??
+      rpcFrom(mutations).args.p_rows.find((r) => r.symbol === "REG");
+    assertEquals(row?.volume, 2_000_000);
+  },
+);
+
+Deno.test(
+  "handler: 4:05 PM server / 3:50 PM observation keeps regular session volume",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("RTH", {
+        minTMs: OBS_350PM,
+        dayV: 40_000_000,
+        minAv: 40_100_000,
+        last: 50,
+        prevClose: 48,
+        dayC: 50,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_405PM);
+    assertEquals(res.status, 200);
+    const row = rpcFrom(mutations).args.p_rows.find((r) => r.symbol === "RTH");
+    assertEquals(row?.volume, 40_000_000);
+  },
+);
+
+Deno.test(
+  "handler: 4:20 PM server / 4:05 PM observation uses after-hours increment volume",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("AH", {
+        minTMs: OBS_405PM,
+        dayV: 40_000_000,
+        minAv: 40_250_000,
+        last: 51,
+        prevClose: 48,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_420PM);
+    assertEquals(res.status, 200);
+    const row = rpcFrom(mutations).args.p_rows.find((r) => r.symbol === "AH");
+    assertEquals(row?.volume, 250_000);
+  },
+);
+
+Deno.test(
+  "handler: mixed observation sessions resolve volume per ticker",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("PM", {
+        minTMs: OBS_920,
+        dayV: 0,
+        minAv: 800_000,
+        last: 12,
+        prevClose: 8,
+      }),
+      obsTicker("REGM", {
+        minTMs: OBS_931,
+        dayV: 3_000_000,
+        minAv: 3_050_000,
+        last: 11,
+        prevClose: 10,
+        dayO: 10.5,
+        dayC: 11,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_946);
+    assertEquals(res.status, 200);
+    const rows = rpcFrom(mutations).args.p_rows;
+    const pm = rows.find((r) => r.symbol === "PM");
+    const reg = rows.find((r) => r.symbol === "REGM");
+    assertEquals(pm?.volume, 800_000);
+    assertEquals(reg?.volume, 3_000_000);
+  },
+);
+
+Deno.test(
+  "handler: contradictory observation timestamps fail closed on volume selection",
+  async () => {
+    const mutations: Mutation[] = [];
+    const t = {
+      ticker: "BAD",
+      updated: OBS_920 * 1_000_000,
+      day: { v: 0, c: 12, o: 12 },
+      prevDay: { c: 8, v: 100_000 },
+      min: { av: 500_000, v: 1_000, t: OBS_931 },
+      lastTrade: { p: 12, t: OBS_920 },
+    };
+    const { res } = await runHandlerAtMs(mutations, [t], SERVER_935);
+    assertEquals(res.status, 200);
+    const rpc = rpcFrom(mutations);
+    assertEquals(
+      rpc.args.p_rows.some((r) => r.symbol === "BAD" && r.tab_id === "gappers"),
+      false,
+    );
+    const gappersEv = rpc.args.p_tab_evaluation_evidence?.gappers as {
+      volume_positive_count?: number;
+    };
+    assertEquals(gappersEv?.volume_positive_count, 0);
+  },
+);
+
+Deno.test(
+  "handler: gappers gainers use observation extended move at 9:35 with delayed premarket quote",
+  async () => {
+    const mutations: Mutation[] = [];
+    const gainer = obsTicker("GL", {
+      minTMs: OBS_920,
+      dayV: 0,
+      minAv: 2_000_000,
+      last: 11,
+      prevClose: 10,
+    });
+    const { res } = await runHandlerAtMs(
+      mutations,
+      [],
+      SERVER_935,
+      [gainer],
+      [],
+    );
+    assertEquals(res.status, 200);
+    const gl = rpcFrom(mutations).args.p_rows.find((r) =>
+      r.tab_id === "gainers_losers" && r.symbol === "GL"
+    );
+    assertEquals(gl?.change_percent, 10);
+    assertEquals(gl?.volume, 2_000_000);
+  },
+);
+
+Deno.test(
+  "handler: sub-5% gap still excluded with observation session fields",
+  async () => {
+    const mutations: Mutation[] = [];
+    const snap = [
+      obsTicker("FLAT", {
+        minTMs: OBS_920,
+        dayV: 0,
+        minAv: 900_000,
+        last: 8.3,
+        prevClose: 8,
+      }),
+    ];
+    const { res } = await runHandlerAtMs(mutations, snap, SERVER_935);
+    assertEquals(res.status, 200);
+    const rpc = rpcFrom(mutations);
+    assertEquals(
+      rpc.args.p_rows.some((r) => r.tab_id === "gappers" && r.symbol === "FLAT"),
+      false,
+    );
+    const gappersEv = rpc.args.p_tab_evaluation_evidence?.gappers as {
+      qualified_count?: number;
+    };
+    assertEquals(gappersEv?.qualified_count, 0);
+  },
+);

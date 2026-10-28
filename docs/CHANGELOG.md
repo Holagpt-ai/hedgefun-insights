@@ -8,7 +8,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **189** Homepage final cleanup (PR **#192**, branch `cursor/batch189-homepage-cleanup`, head **`81dc7b94`**): remove AI Trader from homepage, seven fixed market clocks (NY first), homepage session countdown line, Market Pulse disclosure density. **NOT MERGED**; runbook `docs/release/batch189-homepage-final-cleanup-v1.md`.
+- **P0 D1** Extended-hours screener volume integrity (branch `cursor/p0d1-extended-hours-volume`): session-aware `min.av` for premarket Edge screeners. **NOT MERGED**; runbook `docs/release/p0d1-extended-hours-screener-volume-v1.md`. Requires Lovable **`sync-screener-data`** deploy after merge.
+
+## 2026-10-28
+
+- Batch **189** Homepage final cleanup merged (PR **#192** → **`68092518`**): AI Trader off homepage, market clocks, live session countdown, Market Pulse disclosures.
 
 ## 2026-10-27 (Batch 188)
 

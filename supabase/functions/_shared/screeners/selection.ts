@@ -1,6 +1,41 @@
 // Volume-first Screener selection contract.
 // Qualify → require symbol + positive volume → dedupe → volume desc / symbol asc → limit.
 
+import {
+  extendedQuoteSemanticsForObservation,
+  sessionQualificationVolume,
+  volumeContextFromOpts,
+  type SessionVolumeContext,
+} from "./session-volume.ts";
+
+export type { SessionVolumeContext };
+
+/** Per-tab selection / persistence field semantics (server vs observation session). */
+export type TabSelectionOpts = {
+  extendedSession?: boolean;
+  observationSessionFields?: boolean;
+  nowMs?: number;
+};
+
+export function extendedQuoteSemanticsForTicker(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): boolean | null {
+  if (opts?.observationSessionFields && opts.nowMs !== undefined) {
+    return extendedQuoteSemanticsForObservation(t, opts.nowMs);
+  }
+  return opts?.extendedSession ?? false;
+}
+
+export function gapPercentForTabContext(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): number | null {
+  const ext = extendedQuoteSemanticsForTicker(t, opts);
+  if (ext === null) return null;
+  return gapPercent(t, ext);
+}
+
 export const SCREENER_ROW_LIMIT = 20;
 
 export type PolygonTicker = {
@@ -92,7 +127,10 @@ export function normalizeSymbol(raw: unknown): string | null {
   return s;
 }
 
-/** Session day volume from a Polygon snapshot ticker. */
+/**
+ * Raw Polygon day.v (including 0). For regular-session diagnostics and DTR
+ * regular-only checks. Prefer {@link sessionQualificationVolume} for tab logic.
+ */
 export function dayVolume(t: PolygonTicker): number | null {
   const v = t?.day?.v;
   if (v === undefined || v === null) return null;
@@ -123,11 +161,14 @@ export function priorSessionVolume(t: PolygonTicker): number | null {
  * Raw (unrounded) current session volume ÷ prior-session volume.
  * Used for qualification thresholds only.
  */
-function rawVolumeRatioPriorSession(t: PolygonTicker): number | null {
-  const dayVol = dayVolume(t);
+function rawVolumeRatioPriorSession(
+  t: PolygonTicker,
+  volumeCtx: SessionVolumeContext = {},
+): number | null {
+  const sessionVol = sessionQualificationVolume(t, volumeCtx);
   const priorVol = priorSessionVolume(t);
-  if (dayVol === null || !(dayVol > 0) || priorVol === null) return null;
-  const ratio = dayVol / priorVol;
+  if (sessionVol === null || priorVol === null) return null;
+  const ratio = sessionVol / priorVol;
   if (!Number.isFinite(ratio) || !(ratio > 0)) return null;
   return ratio;
 }
@@ -137,8 +178,11 @@ function rawVolumeRatioPriorSession(t: PolygonTicker): number | null {
  * Prior-session volume ratio only — not an average-based or time-adjusted metric.
  * Rounded to one decimal for storage/display; qualification uses the raw ratio.
  */
-export function volumeRatioPriorSession(t: PolygonTicker): number | null {
-  const ratio = rawVolumeRatioPriorSession(t);
+export function volumeRatioPriorSession(
+  t: PolygonTicker,
+  volumeCtx: SessionVolumeContext = {},
+): number | null {
+  const ratio = rawVolumeRatioPriorSession(t, volumeCtx);
   if (ratio === null) return null;
   return Math.round(ratio * 10) / 10;
 }
@@ -355,14 +399,15 @@ export function currentSessionReferencePrice(
 export function selectVolumeFirst(
   candidates: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
+  volumeCtx: SessionVolumeContext = {},
 ): PolygonTicker[] {
   const bySymbol = new Map<string, PolygonTicker>();
 
   for (const t of candidates) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    const vol = dayVolume(t);
-    if (vol === null || !(vol > 0)) continue;
+    const vol = sessionQualificationVolume(t, volumeCtx);
+    if (vol === null) continue;
 
     const normalized: PolygonTicker = { ...t, ticker: sym };
     const prev = bySymbol.get(sym);
@@ -370,7 +415,7 @@ export function selectVolumeFirst(
       bySymbol.set(sym, normalized);
       continue;
     }
-    const prevVol = dayVolume(prev)!;
+    const prevVol = sessionQualificationVolume(prev, volumeCtx)!;
     if (vol > prevVol) {
       bySymbol.set(sym, normalized);
     }
@@ -379,8 +424,8 @@ export function selectVolumeFirst(
 
   return [...bySymbol.values()]
     .sort((a, b) => {
-      const va = dayVolume(a)!;
-      const vb = dayVolume(b)!;
+      const va = sessionQualificationVolume(a, volumeCtx)!;
+      const vb = sessionQualificationVolume(b, volumeCtx)!;
       if (vb !== va) return vb - va;
       const sa = normalizeSymbol(a.ticker)!;
       const sb = normalizeSymbol(b.ticker)!;
@@ -401,19 +446,28 @@ export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
 
 export function qualifiesGappers(
   t: PolygonTicker,
-  extendedSession = false,
+  extendedSessionOrOpts: boolean | TabSelectionOpts = false,
 ): boolean {
-  const g = gapPercent(t, extendedSession);
+  const opts: TabSelectionOpts = typeof extendedSessionOrOpts === "boolean"
+    ? { extendedSession: extendedSessionOrOpts }
+    : extendedSessionOrOpts;
+  const g = gapPercentForTabContext(t, opts);
   return g !== null && Math.abs(g) >= 5;
 }
 
-export function qualifiesVolumeSpikes(t: PolygonTicker): boolean {
-  const ratio = rawVolumeRatioPriorSession(t);
+export function qualifiesVolumeSpikes(
+  t: PolygonTicker,
+  volumeCtx: SessionVolumeContext = {},
+): boolean {
+  const ratio = rawVolumeRatioPriorSession(t, volumeCtx);
   return ratio !== null && ratio >= 3;
 }
 
-export function qualifiesUnusualVolume(t: PolygonTicker): boolean {
-  const ratio = rawVolumeRatioPriorSession(t);
+export function qualifiesUnusualVolume(
+  t: PolygonTicker,
+  volumeCtx: SessionVolumeContext = {},
+): boolean {
+  const ratio = rawVolumeRatioPriorSession(t, volumeCtx);
   return ratio !== null && ratio >= 4;
 }
 
@@ -448,28 +502,38 @@ export function selectForTab(
   tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
-  opts?: { extendedSession?: boolean },
+  opts?: TabSelectionOpts,
 ): PolygonTicker[] {
-  const extendedSession = opts?.extendedSession ?? false;
+  const volumeCtx = volumeContextFromOpts(opts);
   if (tabId === "gappers") {
-    const qualified = universe.filter((t) => qualifiesGappers(t, extendedSession));
-    return selectVolumeFirst(qualified, limit);
+    const qualified = universe.filter((t) => qualifiesGappers(t, opts ?? {}));
+    return selectVolumeFirst(qualified, limit, volumeCtx);
   }
   if (tabId === "gainers_losers") {
     const qualify = TAB_QUALIFIERS[tabId];
     const qualified = universe.filter(qualify);
-    return selectGainersLosersRanked(qualified, limit, { extendedSession });
+    return selectGainersLosersRanked(qualified, limit, opts);
+  }
+  if (tabId === "volume_spikes") {
+    const qualified = universe.filter((t) => qualifiesVolumeSpikes(t, volumeCtx));
+    return selectVolumeFirst(qualified, limit, volumeCtx);
+  }
+  if (tabId === "unusual_volume") {
+    const qualified = universe.filter((t) => qualifiesUnusualVolume(t, volumeCtx));
+    return selectVolumeFirst(qualified, limit, volumeCtx);
   }
   const qualify = TAB_QUALIFIERS[tabId];
   const qualified = universe.filter(qualify);
-  return selectVolumeFirst(qualified, limit);
+  return selectVolumeFirst(qualified, limit, volumeCtx);
 }
 
 function moverPercent(
   t: PolygonTicker,
-  extendedSession: boolean,
+  opts?: TabSelectionOpts,
 ): number | null {
-  if (extendedSession) {
+  const extended = extendedQuoteSemanticsForTicker(t, opts);
+  if (extended === null) return null;
+  if (extended) {
     return changePercentVsPriorRegularClose(
       currentSessionReferencePrice(t, true),
       t,
@@ -482,26 +546,26 @@ function moverPercent(
 export function selectGainersLosersRanked(
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
-  opts?: { extendedSession?: boolean },
+  opts?: TabSelectionOpts,
 ): PolygonTicker[] {
-  const extendedSession = opts?.extendedSession ?? false;
+  const volumeCtx = volumeContextFromOpts(opts);
   const bySymbol = new Map<string, PolygonTicker>();
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    const vol = dayVolume(t);
-    if (vol === null || !(vol > 0)) continue;
-    const move = moverPercent(t, extendedSession);
+    const vol = sessionQualificationVolume(t, volumeCtx);
+    if (vol === null) continue;
+    const move = moverPercent(t, opts);
     if (move === null || move === 0) continue;
     bySymbol.set(sym, { ...t, ticker: sym });
   }
   return [...bySymbol.values()]
     .sort((a, b) => {
-      const ca = Math.abs(moverPercent(a, extendedSession)!);
-      const cb = Math.abs(moverPercent(b, extendedSession)!);
+      const ca = Math.abs(moverPercent(a, opts)!);
+      const cb = Math.abs(moverPercent(b, opts)!);
       if (cb !== ca) return cb - ca;
-      const va = dayVolume(a)!;
-      const vb = dayVolume(b)!;
+      const va = sessionQualificationVolume(a, volumeCtx)!;
+      const vb = sessionQualificationVolume(b, volumeCtx)!;
       if (vb !== va) return vb - va;
       return normalizeSymbol(a.ticker)! < normalizeSymbol(b.ticker)! ? -1 : 1;
     })

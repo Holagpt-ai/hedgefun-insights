@@ -6,7 +6,6 @@
 import {
   changePercentVsPriorRegularClose,
   dayHighLow,
-  dayVolume,
   extendedSessionLastPrice,
   gapPercent,
   normalizeSymbol,
@@ -16,6 +15,15 @@ import {
   regularChangePercent,
   regularClose,
   type ScreenerTabId,
+} from "./selection.ts";
+import {
+  sessionQualificationVolume,
+  volumeContextFromMeta,
+} from "./session-volume.ts";
+import {
+  extendedQuoteSemanticsForTicker,
+  gapPercentForTabContext,
+  type TabSelectionOpts,
 } from "./selection.ts";
 import type { NhlClassification, RangeEvent } from "./new-highs-lows.ts";
 import {
@@ -92,8 +100,10 @@ export type GenerationMeta = {
   syncedAt: string;
   syncRunId: string;
   nowMs: number;
-  /** Pre-market / after-hours extended session field semantics. */
+  /** Server clock extended sync (logging / legacy). */
   extendedSession?: boolean;
+  /** Per-ticker observation session for volume, gap, and move fields. */
+  observationSessionFields?: boolean;
 };
 
 /** Volume columns persist as integers. */
@@ -155,7 +165,9 @@ function baseRow(
   meta: GenerationMeta,
 ): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
-  const vol = persistedVolume(dayVolume(t));
+  const vol = persistedVolume(
+    sessionQualificationVolume(t, volumeContextFromMeta(meta)),
+  );
   const { prior_session_volume, volume_ratio_prior_session } =
     persistedPriorRatioPair(vol, priorSessionVolume(t));
   const range = dayHighLow(t);
@@ -163,7 +175,15 @@ function baseRow(
   if (providerAsOf === null) {
     throw new Error("provider_freshness_unavailable");
   }
-  const extended = meta.extendedSession ?? false;
+  const tabOpts: TabSelectionOpts = {
+    extendedSession: meta.extendedSession ?? false,
+    observationSessionFields: meta.observationSessionFields ?? false,
+    nowMs: meta.nowMs,
+  };
+  const extended = extendedQuoteSemanticsForTicker(t, tabOpts);
+  if (extended === null) {
+    throw new Error("provider_freshness_unavailable");
+  }
   const regularPrice = regularClose(t);
   const price = extended
     ? extendedSessionLastPrice(t) ?? regularPrice
@@ -184,7 +204,7 @@ function baseRow(
     avg_volume: null,
     rvol: null,
     float_shares: null,
-    gap_percent: gapPercent(t, meta.extendedSession ?? false),
+    gap_percent: gapPercentForTabContext(t, tabOpts),
     high_52w: null,
     low_52w: null,
     range_event: null,
@@ -219,10 +239,7 @@ export function mapGappers(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("gappers", t, getName, meta);
-    return {
-      ...row,
-      gap_percent: gapPercent(t, meta.extendedSession ?? false),
-    };
+    return row;
   });
 }
 

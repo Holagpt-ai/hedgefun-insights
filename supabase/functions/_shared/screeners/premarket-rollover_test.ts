@@ -21,9 +21,9 @@ function ticker(partial: Partial<PolygonTicker>): PolygonTicker {
   return {
     ticker: "SPCX",
     updated: SEP_17_PREMARKET_MS * 1_000_000,
-    day: { c: 10.5, v: 97_000 },
+    day: { c: 10.5, v: 0 },
     prevDay: { c: 10, v: 500_000 },
-    min: { o: 10.2, c: 10.5, v: 12_000 },
+    min: { o: 10.2, c: 10.5, av: 97_000, v: 12_000 },
     ...partial,
   };
 }
@@ -35,7 +35,7 @@ Deno.test("rollover: 04:30 ET resolves pre-market extended session", () => {
 });
 
 Deno.test("rollover: premarket gap uses extended last, not minute open", () => {
-  const t = ticker({ day: { o: undefined, c: 10.5, v: 97_000 } });
+  const t = ticker({ day: { o: undefined, c: 10.5, v: 0 } });
   assertEquals(gapPercent(t, false), null);
   // min.o is 10.2 (2%). Extended last is min.c 10.5 (5.0%).
   assertEquals(gapPercent(t, true), 5);
@@ -43,9 +43,15 @@ Deno.test("rollover: premarket gap uses extended last, not minute open", () => {
 
 Deno.test("rollover: gappers evidence evaluated from premarket extended last", () => {
   const universe = [
-    ticker({ day: { o: undefined, c: 10.5, v: 97_000 } }),
+    ticker({ day: { o: undefined, c: 10.5, v: 0 } }),
   ];
-  const evidence = evaluateGappersEvidence(universe, [], undefined, true);
+  const evidence = evaluateGappersEvidence(
+    universe,
+    [],
+    undefined,
+    true,
+    SEP_17_PREMARKET_MS,
+  );
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.gap_calculable_count, 1);
 });

@@ -11,6 +11,7 @@ import {
   regularChangePercent,
   regularClose,
 } from "./selection.ts";
+import { resolveSyncSessionKind, type SyncSessionKind } from "./session-sync-context.ts";
 
 export type RadarRejectReason =
   | "missing_invalid_snapshot"
@@ -44,6 +45,7 @@ function rawVolumeRatio(t: PolygonTicker): number | null {
 export function evaluateDayTradeRadar(
   t: PolygonTicker,
   nowMs: number,
+  opts?: { syncSessionKind?: SyncSessionKind },
 ): RadarCandidateDiagnostic {
   const symbol = normalizeSymbol(t?.ticker);
   const reasons: RadarRejectReason[] = [];
@@ -52,8 +54,13 @@ export function evaluateDayTradeRadar(
   const vol = dayVolume(t);
   const ratio = rawVolumeRatio(t);
   const asOf = parseProviderAsOf(t.updated, nowMs);
+  const sessionKind = opts?.syncSessionKind ?? resolveSyncSessionKind(nowMs);
+  const requiresRegularSnapshotFields = sessionKind === "market";
 
-  if (!symbol || asOf === null || price === null) reasons.push("missing_invalid_snapshot");
+  if (!symbol || asOf === null) reasons.push("missing_invalid_snapshot");
+  else if (requiresRegularSnapshotFields && price === null) {
+    reasons.push("missing_invalid_snapshot");
+  }
   if (vol === null || !(vol > 0)) reasons.push("minimum_volume_failure");
   if (price !== null && (price < 2 || price > 20)) reasons.push("price_range_failure");
   if (chg === null || chg < 10) reasons.push("percentage_move_failure");
