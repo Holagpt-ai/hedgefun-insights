@@ -2,7 +2,6 @@ import MarketTicker from "@/components/layout/MarketTicker";
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
 import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import { MarketPulse } from "@/components/home/MarketPulse";
-import { AiTraderLivePreview } from "@/components/home/AiTraderLivePreview";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolGrid } from "@/components/home/ToolGrid";
 import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
@@ -39,8 +38,6 @@ const Index = () => {
       <GlobalMarketClocks />
 
       <MarketPulse />
-
-      <AiTraderLivePreview />
 
       <section
         aria-labelledby="stocksist-overview-heading"

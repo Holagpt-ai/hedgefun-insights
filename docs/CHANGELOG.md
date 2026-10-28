@@ -8,7 +8,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **188** Mobile dashboard & Journal reliability (branch `cursor/batch188-mobile-journal-reliability`): Journal loading/error/stale recovery, AI Brief mobile preview, Risk skeleton guard, Carryover progressive disclosure. **NOT MERGED**; runbook `docs/release/batch188-mobile-dashboard-journal-reliability-v1.md`.
+- Batch **189** Homepage final cleanup (PR **#192**, branch `cursor/batch189-homepage-cleanup`, head **`81dc7b94`**): remove AI Trader from homepage, seven fixed market clocks (NY first), homepage session countdown line, Market Pulse disclosure density. **NOT MERGED**; runbook `docs/release/batch189-homepage-final-cleanup-v1.md`.
+
+## 2026-10-27 (Batch 188)
+
+- Batch **188** Mobile dashboard & Journal reliability merged (PR **#191** → **`dc965d2d`**): Journal loading/error/stale recovery (incl. 188.1 hydration fix), AI Brief mobile preview, Risk skeleton guard, Carryover progressive disclosure. Runbook `docs/release/batch188-mobile-dashboard-journal-reliability-v1.md`. Authenticated Android acceptance **NOT VERIFIED**.
 
 ## 2026-10-27 (continued)
 

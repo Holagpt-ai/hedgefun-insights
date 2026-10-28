@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { resolveMarketClock } from "@/lib/market-calendar";
 
-const EXCHANGES = [
+export const HOME_MARKET_CLOCK_EXCHANGES = [
   { city: "New York", exchange: "NYSE · NASDAQ", timezone: "America/New_York", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 4, afterHoursEnd: 20, url: "https://www.nyse.com" },
   { city: "London", exchange: "LSE", timezone: "Europe/London", openHour: 8, openMinute: 0, closeHour: 16, closeMinute: 30, preMarketStart: 7, afterHoursEnd: 17, url: "https://www.londonstockexchange.com" },
   { city: "Frankfurt", exchange: "XETRA", timezone: "Europe/Berlin", openHour: 9, openMinute: 0, closeHour: 17, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 20, url: "https://www.xetra.com" },
@@ -11,6 +11,8 @@ const EXCHANGES = [
   { city: "Tokyo", exchange: "TSE", timezone: "Asia/Tokyo", openHour: 9, openMinute: 0, closeHour: 15, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 16, url: "https://www.jpx.co.jp/english" },
   { city: "Sydney", exchange: "ASX", timezone: "Australia/Sydney", openHour: 10, openMinute: 0, closeHour: 16, closeMinute: 0, preMarketStart: 7, afterHoursEnd: 17, url: "https://www.asx.com.au" },
 ];
+
+const EXCHANGES = HOME_MARKET_CLOCK_EXCHANGES;
 
 type MarketStatus = "open" | "closed" | "pre-market" | "after-hours";
 type Exchange = (typeof EXCHANGES)[number];
@@ -123,6 +125,62 @@ function ClockFace({ hours, minutes, seconds }: { hours: number; minutes: number
   );
 }
 
+function ExchangeClockCard({ ex, now, cardH }: { ex: Exchange; now: Date; cardH: number }) {
+  const t = getTimeInTz(ex.timezone, now);
+  const status = getMarketStatus(ex, now);
+  const pill = PILL_STYLES[status];
+  const digital = new Intl.DateTimeFormat("en-US", { timeZone: ex.timezone, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
+
+  return (
+    <a
+      key={ex.city}
+      href={ex.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: "none", display: "contents" }}
+    >
+      <div
+        data-testid={`market-clock-${ex.city.replace(/\s+/g, "-").toLowerCase()}`}
+        className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
+        style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "12px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.transform = "translateY(-3px)";
+          el.style.boxShadow = "0 6px 20px rgba(37,99,235,0.12)";
+          el.style.borderColor = "rgba(37,99,235,0.3)";
+          el.style.cursor = "pointer";
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.transform = "translateY(0)";
+          el.style.boxShadow = "none";
+          el.style.borderColor = "hsl(var(--border))";
+        }}
+      >
+        <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
+        <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "visible", width: "100%", textAlign: "center" }}>{ex.city}</span>
+        <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
+        <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
+        <span style={{
+          fontSize: "0.55rem",
+          fontWeight: 700,
+          padding: "2px 8px",
+          borderRadius: 9999,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          display: "inline-block",
+          whiteSpace: "nowrap",
+          marginTop: 3,
+          background: pill.background,
+          color: pill.color,
+          border: pill.border,
+          boxShadow: pill.boxShadow,
+        }}>{pill.label}</span>
+      </div>
+    </a>
+  );
+}
+
 export function GlobalMarketClocks() {
   const [now, setNow] = useState(new Date());
 
@@ -143,13 +201,23 @@ export function GlobalMarketClocks() {
         .clock-row::-webkit-scrollbar { display: none; }
       `}</style>
       <div className="px-4 mt-2 mb-4">
+        <p
+          className="mb-1.5 text-[10px] font-medium tracking-wide text-muted-foreground md:hidden"
+          data-testid="market-clocks-scroll-hint"
+        >
+          Swipe for more exchange clocks →
+        </p>
         <div
           className="flex global-clocks-row clock-row"
           style={{ gap: 10, overflowX: "auto", overflowY: "visible", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" as any }}
         >
-          {/* Globe Card */}
+          {EXCHANGES.map((ex) => (
+            <ExchangeClockCard key={ex.city} ex={ex} now={now} cardH={cardH} />
+          ))}
+
           <div
             className="fintech-card flex-shrink-0 flex items-center gap-2.5"
+            data-testid="market-clock-local-time"
             style={{ minWidth: 140, height: cardH, minHeight: cardH, padding: "12px 16px" }}
           >
             <BrandMark size={52} decorative className="h-[52px] w-[52px] rounded-md flex-shrink-0" />
@@ -159,62 +227,6 @@ export function GlobalMarketClocks() {
               <span style={{ fontSize: "0.6rem", color: "hsl(var(--text-muted))", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Local Time</span>
             </div>
           </div>
-
-          {/* 7 Exchange Clocks */}
-          {EXCHANGES.map((ex) => {
-            const t = getTimeInTz(ex.timezone, now);
-            const status = getMarketStatus(ex, now);
-            const pill = PILL_STYLES[status];
-            const digital = new Intl.DateTimeFormat("en-US", { timeZone: ex.timezone, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
-
-            return (
-              <a
-                key={ex.city}
-                href={ex.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ textDecoration: "none", display: "contents" }}
-              >
-                <div
-                  className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "12px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.transform = "translateY(-3px)";
-                    el.style.boxShadow = "0 6px 20px rgba(37,99,235,0.12)";
-                    el.style.borderColor = "rgba(37,99,235,0.3)";
-                    el.style.cursor = "pointer";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.transform = "translateY(0)";
-                    el.style.boxShadow = "none";
-                    el.style.borderColor = "hsl(var(--border))";
-                  }}
-                >
-                  <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
-                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "visible", width: "100%", textAlign: "center" }}>{ex.city}</span>
-                  <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
-                  <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
-                  <span style={{
-                    fontSize: "0.55rem",
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    display: "inline-block",
-                    whiteSpace: "nowrap",
-                    marginTop: 3,
-                    background: pill.background,
-                    color: pill.color,
-                    border: pill.border,
-                    boxShadow: pill.boxShadow,
-                  }}>{pill.label}</span>
-                </div>
-              </a>
-            );
-          })}
         </div>
       </div>
     </>
