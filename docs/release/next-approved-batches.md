@@ -35,6 +35,6 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | 186 | P0 Tuesday AM Inbox late-continuation surface | Use already-proven RPC persistence; require authenticated UI evidence |
 | 187 | P1 Earnings impact ranking and ticker attribution runtime | Preserve confirmed vs scheduled event types; verify issuer relevance |
 | **188** | Mobile dashboard & Journal reliability V1 | **Merged** — PR **#191** → **`dc965d2d`**; authenticated Android acceptance **pending** |
-| **189** | Homepage AI Trader removal, countdown and Market Pulse UX | **In PR** — `batch189-homepage-final-cleanup-v1.md` |
+| **189** | Homepage AI Trader removal, countdown and Market Pulse UX | **PR #192** @ **`81dc7b94`** — `batch189-homepage-final-cleanup-v1.md` |
 
 Separately: **Batch 174 live acceptance incomplete; Batch 175 persistence PASS, UI conditional.** Defer ISS-006 source activation; ISS-015 chat blocked; Penny Continuation unapproved; no real-time feed upgrade, AI Trader, broker or billing. No PR merges, migrations or deployments are authorized by this documentation.

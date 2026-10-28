@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch **189** Homepage final cleanup (branch `cursor/batch189-homepage-cleanup`): remove AI Trader from homepage, seven fixed market clocks (NY first), homepage session countdown line, Market Pulse disclosure density. **NOT MERGED**; runbook `docs/release/batch189-homepage-final-cleanup-v1.md`.
+- Batch **189** Homepage final cleanup (PR **#192**, branch `cursor/batch189-homepage-cleanup`, head **`81dc7b94`**): remove AI Trader from homepage, seven fixed market clocks (NY first), homepage session countdown line, Market Pulse disclosure density. **NOT MERGED**; runbook `docs/release/batch189-homepage-final-cleanup-v1.md`.
 
 ## 2026-10-27 (Batch 188)
 

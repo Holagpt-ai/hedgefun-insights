@@ -18,7 +18,7 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 | ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Batch 187 merged (`d86e0c69`)** — Edge activation separately gated; Vercel **SUCCESS** |
 | ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
 | ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **No new regression in Batch 187** — Batch 181 precedence tests still classify comparison headlines secondary; prod UI **NOT RE-VERIFIED** |
-| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Batch 189 in PR** — AI Trader removed from homepage; countdown + Market Pulse density fixes |
+| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Batch 189 PR #192** @ **`81dc7b94`** — fix in review; Vercel preview **Ready** |
 | ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
 | ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |
 **Acceptance:** PR #174 CLOSED; #184–#186 MERGED; #188 Lovable parity **`b69d7444`**; #191 Batch 188 **`dc965d2d`**. Batch 189 homepage PR **open**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**; Batch 188 Android **NOT VERIFIED**.

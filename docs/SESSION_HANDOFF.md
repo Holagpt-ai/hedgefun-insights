@@ -8,7 +8,7 @@
 
 **Batch 188 (ISS-032, ISS-027, ISS-030):** **Merged** @ **`dc965d2d`**. Authenticated Android Journal / AM Inbox / Carryover acceptance **pending**.
 
-**Batch 189 (ISS-029, HOME-01–03):** **In PR** — homepage AI Trader removal, market clocks order, session countdown line, Market Pulse disclosure density.
+**Batch 189 (ISS-029, HOME-01–03):** **PR #192** open @ **`81dc7b94`** — homepage AI Trader removal, market clocks order, session countdown line, Market Pulse disclosure density.
 
 **Open:** Batch **186** authenticated AM Inbox acceptance **pending**; Batch **187** Edge deploy **pending**; Batch **188** mobile acceptance **pending**.
 
