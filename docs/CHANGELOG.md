@@ -8,10 +8,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **P0 D1** Extended-hours screener volume integrity (branch `cursor/p0d1-extended-hours-volume`): session-aware `min.av` for premarket Edge screeners. **NOT MERGED**; runbook `docs/release/p0d1-extended-hours-screener-volume-v1.md`. Requires Lovable **`sync-screener-data`** deploy after merge.
+- **P0 screener CPU publication** PR **#194** @ **`268ffabc`**: bound session-volume cache, `selectMainUniverseTabs`, staged 13,262 benchmark, `session-volume-cache-parity_test.ts`. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **BLOCKED** for production sign-off (local ~3–4.5s ≠ Edge CPU). **NOT MERGED**.
 
 ## 2026-10-28
 
+- **P0 D1** Extended-hours screener volume integrity merged (PR **#193** → **`4f7c10db`**). **Lovable Edge deployed** (source fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`). Oct 28 16:45/16:50 UTC **CPU Time exceeded** on full universe — tracked **ISS-034**.
 - Batch **189** Homepage final cleanup merged (PR **#192** → **`68092518`**): AI Trader off homepage, market clocks, live session countdown, Market Pulse disclosures.
 
 ## 2026-10-27 (Batch 188)

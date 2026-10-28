@@ -21,12 +21,14 @@ import {
   normalizeSymbol,
   type PolygonTicker,
   selectForTab,
+  selectMainUniverseTabs,
 } from "../_shared/screeners/selection.ts";
 import {
-  evaluateDayTradeRadar,
+  accumulateRadarDiagnostic,
+  createEmptyRadarRejectionSummary,
   formatRadarRejectionLog,
-  summarizeRadarDiagnostics,
 } from "../_shared/screeners/diagnostics.ts";
+import { createSessionVolumeCache } from "../_shared/screeners/session-volume.ts";
 import {
   attachRvol20dToRows,
   easternTradingDateFromMs,
@@ -557,15 +559,33 @@ export async function handleSyncScreenerData(
     }
   }
 
-  const dayTradeDiagnostics = allTickers.map((t) =>
-    evaluateDayTradeRadar(t, nowMs, { syncSessionKind: sessionKind })
-  );
-  console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
+  const sessionVolumeCache = createSessionVolumeCache({
+    nowMs,
+    observationSessionVolume: observationSessionFields,
+    extendedSession,
+  });
+  const radarSummary = createEmptyRadarRejectionSummary();
+  for (const t of allTickers) {
+    accumulateRadarDiagnostic(radarSummary, t, nowMs, {
+      syncSessionKind: sessionKind,
+    });
+  }
+  console.log(`[sync-screener-data] ${formatRadarRejectionLog(radarSummary)}`);
 
-  const extendedTabOpts = { extendedSession, observationSessionFields, nowMs };
-  const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
-  const gapperSelected = selectForTab("gappers", allTickers, undefined, extendedTabOpts);
-  const volumeSpikeSelected = selectForTab("volume_spikes", allTickers, undefined, extendedTabOpts);
+  const extendedTabOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    sessionVolumeCache,
+  };
+  const mainTabSelections = selectMainUniverseTabs(
+    allTickers,
+    extendedTabOpts,
+  );
+  const dayTradeSelected = mainTabSelections.day_trade_radar;
+  const gapperSelected = mainTabSelections.gappers;
+  const volumeSpikeSelected = mainTabSelections.volume_spikes;
+  const unusualSelected = mainTabSelections.unusual_volume;
   const providerGainersLosers = [...gainers, ...losers];
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
@@ -576,7 +596,6 @@ export async function handleSyncScreenerData(
     undefined,
     extendedTabOpts,
   );
-  const unusualSelected = selectForTab("unusual_volume", allTickers, undefined, extendedTabOpts);
 
   const selectedAll = [
     ...dayTradeSelected,
@@ -608,6 +627,7 @@ export async function handleSyncScreenerData(
       extendedSession,
       nowMs,
       observationSessionFields,
+      sessionVolumeCache,
     )
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
@@ -633,6 +653,7 @@ export async function handleSyncScreenerData(
     nowMs,
     extendedSession,
     observationSessionFields,
+    sessionVolumeCache,
   };
 
   const dayTradeRows = mapTabRows(
@@ -692,6 +713,7 @@ export async function handleSyncScreenerData(
     extendedSession,
     observationSessionFields,
     nowMs,
+    sessionVolumeCache,
   });
 
   const nhlEvidence = tabEvaluationEvidence.new_highs_lows;

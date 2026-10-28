@@ -37,6 +37,7 @@ import {
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
   gapPercentForTabContext,
+  qualifiesDayTradeRadar,
   qualifiesGappers,
   qualifiesUnusualVolume,
   qualifiesVolumeSpikes,
@@ -46,6 +47,7 @@ import {
 } from "./selection.ts";
 import {
   sessionQualificationVolume,
+  type SessionVolumeCache,
   type SessionVolumeContext,
 } from "./session-volume.ts";
 
@@ -111,12 +113,38 @@ function volumeCtxFromEvidence(
   extendedSession: boolean,
   nowMs?: number,
   observationSessionFields?: boolean,
+  cache?: SessionVolumeCache,
 ): SessionVolumeContext {
   return {
     extendedSession,
     observationSessionVolume: observationSessionFields ?? false,
     nowMs,
+    cache,
   };
+}
+
+type PrimaryUniverseQualifiedCounts = {
+  dayTrade: number;
+  volumeSpikes: number;
+  unusual: number;
+  volumeActive: number;
+};
+
+function scanPrimaryUniverseQualifiedCounts(
+  universe: readonly PolygonTicker[],
+  volumeCtx: SessionVolumeContext,
+): PrimaryUniverseQualifiedCounts {
+  let dayTrade = 0;
+  let volumeSpikes = 0;
+  let unusual = 0;
+  let volumeActive = 0;
+  for (const t of universe) {
+    if (sessionQualificationVolume(t, volumeCtx) !== null) volumeActive += 1;
+    if (qualifiesDayTradeRadar(t)) dayTrade += 1;
+    if (qualifiesVolumeSpikes(t, volumeCtx)) volumeSpikes += 1;
+    if (qualifiesUnusualVolume(t, volumeCtx)) unusual += 1;
+  }
+  return { dayTrade, volumeSpikes, unusual, volumeActive };
 }
 
 function countVolumeActive(
@@ -196,14 +224,16 @@ export function evaluateGappersEvidence(
   extendedSession = false,
   nowMs?: number,
   observationSessionFields = false,
+  cache?: SessionVolumeCache,
 ): GappersTabEvidence {
   const volumeCtx = volumeCtxFromEvidence(
     extendedSession,
     nowMs,
     observationSessionFields,
+    cache,
   );
   const universe_count = universe.length;
-  const volume_positive_count = countVolumeActive(universe, volumeCtx);
+  let volume_positive_count = 0;
   let gap_calculable_count = 0;
   let no_prior_session_count = 0;
   let unresolved_gap_input_count = 0;
@@ -212,6 +242,7 @@ export function evaluateGappersEvidence(
   for (const t of universe) {
     const volumeActive = sessionQualificationVolume(t, volumeCtx) !== null;
     if (!volumeActive) continue;
+    volume_positive_count += 1;
     if (gapPercentForTabContext(t, {
       extendedSession,
       observationSessionFields,
@@ -291,11 +322,13 @@ export function evaluateNhlEvidence(
   extendedSession = false,
   nowMs?: number,
   observationSessionFields = false,
+  cache?: SessionVolumeCache,
 ): NhlTabEvidence {
   const volumeCtx = volumeCtxFromEvidence(
     extendedSession,
     nowMs,
     observationSessionFields,
+    cache,
   );
   const baseline_quote_count = baselines.size;
   const base = {
@@ -435,28 +468,35 @@ export function evaluateGenericTabEvidence(
     extendedSession?: boolean;
     nowMs?: number;
     observationSessionFields?: boolean;
+    sessionVolumeCache?: SessionVolumeCache;
+    precomputedQualifiedCount?: number;
+    precomputedVolumeActive?: number;
   },
 ): GenericTabEvidence {
   const volumeCtx = volumeCtxFromEvidence(
     opts?.extendedSession ?? false,
     opts?.nowMs,
     opts?.observationSessionFields,
+    opts?.sessionVolumeCache,
   );
   const extendedSession = volumeCtx.extendedSession === true;
   const observationSessionFields = volumeCtx.observationSessionVolume === true;
-  let qualified_count = 0;
-  if (tabId === "volume_spikes") {
-    for (const t of universe) {
-      if (qualifiesVolumeSpikes(t, volumeCtx)) qualified_count += 1;
-    }
-  } else if (tabId === "unusual_volume") {
-    for (const t of universe) {
-      if (qualifiesUnusualVolume(t, volumeCtx)) qualified_count += 1;
-    }
-  } else {
-    const qualify = TAB_QUALIFIERS[tabId];
-    for (const t of universe) {
-      if (qualify(t)) qualified_count += 1;
+  let qualified_count = opts?.precomputedQualifiedCount;
+  if (qualified_count === undefined) {
+    qualified_count = 0;
+    if (tabId === "volume_spikes") {
+      for (const t of universe) {
+        if (qualifiesVolumeSpikes(t, volumeCtx)) qualified_count += 1;
+      }
+    } else if (tabId === "unusual_volume") {
+      for (const t of universe) {
+        if (qualifiesUnusualVolume(t, volumeCtx)) qualified_count += 1;
+      }
+    } else {
+      const qualify = TAB_QUALIFIERS[tabId];
+      for (const t of universe) {
+        if (qualify(t)) qualified_count += 1;
+      }
     }
   }
 
@@ -473,7 +513,8 @@ export function evaluateGenericTabEvidence(
   const volumeSensitiveTab =
     tabId === "volume_spikes" || tabId === "unusual_volume" || tabId === "gainers_losers";
   if ((extendedSession || observationSessionFields) && volumeSensitiveTab) {
-    const volumeActive = countVolumeActive(universe, volumeCtx);
+    const volumeActive = opts?.precomputedVolumeActive ??
+      countVolumeActive(universe, volumeCtx);
     if (volumeActive === 0) {
       return {
         status: "prerequisite_unavailable",
@@ -508,11 +549,28 @@ export function buildTabEvaluationEvidence(input: {
   extendedSession?: boolean;
   observationSessionFields?: boolean;
   nowMs?: number;
+  sessionVolumeCache?: SessionVolumeCache;
 }): TabEvaluationEvidenceMap {
   const extendedSession = input.extendedSession ?? false;
   const observationSessionFields = input.observationSessionFields ?? false;
   const nowMs = input.nowMs;
-  const evidenceOpts = { extendedSession, observationSessionFields, nowMs };
+  const sessionVolumeCache = input.sessionVolumeCache;
+  const evidenceOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    sessionVolumeCache,
+  };
+  const volumeCtx = volumeCtxFromEvidence(
+    extendedSession,
+    nowMs,
+    observationSessionFields,
+    sessionVolumeCache,
+  );
+  const primaryCounts = scanPrimaryUniverseQualifiedCounts(
+    input.universe,
+    volumeCtx,
+  );
   const policyExclusions = input.nhlPolicyExclusions ??
     POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
   const coverage: HistoricalCoverageEvidence = {
@@ -524,6 +582,7 @@ export function buildTabEvaluationEvidence(input: {
       "day_trade_radar",
       input.universe,
       input.dayTradeSelected,
+      { precomputedQualifiedCount: primaryCounts.dayTrade },
     ),
     gappers: evaluateGappersEvidence(
       input.universe,
@@ -532,12 +591,17 @@ export function buildTabEvaluationEvidence(input: {
       extendedSession,
       nowMs,
       observationSessionFields,
+      sessionVolumeCache,
     ),
     volume_spikes: evaluateGenericTabEvidence(
       "volume_spikes",
       input.universe,
       input.volumeSpikeSelected,
-      evidenceOpts,
+      {
+        ...evidenceOpts,
+        precomputedQualifiedCount: primaryCounts.volumeSpikes,
+        precomputedVolumeActive: primaryCounts.volumeActive,
+      },
     ),
     gainers_losers: evaluateGenericTabEvidence(
       "gainers_losers",
@@ -549,7 +613,11 @@ export function buildTabEvaluationEvidence(input: {
       "unusual_volume",
       input.universe,
       input.unusualSelected,
-      evidenceOpts,
+      {
+        ...evidenceOpts,
+        precomputedQualifiedCount: primaryCounts.unusual,
+        precomputedVolumeActive: primaryCounts.volumeActive,
+      },
     ),
     new_highs_lows: evaluateNhlEvidence(
       input.universe,
@@ -560,6 +628,7 @@ export function buildTabEvaluationEvidence(input: {
       extendedSession,
       nowMs,
       observationSessionFields,
+      sessionVolumeCache,
     ),
   };
 }
