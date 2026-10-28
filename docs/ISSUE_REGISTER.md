@@ -2,9 +2,27 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` **`93a3c35d`** (PR **#172** merged). Batch **173** in PR. ISS-001 closed on `main`. **ISS-015** blocked until previous production `chat` Edge version is recoverable.
+Historical baseline: `origin/main` **`68092518`** (PR **#192** Batch 189). Batch **185** @ `e662c928`; Batch **184** @ `0fa177dd`. **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (Lovable Oct 27: **3,131** active handoffs); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked**.
 
-Original ten Lovable scanner warnings (historical, not the active backlog): `docs/release/lovable-scanner-reliability-warnings.md`. October 24 npm and deploy findings stay on ISS-015 through ISS-019 (`docs/release/lovable-october24-warning-register.md`). Next batches: `docs/release/next-approved-batches.md`.
+Original ten Lovable scanner warnings (historical): `docs/release/lovable-scanner-reliability-warnings.md` — treat as **fixed in git**, **mitigated** (Batch 185 client/Edge), or **operationally unverified** (Vercel/mobile) per item; Oct 27 Lovable read-only feed evidence **PASS** for RPC/evidence column. October 24 npm/deploy: ISS-015–019. Next batches: `docs/release/next-approved-batches.md`.
+
+## Current active triage — 2026-10-27 screenshots (reported, not backend-confirmed)
+
+Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check at `main` `e662c928`. Full evidence/order: `docs/release/master-reset-2026-10-27.md`. Old fixes stay in changelog; do not relabel those as open defects.
+
+| ID | Priority | Open item | Status / next action |
+| --- | --- | --- | --- |
+| ISS-033 | P0 | Premarket screener rejects all symbols (`day.v=0`, positive `min.av`) | **P0 D1 in PR** — `sessionQualificationVolume()`; production fix requires **`sync-screener-data` Edge deploy** |
+| ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Oct 28 premarket volume mismatch blocked qualification until P0 D1 deploy. |
+| ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 merged (`d3cec11f`)** — parallel session date, workflow cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
+| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — authenticated Android acceptance **pending** |
+| ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Batch 187 merged (`d86e0c69`)** — Edge activation separately gated; Vercel **SUCCESS** |
+| ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
+| ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **No new regression in Batch 187** — Batch 181 precedence tests still classify comparison headlines secondary; prod UI **NOT RE-VERIFIED** |
+| ISS-029 | P2 | Homepage AI Trader banner; session countdown | **Fixed on `main`** (Batch **189**, PR **#192** → **`68092518`**) |
+| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
+| ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |
+**Acceptance:** PR #174 CLOSED; #184–#186 MERGED; #188 Lovable parity **`b69d7444`**; #191 Batch 188 **`dc965d2d`**. Batch 189 homepage PR **open**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**; Batch 188 Android **NOT VERIFIED**.
 
 ## Confirmed
 
@@ -12,20 +30,23 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | --- | --- | --- |
 | ISS-002 | Registered navigation has no broken route | `npm run integrity`: 0 errors, 0 warnings, 125 routes (2026-10-24). |
 | ISS-003 (Fly radar worker) | Live `stocksist-radar-v22-worker` **v45** matches scanner behavior on approved `main` | Read-only Fly check 2026-10-24: digest `sha256:47ff670c…`. **PASS** — redeploy not required for ranking parity. Image git SHA unverified. |
-| ISS-020 | Polygon snapshot `day.v=0` treated as verified zero volume | **Fixed on `main`** (#169) — `polygonSnapshotVolume()`; batch27 / movers-integrity tests. **Live RTH acceptance pending** (Batch 174). |
+| ISS-020 | Polygon snapshot `day.v=0` treated as verified zero volume | **Fixed on `main`** (#169) — `polygonSnapshotVolume()`; batch27 / movers-integrity tests. Regular lists still do not treat `0` as liquidity. |
+| ISS-021 | Premarket tab listed regular-session snapshots | **Fixed on `main`** (PR **#179** → **`7c2bf094`**, Batch 178). 2026-10-26 ~12:33–12:56 ET **UI observation** showed mislabeled rows pre-fix; ~17:00 ET post–Batch **183** manifest premarket page **empty** with delayed disclosure (**UI observation**, not full ET-window proof). |
 | ISS-016 | npm audit 42 advisories (Oct Vercel report) | **Partially mitigated:** #170 → 21; Batch 171 → **20** (**0 critical**), `tinypool@2.2.0` override, `vite@5.4.21`, `vitest@3.2.7`. Remaining: MCP sdk, zod/@vercel, router v7, tailwind build chain. |
 | ISS-017 | Large production JS entry bundle | **Improved:** #170 ~2,656 kB entry; Batch 171 public-route lazy **~2,271 kB** (`index-C5m1D5LX.js`, gzip ~633 kB). Vite >500 kB warning remains. |
 | ISS-019 | Browserslist / caniuse-lite outdated | **Mitigated** (#170). |
 | ISS-015 | Production `chat` not on recovered catalyst delivery | **Blocked** — rollback revision id unknown. `docs/release/edge-function-release-lovable.md`. No deploy this batch. |
+| ISS-022 | Ticker-specific catalyst/watchlist headlines could name unrelated issuers when persisted `direct` disagreed with title | **Fixed on `main`** (Batch **181**, PR **#180** → **`aae43f98`**) — live reconcile + headline gates; runbook `docs/release/batch181-catalyst-watchlist-source-integrity-v1.md`. Stale DB rows may still need sync/reconcile jobs. |
+| ISS-023 | Mobile browser freeze after workflow link taps (Pre-Market, Carryover) | **Fixed in git (PR #186 → `0fa177dd`)** — sessionStorage mirror batching/skip, deferred handoffs, same-destination nav guard. Production mobile re-check **NOT VERIFIED**. |
 
 ## Reported
 
 | ID | Item | Why it is not confirmed |
 | --- | --- | --- |
-| ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #170/#171 Vercel deploy. |
+| ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #179/#180 Vercel deploy. |
 | ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
 | ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |
-| ISS-006 | Catalyst intel → public distribution | **Batch 176:** eligibility, projection, idempotent `intel:v1:` dedupe, dry-run batch writer in git (`distribution-*`). **Production activation pending** — no Edge deploy, no writes, no cron; source enablement still separate. |
+| ISS-006 | Catalyst intel → public distribution | **Source bridge complete** on `main` (Batch **176**, PR **#175**, `788b1b93`). **Production activation incomplete** — no Edge deploy, no writes, no cron; source enablement still separate. |
 | ISS-007 | AI Analyst streaming failures deferred in Batch 34 | Not retested here. |
 
 ## Deferred

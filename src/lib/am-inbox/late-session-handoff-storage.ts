@@ -39,9 +39,20 @@ export function writeLateSessionHandoffStore(store: Record<string, StoredLateSes
 }
 
 export function persistLateSessionHandoff(context: LateSessionContinuationContext): void {
+  persistLateSessionHandoffBatch([context]);
+}
+
+/** One read/write of sessionStorage for many handoffs (avoids O(n²) JSON work on large AM loads). */
+export function persistLateSessionHandoffBatch(
+  contexts: readonly LateSessionContinuationContext[],
+): void {
+  if (contexts.length === 0) return;
   const store = readLateSessionHandoffStore();
-  const key = handoffKey(context.symbol, context.sourceSessionDate, context.sourceCategory);
-  store[key] = { context, storedAt: new Date().toISOString() };
+  const storedAt = new Date().toISOString();
+  for (const context of contexts) {
+    const key = handoffKey(context.symbol, context.sourceSessionDate, context.sourceCategory);
+    store[key] = { context, storedAt };
+  }
   writeLateSessionHandoffStore(store);
 }
 

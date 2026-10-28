@@ -23,6 +23,8 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -111,7 +113,8 @@ export function MoversTable({
             <button
               onClick={() => {
                 trackEvent("stock_search", { ticker: s });
-                navigate(`/stocks/${s.toLowerCase()}`);
+                trackPublicDiscoveryNav({ from: "market_movers", to: "stock_detail", symbol: s });
+                navigate(publicStockDetailPath(s));
               }}
               className="ticker-symbol text-[0.875rem] hover:underline"
               style={{ color: "hsl(var(--accent-blue))" }}
@@ -327,7 +330,11 @@ export function MoversTable({
           : isError
             ? moversFetchErrorMessage()
             : isFetchEmpty
-              ? moversSuccessfulEmptyMessage({ marketClosed, premarket })
+              ? moversSuccessfulEmptyMessage({
+                  marketClosed,
+                  premarket,
+                  clockSession: premarket ? resolveMarketSession() : undefined,
+                })
               : currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed });
         return (
           <div className="py-12 text-center">

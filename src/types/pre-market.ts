@@ -132,6 +132,8 @@ export interface PreMarketEarnings {
   /** Timestamp evidence — at least one must be a valid ISO string. */
   updated_at: string | null;
   published_at: string | null;
+  release_state: "scheduled" | "reported";
+  priority_reason: string | null;
 }
 
 
@@ -182,6 +184,10 @@ export interface PreMarketWorkspaceResponse {
   earnings_confirmed_total: number;
   /** Total earnings-calendar events for the ET date with unconfirmed reporting time. */
   earnings_timing_unconfirmed_total: number;
+  /** Bounded authoritative calendar query limit (today ET earnings_calendar rows). */
+  earnings_calendar_fetch_limit: number;
+  /** True when the calendar query returned rows at the fetch limit — totals may be incomplete. */
+  earnings_calendar_source_truncated: boolean;
   /** Lifecycle state for watchlist symbols excluded from the current session view. */
   watchlist_lifecycle: PreMarketLifecycleEntry[];
   /** False when the alerts query failed — derived sections must fail closed. */

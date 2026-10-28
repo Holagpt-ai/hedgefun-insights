@@ -13,7 +13,7 @@ import {
   type LastGoodBriefCache,
 } from "@/lib/ai/brief-refresh-state";
 import { supabase } from "@/integrations/supabase/client";
-import { summarizeBrief } from "@/lib/ai/evidence";
+import { summarizeBriefPreview } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
 import { getEtParts, isTradingDay, marketHolidayName, nextTradingDay } from "@/lib/market-calendar";
 import {
@@ -669,9 +669,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   void isPro;
 
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-6">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold tracking-wide">
+    <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-4 md:p-5">
+      <div className="mb-2 flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
+        <h3 className="min-w-0 text-sm font-semibold leading-snug tracking-wide">
           {config.aiCardTitle}
           {state.kind === "available" && !state.isRefreshing && (
             <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground" data-testid="brief-user-state">Ready</span>
@@ -680,7 +680,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground" data-testid="brief-user-state">Retrying</span>
           )}
         </h3>
-        {timestampText && <span className="text-[11px] text-muted-foreground">{timestampText}</span>}
+        {timestampText ? (
+          <span className="min-w-0 text-[11px] leading-snug text-muted-foreground">{timestampText}</span>
+        ) : null}
       </div>
       {renderBody()}
     </div>
@@ -708,13 +710,13 @@ export function AvailableBrief({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const summary = summarizeBrief(content, 2, 320);
+  const summary = summarizeBriefPreview(content, 2, 320);
   const canCollapse = content.trim().length > summary.trim().length + 8;
   const shown = expanded || !canCollapse ? content : summary;
   const cutoffLabel = evidenceCutoff ? etTimestampLabel(evidenceCutoff) : null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-1.5">
       {previousTradingDay && briefDateDisplay && (
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
           Last trading-day report · {briefDateDisplay}
@@ -736,7 +738,7 @@ export function AvailableBrief({
           pre-open conditions.
         </div>
       )}
-      <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm leading-relaxed text-foreground/80 prose-headings:text-sm prose-headings:font-semibold prose-p:my-1">
+      <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm leading-relaxed text-foreground/80 prose-headings:text-sm prose-headings:font-semibold prose-p:my-1 prose-pre:overflow-x-auto">
         <ReactMarkdown>{shown}</ReactMarkdown>
       </div>
       {canCollapse && (

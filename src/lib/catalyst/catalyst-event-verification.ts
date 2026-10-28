@@ -3,9 +3,19 @@
  * DB rows store attribution_class in facts JSON — not as top-level columns.
  */
 
-import { attributeSymbol, type AttributionClass } from "@/lib/catalyst/attribution";
+import {
+  attributeSymbol,
+  reconcileAttributionWithLiveRules,
+  type AttributionClass,
+} from "@/lib/catalyst/attribution";
 import { EARNINGS_CALENDAR_PROVIDER } from "@/lib/pre-market/builders";
 import type { CatalystEvent } from "@/types/catalyst";
+
+const ATTRIBUTION_AUTHORITATIVE_PROVIDERS = new Set([
+  "sec_edgar",
+  EARNINGS_CALENDAR_PROVIDER,
+  "company_ir",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -52,19 +62,45 @@ export function hydrateCatalystEventVerification(event: CatalystEvent): Catalyst
   if (facts.provider_ticker_conflict === true) {
     attribution_class = "unverified";
     ticker_specific = false;
+    return {
+      ...event,
+      attribution_class: "unverified",
+      ticker_specific: false,
+    };
+  }
+
+  const live = attributeSymbol({
+    title: event.title,
+    description: event.description,
+    symbol: event.symbol,
+    companyName: event.company_name,
+    providerTickers: [event.symbol, ...(event.related_symbols ?? [])],
+    providerAssociatesSymbol: true,
+  });
+
+  const authoritative =
+    ATTRIBUTION_AUTHORITATIVE_PROVIDERS.has(event.provider)
+    || readFactString(facts, "attribution_authoritative") === "true";
+
+  if (authoritative) {
+    return {
+      ...event,
+      attribution_class: attribution_class ?? live.class ?? "direct",
+      ticker_specific: ticker_specific ?? live.ticker_specific ?? true,
+    };
   }
 
   if (attribution_class === null || ticker_specific === null) {
-    const attr = attributeSymbol({
-      title: event.title,
-      description: event.description,
-      symbol: event.symbol,
-      companyName: event.company_name,
-      providerTickers: [event.symbol, ...(event.related_symbols ?? [])],
-      providerAssociatesSymbol: true,
-    });
-    if (attribution_class === null) attribution_class = attr.class;
-    if (ticker_specific === null) ticker_specific = attr.ticker_specific;
+    attribution_class = attribution_class ?? live.class;
+    ticker_specific = ticker_specific ?? live.ticker_specific;
+  } else {
+    const reconciled = reconcileAttributionWithLiveRules(
+      attribution_class,
+      ticker_specific,
+      live,
+    );
+    attribution_class = reconciled.class;
+    ticker_specific = reconciled.ticker_specific;
   }
 
   return {

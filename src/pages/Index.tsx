@@ -2,7 +2,6 @@ import MarketTicker from "@/components/layout/MarketTicker";
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
 import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import { MarketPulse } from "@/components/home/MarketPulse";
-import { AiTraderLivePreview } from "@/components/home/AiTraderLivePreview";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolGrid } from "@/components/home/ToolGrid";
 import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
@@ -40,8 +39,6 @@ const Index = () => {
 
       <MarketPulse />
 
-      <AiTraderLivePreview />
-
       <section
         aria-labelledby="stocksist-overview-heading"
         className="bg-surface px-4 pt-6 pb-1 text-center"
@@ -53,10 +50,10 @@ const Index = () => {
           Stock Market Intelligence for Active Investors and Traders
         </h1>
         <p className="mt-3 text-sm md:text-base text-foreground leading-relaxed max-w-[40rem] mx-auto">
-          Stocksist helps users research stocks, monitor market movers, discover trading opportunities, track watchlists, review financial news and catalysts, and use AI-assisted market analysis—all from one platform.
+          Stocksist helps you research stocks, monitor session movers, and continue into screeners, watchlists, and catalyst tools after sign-in. Public quotes use {marketPulseDelayDisclosure().toLowerCase()}.
         </p>
         <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-[40rem] mx-auto">
-          Market data, stock screeners, watchlists, news, technical analysis, and AI-powered research in one workspace.
+          Workspace features such as AI Analyst and live Radar require a free account; some capabilities remain in preview or are not deployed yet.
         </p>
       </section>
 

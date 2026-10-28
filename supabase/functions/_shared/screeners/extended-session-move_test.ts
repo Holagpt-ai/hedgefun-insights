@@ -21,7 +21,8 @@ function bkyi(): PolygonTicker {
   return {
     ticker: "BKYI",
     updated: PREMARKET_MS * 1_000_000,
-    day: { v: 1_300_000 },
+    day: { v: 0 },
+    min: { av: 1_300_000, v: 5_000, t: PREMARKET_MS },
     prevDay: { c: 2.35, v: 94_000 },
     lastTrade: { p: 2.71, t: PREMARKET_MS * 1_000_000 },
   };

@@ -5,7 +5,7 @@
 
 import {
   PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
-  formatStockHeaderSessionLine,
+  formatHomepageMarketSessionLine,
   resolveMarketSession,
 } from "@/lib/price-utils";
 import { getEtParts, tradingSessionDateForInstant } from "@/lib/market-calendar";
@@ -30,7 +30,7 @@ export const TRACKED_GAINERS_LOSERS_UNIVERSE_DETAIL =
   "Lists reflect the provider top gainers and losers snapshot — not every listed stock.";
 
 export const PREMARKET_CANDIDATE_UNIVERSE_DETAIL =
-  "Pre-market movers are derived from the same provider mover snapshot, validated against the prior regular close. Dedicated extended-hours feeds are not enabled on this plan.";
+  "A row appears only when its provider observation is inside the 4:00–9:30 a.m. ET premarket window and is measured against the prior regular close. Regular-session snapshots are not shown here. Dedicated extended-hours feeds are not enabled. Quotes are delayed about 15 minutes. Volume stays blank when premarket accumulation is missing. This table does not show RVOL or catalyst.";
 
 export const DELAYED_MARKET_DATA_SEO_PHRASE = "15-minute delayed market data";
 
@@ -57,6 +57,8 @@ export type SessionDateMode =
 
 export interface MoversListProvenance {
   sessionLine: string;
+  /** When true, live session line may prefix premarket-list context outside the pre-market window. */
+  premarketListContext: boolean;
   observationLine: string | null;
   observationTimeUnavailable: boolean;
   observationMixed: boolean;
@@ -221,6 +223,32 @@ function classifyFreshness(
   return "current_session";
 }
 
+/** Wall-clock session line plus source-session qualifiers (homepage live tick uses this). */
+export function composeMoversSessionLine(
+  opts: {
+    now?: Date;
+    sessionDateMode: SessionDateMode;
+    dominantDate: string | null;
+    premarketListContext?: boolean;
+  },
+): string {
+  const now = opts.now ?? new Date();
+  let sessionLine = formatHomepageMarketSessionLine(now);
+  if (opts.sessionDateMode === "homogeneous_prior" && opts.dominantDate) {
+    sessionLine = `Prior source session · ${opts.dominantDate} · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "mixed") {
+    sessionLine = `Mixed source sessions · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "partially_unverified") {
+    sessionLine = `Partial source-session evidence · ${sessionLine}`;
+  } else if (opts.sessionDateMode === "unverified") {
+    sessionLine = `Source session unverified · ${sessionLine}`;
+  }
+  if (opts.premarketListContext && resolveMarketSession(now) !== "pre-market") {
+    sessionLine = `Premarket session ended · regular-session snapshots are not listed here · ${sessionLine}`;
+  }
+  return sessionLine;
+}
+
 export function summarizeMoversListProvenance(
   movers: CanonicalMover[],
   opts: {
@@ -239,21 +267,19 @@ export function summarizeMoversListProvenance(
   }
   const freshness = classifyFreshness(sessionSummary, observation, opts.moverSession, nowMs);
 
-  let sessionLine = formatStockHeaderSessionLine(new Date(nowMs));
-  if (sessionSummary.mode === "homogeneous_prior" && sessionSummary.dominantDate) {
-    sessionLine = `Prior source session · ${sessionSummary.dominantDate} · ${sessionLine}`;
-  } else if (sessionSummary.mode === "mixed") {
-    sessionLine = `Mixed source sessions · ${sessionLine}`;
-  } else if (sessionSummary.mode === "partially_unverified") {
-    sessionLine = `Partial source-session evidence · ${sessionLine}`;
-  } else if (sessionSummary.mode === "unverified") {
-    sessionLine = `Source session unverified · ${sessionLine}`;
-  }
+  const premarketListContext = Boolean(opts.premarket);
+  const sessionLine = composeMoversSessionLine({
+    now: new Date(nowMs),
+    sessionDateMode: sessionSummary.mode,
+    dominantDate: sessionSummary.dominantDate,
+    premarketListContext,
+  });
 
   const isPriorSession = sessionSummary.mode === "homogeneous_prior";
 
   return {
     sessionLine,
+    premarketListContext,
     observationLine: observation.line,
     observationTimeUnavailable: observation.unavailable,
     observationMixed: observation.mixed,
@@ -275,12 +301,16 @@ export function moversFetchErrorMessage(): string {
 export function moversSuccessfulEmptyMessage(opts: {
   marketClosed: boolean;
   premarket?: boolean;
+  clockSession?: "pre-market" | "market" | "after-hours" | "closed";
 }): string {
   if (opts.marketClosed) {
     return "Markets are currently closed. Verified movers for the next session will appear when activity resumes.";
   }
+  if (opts.premarket && opts.clockSession && opts.clockSession !== "pre-market") {
+    return "Premarket has ended for this session. Regular-session snapshots are not listed as premarket movers.";
+  }
   if (opts.premarket) {
-    return "No verified pre-market movers matched our validation rules in the current provider snapshot.";
+    return "No verified pre-market observations were in the current provider snapshot. Missing volume stays blank.";
   }
   return "No verified movers matched our validation rules in the current provider snapshot.";
 }

@@ -192,6 +192,37 @@ describe("RiskAttentionList compression", () => {
     expect(screen.getByText("4 total")).toBeTruthy();
   });
 
+  it("SPCX two-signal card stays content-height without reserved blank space", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <div className="w-[360px]">
+          <RiskAttentionList
+            items={[
+              item({
+                id: "spcx-1",
+                symbol: "SPCX",
+                label: "Bearish market signal",
+                detail: "Lost prior close",
+              }),
+              item({
+                id: "spcx-2",
+                symbol: "SPCX",
+                label: "Watchlist alert",
+                detail: "Direction changed",
+              }),
+            ]}
+          />
+        </div>
+      </MemoryRouter>,
+    );
+    const group = screen.getByTestId("risk-attention-group-SPCX");
+    expect(group.querySelectorAll("li").length).toBe(2);
+    const card = container.querySelector(".rounded-xl.border.bg-card");
+    expect(card).toBeTruthy();
+    expect(card?.className).not.toMatch(/min-h-/);
+    expect(group.offsetHeight).toBeLessThan(160);
+  });
+
   it("keeps long copy wrapping and ticker labels in a bounded width container", () => {
     const { container } = render(
       <MemoryRouter>

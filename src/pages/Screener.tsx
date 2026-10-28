@@ -20,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { hasProAccess } from "@/lib/entitlement";
 import { toast } from "sonner";
+import { publicStockDetailPath, publicWatchlistEntryHref } from "@/lib/public/public-workflow-links";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
 
 function formatMarketCapScreener(n: number | null): string {
   if (!n || n <= 0) return "—";
@@ -96,8 +98,10 @@ const Screener = () => {
         cell: ({ row }) => (
           <button
             onClick={() => {
-              trackEvent("stock_search", { ticker: row.original.symbol });
-              navigate(`/stocks/${row.original.symbol.toLowerCase()}`);
+              const symbol = row.original.symbol;
+              trackEvent("stock_search", { ticker: symbol });
+              trackPublicDiscoveryNav({ from: "public_screener", to: "stock_detail", symbol });
+              navigate(publicStockDetailPath(symbol));
             }}
             className="ticker-symbol text-accent-blue hover:underline text-[0.875rem]"
           >
@@ -383,7 +387,7 @@ const Screener = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(user ? "/watchlist" : "/auth")}
+              onClick={() => navigate(publicWatchlistEntryHref(Boolean(user)))}
               className="h-8 text-xs gap-1.5"
             >
               <Star className="h-3.5 w-3.5" />
@@ -541,7 +545,11 @@ const Screener = () => {
             {RELATED_TOOLS.map((tool) => (
               <button
                 key={tool.title}
-                onClick={() => navigate(tool.route)}
+                onClick={() =>
+                  navigate(
+                    tool.title === "Watchlist" ? publicWatchlistEntryHref(Boolean(user)) : tool.route,
+                  )
+                }
                 className="fintech-card p-4 text-left hover:border-accent-blue transition-colors group relative"
               >
                 <ArrowUpRight className="absolute top-3 right-3 h-3.5 w-3.5 text-muted-foreground group-hover:text-accent-blue" />

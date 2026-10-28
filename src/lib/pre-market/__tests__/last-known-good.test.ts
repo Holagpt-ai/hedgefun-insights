@@ -54,6 +54,8 @@ function workspace(
     server_now: "2026-09-09T11:15:00.000Z",
     earnings_confirmed_total: 0,
     earnings_timing_unconfirmed_total: 0,
+    earnings_calendar_fetch_limit: 320,
+    earnings_calendar_source_truncated: false,
     earnings_timing_unconfirmed: { status: "empty", data: [], as_of: null, reason_code: "NO_QUALIFYING_DATA" },
     watchlist_lifecycle: [],
     alerts_included: true,

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,18 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Lock, ChevronDown } from "lucide-react";
 import { BRAND } from "@/config/brand";
+import { trackEvent } from "@/lib/analytics";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
+import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
+import { toast } from "sonner";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import {
+  heatmapFooterCaption,
+  heatmapPageSeoDescription,
+  heatmapUniverseDetail,
+  heatmapUniverseHeading,
+} from "@/lib/markets/heatmap-universe-label";
 
 const TIMEFRAMES = ["1D", "1W", "1M", "YTD", "1Y"] as const;
 
@@ -141,9 +153,16 @@ function HeatmapPage() {
     setHoveredStock(null);
   }, []);
 
-  useEffect(() => {
-    document.title = `Market Heatmap | ${BRAND.name}`;
-  }, []);
+  const loadedStockCount = stockRows?.length ?? 0;
+
+  usePageSeo({
+    title: `Market Heatmap | ${BRAND.name}`,
+    description: heatmapPageSeoDescription(),
+  });
+
+  const exportComingSoon = (format: string) => {
+    toast("Coming Soon", { description: `${format} export is not available on the public heatmap yet.` });
+  };
 
   return (
     <>
@@ -152,9 +171,14 @@ function HeatmapPage() {
 
         {/* Header */}
         <div className="flex items-center justify-between py-4">
-          <h1 className="text-[1.5rem] font-bold" style={{ color: "hsl(var(--text-primary))" }}>
-            S&P 500 · {timeframe} Performance
-          </h1>
+          <div>
+            <h1 className="text-[1.5rem] font-bold" style={{ color: "hsl(var(--text-primary))" }}>
+              {heatmapUniverseHeading(loadedStockCount, timeframe)}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              {heatmapUniverseDetail(loadedStockCount)} Tile colors reflect session % change ({PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}).
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             {/* Timeframe dropdown */}
             <div className="relative">
@@ -170,7 +194,16 @@ function HeatmapPage() {
                   {TIMEFRAMES.map((tf) => (
                     <button
                       key={tf}
-                      onClick={() => { setTimeframe(tf); setTfOpen(false); }}
+                      onClick={() => {
+                        setTfOpen(false);
+                        if (tf !== "1D") {
+                          toast("Coming Soon", {
+                            description: `${tf} performance views are not available on the public heatmap yet.`,
+                          });
+                          return;
+                        }
+                        setTimeframe(tf);
+                      }}
                       className="block w-full text-left px-3 py-1.5 text-[0.875rem] hover:bg-muted transition-colors"
                       style={{ color: "hsl(var(--text-primary))", fontWeight: tf === timeframe ? 700 : 400 }}
                     >
@@ -193,7 +226,16 @@ function HeatmapPage() {
               {dlOpen && (
                 <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded shadow-sm z-20 min-w-[100px]">
                   {["CSV", "Excel", "JSON"].map((f) => (
-                    <button key={f} className="block w-full text-left px-3 py-1.5 text-[0.875rem] hover:bg-muted transition-colors" style={{ color: "hsl(var(--text-primary))" }}>
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        setDlOpen(false);
+                        exportComingSoon(f);
+                      }}
+                      className="block w-full text-left px-3 py-1.5 text-[0.875rem] hover:bg-muted transition-colors"
+                      style={{ color: "hsl(var(--text-primary))" }}
+                    >
                       {f}
                     </button>
                   ))}
@@ -269,7 +311,11 @@ function HeatmapPage() {
                                     }}
                                     onMouseMove={(e) => handleMouseMove(e, stock)}
                                     onMouseLeave={handleMouseLeave}
-                                    onClick={() => navigate(`/stocks/${stock.ticker.toLowerCase()}`)}
+                                    onClick={() => {
+                                      trackEvent("stock_search", { ticker: stock.ticker });
+                                      trackPublicDiscoveryNav({ from: "heatmap", to: "stock_detail", symbol: stock.ticker });
+                                      navigate(publicStockDetailPath(stock.ticker));
+                                    }}
                                   >
                                     <span className="text-[0.875rem] font-bold text-white leading-tight">{stock.ticker}</span>
                                     <span className="text-[0.75rem] text-white/90 leading-tight">
@@ -330,7 +376,7 @@ function HeatmapPage() {
 
         {/* Caption */}
         <p className="text-[0.8125rem] mt-3 mb-6" style={{ color: "hsl(var(--text-muted))" }}>
-          S&P500 stock performance by sector and industry. Size represents market cap, color represents relative performance.
+          {heatmapFooterCaption(loadedStockCount)}
         </p>
 
         <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">

@@ -10,6 +10,8 @@ import {
 } from "@/lib/markets/movers-provenance";
 import { useHomepagePublicMovers } from "@/hooks/useHomepagePublicMovers";
 import type { MoverListRow } from "@/lib/markets/movers-integrity";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
 
 function MoversTable({
   title,
@@ -34,7 +36,8 @@ function MoversTable({
 
   const select = (ticker: string) => {
     trackEvent("stock_search", { ticker });
-    navigate(`/stocks/${ticker}`);
+    trackPublicDiscoveryNav({ from: "homepage_movers", to: "stock_detail", symbol: ticker });
+    navigate(publicStockDetailPath(ticker));
   };
 
   const rows = data ?? [];

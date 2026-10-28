@@ -15,6 +15,7 @@ import type {
   MarketPulseIntelligenceRecord,
   MarketPulseSessionEvidence,
 } from "./market-pulse-contract";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
 
 export interface MarketPulseSelectInput {
   gainers: CanonicalMover[];
@@ -89,7 +90,7 @@ function toRecord(
     observationTimeUnavailable: row.priceObservationTimeUnavailable,
     sessionEvidence,
     eventIdentity: currentMoverIdentity(m) ?? `${m.symbol}|${m.session ?? "_"}|${m.session_date ?? "_"}`,
-    stockDetailPath: `/stocks/${m.symbol.toLowerCase()}`,
+    stockDetailPath: publicStockDetailPath(m.symbol),
     movementContext: "verified_movement_unexplained",
     verifiedCatalyst: null,
     relatedHeadline: null,

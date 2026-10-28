@@ -162,6 +162,7 @@ describe("Batch 22 — market pulse", () => {
     const index = readFileSync(resolve("src/pages/Index.tsx"), "utf8");
     const pulse = readFileSync(resolve("src/components/home/MarketPulse.tsx"), "utf8");
     expect(index).toContain("<MarketPulse />");
+    expect(index).not.toContain("AiTraderLivePreview");
     expect(index.indexOf("GlobalMarketClocks")).toBeLessThan(index.indexOf("<MarketPulse />"));
     expect(pulse).toContain("Significant Market Moves");
     expect(pulse).toContain("flex flex-col gap-2");

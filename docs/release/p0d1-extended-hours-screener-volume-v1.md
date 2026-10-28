@@ -1,0 +1,63 @@
+# P0 D1 — Extended-Hours Screener Volume Integrity V1
+
+**Base:** `main` **`68092518`**  
+**Production evidence:** Lovable read-only Oct 28 ~9:17 AM ET — `day.v=0`, positive `min.av` on NVDA/TSLA/SPY/AAPL; all symbols failed minimum-volume; gappers `no_volume_active_universe`.
+
+## Root cause
+
+Edge screeners used `dayVolume()` (`day.v` only) for qualification, dedupe, ratios, persisted rows, and gappers volume-active counts. Polygon sends `day.v=0` during premarket while cumulative session volume lives on `min.av`. Extended sync therefore treated every symbol as zero-volume.
+
+**Source files:** `selection.ts` (`dayVolume`, `selectVolumeFirst`, ratio helpers), `rows.ts`, `evaluation-evidence.ts`, `new-highs-lows.ts`, `sync-screener-data/handler.ts` (volume tabs not passed extended volume context).
+
+## Fix
+
+### D1 — `min.av` vs `day.v`
+
+New contract in `session-volume.ts`:
+
+| Session | Volume source |
+| --- | --- |
+| Regular | Positive `day.v` only (`0` = unavailable) |
+| Premarket | Positive `min.av` only (never `min.v` substitute) |
+| After-hours | `min.av - day.v` when both positive and `min.av > day.v`; else unavailable |
+
+Propagated via `sessionQualificationVolume()` through selection, rows, NHL, evidence, handler extended tab opts, and normalized snapshot volume.
+
+**DTR diagnostics:** During premarket, missing regular `day.c` no longer inflates `missing_invalid_snapshot`; eligibility unchanged.
+
+### D1.1 — Delayed snapshot session boundaries
+
+Extended-tab volume now follows **`resolveVerifiedObservationMs()`** (`min.t` preferred, then `updated`; contradictory timestamps → unavailable). Session kind comes from the **observation clock**, not sync `nowMs` alone.
+
+Examples:
+
+- Server 9:35 ET / observation 9:20 ET → premarket **`min.av`** (not regular `day.v=0`).
+- Server 4:05 PM ET / observation 3:50 PM ET → regular **`day.v`**.
+- Server 4:20 PM ET / observation 4:05 PM ET → after-hours increment when comparable **`day.v`** baseline exists.
+- Prior surveillance-day observation or missing timestamps → volume unavailable (fail closed).
+
+### D1.2 — Handler integration (observation session on live surveillance)
+
+`extendedSession` remains the **server clock** (logging and legacy meta). During live pre-market, RTH, and after-hours, **`observationSessionFields`** enables per-ticker observation semantics for volume, gappers gaps, gainers/losers move, persisted rows, and tab evidence—even when the server is regular hours but provider snapshots are delayed premarket quotes.
+
+Mixed universes resolve session per ticker (`min.t` / `updated`). Contradictory or missing observation evidence stays fail closed. DTR/Five Pillars thresholds and delay policy unchanged.
+
+Integration coverage: `sync-screener-data/handler_test.ts` (9:35/9:20 premarket RPC volume, regular/AH boundaries, mixed sessions, contradictory timestamps, gainers/losers move, sub-5% gap exclusion).
+
+## Verification
+
+```sh
+deno test --allow-read supabase/functions/_shared/screeners/session-volume_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/session-volume_boundary_test.ts
+deno test --allow-read --no-check supabase/functions/sync-screener-data/handler_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/selection_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/gappers-premarket_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/evaluation-evidence_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/rows_test.ts
+npm run typecheck
+npm run build
+```
+
+## Deployment gate
+
+After merge, deploy **`sync-screener-data`** via **Lovable Cloud** only. Record rollback SHA. Live verify premarket tab evidence (`volume_positive_count` > 0 when `min.av` present) — production Edge revision id **UNKNOWN** until deploy.

@@ -5,7 +5,10 @@ import type {
   LateSessionContinuationFunnel,
 } from "@/lib/am-inbox/late-session-continuation-types";
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
-import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
+import {
+  listStoredLateSessionHandoffs,
+  persistLateSessionHandoffBatch,
+} from "@/lib/am-inbox/late-session-handoff-storage";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { enrichHandoffContextFromHistoricalWorkflow } from "@/lib/am-inbox/late-session-workflow-handoff";
 import { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
@@ -15,13 +18,19 @@ import {
   continuationVolumeKingComponent,
   rankAmInboxLateSessionCandidates,
 } from "@/lib/am-inbox/am-inbox-late-session-priority";
+import {
+  buildLateSessionPriorityEvaluation,
+  type LateSessionPriorityEvaluation,
+} from "@/lib/am-inbox/late-session-priority-evaluation";
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { qualifiesLateSessionHandoffCandidate } from "@/lib/am-inbox/late-session-handoff-qualification";
 import {
   CONTINUATION_PRIORITY_ABSOLUTE_FLOOR,
   CONTINUATION_PRIORITY_MIN_VOLUME_KING,
-  resolveContinuationPriorityScoreCutoff,
 } from "@/config/continuation-priority.config";
+
+export type { LateSessionPriorityEvaluation } from "@/lib/am-inbox/late-session-priority-evaluation";
+export { buildLateSessionPriorityEvaluation } from "@/lib/am-inbox/late-session-priority-evaluation";
 
 /** @deprecated Use CONTINUATION_PRIORITY_ABSOLUTE_FLOOR + qualified percentile band. */
 export const CONTINUATION_PRIORITY_SCORE_FLOOR = CONTINUATION_PRIORITY_ABSOLUTE_FLOOR;
@@ -29,20 +38,18 @@ export const CONTINUATION_PRIORITY_SCORE_FLOOR = CONTINUATION_PRIORITY_ABSOLUTE_
 export function isLateSessionPriorityCandidate(
   entry: AmInboxLateSessionCandidate,
   qualifiedPool?: readonly AmInboxLateSessionCandidate[],
+  evaluation?: LateSessionPriorityEvaluation,
 ): boolean {
-  if (!qualifiesLateSessionHandoffCandidate(entry)) return false;
-  if (continuationVolumeKingComponent(entry) < CONTINUATION_PRIORITY_MIN_VOLUME_KING) {
-    return false;
-  }
-  const score = computeAmInboxLateSessionPriorityScore(entry);
-  if (score < CONTINUATION_PRIORITY_ABSOLUTE_FLOOR) return false;
+  if (evaluation) return evaluation.isPriority(entry);
   if (!qualifiedPool || qualifiedPool.length === 0) {
+    if (!qualifiesLateSessionHandoffCandidate(entry)) return false;
+    if (continuationVolumeKingComponent(entry) < CONTINUATION_PRIORITY_MIN_VOLUME_KING) {
+      return false;
+    }
+    const score = computeAmInboxLateSessionPriorityScore(entry);
     return score >= CONTINUATION_PRIORITY_ABSOLUTE_FLOOR;
   }
-  const cutoff = resolveContinuationPriorityScoreCutoff(
-    qualifiedPool.map((candidate) => computeAmInboxLateSessionPriorityScore(candidate)),
-  );
-  return score >= cutoff;
+  return buildLateSessionPriorityEvaluation(qualifiedPool).isPriority(entry);
 }
 
 export function buildLateSessionContinuationFunnel(
@@ -57,12 +64,13 @@ export function buildLateSessionContinuationFunnel(
 } {
   const qualified = collapsed.filter(qualifiesLateSessionHandoffCandidate);
   const qualifiedRanked = rankAmInboxLateSessionCandidates(qualified);
-  const priority = qualifiedRanked.filter((entry) =>
-    isLateSessionPriorityCandidate(entry, qualifiedRanked),
-  );
-  const qualifiedNonPriority = qualifiedRanked.filter(
-    (entry) => !isLateSessionPriorityCandidate(entry, qualifiedRanked),
-  );
+  const priorityEval = buildLateSessionPriorityEvaluation(qualifiedRanked);
+  const priority: AmInboxLateSessionCandidate[] = [];
+  const qualifiedNonPriority: AmInboxLateSessionCandidate[] = [];
+  for (const entry of qualifiedRanked) {
+    if (priorityEval.isPriority(entry)) priority.push(entry);
+    else qualifiedNonPriority.push(entry);
+  }
   const qualifiedForViewAll = [...priority, ...qualifiedNonPriority];
   const priorityCount = priority.length;
   const displayUsesQualifiedFallback = priorityCount === 0 && qualifiedRanked.length > 0;
@@ -90,6 +98,7 @@ export function buildLateSessionContinuationFunnel(
 function mergeContextWithWorkflow(
   context: LateSessionContinuationContext,
   amSessionDate: string,
+  workflowBySymbol: Map<string, ReturnType<typeof readHistoricalWorkflowContext>>,
 ): AmInboxLateSessionCandidate | null {
   const expiry = resolveLateSessionExpiryState({
     sourceSessionDate: context.sourceSessionDate,
@@ -98,7 +107,12 @@ function mergeContextWithWorkflow(
   });
   if (expiry.expiryState === "expired") return null;
 
-  const workflow = readHistoricalWorkflowContext(context.symbol);
+  const symbolKey = context.symbol.trim().toUpperCase();
+  let workflow = workflowBySymbol.get(symbolKey);
+  if (workflow === undefined) {
+    workflow = readHistoricalWorkflowContext(context.symbol);
+    workflowBySymbol.set(symbolKey, workflow);
+  }
   const enriched = enrichHandoffContextFromHistoricalWorkflow(
     { ...context, ...expiry },
     workflow,
@@ -112,15 +126,27 @@ function mergeContextWithWorkflow(
 
 export { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
 
+export type BuildAmInboxLateSessionViewOptions = {
+  /**
+   * Mirror collapsed rows into sessionStorage for offline/tests.
+   * Server-driven AM Inbox should disable this — large Monday captures otherwise
+   * block the main thread on every refetch.
+   */
+  mirrorCollapsedToSessionStorage?: boolean;
+};
+
 export function buildAmInboxLateSessionViewFromContexts(
   amSessionDate: string,
   contexts: readonly LateSessionContinuationContext[],
+  options: BuildAmInboxLateSessionViewOptions = {},
 ): AmInboxLateSessionView {
+  const mirrorCollapsed = options.mirrorCollapsedToSessionStorage !== false;
   const raw: AmInboxLateSessionCandidate[] = [];
   let expiredCount = 0;
+  const workflowBySymbol = new Map<string, ReturnType<typeof readHistoricalWorkflowContext>>();
 
   for (const context of contexts) {
-    const merged = mergeContextWithWorkflow(context, amSessionDate);
+    const merged = mergeContextWithWorkflow(context, amSessionDate, workflowBySymbol);
     if (!merged) {
       expiredCount += 1;
       continue;
@@ -129,8 +155,8 @@ export function buildAmInboxLateSessionViewFromContexts(
   }
 
   const collapsed = collapseLateSessionCandidates(raw);
-  for (const entry of collapsed) {
-    persistLateSessionHandoff(entry.context);
+  if (mirrorCollapsed) {
+    persistLateSessionHandoffBatch(collapsed.map((entry) => entry.context));
   }
   const { defaultDisplay, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
     raw,

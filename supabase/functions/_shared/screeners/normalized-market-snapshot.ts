@@ -10,6 +10,10 @@ import {
   safeNumber,
   type PolygonTicker,
 } from "./selection.ts";
+import {
+  sessionQualificationVolume,
+  type SessionVolumeContext,
+} from "./session-volume.ts";
 
 export type MarketSessionKind =
   | "pre-market"
@@ -125,22 +129,27 @@ export function buildSnapshotFromPolygonTicker(
   opts: {
     symbol: string;
     extendedSession?: boolean;
+    nowMs?: number;
     providerTimestamp?: string | null;
     week52High?: number | null;
     week52Low?: number | null;
   },
 ): NormalizedMarketSnapshot {
   const extended = opts.extendedSession === true;
+  const volumeCtx: SessionVolumeContext = {
+    extendedSession: extended,
+    nowMs: opts.nowMs,
+  };
   const price = extended
     ? extendedSessionLastPrice(ticker)
     : positiveFinite(ticker.day?.c);
   const previousClose = previousRegularClose(ticker);
   const dayHigh = positiveFinite(ticker.day?.h);
   const dayLow = positiveFinite(ticker.day?.l);
-  const volume = safeNumber(ticker.day?.v);
+  const volume = sessionQualificationVolume(ticker, volumeCtx);
   const priorVol = safeNumber(ticker.prevDay?.v);
   const dollarVolume =
-    price !== null && volume !== null && volume > 0 ? price * volume : null;
+    price !== null && volume !== null ? price * volume : null;
 
   return {
     symbol: opts.symbol,
@@ -148,7 +157,7 @@ export function buildSnapshotFromPolygonTicker(
     previousClose,
     dayHigh,
     dayLow,
-    volume: volume !== null && volume >= 0 ? volume : null,
+    volume,
     dollarVolume,
     premarketVolume: extended ? volume : null,
     premarketHigh: extended ? dayHigh : null,

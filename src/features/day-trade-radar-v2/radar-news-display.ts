@@ -1,8 +1,9 @@
+import { headlineQualifiesForTickerScopedNews } from "@/lib/catalyst/attribution";
+import { buildCrossSurfaceSourceAttributionLine } from "@/lib/catalyst/catalyst-attribution-presentation";
 import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import {
-  formatCatalystSourceAttribution,
   resolveRadarCatalystAssociation,
   type RadarCatalystAssociation,
 } from "@/lib/catalyst/radar-momentum-catalyst-context";
@@ -73,10 +74,21 @@ export function resolveRadarNewsDisplay(
       publishedAt,
       ageLabel: formatRadarNewsAge(publishedAt, nowMs),
       association: resolveRadarCatalystAssociation(catalyst, nowMs),
-      sourceAttribution: formatCatalystSourceAttribution(catalyst.event),
+      sourceAttribution: buildCrossSurfaceSourceAttributionLine(catalyst.event, nowMs),
     };
   }
   if (recent?.title && recent.publishedAt) {
+    if (
+      !headlineQualifiesForTickerScopedNews({
+        title: recent.title,
+        symbol,
+        companyName: null,
+        providerTickers: [symbol],
+        providerAssociatesSymbol: true,
+      })
+    ) {
+      return { level: "none" };
+    }
     const ageLabel = formatRadarNewsAge(recent.publishedAt, nowMs);
     if (!ageLabel) return { level: "none" };
     return {

@@ -14,3 +14,6 @@ export const LATE_SESSION_HANDOFF_STORAGE_KEY = "stocksist-late-session-handoffs
 
 /** Main AM Inbox continuation module — full dataset remains available via View All. */
 export const AM_INBOX_LATE_SESSION_VISIBLE_LIMIT = 6;
+
+/** Expanded "View all qualified" renders in pages to avoid synchronous 800+ card mounts. */
+export const AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE = 40;

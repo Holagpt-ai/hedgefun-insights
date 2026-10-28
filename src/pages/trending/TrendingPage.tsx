@@ -21,44 +21,25 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
-
-/* ── seed data (used if DB returns nothing) ── */
-const SEED: TrendingStock[] = [
-  { symbol: "ORCL", name: "Oracle Corporation", views: 1948, market_cap: 429_390_000_000, change_percent: -1.43, volume: 51_544_624 },
-  { symbol: "NVDA", name: "NVIDIA Corporation", views: 1725, market_cap: 4_490_000_000_000, change_percent: 1.16, volume: 179_118_529 },
-  { symbol: "MSFT", name: "Microsoft Corporation", views: 1024, market_cap: 3_010_000_000_000, change_percent: -0.89, volume: 31_706_375 },
-  { symbol: "MU", name: "Micron Technology, Inc.", views: 838, market_cap: 453_700_000_000, change_percent: 3.54, volume: 33_745_433 },
-  { symbol: "KALA", name: "KALA BIO, Inc.", views: 664, market_cap: 8_300_000, change_percent: 12.82, volume: 1_226_544 },
-  { symbol: "AMZN", name: "Amazon.com, Inc.", views: 627, market_cap: 2_300_000_000_000, change_percent: 0.39, volume: 35_678_835 },
-  { symbol: "AVGO", name: "Broadcom Inc.", views: 624, market_cap: 1_620_000_000_000, change_percent: -0.92, volume: 29_531_698 },
-  { symbol: "PLTR", name: "Palantir Technologies Inc.", views: 558, market_cap: 361_480_000_000, change_percent: -3.38, volume: 47_501_392 },
-  { symbol: "DOMO", name: "Domo, Inc.", views: 517, market_cap: 183_080_000, change_percent: 2.58, volume: 5_920_569 },
-  { symbol: "HIMS", name: "Hims & Hers Health, Inc.", views: 451, market_cap: 5_350_000_000, change_percent: 5.91, volume: 118_638_532 },
-  { symbol: "AMD", name: "Advanced Micro Devices, Inc.", views: 418, market_cap: 331_350_000_000, change_percent: 0.27, volume: 29_139_162 },
-  { symbol: "META", name: "Meta Platforms, Inc.", views: 396, market_cap: 1_650_000_000_000, change_percent: 1.03, volume: 9_859_251 },
-  { symbol: "AAPL", name: "Apple Inc.", views: 387, market_cap: 3_830_000_000_000, change_percent: 0.37, volume: 30_590_766 },
-  { symbol: "TSM", name: "Taiwan Semiconductor Manufact...", views: 381, market_cap: 1_580_000_000_000, change_percent: -0.46, volume: 12_985_621 },
-  { symbol: "GOOGL", name: "Alphabet Inc.", views: 371, market_cap: 3_710_000_000_000, change_percent: 0.22, volume: 23_239_685 },
-  { symbol: "TSSI", name: "TSS, Inc.", views: 369, market_cap: 318_740_000, change_percent: 10.61, volume: 2_439_408 },
-  { symbol: "SOFI", name: "SoFi Technologies, Inc.", views: 364, market_cap: 23_320_000_000, change_percent: -2.66, volume: 62_077_130 },
-  { symbol: "NBIS", name: "Nebius Group N.V.", views: 363, market_cap: 24_400_000_000, change_percent: 1.57, volume: 7_125_504 },
-  { symbol: "TSLA", name: "Tesla, Inc.", views: 363, market_cap: 1_500_000_000_000, change_percent: 0.14, volume: 59_258_743 },
-  { symbol: "AVAV", name: "AeroVironment, Inc.", views: 336, market_cap: 11_010_000_000, change_percent: -2.52, volume: 2_507_155 },
-];
-
-type TrendingStock = {
-  symbol: string;
-  name: string;
-  views: number;
-  market_cap: number | null;
-  change_percent: number | null;
-  volume: number | null;
-};
+import { useAuth } from "@/contexts/AuthContext";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicStockDetailPath, publicWatchlistEntryHref } from "@/lib/public/public-workflow-links";
+import { trackEvent } from "@/lib/analytics";
+import {
+  formatTrendingDataFootnote,
+  latestTrendingDataTimestamp,
+  mapTrendingStockRows,
+  TRENDING_EMPTY_MESSAGE,
+  TRENDING_ERROR_MESSAGE,
+  TRENDING_VOLUME_RANK_SECTION_TITLE,
+  trendingPageSeoDescription,
+  trendingPageSeoTitle,
+  type TrendingTableRow,
+} from "@/lib/trending/trending-page-present";
 
 function abbr(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -73,30 +54,24 @@ const TABS = ["Overview", "Performance", "Dividends", "Price", "Profile"];
 
 export default function TrendingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Overview");
-  const [sorting, setSorting] = useState<SortingState>([{ id: "views", desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: "volume", desc: true }]);
 
-  const { data: stocks, isLoading } = useQuery({
+  const { data: stocks, isLoading, isError } = useQuery({
     queryKey: ["trending-stocks"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("stocks")
-        .select("symbol, name, market_cap, change_percent, volume")
+        .select("symbol, name, market_cap, change_percent, volume, updated_at")
+        .not("volume", "is", null)
+        .gt("volume", 0)
         .order("volume", { ascending: false })
         .limit(20);
-      if (data && data.length > 0) {
-        return data.map((s, i) => ({
-          symbol: s.symbol,
-          name: s.name,
-          views: SEED[i]?.views ?? Math.floor(Math.random() * 1000),
-          market_cap: s.market_cap,
-          change_percent: s.change_percent,
-          volume: s.volume,
-        })) as TrendingStock[];
-      }
-      return SEED;
+      if (error) throw error;
+      return mapTrendingStockRows(data);
     },
     staleTime: 300_000,
   });
@@ -106,11 +81,16 @@ export default function TrendingPage() {
     if (!search) return stocks;
     const q = search.toLowerCase();
     return stocks.filter(
-      (s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+      (s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q),
     );
   }, [stocks, search]);
 
-  const columns = useMemo<ColumnDef<TrendingStock>[]>(
+  const dataFootnote = useMemo(
+    () => formatTrendingDataFootnote(latestTrendingDataTimestamp(stocks)),
+    [stocks],
+  );
+
+  const columns = useMemo<ColumnDef<TrendingTableRow>[]>(
     () => [
       {
         id: "rank",
@@ -131,7 +111,11 @@ export default function TrendingPage() {
           const t = getValue<string>();
           return (
             <button
-              onClick={() => navigate(`/stocks/${tickerToSlug(t)}`)}
+              onClick={() => {
+                trackEvent("stock_search", { ticker: t });
+                trackPublicDiscoveryNav({ from: "trending", to: "stock_detail", symbol: t });
+                navigate(publicStockDetailPath(t));
+              }}
               className="text-primary font-bold hover:underline text-[0.875rem]"
             >
               {t}
@@ -149,14 +133,17 @@ export default function TrendingPage() {
         ),
       },
       {
-        accessorKey: "views",
-        header: () => <span className="text-right block">Views ↓</span>,
-        cell: ({ getValue }) => (
-          <span className="text-right block tabular-nums text-[0.875rem]">
-            {getValue<number>().toLocaleString()}
-          </span>
-        ),
-        size: 80,
+        accessorKey: "volume",
+        header: () => <span className="text-right block">Volume ↓</span>,
+        cell: ({ getValue }) => {
+          const v = getValue<number | null>();
+          return (
+            <span className="text-right block tabular-nums text-[0.875rem]">
+              {v != null ? v.toLocaleString() : "—"}
+            </span>
+          );
+        },
+        size: 110,
       },
       {
         accessorKey: "market_cap",
@@ -188,21 +175,8 @@ export default function TrendingPage() {
         },
         size: 90,
       },
-      {
-        accessorKey: "volume",
-        header: () => <span className="text-right block">Volume</span>,
-        cell: ({ getValue }) => {
-          const v = getValue<number | null>();
-          return (
-            <span className="text-right block tabular-nums text-[0.875rem]">
-              {v != null ? v.toLocaleString() : "—"}
-            </span>
-          );
-        },
-        size: 110,
-      },
     ],
-    [navigate]
+    [navigate],
   );
 
   const table = useReactTable({
@@ -216,32 +190,32 @@ export default function TrendingPage() {
     initialState: { pagination: { pageSize: 20 } },
   });
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
   usePageSeo({
-    title: `Trending Stocks — Most Searched & Watched | ${BRAND.name}`,
-    description: `See which stocks investors are searching and watching most on ${BRAND.name} right now.`,
+    title: trendingPageSeoTitle(BRAND.name),
+    description: trendingPageSeoDescription(BRAND.name),
   });
+
+  const showEmpty = !isLoading && !isError && (!stocks || stocks.length === 0);
 
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Page header */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-[1.75rem] font-bold text-foreground">Trending Today</h1>
+          <div>
+            <h1 className="text-[1.75rem] font-bold text-foreground">Trending by volume</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Session leaders by reported share volume in our database — not site visitor rankings.
+            </p>
+          </div>
           <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground shrink-0" onClick={() => navigate("/pro")}>
             Full Width <Lock className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Two-column layout */}
         <div className="flex gap-8">
-          {/* Main content */}
           <div className="flex-1 min-w-0">
-            {/* Section heading row */}
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h2 className="text-[1.125rem] font-bold text-foreground">Top Stocks</h2>
+              <h2 className="text-[1.125rem] font-bold text-foreground">{TRENDING_VOLUME_RANK_SECTION_TITLE}</h2>
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -285,7 +259,6 @@ export default function TrendingPage() {
               </div>
             </div>
 
-            {/* Tab bar */}
             <div className="flex items-center gap-0 border-b border-border mb-4 overflow-x-auto">
               {TABS.map((tab) => (
                 <button
@@ -320,13 +293,20 @@ export default function TrendingPage() {
               </button>
             </div>
 
-            {/* Table */}
             {isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <Skeleton key={i} className="h-10 w-full" />
                 ))}
               </div>
+            ) : isError ? (
+              <p className="text-sm text-muted-foreground py-8 text-center" role="status">
+                {TRENDING_ERROR_MESSAGE}
+              </p>
+            ) : showEmpty ? (
+              <p className="text-sm text-muted-foreground py-8 text-center" role="status">
+                {TRENDING_EMPTY_MESSAGE}
+              </p>
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -365,7 +345,6 @@ export default function TrendingPage() {
                   </table>
                 </div>
 
-                {/* Pagination */}
                 <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
                   <Button
                     variant="outline"
@@ -405,12 +384,8 @@ export default function TrendingPage() {
                   </Button>
                 </div>
 
-                {/* Updated timestamp */}
-                <p className="text-[0.8125rem] text-muted-foreground mt-2">
-                  Updated: {dateStr}, 8:30 AM EDT. Stocks are sorted by pageviews according to Plausible Analytics.
-                </p>
+                <p className="text-[0.8125rem] text-muted-foreground mt-2">{dataFootnote}</p>
 
-                {/* Back to top */}
                 <div className="text-center mt-6">
                   <button
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -423,13 +398,16 @@ export default function TrendingPage() {
             )}
           </div>
 
-          {/* Sidebar */}
           <aside className="hidden md:flex flex-col gap-4 w-[300px] shrink-0 sticky top-20 self-start">
             {[
               { title: `${BRAND.name} Pro`, desc: "Upgrade now for unlimited access to all data and tools.", route: "/pro" },
               { title: "Market Newsletter", desc: "Get a daily email with the top market news in bullet point format.", route: "/newsletter" },
               { title: "Stock Screener", desc: "Filter, sort and analyze all stocks to find your next investment.", route: "/screener" },
-              { title: "Watchlists", desc: "Keep track of all your favorite stocks in real-time.", route: "/watchlist" },
+              {
+                title: "Watchlists",
+                desc: "Save symbols in your Stocksist dashboard watchlist (sign in required).",
+                route: publicWatchlistEntryHref(Boolean(user)),
+              },
             ].map((card) => (
               <button
                 key={card.title}
@@ -445,10 +423,7 @@ export default function TrendingPage() {
         </div>
       </div>
 
-      {/* Ad banner above footer */}
       <AdBanner />
-
-      
     </div>
   );
 }

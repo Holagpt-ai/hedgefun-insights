@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { useMarketPulseCatalystEnrichment } from "@/hooks/useMarketPulseCatalyst
 import {
   attachMarketPulseCatalystContext,
   MARKET_PULSE_CAUSATION_DISCLAIMER,
+  MARKET_PULSE_ROW_NO_CATALYST,
   MARKET_PULSE_UNEXPLAINED_COPY,
 } from "@/lib/markets/market-pulse-catalyst";
 import {
@@ -18,7 +19,11 @@ import {
   marketPulseUniverseDisclosure,
   selectMarketPulseItems,
 } from "@/lib/markets/market-pulse-select";
-import { moversFetchErrorMessage, moversSuccessfulEmptyMessage } from "@/lib/markets/movers-provenance";
+import {
+  composeMoversSessionLine,
+  moversFetchErrorMessage,
+  moversSuccessfulEmptyMessage,
+} from "@/lib/markets/movers-provenance";
 import { resolveMarketSession } from "@/lib/price-utils";
 import type { MarketPulseIntelligenceRecord } from "@/lib/markets/market-pulse-contract";
 
@@ -142,7 +147,7 @@ function PulseRow({
               </div>
             </div>
           ) : catalystLookupComplete ? (
-            <p className="mt-2 text-xs text-muted-foreground">{MARKET_PULSE_UNEXPLAINED_COPY}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{MARKET_PULSE_ROW_NO_CATALYST}</p>
           ) : (
             <Skeleton className="mt-2 h-10 w-full max-w-md rounded-sm" />
           )}
@@ -155,6 +160,12 @@ function PulseRow({
 export function MarketPulse() {
   const moversQuery = useHomepagePublicMovers();
   const marketClosed = resolveMarketSession() === "closed";
+  const [sessionClockNow, setSessionClockNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setSessionClockNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const baseItems = useMemo(() => {
     if (!moversQuery.data) return [];
@@ -200,6 +211,22 @@ export function MarketPulse() {
     };
   }, [moversQuery.isLoading, moversQuery.isError, moversQuery.data, enrichedItems]);
 
+  const liveSessionLine = useMemo(() => {
+    const provenance =
+      model.status === "ready" || model.status === "empty"
+        ? "provenance" in model
+          ? model.provenance
+          : null
+        : null;
+    if (!provenance) return null;
+    return composeMoversSessionLine({
+      now: sessionClockNow,
+      sessionDateMode: provenance.sessionDateMode,
+      dominantDate: provenance.sessionDate,
+      premarketListContext: provenance.premarketListContext,
+    });
+  }, [model, sessionClockNow]);
+
   return (
     <section aria-labelledby="market-pulse-heading" className="px-4 py-4">
       <div className="rounded-lg border border-border bg-gradient-to-b from-muted/30 to-background p-4 shadow-sm">
@@ -212,9 +239,9 @@ export function MarketPulse() {
           </p>
           {model.status === "ready" || model.status === "empty" ? (
             <>
-              {"provenance" in model && model.provenance && (
-                <p className="text-xs text-muted-foreground">{model.provenance.sessionLine}</p>
-              )}
+              {liveSessionLine ? (
+                <p className="text-xs text-muted-foreground">{liveSessionLine}</p>
+              ) : null}
               {"provenance" in model && model.provenance?.observationLine && (
                 <p className="text-xs text-muted-foreground">{model.provenance.observationLine}</p>
               )}
@@ -240,15 +267,23 @@ export function MarketPulse() {
             {moversSuccessfulEmptyMessage({ marketClosed })}
           </p>
         ) : (
-          <div className="flex flex-col gap-2">
-            {model.items.map((item) => (
-              <PulseRow
-                key={item.eventIdentity}
-                item={item}
-                catalystLookupComplete={catalystLookupComplete}
-              />
-            ))}
-          </div>
+          <>
+            {catalystLookupComplete &&
+            model.items.some((item) => !item.verifiedCatalyst) ? (
+              <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+                {MARKET_PULSE_UNEXPLAINED_COPY}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {model.items.map((item) => (
+                <PulseRow
+                  key={item.eventIdentity}
+                  item={item}
+                  catalystLookupComplete={catalystLookupComplete}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         <p className="mt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">

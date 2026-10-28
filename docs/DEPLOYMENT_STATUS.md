@@ -1,6 +1,28 @@
+> **Current Git state correction (2026-10-27):** GitHub `main` `e65746aba706e50ed0fec42a40f88140d99da0c2` (PR #184 merged); PR #174 closed without merge. The Vercel commit-to-asset, current Fly image SHA, live Edge versions, and updated Lovable integration branch remain **unverified for this exact head**. Do not infer production parity from this docs-only reconciliation. No production deployment was performed. New issues and current proposed batches: `docs/release/master-reset-2026-10-27.md`.
+
 ﻿# Deployment status
 
-Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+
+## GitHub `main` (2026-10-26)
+
+| Field | Value |
+| --- | --- |
+| HEAD | **`13a018a9eab70d0a8f75d51bce790b94ebd8e98f`** |
+| Last merge | PR **#183** — Batch 174/175 Monday acceptance docs |
+
+## Open PR (GitHub)
+
+| PR | Branch | State | Notes |
+| --- | --- | --- | --- |
+| **#174** | `cursor/batch174-monday-scanner-acceptance` | **OPEN**, **CONFLICTING** | Supersede — do not merge; see `docs/release/batch174-175-monday-acceptance-inbox-v1.md` |
+
+## Vercel SPA (2026-10-26 ~17:00 ET)
+
+| Field | Value |
+| --- | --- |
+| Production manifest js | **`/assets/index-BD3GjFFl.js`** |
+| Git SHA on manifest | **None** — parity by hash only |
 
 ## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
 
@@ -19,12 +41,6 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 | GitHub `main` | **`88de0ae8`** — PR **#171** (security V2 + continuity) **merged**; Vercel production deploy **succeeded** |
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
-
-## Open PR (GitHub)
-
-| PR | Branch | State | Notes |
-| --- | --- | --- | --- |
-| Batch 171 | `cursor/batch171-security-performance-v2` | **OPEN** (after push) | Security V2 + public lazy routes + backlog reset docs |
 
 ## Scanner live-market acceptance V1
 
@@ -56,14 +72,14 @@ Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e
 
 **Unblock (Lovable Cloud):** follow `docs/release/edge-function-release-lovable.md`. Record the current production `chat` **version id** (not git SHA alone) for rollback, confirm required secrets exist, then deploy **`chat` only** from approved source **`10723434`** with no source edits. Roll back by redeploying the saved previous revision through Lovable Cloud.
 
-## Lovable integration branch sync (2026-10-24)
+## Lovable integration branch sync (2026-10-25)
 
 | Field | Value |
 | --- | --- |
 | Branch | `cursor/lovable-sync-from-main-20261024` |
-| Integration tip (pre–forward merge) | `bf67bc38` — contains `main` through `10723434` plus Lovable-generated `bun.lock` |
-| After PR #165 | `main` at `9e1a9538`; forward-merge `main` into the integration branch after continuity docs land |
-| AI Analyst V2 in integration branch | **Confirmed** — `analyst-intelligence-delivery.ts` and `_shared/ai-analyst` recovery modules |
+| Tip (after Batch 177 forward-merge) | **`e4801e81cd963ec89a9d5dabd5d3058e01ef7f8d`** — merges `main` **`788b1b93`** into prior **`0ec161bd`** |
+| Parity vs `main` | **PASS** — only `bun.lock` differs (Lovable-generated) |
+| Publish | **Not performed** from Cursor |
 
 ## Confirmed this session
 

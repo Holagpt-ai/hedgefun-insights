@@ -15,6 +15,8 @@ import {
   MOST_ACTIVE_TRACKED_UNIVERSE_TITLE,
 } from "@/lib/markets/movers-provenance";
 import { resolveMarketSession } from "@/lib/price-utils";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
 import {
   MOVERS_PAGE_SHELL_CLASS,
   MOVERS_TABLE_CLASS,
@@ -111,7 +113,16 @@ const MoversPage = () => {
               {rows.slice(0, 50).map((m) => (
                 <tr key={m.symbol} className="border-b border-border last:border-b-0 hover:bg-accent/50">
                   <td className="whitespace-nowrap px-2 py-2 md:px-3">
-                    <button onClick={() => { trackEvent("stock_search", { ticker: m.symbol }); navigate(`/stocks/${m.symbol.toLowerCase()}`); }} className="ticker-symbol text-accent-blue hover:underline text-sm">{m.symbol}</button>
+                    <button
+                      onClick={() => {
+                        trackEvent("stock_search", { ticker: m.symbol });
+                        trackPublicDiscoveryNav({ from: "public_movers", to: "stock_detail", symbol: m.symbol });
+                        navigate(publicStockDetailPath(m.symbol));
+                      }}
+                      className="ticker-symbol text-accent-blue hover:underline text-sm"
+                    >
+                      {m.symbol}
+                    </button>
                   </td>
                   <td
                     className="px-2 py-2 text-right tabular-nums md:px-3"

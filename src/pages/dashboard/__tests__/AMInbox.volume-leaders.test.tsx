@@ -117,6 +117,8 @@ function workspace(status: "premarket" | "regular"): PreMarketWorkspaceResponse 
     },
     earnings_confirmed_total: 0,
     earnings_timing_unconfirmed_total: 0,
+    earnings_calendar_fetch_limit: 320,
+    earnings_calendar_source_truncated: false,
     watchlist_lifecycle: [],
     alerts_included: true,
     indexes: section([]),

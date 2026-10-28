@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { trackEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
 
 const TRENDING = [
   { symbol: "NVDA", label: "NVDA" },
@@ -51,10 +53,11 @@ export function HeroSearch() {
 
   const select = (ticker: string) => {
     trackEvent("stock_search", { ticker });
+    trackPublicDiscoveryNav({ from: "hero_search", to: "stock_detail", symbol: ticker });
     setShowResults(false);
     setQuery("");
     setHighlightedIndex(-1);
-    navigate(`/stocks/${ticker.toLowerCase()}`);
+    navigate(publicStockDetailPath(ticker));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

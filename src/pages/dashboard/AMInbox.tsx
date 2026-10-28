@@ -38,6 +38,7 @@ import { collectMorningBoardEnrichmentSymbols } from "@/lib/am-inbox/am-inbox-ca
 import { buildMorningOpportunityBoard } from "@/lib/am-inbox/morning-opportunity-board";
 import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useAmInboxLateSessionHandoffs } from "@/hooks/useAmInboxLateSessionHandoffs";
+import { resolveAmInboxSessionDate } from "@/lib/am-inbox/resolve-am-inbox-session-date";
 import {
   applyPresentedVolumeLeadersToChecklist,
   buildFreshnessVerifyState,
@@ -51,7 +52,7 @@ import { PRE_MARKET_SCREENER_STALE_MS } from "@/lib/market-data/trust-states";
 import { amCatalystWatchNotice } from "@/lib/pre-market/am-catalyst-section-notice";
 
 export default function AMInbox() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const pmDebug = isPmDebugEnabled(searchParams);
@@ -94,7 +95,7 @@ export default function AMInbox() {
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
 
-  const amSessionDate = etDate || data?.market_context.et_date || "";
+  const amSessionDate = resolveAmInboxSessionDate(data?.market_context.et_date ?? etDate);
   const lateSessionQuery = useAmInboxLateSessionHandoffs(amSessionDate);
   const lateSessionView =
     lateSessionQuery.data?.asOfSessionDate === amSessionDate
@@ -102,9 +103,36 @@ export default function AMInbox() {
       : undefined;
   const lateSessionLoading =
     !!amSessionDate &&
-    (lateSessionQuery.isLoading ||
-      (lateSessionQuery.isFetching && lateSessionView === undefined));
-  const showLateSessionSection = !!amSessionDate && !ws.isUnavailable;
+    lateSessionQuery.isLoading &&
+    lateSessionQuery.fetchStatus !== "idle" &&
+    lateSessionQuery.data === undefined;
+  const lateSessionInitialError =
+    lateSessionQuery.isError && lateSessionView === undefined;
+  const lateSessionRefreshWarning =
+    lateSessionQuery.isError && lateSessionView !== undefined;
+  const showLateSessionSection = !!user?.id;
+
+  const lateSessionContinuationSection =
+    showLateSessionSection ? (
+      <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
+        <SectionHeading
+          title="Late-Session Continuation"
+          subtitle="Prior-session captures · volume-first ordering · not live quotes"
+        />
+        <LateSessionHandoffsList
+          loading={lateSessionLoading}
+          error={lateSessionInitialError}
+          refreshWarning={lateSessionRefreshWarning}
+          onRetry={() => {
+            void lateSessionQuery.refetch();
+          }}
+          expiredCount={lateSessionView?.expiredCount ?? 0}
+          candidates={lateSessionView?.candidates ?? []}
+          qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}
+          funnel={lateSessionView?.funnel}
+        />
+      </section>
+    ) : null;
 
   const morningBoardSymbols = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;
@@ -265,7 +293,10 @@ export default function AMInbox() {
       )}
 
       {ws.isUnavailable ? (
-        <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+        <>
+          <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+          {lateSessionContinuationSection}
+        </>
       ) : (
         <>
           {/* Session status */}
@@ -312,22 +343,7 @@ export default function AMInbox() {
             />
           </section>
 
-          {showLateSessionSection && (
-            <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
-              <SectionHeading
-                title="Late-Session Continuation"
-                subtitle="Prior-session captures · volume-first ordering · not live quotes"
-              />
-              <LateSessionHandoffsList
-                loading={lateSessionLoading}
-                error={lateSessionQuery.isError}
-                expiredCount={lateSessionView?.expiredCount ?? 0}
-                candidates={lateSessionView?.candidates ?? []}
-                qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}
-                funnel={lateSessionView?.funnel}
-              />
-            </section>
-          )}
+          {lateSessionContinuationSection}
 
           {/* Volume Leaders — Radar V2 during confirmed pre-market; screener_results otherwise. Not Radar V2.2. */}
           <SectionShell
@@ -379,7 +395,7 @@ export default function AMInbox() {
           {/* Before-Open Earnings — Top 3 */}
           <SectionShell
             title="Before-Open Earnings"
-            subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
+            subtitle="Verified earnings calendar · market-impact ranking · before-open session only"
             section={data?.earnings ?? null}
             loading={loading}
             emptyMessage={buildBeforeOpenEarningsEmptyMessage(data?.earnings_timing_unconfirmed_total ?? 0)}
@@ -395,6 +411,15 @@ export default function AMInbox() {
             }
           >
             <div className="flex flex-col gap-3">
+              {data?.earnings_calendar_source_truncated ? (
+                <p
+                  className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-400"
+                  data-testid="am-inbox-earnings-calendar-truncated-warning"
+                >
+                  The earnings calendar source reached its fetch limit — ranked events and totals shown
+                  here may be incomplete. Open Catalyst for the full calendar.
+                </p>
+              ) : null}
               {(data?.earnings.data.length ?? 0) === 0 && (data?.earnings_timing_unconfirmed_total ?? 0) > 0 && (
                 <SectionEmpty
                   message={buildBeforeOpenEarningsEmptyMessage(data!.earnings_timing_unconfirmed_total)}

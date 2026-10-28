@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ActiveSymbolRail } from "./ActiveSymbolRail";
 import { HaltsRail } from "./HaltsRail";
@@ -33,6 +33,13 @@ import {
 } from "@/lib/day-trade/build-qualified-panel-rows";
 import type { RadarRankedRow } from "./types";
 import { CarryoverWatchPanel } from "./CarryoverWatchPanel";
+import {
+  DESKTOP_RADAR_WORKSPACE_TABS,
+  desktopRadarTabById,
+  panelIdsForDesktopTab,
+  type DesktopRadarWorkspaceTabId,
+} from "./desktop-radar-workspace-tabs";
+import { DesktopRadarSettingsPanel } from "./DesktopRadarSettingsPanel";
 
 const PANELS: RadarPanelId[] = ["day_trade", "day_trade_qualified", "breakouts", "penny", "carryover"];
 
@@ -59,6 +66,7 @@ export function MultiRadarWorkspace({
   qualificationLoadError = null,
   onQualificationRetry,
   livePanelsVisible = true,
+  historicalSlot = null,
 }: {
   rows: RadarRankedRow[];
   /** Authoritative Day Trade Top-10 (may be []). Never falls back to the Radar universe. */
@@ -76,6 +84,8 @@ export function MultiRadarWorkspace({
   closedSnapshot?: boolean;
   /** False when today's board is empty or unavailable. Carryover still renders. */
   livePanelsVisible?: boolean;
+  /** Repeat movers and similar — desktop Historical tab only. */
+  historicalSlot?: ReactNode;
 }) {
   const isMobile = useIsMobile();
   const [workspace, setWorkspace] = useState<MultiRadarWorkspaceState>(defaultWorkspaceState);
@@ -161,8 +171,12 @@ export function MultiRadarWorkspace({
 
   const panelIds = livePanelsVisible ? PANELS : (["carryover"] as RadarPanelId[]);
   const activeMobile = panelIds.includes(workspace.mobilePanel) ? workspace.mobilePanel : "carryover";
-  const visible = (isMobile ? views.filter((view) => view.id === activeMobile) : views)
-    .filter((view) => panelIds.includes(view.id));
+  const activeDesktopTab: DesktopRadarWorkspaceTabId = workspace.desktopTab ?? "live";
+  const desktopPanelIds = panelIdsForDesktopTab(activeDesktopTab, livePanelsVisible);
+  const visible = isMobile
+    ? views.filter((view) => view.id === activeMobile).filter((view) => panelIds.includes(view.id))
+    : views.filter((view) => desktopPanelIds.includes(view.id));
+  const desktopTabMeta = desktopRadarTabById(activeDesktopTab);
 
   return (
     <div data-testid="multi-radar-workspace" className="min-w-0 space-y-2 overflow-x-hidden">
@@ -193,6 +207,36 @@ export function MultiRadarWorkspace({
           if (row) onOpenDetails(row);
         }}
       />
+      {!isMobile ? (
+        <div
+          role="tablist"
+          aria-label="Day Trade Radar workspace"
+          className="flex flex-wrap gap-1 border-b border-border pb-2"
+          data-testid="radar-desktop-tabs"
+        >
+          {DESKTOP_RADAR_WORKSPACE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeDesktopTab === tab.id}
+              className={`h-9 shrink-0 rounded-md border px-3 text-[11px] font-semibold ${
+                activeDesktopTab === tab.id
+                  ? "border-accent-blue bg-accent-blue text-white"
+                  : "border-border bg-background text-foreground hover:bg-muted/50"
+              }`}
+              onClick={() =>
+                setWorkspace((current) => ({
+                  ...current,
+                  desktopTab: tab.id,
+                }))
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {isMobile ? (
         <div role="tablist" aria-label="Radar panels" className="flex gap-1 overflow-x-auto pb-1" data-testid="radar-mobile-tabs">
           {panelIds.map((id) => (
@@ -217,7 +261,23 @@ export function MultiRadarWorkspace({
           ))}
         </div>
       ) : null}
-      <div className={isMobile ? "space-y-2" : "flex flex-col gap-3"} data-testid={isMobile ? "radar-mobile-board" : "radar-desktop-stack"}>
+      <div
+        className={isMobile ? "space-y-2" : "flex flex-col gap-3 min-h-0"}
+        data-testid={isMobile ? "radar-mobile-board" : "radar-desktop-tab-panel"}
+      >
+        {!isMobile && activeDesktopTab === "settings" ? (
+          <DesktopRadarSettingsPanel
+            panels={workspace.panels}
+            onPatchPanel={(id, patch) => updatePanel(id, patch)}
+            onToggleColumn={(id, column) => {
+              const current = workspace.panels[id].columns;
+              const next = current.includes(column)
+                ? current.filter((col) => col !== column)
+                : [...current, column];
+              updatePanel(id, { columns: canonicalizePanelColumns(next) });
+            }}
+          />
+        ) : null}
         {visible.map((view) => view.id === "carryover" ? (
           <CarryoverWatchPanel key={view.id} nowMs={nowMs} />
         ) : (
@@ -252,6 +312,11 @@ export function MultiRadarWorkspace({
             metaLine={"metaLine" in view ? view.metaLine : undefined}
           />
         ))}
+        {!isMobile && desktopTabMeta.includesHistoricalExtras && historicalSlot ? (
+          <div className="min-w-0" data-testid="radar-desktop-historical-extras">
+            {historicalSlot}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ Fly stocksist-ai-trader-shadow-worker
 - Heavy dashboard and public research routes load via `React.lazy` in `src/lazyPages.ts` with `Suspense` and `RouteLoadingFallback` in `App.tsx` (dashboard trader surfaces, journal, admin, chart, heatmap, inboxes, stock/ETF detail, screener, movers, watchlist, news, earnings, articles). Auth and entitlement wrappers stay on the route tree; lazy loading only defers JS download.
 - Brand and canonical origin: `src/config/brand.ts`, `seo-boundaries.ts`, `src/config/seo.ts`.
 - Screeners and Radar UI read worker output and Edge helpers under `src/lib/screeners/` and `src/lib/radar/`.
+- Public `/markets/premarket` reads the same provider gainers and losers snapshot as the regular mover tabs. A row stays on that tab only when the observation timestamp is inside the 4:00–9:30 a.m. ET premarket window. Regular-session prints stay on the gainers and losers tabs. Missing premarket volume stays blank. The table does not invent RVOL or catalyst.
 - Catalyst UI: `src/pages/dashboard/Catalyst.tsx` and `src/lib/catalyst/`.
 - AI Analyst UI: `src/pages/dashboard/AIAnalyst.tsx`. Chat execution is the `chat` Edge Function.
 - Journal UI: `src/journal/` mounted at `/dashboard/journal`.
@@ -87,6 +88,12 @@ Symbol handoffs from Radar to Action Center use `workflowSymbolRoutes()` so `?sy
 Catalyst tab discovery uses existing `catalyst_events` rows only (`catalyst-discovery-priority.ts`): **Market-moving** category filter, **Market-moving priority** vs **Newest** sort, and preserved **SEC EDGAR** provider filter. No fetch limit increase.
 
 Radar news cells distinguish **verified catalyst** vs **historical catalyst context** vs **unverified news** vs unavailable (`radar-momentum-catalyst-context.ts`, `radar-news-display.ts`). Association is display-only and does not affect scanner rank or promotion.
+
+Client-side attribution integrity (Batch 181): `hydrateCatalystEventVerification()` recomputes headline attribution and reconciles overstated persisted classes except for authoritative providers (SEC EDGAR, earnings calendar, company IR). Shared labels and publisher/source lines live in `catalyst-attribution-presentation.ts`. Radar recent-news tiers require `headlineQualifiesForTickerScopedNews()`. Watchlist Action Center company_event rows use `watchlist-company-event-attribution.ts` so mismatched headlines are labeled, not implied as direct catalysts.
+
+Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyView()` in `src/lib/day-trade/five-pillars-transparency.ts` evaluates price, move, float, participation, and freshness from the same scanner row fields as `day-trade-strategy` and `day-trade-freshness`, merged with persisted `day_trade_qualification_state` for grace, monitoring, and desk lifecycle. Radar detail renders `FivePillarsQualificationSection`. Ranking and desk selection are unchanged.
+
+Desktop Day Trade Radar workspace tabs (Batch 183): `MultiRadarWorkspace` on desktop shows one of Live Radar, Momentum, Historical, Signals, or Settings via `desktop-radar-workspace-tabs.ts`. Existing `RadarPanelBoard` / carryover / repeat-movers components are reused; mobile keeps per-panel tabs. Status rail and qualification counts stay above the workspace.
 
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 

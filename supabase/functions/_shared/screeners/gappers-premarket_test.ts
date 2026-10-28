@@ -26,13 +26,14 @@ function premarket(
   symbol: string,
   last: number | null,
   prevClose: number | null,
-  volume = 2_000_000,
+  accumulatedVolume = 2_000_000,
 ): PolygonTicker {
   const prevDay = prevClose === null ? { v: 100_000 } : { c: prevClose, v: 100_000 };
   return {
     ticker: symbol,
     updated: NOW * 1_000_000,
-    day: { v: volume },
+    day: { v: 0 },
+    min: { av: accumulatedVolume, v: 1_000, t: NOW },
     prevDay,
     ...(last === null ? {} : { lastTrade: { p: last, t: NOW * 1_000_000 } }),
     todaysChangePerc: 900,
@@ -59,26 +60,29 @@ Deno.test("gappers: +5% and -5% qualify; below 5% does not", () => {
   assertEquals(qualifiesGappers(up, true), true);
   assertEquals(qualifiesGappers(down, true), true);
   assertEquals(qualifiesGappers(flat, true), false);
-  const selected = selectForTab("gappers", [flat, up, down], 20, { extendedSession: true });
+  const selected = selectForTab("gappers", [flat, up, down], 20, {
+    extendedSession: true,
+    nowMs: NOW,
+  });
   assertEquals(selected.map((t) => t.ticker), ["DN", "UP"]);
 });
 
 Deno.test("gappers: missing previous close stays prerequisite_unavailable", () => {
   const universe = [premarket("ZZX", 3, null)];
   assertEquals(gapPercent(universe[0], true), null);
-  const evidence = evaluateGappersEvidence(universe, [], undefined, true);
+  const evidence = evaluateGappersEvidence(universe, [], undefined, true, NOW);
   assertEquals(evidence.status, "prerequisite_unavailable");
   assertEquals(evidence.reason, "prior_close_gap_inputs_unavailable");
-  assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true }).length, 0);
+  assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW }).length, 0);
 });
 
 Deno.test("gappers: zero previous close stays unavailable and creates no row", () => {
   const universe = [premarket("ZZX", 3, 0)];
   assertEquals(gapPercent(universe[0], true), null);
-  const evidence = evaluateGappersEvidence(universe, [], undefined, true);
+  const evidence = evaluateGappersEvidence(universe, [], undefined, true, NOW);
   assertEquals(evidence.status, "prerequisite_unavailable");
   assertEquals(evidence.gap_calculable_count, 0);
-  assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true }).length, 0);
+  assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW }).length, 0);
 });
 
 Deno.test("gappers: provider percent is not a stand-in when the last is missing", () => {
@@ -102,8 +106,8 @@ Deno.test("gappers: regular session still uses the opening print", () => {
 
 Deno.test("gappers: evidence is evaluated when prev close and extended last exist", () => {
   const universe = [premarket("ZZX", 3, 2), premarket("AAA", 2.08, 2)];
-  const selected = selectForTab("gappers", universe, 20, { extendedSession: true });
-  const evidence = evaluateGappersEvidence(universe, selected, undefined, true);
+  const selected = selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW });
+  const evidence = evaluateGappersEvidence(universe, selected, undefined, true, NOW);
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.gap_calculable_count, 2);
   assertEquals(evidence.qualified_count, 1);
@@ -114,6 +118,7 @@ Deno.test("gappers: evidence is evaluated when prev close and extended last exis
 Deno.test("gappers: selection does not invent symbols", () => {
   const selected = selectForTab("gappers", [premarket("FLAT", 2.02, 2)], 20, {
     extendedSession: true,
+    nowMs: NOW,
   });
   assertEquals(selected, []);
 });

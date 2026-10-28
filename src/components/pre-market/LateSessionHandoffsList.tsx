@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import type {
   AmInboxLateSessionCandidate,
   LateSessionContinuationFunnel,
 } from "@/lib/am-inbox/late-session-continuation-types";
-import { isLateSessionPriorityCandidate } from "@/lib/am-inbox/am-inbox-late-session-view";
-import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
+import { buildLateSessionPriorityEvaluation } from "@/lib/am-inbox/am-inbox-late-session-view";
+import {
+  AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE,
+  AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
+} from "@/config/late-session-handoff.config";
 import {
   buildContinuationCapturedRvolDisplay,
   formatContinuationCaptureTimestampEt,
@@ -103,6 +107,8 @@ export function LateSessionHandoffsList({
   visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
   loading = false,
   error = false,
+  refreshWarning = false,
+  onRetry,
   expiredCount = 0,
 }: {
   candidates: readonly AmInboxLateSessionCandidate[];
@@ -110,12 +116,35 @@ export function LateSessionHandoffsList({
   funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
   loading?: boolean;
+  /** Initial load failed with no prior view to show. */
   error?: boolean;
+  /** Background refresh failed; cards below are from the last successful load. */
+  refreshWarning?: boolean;
+  onRetry?: () => void;
   expiredCount?: number;
 }) {
+  const qualifiedPool = qualifiedCandidates ?? candidates;
   const [expanded, setExpanded] = useState(false);
+  const [expandedRenderCount, setExpandedRenderCount] = useState(
+    AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
+  );
 
-  if (loading) {
+  useEffect(() => {
+    if (!expanded) {
+      setExpandedRenderCount(AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+    }
+  }, [expanded]);
+
+  const priorityEval = useMemo(() => {
+    if (qualifiedPool.length === 0) return null;
+    return buildLateSessionPriorityEvaluation(qualifiedPool);
+  }, [qualifiedPool]);
+
+  const hasQualified = qualifiedPool.length > 0;
+  const hasPriority = candidates.length > 0;
+  const hasVisiblePool = hasQualified || hasPriority;
+
+  if (loading && !hasVisiblePool) {
     return (
       <div
         className="rounded-xl border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground"
@@ -127,23 +156,29 @@ export function LateSessionHandoffsList({
     );
   }
 
-  if (error) {
+  if (error && !hasVisiblePool) {
     return (
       <div
         role="alert"
-        className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-6 text-center text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100"
+        className="flex flex-col items-center gap-3 rounded-xl border border-red-200 bg-red-50/80 px-4 py-6 text-center text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100"
         data-testid="am-inbox-late-session-handoffs-error"
       >
-        Could not load continuation candidates. Prior-session cards are hidden until retry succeeds.
+        <p>Could not load continuation candidates. Prior-session cards are hidden until retry succeeds.</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
+        ) : null}
       </div>
     );
   }
 
-  const qualifiedPool = qualifiedCandidates ?? candidates;
-  const hasQualified = qualifiedPool.length > 0;
-  const hasPriority = candidates.length > 0;
-
-  if (!hasQualified && !hasPriority) {
+  if (!hasVisiblePool) {
     return (
       <div
         className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground"
@@ -170,11 +205,34 @@ export function LateSessionHandoffsList({
           qualifiedPool.length > 0
         ? qualifiedPool.slice(0, visibleLimit)
         : [];
-  const visible = expanded ? qualifiedPool : defaultVisible;
+  const visible = expanded
+    ? qualifiedPool.slice(0, expandedRenderCount)
+    : defaultVisible;
   const canViewAllQualified = qualifiedPool.length > defaultVisible.length;
+  const canLoadMoreExpanded =
+    expanded && expandedRenderCount < qualifiedPool.length;
 
   return (
     <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
+      {refreshWarning ? (
+        <div
+          role="status"
+          className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400"
+          data-testid="am-inbox-late-session-handoffs-refresh-warning"
+        >
+          Could not refresh continuation candidates — showing the last successful load.
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="ml-2 inline-flex items-center gap-1 font-medium text-amber-800 underline hover:no-underline dark:text-amber-300"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <p className="text-[11px] text-muted-foreground">
         {stats.detectedCount} detected · {stats.qualifiedCount} qualified ·{" "}
         {stats.priorityCount} priority
@@ -186,16 +244,35 @@ export function LateSessionHandoffsList({
         <HandoffCard
           key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}-${entry.context.sourceTimestamp}`}
           entry={entry}
-          showQualifiedLabel={
-            !isLateSessionPriorityCandidate(entry, qualifiedPool)
-          }
+          showQualifiedLabel={priorityEval ? !priorityEval.isPriority(entry) : false}
         />
       ))}
+      {canLoadMoreExpanded ? (
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedRenderCount((n) =>
+              Math.min(n + AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE, qualifiedPool.length),
+            )
+          }
+          className="text-xs font-medium text-accent-blue hover:underline"
+        >
+          Load more ({qualifiedPool.length - expandedRenderCount} remaining)
+        </button>
+      ) : null}
       {canViewAllQualified && (
         <button
           type="button"
           aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            setExpanded((v) => {
+              const next = !v;
+              if (next) {
+                setExpandedRenderCount(AM_INBOX_LATE_SESSION_EXPANDED_PAGE_SIZE);
+              }
+              return next;
+            });
+          }}
           className="mt-2 text-xs font-medium text-accent-blue hover:underline"
         >
           {expanded

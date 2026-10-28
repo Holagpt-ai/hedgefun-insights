@@ -7,11 +7,15 @@ import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import {
   getTabEvaluationEvidence,
   gappersEvidenceSupportsZeroMatch,
+  isPublicationConfirmedTabEvidence,
   nhlEvidenceSupportsZeroMatch,
   type GappersTabEvidence,
   type NhlTabEvidence,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
+
+const PUBLICATION_CONFIRMED_ADVISORY =
+  "Full tab evaluation evidence is unavailable for this generation. Rows below are verified published screener results only (up to 20 per tab), not a complete universe evaluation. Restoring provider evaluation metadata requires the 5-argument replace RPC on production (migration + sync-screener-data deploy).";
 
 export type ScreenerTruthReason =
   | "validated_zero_matches"
@@ -21,6 +25,7 @@ export type ScreenerTruthReason =
   | "generation_unavailable"
   | "generation_stale"
   | "evaluated_with_results"
+  | "publication_confirmed_results"
   | "evaluation_evidence_missing"
   | "loading";
 
@@ -169,8 +174,15 @@ function resolveEmptyReason(
   }
 
   if (evidence && "status" in evidence) {
+    if (isPublicationConfirmedTabEvidence(evidence)) {
+      return "evaluation_evidence_missing";
+    }
     if (evidence.status === "prerequisite_unavailable") return "prerequisite_unavailable";
-    if (evidence.status === "evaluated" && evidence.qualified_count === 0) {
+    if (
+      evidence.status === "evaluated" &&
+      "qualified_count" in evidence &&
+      evidence.qualified_count === 0
+    ) {
       return "validated_zero_matches";
     }
   }
@@ -228,6 +240,12 @@ function copyForReason(
       };
     case "evaluated_with_results":
       return { title: "Results available", explanation: "" };
+    case "publication_confirmed_results":
+      return {
+        title: "Published results",
+        explanation:
+          "These rows are verified published screener results. Complete evaluation evidence for this tab is not available in this generation.",
+      };
     case "loading":
       return { title: "Loading", explanation: "" };
     default:
@@ -305,6 +323,18 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "available" && rowCount > 0) {
+    if (isPublicationConfirmedTabEvidence(evidence)) {
+      return {
+        status,
+        reason: "publication_confirmed_results",
+        title: "Published results",
+        explanation:
+          "These rows are verified published screener results. Complete evaluation evidence for this tab is not available in this generation.",
+        showRows: true,
+        showFreshness: hasSyncedAt,
+        advisory: PUBLICATION_CONFIRMED_ADVISORY,
+      };
+    }
     const advisory = resolveNhlBaselineCoverageAdvisory(tabId, rowCount, evidence)
       ?? resolveGappersPartialAdvisory(tabId, rowCount, evidence);
     return {
