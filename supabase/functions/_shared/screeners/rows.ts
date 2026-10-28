@@ -19,6 +19,7 @@ import {
 import {
   sessionQualificationVolume,
   volumeContextFromMeta,
+  type SessionVolumeCache,
 } from "./session-volume.ts";
 import {
   extendedQuoteSemanticsForTicker,
@@ -104,6 +105,7 @@ export type GenerationMeta = {
   extendedSession?: boolean;
   /** Per-ticker observation session for volume, gap, and move fields. */
   observationSessionFields?: boolean;
+  sessionVolumeCache?: SessionVolumeCache;
 };
 
 /** Volume columns persist as integers. */
@@ -179,6 +181,7 @@ function baseRow(
     extendedSession: meta.extendedSession ?? false,
     observationSessionFields: meta.observationSessionFields ?? false,
     nowMs: meta.nowMs,
+    sessionVolumeCache: meta.sessionVolumeCache,
   };
   const extended = extendedQuoteSemanticsForTicker(t, tabOpts);
   if (extended === null) {

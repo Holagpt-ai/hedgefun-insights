@@ -5,6 +5,7 @@ import {
   extendedQuoteSemanticsForObservation,
   sessionQualificationVolume,
   volumeContextFromOpts,
+  type SessionVolumeCache,
   type SessionVolumeContext,
 } from "./session-volume.ts";
 
@@ -15,6 +16,7 @@ export type TabSelectionOpts = {
   extendedSession?: boolean;
   observationSessionFields?: boolean;
   nowMs?: number;
+  sessionVolumeCache?: SessionVolumeCache;
 };
 
 export function extendedQuoteSemanticsForTicker(
@@ -22,7 +24,11 @@ export function extendedQuoteSemanticsForTicker(
   opts?: TabSelectionOpts,
 ): boolean | null {
   if (opts?.observationSessionFields && opts.nowMs !== undefined) {
-    return extendedQuoteSemanticsForObservation(t, opts.nowMs);
+    return extendedQuoteSemanticsForObservation(
+      t,
+      opts.nowMs,
+      volumeContextFromOpts(opts),
+    );
   }
   return opts?.extendedSession ?? false;
 }
@@ -498,6 +504,38 @@ export const TAB_QUALIFIERS: Record<
 /**
  * Apply tab qualification then the shared volume-first selection contract.
  */
+export type MainUniverseTabSelections = {
+  day_trade_radar: PolygonTicker[];
+  gappers: PolygonTicker[];
+  volume_spikes: PolygonTicker[];
+  unusual_volume: PolygonTicker[];
+};
+
+/** One qualification pass over the main snapshot for four volume-first tabs. */
+export function selectMainUniverseTabs(
+  universe: PolygonTicker[],
+  extendedTabOpts: TabSelectionOpts,
+  limit: number = SCREENER_ROW_LIMIT,
+): MainUniverseTabSelections {
+  const volumeCtx = volumeContextFromOpts(extendedTabOpts);
+  const dayTradeQ: PolygonTicker[] = [];
+  const gappersQ: PolygonTicker[] = [];
+  const spikesQ: PolygonTicker[] = [];
+  const unusualQ: PolygonTicker[] = [];
+  for (const t of universe) {
+    if (qualifiesDayTradeRadar(t)) dayTradeQ.push(t);
+    if (qualifiesGappers(t, extendedTabOpts)) gappersQ.push(t);
+    if (qualifiesVolumeSpikes(t, volumeCtx)) spikesQ.push(t);
+    if (qualifiesUnusualVolume(t, volumeCtx)) unusualQ.push(t);
+  }
+  return {
+    day_trade_radar: selectVolumeFirst(dayTradeQ, limit, {}),
+    gappers: selectVolumeFirst(gappersQ, limit, volumeCtx),
+    volume_spikes: selectVolumeFirst(spikesQ, limit, volumeCtx),
+    unusual_volume: selectVolumeFirst(unusualQ, limit, volumeCtx),
+  };
+}
+
 export function selectForTab(
   tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   universe: PolygonTicker[],
