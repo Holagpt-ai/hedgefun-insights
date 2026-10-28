@@ -105,6 +105,36 @@ export function formatStockHeaderSessionLine(now = new Date()): string {
   return `${clock.label} · ${clock.etTimeStr} ${tz}`;
 }
 
+/**
+ * Homepage / public movers session context: ET wall clock, session name, countdown duration,
+ * and absolute boundary copy from {@link resolveMarketClock} — not the stock-header label
+ * that embeds "OPENS IN" without a duration.
+ */
+export function formatHomepageMarketSessionLine(now = new Date()): string {
+  const clock = resolveMarketClock(now);
+  const tz = estTimezoneAbbr(now);
+  const et = getEtParts(now);
+  const holiday = marketHolidayName(et.date);
+  const wall = `${clock.etTimeStr} ${tz}`;
+
+  if (!clock.isTradingDay) {
+    if (holiday) return `${wall} · ${holiday} · Market closed · ${clock.subLabel}`;
+    if (et.weekday === 0 || et.weekday === 6) return `${wall} · Weekend · Market closed · ${clock.subLabel}`;
+    return `${wall} · Market closed · ${clock.subLabel}`;
+  }
+
+  if (clock.sessionId === "market") {
+    return `${wall} · Regular session · Closes in ${clock.countdown} · ${clock.subLabel}`;
+  }
+  if (clock.sessionId === "pre-market") {
+    return `${wall} · Pre-market · Opens in ${clock.countdown} · ${clock.subLabel}`;
+  }
+  if (clock.sessionId === "after-hours") {
+    return `${wall} · After-hours · Ends in ${clock.countdown} · ${clock.subLabel}`;
+  }
+  return `${wall} · Closed · ${clock.subLabel}`;
+}
+
 const SOURCE_LABEL: Record<Exclude<StockHeaderTimestampSource, null>, string> = {
   lastTrade: "Last trade",
   min: "Minute aggregate",

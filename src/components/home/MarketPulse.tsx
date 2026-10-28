@@ -11,6 +11,7 @@ import { useMarketPulseCatalystEnrichment } from "@/hooks/useMarketPulseCatalyst
 import {
   attachMarketPulseCatalystContext,
   MARKET_PULSE_CAUSATION_DISCLAIMER,
+  MARKET_PULSE_ROW_NO_CATALYST,
   MARKET_PULSE_UNEXPLAINED_COPY,
 } from "@/lib/markets/market-pulse-catalyst";
 import {
@@ -142,7 +143,7 @@ function PulseRow({
               </div>
             </div>
           ) : catalystLookupComplete ? (
-            <p className="mt-2 text-xs text-muted-foreground">{MARKET_PULSE_UNEXPLAINED_COPY}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{MARKET_PULSE_ROW_NO_CATALYST}</p>
           ) : (
             <Skeleton className="mt-2 h-10 w-full max-w-md rounded-sm" />
           )}
@@ -240,15 +241,23 @@ export function MarketPulse() {
             {moversSuccessfulEmptyMessage({ marketClosed })}
           </p>
         ) : (
-          <div className="flex flex-col gap-2">
-            {model.items.map((item) => (
-              <PulseRow
-                key={item.eventIdentity}
-                item={item}
-                catalystLookupComplete={catalystLookupComplete}
-              />
-            ))}
-          </div>
+          <>
+            {catalystLookupComplete &&
+            model.items.some((item) => !item.verifiedCatalyst) ? (
+              <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+                {MARKET_PULSE_UNEXPLAINED_COPY}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {model.items.map((item) => (
+                <PulseRow
+                  key={item.eventIdentity}
+                  item={item}
+                  catalystLookupComplete={catalystLookupComplete}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         <p className="mt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">

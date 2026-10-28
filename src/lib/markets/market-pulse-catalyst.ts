@@ -24,6 +24,9 @@ export const MARKET_PULSE_CAUSATION_DISCLAIMER = CATALYST_MOVEMENT_CAUSATION_DIS
 export const MARKET_PULSE_UNEXPLAINED_COPY =
   "Meaningful price movement without a verified catalyst event linked from Stocksist records.";
 
+/** Per-row neutral line when enrichment found no verified catalyst (section holds the long explanation). */
+export const MARKET_PULSE_ROW_NO_CATALYST = "No verified catalyst linked.";
+
 const RELEVANCE_OK = new Set(["DIRECT", "PRIMARY"]);
 
 function persistedAttributionBlocks(event: CatalystEvent): boolean {

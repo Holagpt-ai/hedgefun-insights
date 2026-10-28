@@ -2,7 +2,7 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Historical baseline: `origin/main` **`b69d7444`** (PR **#188**). Batch **185** @ `e662c928`; Batch **184** @ `0fa177dd`. **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (Lovable Oct 27: **3,131** active handoffs); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked**.
+Historical baseline: `origin/main` **`dc965d2d`** (PR **#191** Batch 188). Batch **185** @ `e662c928`; Batch **184** @ `0fa177dd`. **PR #174 closed without merge**. Batch **174** **CONDITIONAL**. Batch **175** persistence **PASS** (Lovable Oct 27: **3,131** active handoffs); AM Inbox UI **NOT VERIFIED**. ISS-001 closed on `main`. **ISS-015** **blocked**.
 
 Original ten Lovable scanner warnings (historical): `docs/release/lovable-scanner-reliability-warnings.md` — treat as **fixed in git**, **mitigated** (Batch 185 client/Edge), or **operationally unverified** (Vercel/mobile) per item; Oct 27 Lovable read-only feed evidence **PASS** for RPC/evidence column. October 24 npm/deploy: ISS-015–019. Next batches: `docs/release/next-approved-batches.md`.
 
@@ -14,14 +14,14 @@ Source: authenticated Android Chrome captures 08:06–08:15 ET; code cross-check
 | --- | --- | --- | --- |
 | ISS-024 | P0 | Missing scanner gap input and tab-evaluation evidence | **Batch 185 merged (`e662c928`)** — client `publication_confirmed` + Edge PATCH path. Lovable **Oct 27 read-only**: feed **115 rows**, tabs evaluated, 5-arg RPC + evidence **PASS**. Gappers premarket may still need Radar restore when sync marks inputs unavailable. Vercel deploy + UI acceptance **NOT VERIFIED** here. |
 | ISS-025 | P0 | AM Inbox continuation loading / display vs large RPC payloads | **Batch 186 merged (`d3cec11f`)** — parallel session date, workflow cache, refetch UX; prod RPC **3,131 rows PASS**; authenticated UI **NOT VERIFIED** |
-| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Batch 188 in PR** — loading/error/stale states + Retry on Overview/Trades/Calendar |
+| ISS-032 | P2 | JournalWorkspace terminal-error loading state | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — authenticated Android acceptance **pending** |
 | ISS-026 | P1 | Earnings significance not reflected in surfaced order | **Batch 187 merged (`d86e0c69`)** — Edge activation separately gated; Vercel **SUCCESS** |
-| ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Batch 188 in PR** — brief preview + SectionShell skeleton guard + SPCX fixture |
+| ISS-027 | P1 | Risk flags blank height / brief preview text clipping | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
 | ISS-028 | P1 | TSLA SpaceX news shown as direct catalyst in deployed UI | **No new regression in Batch 187** — Batch 181 precedence tests still classify comparison headlines secondary; prod UI **NOT RE-VERIFIED** |
-| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Observed UI**; Batch 189 honor approved no-AI-Trader homepage |
-| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Batch 188 in PR** — compact/expand disclosure |
+| ISS-029 | P2 | Homepage AI Trader banner remains; market-open countdown ambiguous | **Batch 189 in PR** — AI Trader removed from homepage; countdown + Market Pulse density fixes |
+| ISS-030 | P2 | Mobile Carryover Watch repetitive oversized cards | **Fixed on `main`** (Batch **188**, PR **#191** → **`dc965d2d`**) — mobile re-check **pending** |
 | ISS-031 | P1 | Homepage movers populated while authenticated Radar evidence tabs unavailable | **Explained in Batch 185 runbook** — Polygon snapshot movers vs screener publication; Oct 27 morning UI predated evidence persistence. Not a universe substitute. |
-**Acceptance:** PR #174 CLOSED; #184 MERGED; #185 MERGED (`e662c928`); #188 MERGED (`b69d7444`). Lovable integration forward-sync **`a03407c2`**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**.
+**Acceptance:** PR #174 CLOSED; #184–#186 MERGED; #188 Lovable parity **`b69d7444`**; #191 Batch 188 **`dc965d2d`**. Batch 189 homepage PR **open**. Batch 175 persistence **PASS** (3,131 rows Oct 27); AM Inbox UI **NOT VERIFIED**; Batch 188 Android **NOT VERIFIED**.
 
 ## Confirmed
 

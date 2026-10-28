@@ -5,7 +5,7 @@
 
 import {
   PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
-  formatStockHeaderSessionLine,
+  formatHomepageMarketSessionLine,
   resolveMarketSession,
 } from "@/lib/price-utils";
 import { getEtParts, tradingSessionDateForInstant } from "@/lib/market-calendar";
@@ -239,7 +239,7 @@ export function summarizeMoversListProvenance(
   }
   const freshness = classifyFreshness(sessionSummary, observation, opts.moverSession, nowMs);
 
-  let sessionLine = formatStockHeaderSessionLine(new Date(nowMs));
+  let sessionLine = formatHomepageMarketSessionLine(new Date(nowMs));
   if (sessionSummary.mode === "homogeneous_prior" && sessionSummary.dominantDate) {
     sessionLine = `Prior source session · ${sessionSummary.dominantDate} · ${sessionLine}`;
   } else if (sessionSummary.mode === "mixed") {
