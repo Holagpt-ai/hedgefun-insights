@@ -1,35 +1,56 @@
 # Next approved product batches
 
-**Superseded for active work (2026-10-28):** Implementation and verification queue **190–209** lives in **`docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`** (Master Continuity Sync V4). This file retains the **171–189** historical register only.
+**Historical register:** batches **171–189** (code-complete in git; open items are **acceptance/ops**, not reimplementation).
 
-Register baseline: GitHub `main` **`1398d16a`** (PR **#194** merged). Product batch ids are not always GitHub PR numbers.
+**Active queue (2026-10-28):** batches **190–209** in **`docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`**. Only **Batch 190** is recommended for immediate owner-approved implementation scope.
+
+Baseline: GitHub `main` **`1398d16a`**. Product batch ids ≠ GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
 | **171** | Security & performance V2 | **Merged** → `88de0ae8` |
 | **172** | Catalyst Source Coverage V1 | **Merged** → `93a3c35d` |
 | **173** | Watchlist / historical handoff integrity | **Merged** → `28cbcc9e` |
-| **174** | Monday live scanner acceptance | **CONDITIONAL** — verification under master batch **191**; PR **#174** **closed without merge** |
-| **175** | Continuation & inbox acceptance | **Persistence PASS**; AM Inbox UI **NOT VERIFIED** — verification under master batch **192** |
-| **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation gated (**ISS-006**, batch **204**) |
-| **177** | Lovable forward-sync & continuity | **Merged / ops** — PR **#176** → **`1002c682`**; integration tip **`04da6d7f`** (2026-10-28) |
-| **178** | Scanner session integrity V1 | **Merged** — PR **#179** → **`7c2bf094`** |
-| **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`** |
-| **180** | Public navigation & UX integrity V1 | **Merged** — PR **#178** → **`d4095c86`** |
-| **181** | Catalyst + Watchlist source integrity V1 | **Merged** — PR **#180** → **`aae43f98`** |
-| **182** | Five Pillars qualification transparency V1 | **Merged** — PR **#181** → **`0542ee10`** |
-| **183** | Desktop Day Trade Radar workspace tabs V1 | **Merged** — PR **#182** → **`3ef97ee1`** |
-| **184** | Mobile navigation stability | **Merged** — PR **#186** → **`0fa177dd`**; mobile acceptance **pending** |
-| **185** | Scanner evidence & input reliability | **Merged** — PR **#187** → **`e662c928`** |
-| **186** | AM Inbox continuation | **Merged** — PR **#189** → **`d3cec11f`** |
-| **187** | Earnings intelligence | **Merged** — PR **#190** → **`d86e0c69`**; Edge activation **pending** (batch **194**) |
-| **188** | Mobile dashboard & Journal reliability | **Merged** — PR **#191** → **`dc965d2d`**; acceptance **pending** (batch **193**) |
-| **189** | Homepage final cleanup | **Merged** — PR **#192** → **`68092518`** |
+| **174** | Monday live scanner acceptance | **CONDITIONAL** → master **191**; PR **#174** **closed** |
+| **175** | Continuation & inbox acceptance | Persistence **PASS**; UI **NOT VERIFIED** → master **192** |
+| **176** | Catalyst intel distribution bridge V1 | **Merged** → `788b1b93`; activation **203** |
+| **177** | Lovable forward-sync & continuity | **Merged**; integration tip **`04da6d7f`** |
+| **178** | Scanner session integrity V1 | **Merged** → `7c2bf094` |
+| **179** | Public website & conversion V1 | **Merged** → `dc42cfe5` |
+| **180** | Public navigation & UX integrity V1 | **Merged** → `d4095c86` |
+| **181** | Catalyst + Watchlist source integrity V1 | **Merged** → `aae43f98` |
+| **182** | Five Pillars qualification transparency V1 | **Merged** → `0542ee10` |
+| **183** | Desktop Day Trade Radar workspace tabs V1 | **Merged** → `3ef97ee1` |
+| **184** | Mobile navigation stability | **Merged** → `0fa177dd` → master **193** acceptance |
+| **185** | Scanner evidence & input reliability | **Merged** → `e662c928` |
+| **186** | AM Inbox continuation | **Merged** → `d3cec11f` → master **192** acceptance |
+| **187** | Earnings intelligence | **Merged** → `d86e0c69` → master **194** Edge ops |
+| **188** | Mobile dashboard & Journal reliability | **Merged** → `dc965d2d` → master **193** acceptance |
+| **189** | Homepage final cleanup | **Merged** → `68092518` |
 
-**Next authorized development batch:** **190** — CPU-safe scanner execution and atomic publication (**ISS-034**). See master backlog.
+### Proposed master batches 190–209 (summary)
 
-**Ops gate (parallel, deferred):** **ISS-015** — Lovable **`chat`-only** Edge deploy (batch **203**). **Blocked.**
+| Batch | Name |
+| --- | --- |
+| **190** | P0 CPU-safe screener execution and atomic publisher (**ISS-034**) |
+| **191** | P0 market-session scanner acceptance (old **174**) |
+| **192** | P0 AM Inbox continuation acceptance (old **175/186**) |
+| **193** | Mobile workflow & Journal acceptance |
+| **194** | Earnings Edge activation & acceptance |
+| **195** | Catalyst/Watchlist issuer-trust acceptance |
+| **196** | Fly Radar / Five Pillars / continuation acceptance |
+| **197** | Desktop Radar historical/workflow cleanup |
+| **198** | Bounded market-data & ops reliability |
+| **199–200** | Penny Continuation spec / implementation (conditional) |
+| **201–202** | Historical intelligence refinements / launch stabilization |
+| **203** | Catalyst distribution activation (**ISS-006**) — **DEFERRED** |
+| **204** | AI Analyst & `chat` Edge (**ISS-007/015**) — **DEFERRED** |
+| **205** | Real-time feed — **DEFERRED** |
+| **206** | Newsletter / billing — **DEFERRED** |
+| **207** | Broker — **DEFERRED** |
+| **208** | AI Trader — **DEFERRED** |
+| **209** | Community / parked — **NOT APPROVED** |
 
-Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm/deploy findings: ISS-016 through ISS-019.
+Full scope, dependencies, and gates: **`STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`**.
 
-**Deferred product (unapproved):** Penny Continuation distinct from **`penny`** panel — batches **199–200** in master backlog.
+**Ops:** ISS-015 **`chat`** blocked (batch **204**). Penny Continuation ≠ **`penny`** panel. No PR merge/deploy authorized by this register alone.

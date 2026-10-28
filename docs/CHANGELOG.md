@@ -8,12 +8,12 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Master Continuity Sync V4** (documentation): `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`; continuity refresh for **`1398d16a`**. **Batch 190** authorized as next development assignment; implementation **not started** in docs PR.
+- **Master Continuity Sync V4** (PR **#195**, documentation): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`; continuity refresh for **`1398d16a`**. **Batch 190** authorized as next development assignment; implementation **not started**.
 
 ## 2026-10-28
 
-- **P0 CPU mitigation** merged (PR **#194** → **`1398d16a`**): bound session-volume cache, `selectMainUniverseTabs`, staged 13,262 benchmark, parity tests. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **Deployed Lovable 17:29:52 UTC** (owner-reported). **Not production acceptance** — **17:30 / 17:35 UTC** **CPU Time exceeded**; **ISS-034** open; local benchmark ~3–4.5s ≠ Edge CPU proof.
-- **P0 D1** Extended-hours screener volume integrity merged (PR **#193** → **`4f7c10db`**). **Lovable Edge deployed** (source fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`). **Premarket live acceptance pending.**
+- **P0 CPU mitigation** merged (PR **#194** → **`1398d16a`**; implementation core **`268ffabc`**, PR branch head **`f3a2d23e`**): bound session-volume cache, `selectMainUniverseTabs`, staged benchmark, parity tests. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **Deployed Lovable `sync-screener-data` 17:29:52 UTC** — submitted source SHA-256 `cfd9032b…cc3af`, 37-file closure SHA-256 `c3a70628…8a167`. **Publication failed** — **17:30 / 17:35 UTC** **CPU Time exceeded**; **ISS-034** **open**.
+- **P0 D1** Extended-hours screener volume integrity merged (PR **#193** → **`4f7c10db`**). **Lovable Edge deployed** (fingerprint SHA-256 `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`). **Premarket live acceptance pending.**
 - Batch **189** Homepage final cleanup merged (PR **#192** → **`68092518`**): AI Trader off homepage, market clocks, live session countdown, Market Pulse disclosures.
 
 ## 2026-10-27 (Batch 188)
