@@ -24,9 +24,16 @@ function safeNumber(v: unknown): number | null {
 }
 
 export type SessionVolumeContext = {
+  /** Server clock extended sync (pre-market / after-hours). */
   extendedSession?: boolean;
+  /** Live surveillance sync: resolve volume from each ticker's observation session. */
+  observationSessionVolume?: boolean;
   nowMs?: number;
 };
+
+function usesObservationVolumeResolution(ctx: SessionVolumeContext): boolean {
+  return ctx.observationSessionVolume === true || ctx.extendedSession === true;
+}
 
 function positiveFinite(value: unknown): number | null {
   const n = safeNumber(value);
@@ -163,11 +170,21 @@ function isCurrentSurveillanceObservation(
  * Qualification / ranking volume for screener tabs.
  * Extended sync uses provider observation session; regular sync uses day.v.
  */
+/** Extended last / gap semantics when observation is pre-market or after-hours. */
+export function extendedQuoteSemanticsForObservation(
+  t: VolumeTicker,
+  nowMs: number,
+): boolean | null {
+  const kind = resolveObservationSessionKind(t, nowMs);
+  if (kind === null) return null;
+  return kind === "pre-market" || kind === "after-hours";
+}
+
 export function sessionQualificationVolume(
   t: VolumeTicker,
   ctx: SessionVolumeContext = {},
 ): number | null {
-  if (ctx.extendedSession !== true) return regularSessionVolume(t);
+  if (!usesObservationVolumeResolution(ctx)) return regularSessionVolume(t);
 
   const nowMs = ctx.nowMs;
   if (nowMs === undefined || !Number.isFinite(nowMs)) return null;
@@ -182,20 +199,24 @@ export function sessionQualificationVolume(
 
 export function volumeContextFromMeta(meta: {
   extendedSession?: boolean;
+  observationSessionFields?: boolean;
   nowMs: number;
 }): SessionVolumeContext {
   return {
     extendedSession: meta.extendedSession ?? false,
+    observationSessionVolume: meta.observationSessionFields ?? false,
     nowMs: meta.nowMs,
   };
 }
 
 export function volumeContextFromOpts(opts?: {
   extendedSession?: boolean;
+  observationSessionFields?: boolean;
   nowMs?: number;
 }): SessionVolumeContext {
   return {
     extendedSession: opts?.extendedSession ?? false,
+    observationSessionVolume: opts?.observationSessionFields ?? false,
     nowMs: opts?.nowMs,
   };
 }

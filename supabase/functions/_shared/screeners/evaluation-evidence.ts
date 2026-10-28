@@ -36,6 +36,7 @@ import {
   hasValidSessionOpen,
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
+  gapPercentForTabContext,
   qualifiesGappers,
   qualifiesUnusualVolume,
   qualifiesVolumeSpikes,
@@ -105,6 +106,18 @@ export type HistoricalCoverageEvidence = {
   baselineSymbols: ReadonlySet<string>;
   policyExclusions: PolicyExclusionEvidence;
 };
+
+function volumeCtxFromEvidence(
+  extendedSession: boolean,
+  nowMs?: number,
+  observationSessionFields?: boolean,
+): SessionVolumeContext {
+  return {
+    extendedSession,
+    observationSessionVolume: observationSessionFields ?? false,
+    nowMs,
+  };
+}
 
 function countVolumeActive(
   universe: readonly PolygonTicker[],
@@ -182,8 +195,13 @@ export function evaluateGappersEvidence(
   coverage?: HistoricalCoverageEvidence,
   extendedSession = false,
   nowMs?: number,
+  observationSessionFields = false,
 ): GappersTabEvidence {
-  const volumeCtx: SessionVolumeContext = { extendedSession, nowMs };
+  const volumeCtx = volumeCtxFromEvidence(
+    extendedSession,
+    nowMs,
+    observationSessionFields,
+  );
   const universe_count = universe.length;
   const volume_positive_count = countVolumeActive(universe, volumeCtx);
   let gap_calculable_count = 0;
@@ -194,14 +212,20 @@ export function evaluateGappersEvidence(
   for (const t of universe) {
     const volumeActive = sessionQualificationVolume(t, volumeCtx) !== null;
     if (!volumeActive) continue;
-    if (gapPercent(t, extendedSession) !== null) {
+    if (gapPercentForTabContext(t, {
+      extendedSession,
+      observationSessionFields,
+      nowMs,
+    }) !== null) {
       gap_calculable_count += 1;
     } else if (isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)) {
       no_prior_session_count += 1;
     } else {
       unresolved_gap_input_count += 1;
     }
-    if (qualifiesGappers(t, extendedSession)) qualified_count += 1;
+    if (qualifiesGappers(t, { extendedSession, observationSessionFields, nowMs })) {
+      qualified_count += 1;
+    }
   }
 
   const selected_count = selected.length;
@@ -266,8 +290,13 @@ export function evaluateNhlEvidence(
   policyExclusions: PolicyExclusionEvidence = POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
   extendedSession = false,
   nowMs?: number,
+  observationSessionFields = false,
 ): NhlTabEvidence {
-  const volumeCtx: SessionVolumeContext = { extendedSession, nowMs };
+  const volumeCtx = volumeCtxFromEvidence(
+    extendedSession,
+    nowMs,
+    observationSessionFields,
+  );
   const baseline_quote_count = baselines.size;
   const base = {
     baseline_quote_count,
@@ -402,13 +431,19 @@ export function evaluateGenericTabEvidence(
   tabId: Exclude<ScreenerTabId, "new_highs_lows" | "gappers">,
   universe: readonly PolygonTicker[],
   selected: readonly PolygonTicker[],
-  opts?: { extendedSession?: boolean; nowMs?: number },
+  opts?: {
+    extendedSession?: boolean;
+    nowMs?: number;
+    observationSessionFields?: boolean;
+  },
 ): GenericTabEvidence {
-  const volumeCtx: SessionVolumeContext = {
-    extendedSession: opts?.extendedSession ?? false,
-    nowMs: opts?.nowMs,
-  };
+  const volumeCtx = volumeCtxFromEvidence(
+    opts?.extendedSession ?? false,
+    opts?.nowMs,
+    opts?.observationSessionFields,
+  );
   const extendedSession = volumeCtx.extendedSession === true;
+  const observationSessionFields = volumeCtx.observationSessionVolume === true;
   let qualified_count = 0;
   if (tabId === "volume_spikes") {
     for (const t of universe) {
@@ -437,7 +472,7 @@ export function evaluateGenericTabEvidence(
 
   const volumeSensitiveTab =
     tabId === "volume_spikes" || tabId === "unusual_volume" || tabId === "gainers_losers";
-  if (extendedSession && volumeSensitiveTab) {
+  if ((extendedSession || observationSessionFields) && volumeSensitiveTab) {
     const volumeActive = countVolumeActive(universe, volumeCtx);
     if (volumeActive === 0) {
       return {
@@ -471,11 +506,13 @@ export function buildTabEvaluationEvidence(input: {
   nhlSelected: readonly NhlClassification[];
   nhlPolicyExclusions?: PolicyExclusionEvidence;
   extendedSession?: boolean;
+  observationSessionFields?: boolean;
   nowMs?: number;
 }): TabEvaluationEvidenceMap {
   const extendedSession = input.extendedSession ?? false;
+  const observationSessionFields = input.observationSessionFields ?? false;
   const nowMs = input.nowMs;
-  const evidenceOpts = { extendedSession, nowMs };
+  const evidenceOpts = { extendedSession, observationSessionFields, nowMs };
   const policyExclusions = input.nhlPolicyExclusions ??
     POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
   const coverage: HistoricalCoverageEvidence = {
@@ -494,6 +531,7 @@ export function buildTabEvaluationEvidence(input: {
       coverage,
       extendedSession,
       nowMs,
+      observationSessionFields,
     ),
     volume_spikes: evaluateGenericTabEvidence(
       "volume_spikes",
@@ -521,6 +559,7 @@ export function buildTabEvaluationEvidence(input: {
       policyExclusions,
       extendedSession,
       nowMs,
+      observationSessionFields,
     ),
   };
 }

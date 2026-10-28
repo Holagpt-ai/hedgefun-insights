@@ -2,11 +2,39 @@
 // Qualify → require symbol + positive volume → dedupe → volume desc / symbol asc → limit.
 
 import {
+  extendedQuoteSemanticsForObservation,
   sessionQualificationVolume,
+  volumeContextFromOpts,
   type SessionVolumeContext,
 } from "./session-volume.ts";
 
 export type { SessionVolumeContext };
+
+/** Per-tab selection / persistence field semantics (server vs observation session). */
+export type TabSelectionOpts = {
+  extendedSession?: boolean;
+  observationSessionFields?: boolean;
+  nowMs?: number;
+};
+
+export function extendedQuoteSemanticsForTicker(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): boolean | null {
+  if (opts?.observationSessionFields && opts.nowMs !== undefined) {
+    return extendedQuoteSemanticsForObservation(t, opts.nowMs);
+  }
+  return opts?.extendedSession ?? false;
+}
+
+export function gapPercentForTabContext(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): number | null {
+  const ext = extendedQuoteSemanticsForTicker(t, opts);
+  if (ext === null) return null;
+  return gapPercent(t, ext);
+}
 
 export const SCREENER_ROW_LIMIT = 20;
 
@@ -418,9 +446,12 @@ export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
 
 export function qualifiesGappers(
   t: PolygonTicker,
-  extendedSession = false,
+  extendedSessionOrOpts: boolean | TabSelectionOpts = false,
 ): boolean {
-  const g = gapPercent(t, extendedSession);
+  const opts: TabSelectionOpts = typeof extendedSessionOrOpts === "boolean"
+    ? { extendedSession: extendedSessionOrOpts }
+    : extendedSessionOrOpts;
+  const g = gapPercentForTabContext(t, opts);
   return g !== null && Math.abs(g) >= 5;
 }
 
@@ -471,21 +502,17 @@ export function selectForTab(
   tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
-  opts?: { extendedSession?: boolean; nowMs?: number },
+  opts?: TabSelectionOpts,
 ): PolygonTicker[] {
-  const extendedSession = opts?.extendedSession ?? false;
-  const volumeCtx: SessionVolumeContext = {
-    extendedSession,
-    nowMs: opts?.nowMs,
-  };
+  const volumeCtx = volumeContextFromOpts(opts);
   if (tabId === "gappers") {
-    const qualified = universe.filter((t) => qualifiesGappers(t, extendedSession));
+    const qualified = universe.filter((t) => qualifiesGappers(t, opts ?? {}));
     return selectVolumeFirst(qualified, limit, volumeCtx);
   }
   if (tabId === "gainers_losers") {
     const qualify = TAB_QUALIFIERS[tabId];
     const qualified = universe.filter(qualify);
-    return selectGainersLosersRanked(qualified, limit, { extendedSession, nowMs: opts?.nowMs });
+    return selectGainersLosersRanked(qualified, limit, opts);
   }
   if (tabId === "volume_spikes") {
     const qualified = universe.filter((t) => qualifiesVolumeSpikes(t, volumeCtx));
@@ -502,9 +529,11 @@ export function selectForTab(
 
 function moverPercent(
   t: PolygonTicker,
-  extendedSession: boolean,
+  opts?: TabSelectionOpts,
 ): number | null {
-  if (extendedSession) {
+  const extended = extendedQuoteSemanticsForTicker(t, opts);
+  if (extended === null) return null;
+  if (extended) {
     return changePercentVsPriorRegularClose(
       currentSessionReferencePrice(t, true),
       t,
@@ -517,27 +546,23 @@ function moverPercent(
 export function selectGainersLosersRanked(
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
-  opts?: { extendedSession?: boolean; nowMs?: number },
+  opts?: TabSelectionOpts,
 ): PolygonTicker[] {
-  const extendedSession = opts?.extendedSession ?? false;
-  const volumeCtx: SessionVolumeContext = {
-    extendedSession,
-    nowMs: opts?.nowMs,
-  };
+  const volumeCtx = volumeContextFromOpts(opts);
   const bySymbol = new Map<string, PolygonTicker>();
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
     const vol = sessionQualificationVolume(t, volumeCtx);
     if (vol === null) continue;
-    const move = moverPercent(t, extendedSession);
+    const move = moverPercent(t, opts);
     if (move === null || move === 0) continue;
     bySymbol.set(sym, { ...t, ticker: sym });
   }
   return [...bySymbol.values()]
     .sort((a, b) => {
-      const ca = Math.abs(moverPercent(a, extendedSession)!);
-      const cb = Math.abs(moverPercent(b, extendedSession)!);
+      const ca = Math.abs(moverPercent(a, opts)!);
+      const cb = Math.abs(moverPercent(b, opts)!);
       if (cb !== ca) return cb - ca;
       const va = sessionQualificationVolume(a, volumeCtx)!;
       const vb = sessionQualificationVolume(b, volumeCtx)!;

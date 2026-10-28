@@ -36,11 +36,20 @@ Examples:
 - Server 4:20 PM ET / observation 4:05 PM ET → after-hours increment when comparable **`day.v`** baseline exists.
 - Prior surveillance-day observation or missing timestamps → volume unavailable (fail closed).
 
+### D1.2 — Handler integration (observation session on live surveillance)
+
+`extendedSession` remains the **server clock** (logging and legacy meta). During live pre-market, RTH, and after-hours, **`observationSessionFields`** enables per-ticker observation semantics for volume, gappers gaps, gainers/losers move, persisted rows, and tab evidence—even when the server is regular hours but provider snapshots are delayed premarket quotes.
+
+Mixed universes resolve session per ticker (`min.t` / `updated`). Contradictory or missing observation evidence stays fail closed. DTR/Five Pillars thresholds and delay policy unchanged.
+
+Integration coverage: `sync-screener-data/handler_test.ts` (9:35/9:20 premarket RPC volume, regular/AH boundaries, mixed sessions, contradictory timestamps, gainers/losers move, sub-5% gap exclusion).
+
 ## Verification
 
 ```sh
 deno test --allow-read supabase/functions/_shared/screeners/session-volume_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/session-volume_boundary_test.ts
+deno test --allow-read --no-check supabase/functions/sync-screener-data/handler_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/selection_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/gappers-premarket_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/evaluation-evidence_test.ts

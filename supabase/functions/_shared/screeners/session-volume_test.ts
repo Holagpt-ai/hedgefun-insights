@@ -45,7 +45,10 @@ Deno.test("premarket: day.v=0 with positive min.av qualifies volume", () => {
     updated: delayedPremarketMs * 1_000_000,
   };
   assertEquals(
-    sessionQualificationVolume(delayed, { extendedSession: true, nowMs: REGULAR_MS }),
+    sessionQualificationVolume(delayed, {
+      observationSessionVolume: true,
+      nowMs: REGULAR_MS,
+    }),
     1_704_688,
   );
 });

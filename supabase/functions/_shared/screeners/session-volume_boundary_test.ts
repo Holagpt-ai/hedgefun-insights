@@ -45,7 +45,7 @@ Deno.test("boundary: 9:17 server / 9:02 provider uses premarket min.av", () => {
   const t = snapshot({ minT: OBS_902, dayV: 0, minAv: 500_000 });
   assertEquals(resolveObservationSessionKind(t, SERVER_917), "pre-market");
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_917 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_917 }),
     500_000,
   );
 });
@@ -54,7 +54,7 @@ Deno.test("boundary: 9:35 server / 9:20 provider stays premarket volume", () => 
   const t = snapshot({ minT: OBS_920, dayV: 0, minAv: 800_000 });
   assertEquals(resolveObservationSessionKind(t, SERVER_935), "pre-market");
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_935 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_935 }),
     800_000,
   );
 });
@@ -63,7 +63,7 @@ Deno.test("boundary: 9:46 server / 9:31 provider uses regular day.v", () => {
   const t = snapshot({ minT: OBS_931, dayV: 2_000_000, minAv: 2_100_000 });
   assertEquals(resolveObservationSessionKind(t, SERVER_946), "market");
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_946 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_946 }),
     2_000_000,
   );
 });
@@ -72,7 +72,7 @@ Deno.test("boundary: 4:05 PM server / 3:50 PM provider uses regular day.v", () =
   const t = snapshot({ minT: OBS_350PM, dayV: 40_000_000, minAv: 40_100_000 });
   assertEquals(resolveObservationSessionKind(t, SERVER_405PM), "market");
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_405PM }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_405PM }),
     40_000_000,
   );
 });
@@ -81,7 +81,7 @@ Deno.test("boundary: 4:20 PM server / 4:05 PM provider uses after-hours incremen
   const t = snapshot({ minT: OBS_405PM, dayV: 40_000_000, minAv: 40_250_000 });
   assertEquals(resolveObservationSessionKind(t, SERVER_420PM), "after-hours");
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_420PM }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_420PM }),
     250_000,
   );
 });
@@ -91,7 +91,7 @@ Deno.test("boundary: prior surveillance-day observation yields unavailable volum
   const t = snapshot({ minT: priorDayObs, dayV: 0, minAv: 900_000 });
   assertEquals(resolveVerifiedObservationMs(t, SERVER_917), priorDayObs);
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_917 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_917 }),
     null,
   );
 });
@@ -105,7 +105,7 @@ Deno.test("boundary: contradictory min.t and updated sessions are unavailable", 
   };
   assertEquals(resolveVerifiedObservationMs(t, SERVER_935), null);
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_935 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_935 }),
     null,
   );
 });
@@ -113,7 +113,7 @@ Deno.test("boundary: contradictory min.t and updated sessions are unavailable", 
 Deno.test("boundary: missing timestamps fail closed on extended volume", () => {
   const t: PolygonTicker = { ticker: "X", day: { v: 0 }, min: { av: 50_000 } };
   assertEquals(
-    sessionQualificationVolume(t, { extendedSession: true, nowMs: SERVER_917 }),
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: SERVER_917 }),
     null,
   );
 });
@@ -124,10 +124,18 @@ Deno.test("boundary: persisted row matches observation-session volume", () => {
     syncedAt: new Date(SERVER_935).toISOString(),
     syncRunId: "11111111-2222-3333-4444-555555555555",
     nowMs: SERVER_935,
-    extendedSession: true,
+    extendedSession: false,
+    observationSessionFields: true,
   };
   const [row] = mapTabRows("gappers", [t], (s) => s, meta);
   assertEquals(row.volume, 600_000);
-  const evidence = evaluateGappersEvidence([t], [t], undefined, true, SERVER_935);
+  const evidence = evaluateGappersEvidence(
+    [t],
+    [t],
+    undefined,
+    false,
+    SERVER_935,
+    true,
+  );
   assertEquals(evidence.volume_positive_count, 1);
 });
