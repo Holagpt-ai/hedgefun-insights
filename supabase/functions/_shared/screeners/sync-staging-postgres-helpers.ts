@@ -25,6 +25,8 @@ export async function withPg<T>(fn: (c: Client) => Promise<T>): Promise<T> {
 
 export async function truncateStaging(client: Client): Promise<void> {
   await client.queryObject(`DELETE FROM public.screener_sync_generation_jobs`);
+  await client.queryObject(`DELETE FROM public.screener_results`);
+  await client.queryObject(`DELETE FROM public.screener_feed_state`);
 }
 
 export function sampleObservation(syncRunId: string) {

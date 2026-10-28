@@ -6,7 +6,7 @@
 
 **P0 OPEN (ISS-034):** **17:30** and **17:35 UTC** runs evaluated ~13,262 symbols, then **CPU Time exceeded**, before atomic publication (10 / 9 qualified respectively). Cron job **25** still invokes every 5 minutes. Last verified DB generation **16:15:04.456 UTC**, `sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**, **108** rows. PR **#194** reduced local work but was **not** successful production recovery.
 
-**Batch 190 / 190.3 (PR #196):** Architecture **A** — staged Edge + Postgres (`SCREENER_SYNC_STAGED=1` after migrations). **190.3** adds finalize/chunk TTL expiry RPC, atomic staged publish RPC, advance signature cleanup; disposable-DB integration via `scripts/supabase/screener-sync-pg-test-setup.mjs`. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations through **20261028230000** unapplied; **ISS-034** stays open.
+**Batch 190 release gate (PR #196):** Head **`ea5bc527`** → pending CI after **`truncateStaging` feed cleanup**. Architecture **A** — staged Edge + Postgres; **fail-closed** staged publish (no non-atomic fallback). **Mandatory Postgres 16 CI** — bootstrap + migrations through **20261028230000**, **11** integration tests in `sync-staging-postgres-integration_test.ts`. Runbook: `docs/release/batch190-cpu-safe-screener-sync-v1.md`. Migrations **not applied**; **ISS-034** stays open. **READY for owner review** once Screener Deno + migration-order CI green.
 
 **Next after Batch 190 merge/deploy gate:** **191** timed scanner acceptance (ISS-033). No automatic migrations, Edge deploy, Fly, or cron changes from Cursor.
 

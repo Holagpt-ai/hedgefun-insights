@@ -225,8 +225,6 @@ Deno.test("postgres gate: expire finalizing releases slot; publish record preser
 Deno.test("postgres gate: atomic publish + complete + feed evidence", async () => {
   await withPg(async (client) => {
     await truncateStaging(client);
-    await client.queryObject(`DELETE FROM public.screener_results`);
-    await client.queryObject(`DELETE FROM public.screener_feed_state`);
     const jobId = crypto.randomUUID();
     const syncRunId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
