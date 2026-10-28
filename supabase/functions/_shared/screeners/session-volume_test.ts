@@ -25,7 +25,7 @@ function nvdaPremarket(): PolygonTicker {
     ticker: "NVDA",
     updated: PREMARKET_MS * 1_000_000,
     day: { v: 0, c: 0 },
-    min: { av: 1_704_688, v: 7_106 },
+    min: { av: 1_704_688, v: 7_106, t: PREMARKET_MS },
     prevDay: { c: 140, v: 400_000 },
     lastTrade: { p: 142.5, t: PREMARKET_MS * 1_000_000 },
   };
@@ -37,7 +37,17 @@ Deno.test("premarket: day.v=0 with positive min.av qualifies volume", () => {
   assertEquals(premarketAccumulatedVolume(t), 1_704_688);
   const ctx = { extendedSession: true, nowMs: PREMARKET_MS };
   assertEquals(sessionQualificationVolume(t, ctx), 1_704_688);
-  assertEquals(sessionQualificationVolume(t, { extendedSession: true, nowMs: REGULAR_MS }), null);
+  // Server clock in RTH but provider observation still premarket → keep min.av.
+  const delayedPremarketMs = Date.parse("2026-10-28T13:20:00.000Z"); // 9:20 ET
+  const delayed = {
+    ...t,
+    min: { ...t.min!, t: delayedPremarketMs },
+    updated: delayedPremarketMs * 1_000_000,
+  };
+  assertEquals(
+    sessionQualificationVolume(delayed, { extendedSession: true, nowMs: REGULAR_MS }),
+    1_704_688,
+  );
 });
 
 Deno.test("premarket: positive min.v without min.av stays unavailable", () => {
@@ -62,8 +72,9 @@ Deno.test("regular session: positive day.v unchanged", () => {
 Deno.test("after-hours: incremental volume when min.av exceeds day.v", () => {
   const t: PolygonTicker = {
     ticker: "SPY",
+    updated: AFTER_HOURS_MS * 1_000_000,
     day: { v: 50_000_000 },
-    min: { av: 50_355_960 },
+    min: { av: 50_355_960, t: AFTER_HOURS_MS },
   };
   assertEquals(afterHoursIncrementalVolume(t), 355_960);
   assertEquals(
@@ -137,12 +148,14 @@ Deno.test("volume-first ordering uses accumulated volume for dedupe", () => {
   const low: PolygonTicker = {
     ticker: "AAA",
     day: { v: 0 },
-    min: { av: 100_000 },
+    min: { av: 100_000, t: PREMARKET_MS },
+    updated: PREMARKET_MS * 1_000_000,
   };
   const high: PolygonTicker = {
     ticker: "aaa",
     day: { v: 0 },
-    min: { av: 900_000 },
+    min: { av: 900_000, t: PREMARKET_MS },
+    updated: PREMARKET_MS * 1_000_000,
   };
   const ctx = { extendedSession: true, nowMs: PREMARKET_MS };
   const selected = selectVolumeFirst([low, high], 20, ctx);

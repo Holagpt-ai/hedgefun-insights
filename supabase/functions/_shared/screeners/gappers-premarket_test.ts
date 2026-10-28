@@ -33,7 +33,7 @@ function premarket(
     ticker: symbol,
     updated: NOW * 1_000_000,
     day: { v: 0 },
-    min: { av: accumulatedVolume, v: 1_000 },
+    min: { av: accumulatedVolume, v: 1_000, t: NOW },
     prevDay,
     ...(last === null ? {} : { lastTrade: { p: last, t: NOW * 1_000_000 } }),
     todaysChangePerc: 900,
@@ -70,7 +70,7 @@ Deno.test("gappers: +5% and -5% qualify; below 5% does not", () => {
 Deno.test("gappers: missing previous close stays prerequisite_unavailable", () => {
   const universe = [premarket("ZZX", 3, null)];
   assertEquals(gapPercent(universe[0], true), null);
-  const evidence = evaluateGappersEvidence(universe, [], undefined, true);
+  const evidence = evaluateGappersEvidence(universe, [], undefined, true, NOW);
   assertEquals(evidence.status, "prerequisite_unavailable");
   assertEquals(evidence.reason, "prior_close_gap_inputs_unavailable");
   assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW }).length, 0);
@@ -79,7 +79,7 @@ Deno.test("gappers: missing previous close stays prerequisite_unavailable", () =
 Deno.test("gappers: zero previous close stays unavailable and creates no row", () => {
   const universe = [premarket("ZZX", 3, 0)];
   assertEquals(gapPercent(universe[0], true), null);
-  const evidence = evaluateGappersEvidence(universe, [], undefined, true);
+  const evidence = evaluateGappersEvidence(universe, [], undefined, true, NOW);
   assertEquals(evidence.status, "prerequisite_unavailable");
   assertEquals(evidence.gap_calculable_count, 0);
   assertEquals(selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW }).length, 0);
@@ -107,7 +107,7 @@ Deno.test("gappers: regular session still uses the opening print", () => {
 Deno.test("gappers: evidence is evaluated when prev close and extended last exist", () => {
   const universe = [premarket("ZZX", 3, 2), premarket("AAA", 2.08, 2)];
   const selected = selectForTab("gappers", universe, 20, { extendedSession: true, nowMs: NOW });
-  const evidence = evaluateGappersEvidence(universe, selected, undefined, true);
+  const evidence = evaluateGappersEvidence(universe, selected, undefined, true, NOW);
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.gap_calculable_count, 2);
   assertEquals(evidence.qualified_count, 1);

@@ -11,6 +11,8 @@ Edge screeners used `dayVolume()` (`day.v` only) for qualification, dedupe, rati
 
 ## Fix
 
+### D1 — `min.av` vs `day.v`
+
 New contract in `session-volume.ts`:
 
 | Session | Volume source |
@@ -23,10 +25,22 @@ Propagated via `sessionQualificationVolume()` through selection, rows, NHL, evid
 
 **DTR diagnostics:** During premarket, missing regular `day.c` no longer inflates `missing_invalid_snapshot`; eligibility unchanged.
 
+### D1.1 — Delayed snapshot session boundaries
+
+Extended-tab volume now follows **`resolveVerifiedObservationMs()`** (`min.t` preferred, then `updated`; contradictory timestamps → unavailable). Session kind comes from the **observation clock**, not sync `nowMs` alone.
+
+Examples:
+
+- Server 9:35 ET / observation 9:20 ET → premarket **`min.av`** (not regular `day.v=0`).
+- Server 4:05 PM ET / observation 3:50 PM ET → regular **`day.v`**.
+- Server 4:20 PM ET / observation 4:05 PM ET → after-hours increment when comparable **`day.v`** baseline exists.
+- Prior surveillance-day observation or missing timestamps → volume unavailable (fail closed).
+
 ## Verification
 
 ```sh
 deno test --allow-read supabase/functions/_shared/screeners/session-volume_test.ts
+deno test --allow-read supabase/functions/_shared/screeners/session-volume_boundary_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/selection_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/gappers-premarket_test.ts
 deno test --allow-read supabase/functions/_shared/screeners/evaluation-evidence_test.ts
