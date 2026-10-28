@@ -2,7 +2,7 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-Baseline for this memory: parent `origin/main` `03449198` (PR #163), with the AI Analyst catalyst recovery on this change set. Inspected 2026-10-24.
+**Baseline (2026-10-28, Master Continuity Sync V4):** GitHub `origin/main` **`1398d16ad0041c34661e4bc76487c5a3757c207e`** (PR **#194** merged). Lovable integration **`cursor/lovable-sync-from-main-20261024`** @ **`04da6d7f87994c93a0c5fc64492654df2424fe0b`**.
 
 ## Product
 
@@ -29,9 +29,15 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. Tip **`a03407c2`** (forward-sync with `main` **`b69d7444`**). After each `main` merge, **forward-sync** integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
-- Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
-- `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
+- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024`. Tip **`04da6d7f`** (forward-sync with `main` **`1398d16a`**). After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Preserve Lovable-only **`bun.lock`**, Lovable **`deno.lock`**, generated **`supabase/functions/mcp/index.ts`**, and **`sync-screener-data/handler_test.ts`** typing fixes. Do not merge `cursor/chat-single-pass-v1`.
+- Archived recovery branch: `cursor/chat-single-pass-v1`. Port analyst catalyst files from it only when explicitly assigned; do not merge the branch.
+
+## Master roadmap (2026-10-28)
+
+- **Active implementation register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
+- **Next authorized development batch:** **190** — CPU-safe scanner execution and atomic publication (**ISS-034**). Not started until owner assigns implementation after continuity merge.
+- **Historical product batches 171–189:** complete in git or verification-only; see `docs/CHANGELOG.md`. Do not reissue implementation.
+- **Batch 174 / 175:** unfinished **verification** (live scanner matrix; AM Inbox UI), not new feature development — tracked under batches **191–192** in the master backlog.
 
 ## Recovered analyst catalyst evidence
 
@@ -46,95 +52,59 @@ Ported from `cursor/chat-single-pass-v1` onto current `main` by cherry-pick, the
 Decisions kept with the port:
 
 - Client modules in `src/lib/ai-analyst/` and the Deno copies in `supabase/functions/_shared/ai-analyst/` stay separate. Change both when the evidence rules change.
-- `supabase/functions/chat/analyst-intelligence-delivery.ts` bounds the chat packet at 4500 characters. Priority facts need a source URL and a statement. Lower-priority rows shrink first. If even the minimal packet exceeds the budget, chat omits the intelligence block.
-- An official or ticker-specific web hit must name the asked symbol or its known company in the title, snippet, or a non-SEC host. A `sec.gov` URL counts only when the title or snippet names that symbol or company.
-- Events older than 45 days versus the date named in the question, or the radar trading date when the question names none, are historical context. They are not the current primary.
-- Known company names used for that match are Marvell, NVIDIA, Apple, Tesla, and AMD, plus host and title text.
-- Scanner ranking, database schema, the MCP bundle, and SEC ingestion were not changed.
+- `supabase/functions/chat/analyst-intelligence-delivery.ts` bounds the chat packet at 4500 characters.
+- Production **`chat`** deploy remains blocked (**ISS-015**) until Lovable rollback revision is known.
 
-Remaining limits:
-
-- This change does not deploy `chat`. Production chat keeps the previously deployed function until an approved Edge deploy.
-- Dollar figures are extracted only from explicit text near a fiscal-year token. Headline-only evidence is not verified guidance.
-- The prompt tells the model the packet is not a live quote or a real-time feed.
-
-Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 on `main` is the canonical generated bundle.
+Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. Generated bundle stays generator-owned.
 
 ## Data and deploy ownership
 
-- Production schema history is `supabase/migrations/`. **Apply** migrations through Lovable Cloud (managed Supabase), not by ad hoc Cursor CLI against production. `drizzle/migrations/` is a mirror, not a second production log. See `docs/migration-drizzle-supabase-notes.md`.
-- Vercel production follows GitHub `main` via the normal Vercel Git integration. Fly workers, SEC cron, and non-Supabase infra move only in an approved ops step.
-- Edge Function **source** lives in git; **production deploy** of those functions is a Lovable Cloud responsibility unless a batch explicitly assigns another approved executor.
+- Production schema history is `supabase/migrations/`. **Apply** migrations through Lovable Cloud, not ad hoc Cursor CLI against production.
+- Vercel production follows GitHub `main` via the normal Vercel Git integration.
+- Edge Function **source** lives in git; **production deploy** is Lovable Cloud unless a batch explicitly assigns another executor.
 - Never delete or rewrite an applied Supabase migration. Add a corrective migration.
-- Generated MCP output stays generator-owned (`scripts/mcp-edge-validate.mjs`).
 
-## Deferred until a later approved batch
+## Deferred until owner promotes (batches 203–209)
 
-- Real-time feed upgrades
-- AI Trader product work (`AI_TRADER_CURRENT_OPERATING_MODE` is `OFF`)
-- Broker integration
-- Billing go-live (the UI still says payment processing is being set up)
-- Further SEC schedule, write-gate, or function changes. Gate I.3 activation already happened (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule.
-- Catalyst source enablement (`docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
-
-## Active master reset (2026-10-27)
-
-Latest GitHub `main` baseline: **`d86e0c69`** (PR **#190** Batch 187 merged; Vercel **SUCCESS**). Lovable integration @ **`491f65cc`** (only `bun.lock` differs from `main`). Batch **187** Edge activation remains separately gated; deployed earnings Edge revision ids **UNKNOWN**. Batch **186** authenticated AM Inbox acceptance **pending**. Batches **184–187** are complete in git — not active implementation backlog.
-
-Prior doc baseline: **`4757b9de`**, PR **#185** Master Reset V3 docs merged; **`e65746ab`** (PR **#184** Tuesday acceptance). PR **#174** closed without merge. Batch **184** application fix in PR **#186** — **not merged**. The Oct 25 reset's Batches **171–173, 176–183** are implementation-complete and must not be reissued. Acceptance **174 remains conditional**; **175 RPC persistence passed**, but Oct 27 mobile AM Inbox continuation was still visibly loading at ~08:07–08:09 ET, so authenticated UI completion is **not verified**. Refer to `docs/release/master-reset-2026-10-27.md` for the newly observed defects, priority assignments and deferred releases. Lovable integration branch is no longer at parity with current main; forward-sync requires a controlled Cursor merge, not a fresh recovery.
-
-## Historical batch register (2026-10-24 master reset)
-
-See `docs/release/next-approved-batches.md` for the **171–183** register. `main` is **`13a018a9`** (PR **#183** merged). **174** acceptance **CONDITIONAL**. **175** persistence **PASS** via production RPC (2026-10-26 ET); AM Inbox UI **NOT VERIFIED**. PR **#174** — close without merge. Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm and deploy findings stay on ISS-015 through ISS-019.
+See master backlog. Summary: real-time feed (**ISS-008**), AI Trader (**ISS-009**), broker (**ISS-010**), billing (**ISS-011**), SEC schedule edits (**ISS-012**), **`chat`** deploy (**ISS-015**), catalyst distribution activation (**ISS-006**).
 
 ## Catalyst attribution (client, Batch 181)
 
-Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. Cross-surface copy uses `catalyst-attribution-presentation.ts`; do not imply price causation without evidence.
+Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes.
 
 ## Five Pillars presentation (client, Batch 182)
 
-Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFivePillarsTransparencyView()` and canonical `RadarRankedRow` scanner fields; grace and expired lifecycle come from `day_trade_qualification_state`. A historical pass must not read as a current pass in lifecycle copy.
+Qualification UI must not invent RVOL, baselines, or timestamps. Use `buildFivePillarsTransparencyView()` and canonical `RadarRankedRow` scanner fields.
 
 ## How to avoid another full audit
 
-Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTER.md`. Update those when a decision, defect, or deploy fact changes. `npm run integrity` covers navigation, sitemap/canonical agreement, brand hosts, MCP artifact agreement, and `origin/main` divergence. It does not replace an ops query of Vercel, Supabase, or Fly.
+Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTER.md`. Update those when a decision, defect, or deploy fact changes. `npm run integrity` covers navigation, sitemap/canonical agreement, brand hosts, MCP artifact agreement, and `origin/main` divergence.
 
-## Screener session volume (P0 D1)
+## Scanner volume contract (movers + sync)
 
-- Edge qualification uses `sessionQualificationVolume()` in `supabase/functions/_shared/screeners/session-volume.ts`.
-- Premarket: positive `min.av` only. Regular: positive `day.v`. After-hours: incremental vs same-snapshot `day.v` baseline when verifiable.
-- Do not treat Polygon `day.v=0` as verified zero liquidity during extended sync.
-
-## Scanner volume contract (movers)
-
-- Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity (`polygonSnapshotVolume` in `src/lib/markets/movers-integrity.ts`).
-- Verified zero from cache/RPC still ranks **before** unknown volume in volume-first lists.
-- Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
-- Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
+- Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity.
+- **D1 (PR #193):** extended-session screener qualification uses observation-session volume via `sessionQualificationVolume()` — merged and **deployed Lovable** (fingerprint `23980c31…`). **Premarket live acceptance pending.**
+- **CPU mitigation (PR #194):** per-sync session-volume cache, single-pass main tab selection, fused evidence scan — merged and **deployed Lovable 2026-10-28 17:29:52 UTC** (owner-reported). **ISS-034 remains open** — 17:30 / 17:35 UTC runs still **CPU Time exceeded**; last confirmed publication **16:15:04 UTC**, 108 rows.
+- Public `/markets/premarket` extended volume rules unchanged from Batch **178**.
 
 ## Scanner tab evaluation evidence (Batch 185)
 
-- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state`. When null, client may attach **`publication_confirmed`** evidence (published row counts only) — not a substitute for provider universe evaluation or verified zero-match claims.
+- Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`**. Client may attach **`publication_confirmed`** when evidence null — not a substitute for provider evaluation.
 - Do not treat homepage **Market Pulse / Polygon snapshot movers** as Radar or Five Pillars qualification.
-- Extended-session **Gappers** may restore from verified Radar prior-close overlay via `restoreExtendedSessionGappers` when sync evidence is missing or `prerequisite_unavailable`; do not fabricate opening prints or gap percentages.
-- **Lovable Oct 27 read-only:** screener feed **115 rows**, six tabs evaluated, **5-arg RPC** + evidence **PASS**; AM handoff list **3,131** rows for `2026-10-27` **PASS**. Migration ledger / Edge revision id **UNKNOWN** (not failed). No screener migration or Edge redeploy required from those checks alone.
-- **AM Inbox continuation:** `resolveAmInboxSessionDate` decouples handoff RPC from workspace `et_date`; server builds disable sessionStorage mirror (Batch 184).
+- Extended-session **Gappers** may restore from verified Radar prior-close overlay when sync evidence is missing.
 
 ## Lovable preview Edge type parity
 
-- `get-pre-market-workspace`: catalyst row `facts` typed as `Record<string, unknown> | null` (Lovable preview typecheck).
-- `radar-historical-context`: `resolveSecurityId` accepts `ReturnType<typeof createClient<any>>`. Type-only; keep in sync with integration branch on forward-sync.
+- `get-pre-market-workspace`: catalyst row `facts` typed as `Record<string, unknown> | null`.
+- `radar-historical-context`: `resolveSecurityId` accepts `ReturnType<typeof createClient<any>>`. Keep in sync on forward-sync.
 
 ## Homepage market presentation (Batch 189)
 
-- Public homepage does **not** promote AI Trader; the feature route remains for deferred product work.
-- `HOME_MARKET_CLOCK_EXCHANGES` is a fixed seven-city order (New York first); local-time card is **last**; mobile shows a horizontal scroll hint.
-- Market Pulse session line uses `composeMoversSessionLine()` with a 1s wall-clock tick (not movers `fetchedAtMs`). Provider observation timestamps stay on fetch time. Stock detail headers keep `formatStockHeaderSessionLine()`.
+- Public homepage does **not** promote AI Trader.
+- `HOME_MARKET_CLOCK_EXCHANGES` fixed seven-city order; session line uses `composeMoversSessionLine()` with 1s tick.
 
 ## Evidence labels
 
-Use these words in handoffs and the issue register:
-
 - **Confirmed** — checked against `main` or a command run in that session
-- **Reported** — stated in an older runbook or checklist and not rechecked
+- **Reported** — stated in an older runbook or owner handoff and not rechecked in Cursor
 - **Deferred** — intentionally out of scope
