@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`1398d16a`** (2026-10-28). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`07172bd6`** (2026-10-30); Batch 190.8 draft PR #201, not merged. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** Staged mode active; **2026-10-30 ~20:15 UTC** job `ce0593d4…` failed finalize (`unexpected error` / `http_500`, 7/7 chunks, state v7) and blocked cron until lease expiry; last publish **20:10 UTC**. **190.7** Edge recovery hardening (PR pending); **190.6** abort columns separate. **DO NOT CLOSE** until verified fresh publication. |
+| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.7 migration/Edge deployed; Gate 4 FAILED. Postdeploy 21:15/21:45/22:15/22:45 UTC, all 13,267 symbols/7 chunks, `finalize_failed:build_rows:internal_error`; last successful publish 20:10:02 UTC (108 rows). **Reproduced cause:** Day Trade Radar selection admits `min.t` market / `updated` after-hours mismatch, `baseRow` rejects unresolved session. Actual production ticker not identified. **190.8 draft PR #201** guards both selection paths; tests/CI, merge, Lovable Edge deploy and three fresh after-hours/premarket publications PENDING. **DO NOT CLOSE.** |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |

@@ -6,6 +6,10 @@ import type { GenerationMeta } from "./rows.ts";
 import {
   type PolygonTicker,
   selectForTab,
+  collectMainUniverseQualified,
+  finalizeMainUniverseSelections,
+  selectMainUniverseTabs,
+  extendedQuoteSemanticsForTicker,
   volumeRatioPriorSession,
 } from "./selection.ts";
 const FIXED_ISO = "2026-07-27T20:00:00.000Z";
@@ -274,4 +278,48 @@ Deno.test("rows: new highs/lows persist verified 52w fields and range_event", ()
   assertEquals(rows[0].day_high, 20);
   assertEquals(rows[0].day_low, 8);
   assertFrontendRatioInvariant(rows);
+});
+
+Deno.test("ISS-034: qualified selection never passes unresolved sessions to row builder", () => {
+  const cases = [
+    { nowMs: Date.parse("2026-10-30T12:15:00Z"), validMinMs: Date.parse("2026-10-30T12:09:00Z"), badMinMs: Date.parse("2026-10-29T19:59:00Z"), extendedSession: true },
+    { nowMs: Date.parse("2026-10-30T19:45:00Z"), validMinMs: Date.parse("2026-10-30T19:39:00Z"), badMinMs: Date.parse("2026-10-30T12:09:00Z"), extendedSession: false },
+    { nowMs: Date.parse("2026-10-30T21:15:00Z"), validMinMs: Date.parse("2026-10-30T21:09:00Z"), badMinMs: Date.parse("2026-10-30T19:59:00Z"), extendedSession: true },
+  ];
+  for (const { nowMs, validMinMs, badMinMs, extendedSession } of cases) {
+    const opts = { nowMs, extendedSession, observationSessionFields: true };
+    const make = (symbol: string, minMs: number): PolygonTicker => ({
+      ticker: symbol,
+      updated: (nowMs - 60_000) * 1_000_000,
+      day: { c: 10, o: 10, v: 6_000_000, h: 11, l: 9 },
+      prevDay: { c: 8, v: 1_000_000 },
+      min: { t: minMs, av: 7_000_000 },
+      lastTrade: { p: 10 },
+    });
+    const good = make("ISS034GOOD", validMinMs);
+    const bad = make("ISS034BAD", badMinMs);
+    assertEquals(extendedQuoteSemanticsForTicker(bad, opts), null);
+    const candidates = [bad, good];
+    const selections = [
+      finalizeMainUniverseSelections(collectMainUniverseQualified(candidates, opts), opts),
+      selectMainUniverseTabs(candidates, opts),
+    ];
+    const meta: GenerationMeta = {
+      syncedAt: new Date(nowMs).toISOString(),
+      syncRunId: RUN_ID,
+      nowMs,
+      extendedSession,
+      observationSessionFields: true,
+    };
+    for (const selected of selections) {
+      for (const tab of ["day_trade_radar", "gappers", "volume_spikes", "unusual_volume"] as const) {
+        for (const t of selected[tab]) {
+          assertEquals(extendedQuoteSemanticsForTicker(t, opts) !== null, true);
+        }
+        assertEquals(mapTabRows(tab, selected[tab], getName, meta).length, selected[tab].length);
+      }
+    }
+    const gainers = selectForTab("gainers_losers", candidates, undefined, opts);
+    assertEquals(mapTabRows("gainers_losers", gainers, getName, meta).length, gainers.length);
+  }
 });

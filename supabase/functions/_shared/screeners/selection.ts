@@ -581,7 +581,15 @@ export function finalizeMainUniverseSelections(
 ): MainUniverseTabSelections {
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
   return {
-    day_trade_radar: selectVolumeFirst(merged.day_trade_radar, limit, {}),
+    // baseRow requires resolvable provider observation-session semantics.
+    // Keep Day Trade Radar's intentional regular-day volume ranking ({}).
+    day_trade_radar: selectVolumeFirst(
+      merged.day_trade_radar.filter((t) =>
+        extendedQuoteSemanticsForTicker(t, extendedTabOpts) !== null
+      ),
+      limit,
+      {},
+    ),
     gappers: selectVolumeFirst(merged.gappers, limit, volumeCtx),
     volume_spikes: selectVolumeFirst(merged.volume_spikes, limit, volumeCtx),
     unusual_volume: selectVolumeFirst(merged.unusual_volume, limit, volumeCtx),
@@ -600,7 +608,10 @@ export function selectMainUniverseTabs(
   const spikesQ: PolygonTicker[] = [];
   const unusualQ: PolygonTicker[] = [];
   for (const t of universe) {
-    if (qualifiesDayTradeRadar(t)) dayTradeQ.push(t);
+    if (
+      qualifiesDayTradeRadar(t) &&
+      extendedQuoteSemanticsForTicker(t, extendedTabOpts) !== null
+    ) dayTradeQ.push(t);
     if (qualifiesGappers(t, extendedTabOpts)) gappersQ.push(t);
     if (qualifiesVolumeSpikes(t, volumeCtx)) spikesQ.push(t);
     if (qualifiesUnusualVolume(t, volumeCtx)) unusualQ.push(t);
