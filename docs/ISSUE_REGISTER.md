@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** Staged mode active (`SCREENER_SYNC_STAGED=1`); Gate C: ~13,267 symbols, 7×2,200 chunks, 9 jobs (5 published / 4 aborted), no post-activation CPU exceed; **pre-190.6 aborts lack durable reason**. **190.6** adds `abort_reason`/`abort_evidence` (PR pending). **DO NOT CLOSE** until Gate C acceptance with post-migration evidence + verified fresh publication. |
+| **ISS-034** | **P0** | Full-universe sync CPU timeout; stale screener publication | **CONFIRMED OPEN.** Staged mode active; **2026-10-30 ~20:15 UTC** job `ce0593d4…` failed finalize (`unexpected error` / `http_500`, 7/7 chunks, state v7) and blocked cron until lease expiry; last publish **20:10 UTC**. **190.7** Edge recovery hardening (PR pending); **190.6** abort columns separate. **DO NOT CLOSE** until verified fresh publication. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |

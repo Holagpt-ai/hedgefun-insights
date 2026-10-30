@@ -14,6 +14,13 @@ import {
   buildNewerGenerationLiveAbortDetail,
   buildPriorGenerationRetentionAbortDetail,
 } from "../_shared/screeners/generation-abort-diagnostics.ts";
+import {
+  classifyFinalizeError,
+  logFinalizeFailure,
+  type FinalizeStage,
+} from "../_shared/screeners/sync-finalize-diagnostics.ts";
+import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
+import { prepareStagedFinalizeRetry } from "../_shared/screeners/sync-finalize-recovery.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
   isExtendedSyncSession,
@@ -581,6 +588,9 @@ async function finalizeStagedScreenerGeneration(
   store: SyncStagingStore,
   sb: DbClient,
 ): Promise<Response> {
+  const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
+  let stage: FinalizeStage = "load_job";
+  try {
   const peek = await store.get(generationId);
   if (!peek) {
     return json({ error: "generation_not_found" }, 404);
@@ -597,10 +607,41 @@ async function finalizeStagedScreenerGeneration(
   if (peek.nextChunkIndex < peek.totalChunks) {
     return json({ error: "chunks_incomplete" }, 409);
   }
+  stage = "baseline_drift";
   const drift = await validateJobBaselineDrift(peek, sb, store);
   if (drift) return drift;
 
-  const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
+  stage = "preflight";
+  const prep = await prepareStagedFinalizeRetry(
+    store,
+    sb,
+    peek,
+    wallNowMs,
+    async (job) => {
+      if (!job.finalizeLeaseToken) return false;
+      const done = await store.completePublish({
+        jobId: job.id,
+        finalizeLeaseToken: job.finalizeLeaseToken,
+        expectedStateVersion: job.stateVersion,
+        nowMs: wallNowMs,
+      });
+      return done.ok;
+    },
+  );
+  if (prep.reconciledComplete) {
+    const reconciled = await store.get(generationId);
+    if (reconciled?.status === "published") {
+      return json({
+        ok: true,
+        staged: true,
+        recovered: "complete_publish",
+        generation_id: reconciled.id,
+        sync_run_id: reconciled.observation.syncRunId,
+      });
+    }
+  }
+
+  stage = "claim_finalize_lease";
   const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
   const claimed = await store.claimWork({
     jobId: generationId,
@@ -643,6 +684,7 @@ async function finalizeStagedScreenerGeneration(
     `[sync-screener-data] staged ${formatRadarRejectionLog(job.merged.radar)}`,
   );
 
+  stage = "merge_selections";
   const mainTabSelections = finalizeMainUniverseSelections(
     job.merged.mainQualified,
     extendedTabOpts,
@@ -663,6 +705,7 @@ async function finalizeStagedScreenerGeneration(
     extendedTabOpts,
   );
 
+  stage = "load_volume_baselines";
   const volumeBaselines = await loadVolumeBaselines(sb);
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
   const nhlSelected = nhlBaseline.status === "available"
@@ -694,9 +737,11 @@ async function finalizeStagedScreenerGeneration(
     unusualSelected,
     nhlTickers,
   );
+  stage = "load_names";
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
+  stage = "build_rows";
   const meta: GenerationMeta = {
     syncedAt,
     syncRunId,
@@ -767,6 +812,7 @@ async function finalizeStagedScreenerGeneration(
     sessionVolumeCache: extendedTabOpts.sessionVolumeCache,
   });
 
+  stage = "preserve_check";
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
@@ -805,6 +851,7 @@ async function finalizeStagedScreenerGeneration(
   let publishVersion = job.stateVersion;
 
   if (rowsInserted === null) {
+    stage = "atomic_publish";
     const atomicPublish = await store.publishStagedGeneration({
       jobId: job.id,
       finalizeLeaseToken: finalizeLease,
@@ -854,6 +901,7 @@ async function finalizeStagedScreenerGeneration(
     return json({ error: "database_error" }, 500);
   }
 
+  stage = "complete_publish";
   const completed = await store.completePublish({
     jobId: job.id,
     finalizeLeaseToken: finalizeLease,
@@ -888,6 +936,7 @@ async function finalizeStagedScreenerGeneration(
     console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
   }
 
+  stage = "response";
   const bounds = providerAsOfBounds(allRows);
   return json({
     ok: true,
@@ -910,6 +959,49 @@ async function finalizeStagedScreenerGeneration(
     provider_as_of_max: bounds.max,
     synced_at: syncedAt,
   });
+  } catch (e) {
+    const classification = classifyFinalizeError(e, stage);
+    let syncRunId: string | undefined;
+    try {
+      const failedJob = await store.get(generationId);
+      syncRunId = failedJob?.observation.syncRunId;
+      logFinalizeFailure({
+        generationId,
+        syncRunId,
+        classification,
+      });
+      if (
+        failedJob?.publishRowsInserted === null &&
+        failedJob.finalizeLeaseToken
+      ) {
+        await releaseFinalizeLeaseCas(store, {
+          jobId: generationId,
+          nowMs: wallNowMs,
+          expectedStateVersion: failedJob.stateVersion,
+          expectedFinalizeLeaseToken: failedJob.finalizeLeaseToken,
+          authorization: "in_process_finalize_exception",
+        });
+      }
+    } catch {
+      try {
+        logFinalizeFailure({
+          generationId,
+          syncRunId,
+          classification,
+        });
+      } catch {
+        /* preserve original failure response */
+      }
+    }
+    return json({
+      ok: false,
+      error: "finalize_failed",
+      stage: classification.stage,
+      reason: classification.code,
+      generation_id: generationId,
+      sync_run_id: syncRunId,
+    }, 503);
+  }
 }
 
 async function handleStagedSyncScreenerData(
