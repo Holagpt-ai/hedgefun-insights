@@ -116,28 +116,28 @@ export function classifyNewHighLow(
   return null;
 }
 
-export function selectNewHighsLows(
+export type NhlCandidateRow = {
+  ticker: PolygonTicker;
+  event: RangeEvent;
+  baseline: NhlBaselineQuote;
+};
+
+export function collectNhlCandidates(
   universe: PolygonTicker[],
   baselines: ReadonlyMap<string, NhlBaselineQuote>,
-  limit: number = SCREENER_ROW_LIMIT,
   extendedSession = false,
   nowMs?: number,
   observationSessionFields = false,
   sessionVolumeCache?: SessionVolumeContext["cache"],
-): NhlClassification[] {
-  if (baselines.size === 0) return [];
-
+): Map<string, NhlCandidateRow> {
+  const classified = new Map<string, NhlCandidateRow>();
+  if (baselines.size === 0) return classified;
   const volumeCtx: SessionVolumeContext = {
     extendedSession,
     observationSessionVolume: observationSessionFields,
     nowMs,
     cache: sessionVolumeCache,
   };
-  const classified = new Map<string, {
-    ticker: PolygonTicker;
-    event: RangeEvent;
-    baseline: NhlBaselineQuote;
-  }>();
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
@@ -157,7 +157,26 @@ export function selectNewHighsLows(
       baseline: baseline!,
     });
   }
+  return classified;
+}
 
+export function mergeNhlCandidateMaps(
+  a: Map<string, NhlCandidateRow>,
+  b: Map<string, NhlCandidateRow>,
+): Map<string, NhlCandidateRow> {
+  const out = new Map(a);
+  for (const [sym, row] of b) {
+    if (!out.has(sym)) out.set(sym, row);
+  }
+  return out;
+}
+
+export function finalizeNhlSelections(
+  classified: Map<string, NhlCandidateRow>,
+  limit: number,
+  volumeCtx: SessionVolumeContext,
+): NhlClassification[] {
+  if (classified.size === 0) return [];
   const ordered = selectVolumeFirst(
     [...classified.values()].map((c) => c.ticker),
     limit,
@@ -176,4 +195,30 @@ export function selectNewHighsLows(
     });
   }
   return out;
+}
+
+export function selectNewHighsLows(
+  universe: PolygonTicker[],
+  baselines: ReadonlyMap<string, NhlBaselineQuote>,
+  limit: number = SCREENER_ROW_LIMIT,
+  extendedSession = false,
+  nowMs?: number,
+  observationSessionFields = false,
+  sessionVolumeCache?: SessionVolumeContext["cache"],
+): NhlClassification[] {
+  const volumeCtx: SessionVolumeContext = {
+    extendedSession,
+    observationSessionVolume: observationSessionFields,
+    nowMs,
+    cache: sessionVolumeCache,
+  };
+  const classified = collectNhlCandidates(
+    universe,
+    baselines,
+    extendedSession,
+    nowMs,
+    observationSessionFields,
+    sessionVolumeCache,
+  );
+  return finalizeNhlSelections(classified, limit, volumeCtx);
 }

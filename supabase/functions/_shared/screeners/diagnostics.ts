@@ -128,6 +128,23 @@ export function summarizeRadarDiagnostics(
   };
 }
 
+/** Merge incremental radar summaries from chunked universe processing. */
+export function mergeRadarRejectionSummaries(
+  a: RadarRejectionSummary,
+  b: RadarRejectionSummary,
+): RadarRejectionSummary {
+  const counts = { ...a.counts };
+  for (const key of Object.keys(b.counts) as RadarRejectReason[]) {
+    counts[key] += b.counts[key];
+  }
+  return {
+    evaluated: a.evaluated + b.evaluated,
+    qualified: a.qualified + b.qualified,
+    rejected: a.rejected + b.rejected,
+    counts,
+  };
+}
+
 export function formatRadarRejectionLog(summary: RadarRejectionSummary): string {
   return [
     "day_trade_radar_diagnostics",
