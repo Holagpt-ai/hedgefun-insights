@@ -4,8 +4,12 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 export const ADVANCE_SIX_ARG =
   "advance_screener_sync_chunk_v1(uuid,uuid,integer,integer,jsonb,timestamptz)";
 
+export const RELEASE_FINALIZE_LEASE_CAS =
+  "release_screener_sync_finalize_lease_cas_v1(uuid,integer,uuid,timestamptz)";
+
 export const ALL_STAGING_SYNC_RPCS = [
   ADVANCE_SIX_ARG,
+  RELEASE_FINALIZE_LEASE_CAS,
   "claim_screener_sync_lease_v1(uuid,uuid,timestamptz,timestamptz,text)",
   "complete_screener_sync_publish_v1(uuid,uuid,integer,timestamptz)",
   "record_screener_sync_publish_rpc_v1(uuid,uuid,integer,uuid,integer,timestamptz)",

@@ -11,4 +11,6 @@ Deno.test("contract: Batch 190.7 finalize lease release CAS migration", async ()
   assert(sql.includes("publish_rows_inserted IS NULL"));
   assert(sql.includes("state_version"));
   assert(sql.includes("finalize_lease_token"));
+  assert(sql.includes("FROM PUBLIC, anon, authenticated"));
+  assert(sql.includes("TO service_role"));
 });

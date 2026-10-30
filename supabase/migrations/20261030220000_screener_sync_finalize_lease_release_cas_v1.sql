@@ -43,7 +43,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.release_screener_sync_finalize_lease_cas_v1(
   uuid, integer, uuid, timestamptz
-) FROM PUBLIC;
+) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.release_screener_sync_finalize_lease_cas_v1(
   uuid, integer, uuid, timestamptz
 ) TO service_role;
