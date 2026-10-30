@@ -11094,6 +11094,15 @@ export type Database = {
         Args: { p_holder_id: string }
         Returns: undefined
       }
+      release_screener_sync_finalize_lease_cas_v1: {
+        Args: {
+          p_expected_finalize_lease_token: string
+          p_expected_state_version: number
+          p_job_id: string
+          p_now: string
+        }
+        Returns: Json
+      }
       release_sec_edgar_sync_lease_v1: {
         Args: { p_holder_id: string; p_stream_key: string }
         Returns: boolean
