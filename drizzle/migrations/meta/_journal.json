@@ -407,6 +407,34 @@
       "when": 1791032933541,
       "tag": "0057_catalyst_intel_provider_cache_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793377601992,
+      "tag": "0058_screener_sync_generation_staging_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793377643718,
+      "tag": "0059_screener_sync_staging_rpc_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793377673299,
+      "tag": "0060_screener_sync_staging_hardening_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793377707366,
+      "tag": "0061_screener_sync_staging_recovery_v1",
+      "breakpoints": true
     }
   ]
 }

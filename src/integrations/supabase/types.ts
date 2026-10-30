@@ -8499,6 +8499,87 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_sync_generation_jobs: {
+        Row: {
+          all_tickers: Json
+          chunk_size: number
+          continue_last_at: string | null
+          continue_last_error: string | null
+          created_at: string
+          finalize_lease_expires_at: string | null
+          finalize_lease_token: string | null
+          gainers: Json
+          id: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          losers: Json
+          merged_artifacts: Json
+          next_chunk_index: number
+          nhl_baseline_loaded: boolean
+          nhl_baseline_snapshot: Json | null
+          observation: Json
+          publish_rows_inserted: number | null
+          publish_rpc_recorded_at: string | null
+          state_version: number
+          status: string
+          sync_run_id: string
+          total_chunks: number
+          updated_at: string
+        }
+        Insert: {
+          all_tickers: Json
+          chunk_size: number
+          continue_last_at?: string | null
+          continue_last_error?: string | null
+          created_at?: string
+          finalize_lease_expires_at?: string | null
+          finalize_lease_token?: string | null
+          gainers?: Json
+          id?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          losers?: Json
+          merged_artifacts?: Json
+          next_chunk_index?: number
+          nhl_baseline_loaded?: boolean
+          nhl_baseline_snapshot?: Json | null
+          observation: Json
+          publish_rows_inserted?: number | null
+          publish_rpc_recorded_at?: string | null
+          state_version?: number
+          status: string
+          sync_run_id: string
+          total_chunks: number
+          updated_at?: string
+        }
+        Update: {
+          all_tickers?: Json
+          chunk_size?: number
+          continue_last_at?: string | null
+          continue_last_error?: string | null
+          created_at?: string
+          finalize_lease_expires_at?: string | null
+          finalize_lease_token?: string | null
+          gainers?: Json
+          id?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          losers?: Json
+          merged_artifacts?: Json
+          next_chunk_index?: number
+          nhl_baseline_loaded?: boolean
+          nhl_baseline_snapshot?: Json | null
+          observation?: Json
+          publish_rows_inserted?: number | null
+          publish_rpc_recorded_at?: string | null
+          state_version?: number
+          status?: string
+          sync_run_id?: string
+          total_chunks?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_volume_baselines: {
         Row: {
           avg_volume_20d: number | null
@@ -10225,6 +10306,17 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      advance_screener_sync_chunk_v1: {
+        Args: {
+          p_expected_chunk_index: number
+          p_expected_state_version: number
+          p_job_id: string
+          p_lease_token: string
+          p_merged_artifacts: Json
+          p_now: string
+        }
+        Returns: Json
+      }
       ai_trader_apply_watchlist_transition_v1: {
         Args: { p_row: Json }
         Returns: Json
@@ -10427,6 +10519,16 @@ export type Database = {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
       }
+      claim_screener_sync_lease_v1: {
+        Args: {
+          p_job_id: string
+          p_lease_expires_at: string
+          p_lease_token: string
+          p_mode: string
+          p_now: string
+        }
+        Returns: Json
+      }
       claim_watchlist_v2_ticker_lease: {
         Args: {
           p_lease_seconds: number
@@ -10458,6 +10560,15 @@ export type Database = {
       cleanup_stale_screener_volume_generations_v1: {
         Args: { p_keep_generation_id: string }
         Returns: undefined
+      }
+      complete_screener_sync_publish_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_now: string
+        }
+        Returns: Json
       }
       complete_wl_v2_run: {
         Args: { p_cursor_end: string; p_run_id: string; p_status: string }
@@ -10587,6 +10698,10 @@ export type Database = {
           time_delta_seconds: number
           title: string
         }[]
+      }
+      expire_screener_sync_stale_jobs_v1: {
+        Args: { p_job_ttl?: string; p_now: string }
+        Returns: Json
       }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
@@ -10906,6 +11021,20 @@ export type Database = {
         Returns: number
       }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
+      publish_screener_sync_staged_generation_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_nhl_baseline_status: string
+          p_now: string
+          p_rows: Json
+          p_sync_run_id: string
+          p_synced_at: string
+          p_tab_evaluation_evidence: Json
+        }
+        Returns: Json
+      }
       publish_screener_volume_baselines_v1: {
         Args: { p_generation_id: string; p_provider_as_of: string }
         Returns: number
@@ -10913,6 +11042,17 @@ export type Database = {
       purge_radar_v22_events_v1: {
         Args: { p_retain_days?: number }
         Returns: number
+      }
+      record_screener_sync_publish_rpc_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_now: string
+          p_rows_inserted: number
+          p_sync_run_id: string
+        }
+        Returns: Json
       }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
