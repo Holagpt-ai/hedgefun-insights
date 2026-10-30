@@ -69,6 +69,8 @@ export type StagedGenerationJob = {
   finalizeLeaseExpiresMs: number | null;
   publishRowsInserted: number | null;
   publishRpcRecordedAtMs: number | null;
+  abortReason: string | null;
+  abortEvidence: Record<string, unknown> | null;
 };
 
 export type StagedSyncRequest =

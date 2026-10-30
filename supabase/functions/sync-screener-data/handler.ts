@@ -10,6 +10,10 @@ import {
   parseTickersPayload,
   ProviderUnavailableError,
 } from "../_shared/screeners/provider.ts";
+import {
+  buildNewerGenerationLiveAbortDetail,
+  buildPriorGenerationRetentionAbortDetail,
+} from "../_shared/screeners/generation-abort-diagnostics.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
   isExtendedSyncSession,
@@ -772,7 +776,17 @@ async function finalizeStagedScreenerGeneration(
       priorSyncedAt: priorFeed.syncedAt,
     })
   ) {
-    await store.abortJob(job.id, wallNowMs);
+    await store.abortJob(
+      job.id,
+      wallNowMs,
+      buildPriorGenerationRetentionAbortDetail({
+        priorEvidence: priorFeed.evidence,
+        nextEvidence: tabEvaluationEvidence,
+        priorSyncedAt: priorFeed.syncedAt,
+        candidateGenerationId: job.id,
+        candidateSyncRunId: syncRunId,
+      }),
+    );
     return json({
       ok: true,
       preserved: true,
@@ -808,7 +822,14 @@ async function finalizeStagedScreenerGeneration(
       publishVersion = atomicPublish.job.stateVersion;
       evidencePersistence = { mode: "atomic_rpc" };
     } else if (atomicPublish.reason === "newer_generation_live") {
-      await store.abortJob(job.id, wallNowMs);
+      await store.abortJob(
+        job.id,
+        wallNowMs,
+        buildNewerGenerationLiveAbortDetail({
+          candidateGenerationId: job.id,
+          candidateSyncRunId: syncRunId,
+        }),
+      );
       return json({
         ok: true,
         preserved: true,

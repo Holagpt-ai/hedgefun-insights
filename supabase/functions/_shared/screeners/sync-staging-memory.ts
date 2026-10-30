@@ -33,6 +33,8 @@ export interface SyncStagingStore {
       | "finalizeLeaseExpiresMs"
       | "publishRowsInserted"
       | "publishRpcRecordedAtMs"
+      | "abortReason"
+      | "abortEvidence"
     >,
     leaseToken: string,
     nowMs: number,
@@ -90,7 +92,11 @@ export interface SyncStagingStore {
     | { ok: false; reason: string }
   >;
   failJob(jobId: string, reason: string, nowMs: number): Promise<void>;
-  abortJob(jobId: string, nowMs: number): Promise<void>;
+  abortJob(
+    jobId: string,
+    nowMs: number,
+    detail?: import("./generation-abort-diagnostics.ts").ScreenerSyncAbortDetail,
+  ): Promise<void>;
   recordContinueDispatch(params: {
     jobId: string;
     action: string;
@@ -165,6 +171,8 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       | "finalizeLeaseExpiresMs"
       | "publishRowsInserted"
       | "publishRpcRecordedAtMs"
+      | "abortReason"
+      | "abortEvidence"
     >,
     leaseToken: string,
     nowMs: number,
@@ -191,6 +199,8 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
       publishRowsInserted: null,
       publishRpcRecordedAtMs: null,
+      abortReason: null,
+      abortEvidence: null,
     };
     this.jobs.set(id, job);
     return { ok: true, job: cloneJob(job) };
@@ -319,14 +329,24 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     this.jobs.set(jobId, job);
   }
 
-  async abortJob(jobId: string, nowMs: number): Promise<void> {
+  async abortJob(
+    jobId: string,
+    nowMs: number,
+    detail?: import("./generation-abort-diagnostics.ts").ScreenerSyncAbortDetail,
+  ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
+    if (job.status === "published") return;
+    if (job.status !== "chunking" && job.status !== "finalizing") return;
     job.status = "aborted";
     job.leaseToken = null;
     job.leaseExpiresMs = null;
     job.finalizeLeaseToken = null;
     job.finalizeLeaseExpiresMs = null;
+    job.abortReason = detail?.reason ?? null;
+    job.abortEvidence = detail?.evidence
+      ? structuredClone(detail.evidence)
+      : null;
     job.updatedAtMs = nowMs;
     this.jobs.set(jobId, job);
   }
