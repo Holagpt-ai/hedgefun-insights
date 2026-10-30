@@ -24,7 +24,9 @@ if (/lovable|supabase\.co|zcjptaolpumhtlwhlemq/i.test(url)) {
 
 const cwd = process.cwd();
 const migrationsDir = join(cwd, "supabase", "migrations");
-const bootstrap = join(cwd, "supabase", "tests", "screener-sync-pg", "00-bootstrap.sql");
+const bootstrapDir = join(cwd, "supabase", "tests", "screener-sync-pg");
+const bootstrap = join(bootstrapDir, "00-bootstrap.sql");
+const simulateLovableGrants = join(bootstrapDir, "01-simulate-lovable-staging-rpc-grants.sql");
 
 /** Publication RPC deps + Batch 190 migrations (exact order). */
 const MIGRATION_CHAIN = [
@@ -55,4 +57,9 @@ runSql("00-bootstrap", bootstrap);
 for (const file of MIGRATION_CHAIN) {
   runSql(file, join(migrationsDir, file));
 }
+runSql("01-simulate-lovable-grants", simulateLovableGrants);
+runSql("20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql", join(
+  migrationsDir,
+  "20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql",
+));
 console.log("\nBootstrap complete.");

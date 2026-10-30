@@ -83,6 +83,8 @@ jobs:
           supabase/functions/_shared/screeners/policy-exclusion-serialize_test.ts
           supabase/functions/_shared/screeners/sync-staging-postgres-integration_test.ts
           supabase/functions/_shared/screeners/sync-staging-advance-acl_contract_test.ts
+          supabase/functions/_shared/screeners/sync-staging-rpc-acl-hardening_contract_test.ts
           supabase/functions/_shared/screeners/sync-staging-advance-acl-postgres_test.ts
+          supabase/functions/_shared/screeners/sync-staging-rpc-acl-hardening-postgres_test.ts
           supabase/functions/_shared/screeners/sync-staging-expiry_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

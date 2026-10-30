@@ -6,7 +6,7 @@
 
 **P0 OPEN (ISS-034):** **17:30** and **17:35 UTC** runs evaluated ~13,262 symbols, then **CPU Time exceeded**, before atomic publication (10 / 9 qualified respectively). Cron job **25** still invokes every 5 minutes. Last verified DB generation **16:15:04.456 UTC**, `sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**, **108** rows. PR **#194** reduced local work but was **not** successful production recovery.
 
-**Batch 190.4 (Gate B prerequisite):** Production verification found **PUBLIC EXECUTE** on six-arg `advance_screener_sync_chunk_v1`. Corrective migration **`20261030183000`** + Postgres ACL tests in open PR — **not merged**; **not applied** in production from this session.
+**Batch 190.4 / 190.5 (Gate B prerequisites):** **190.4** applied in Lovable (advance six-arg fixed). **190.5** pending — Lovable confirmed **anon/authenticated EXECUTE** on five other staging RPCs; migration **`20261030193000`** + CI grant simulation in open PR — **not merged**; **not applied** from Cursor.
 
 **ISS-034:** **P0 OPEN** — staged Edge deploy / `SCREENER_SYNC_STAGED=1` **not authorized** until **190.4** applied and publication verified. Runbooks: `docs/release/batch190-cpu-safe-screener-sync-v1.md`, `docs/release/batch190-4-staging-advance-acl-v1.md`.
 
