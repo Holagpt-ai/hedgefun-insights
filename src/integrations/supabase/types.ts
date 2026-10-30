@@ -10306,30 +10306,17 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
-      advance_screener_sync_chunk_v1:
-        | {
-            Args: {
-              p_expected_chunk_index: number
-              p_expected_state_version: number
-              p_job_id: string
-              p_lease_expires_at: string
-              p_lease_token: string
-              p_merged_artifacts: Json
-              p_now: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_expected_chunk_index: number
-              p_expected_state_version: number
-              p_job_id: string
-              p_lease_token: string
-              p_merged_artifacts: Json
-              p_now: string
-            }
-            Returns: Json
-          }
+      advance_screener_sync_chunk_v1: {
+        Args: {
+          p_expected_chunk_index: number
+          p_expected_state_version: number
+          p_job_id: string
+          p_lease_token: string
+          p_merged_artifacts: Json
+          p_now: string
+        }
+        Returns: Json
+      }
       ai_trader_apply_watchlist_transition_v1: {
         Args: { p_row: Json }
         Returns: Json
@@ -10712,6 +10699,10 @@ export type Database = {
           title: string
         }[]
       }
+      expire_screener_sync_stale_jobs_v1: {
+        Args: { p_job_ttl?: string; p_now: string }
+        Returns: Json
+      }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: Json
@@ -11030,6 +11021,20 @@ export type Database = {
         Returns: number
       }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
+      publish_screener_sync_staged_generation_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_nhl_baseline_status: string
+          p_now: string
+          p_rows: Json
+          p_sync_run_id: string
+          p_synced_at: string
+          p_tab_evaluation_evidence: Json
+        }
+        Returns: Json
+      }
       publish_screener_volume_baselines_v1: {
         Args: { p_generation_id: string; p_provider_as_of: string }
         Returns: number
