@@ -8501,6 +8501,8 @@ export type Database = {
       }
       screener_sync_generation_jobs: {
         Row: {
+          abort_evidence: Json | null
+          abort_reason: string | null
           all_tickers: Json
           chunk_size: number
           continue_last_at: string | null
@@ -8527,6 +8529,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          abort_evidence?: Json | null
+          abort_reason?: string | null
           all_tickers: Json
           chunk_size: number
           continue_last_at?: string | null
@@ -8553,6 +8557,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          abort_evidence?: Json | null
+          abort_reason?: string | null
           all_tickers?: Json
           chunk_size?: number
           continue_last_at?: string | null
