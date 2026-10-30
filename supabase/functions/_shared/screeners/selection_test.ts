@@ -14,6 +14,10 @@ import {
   isExplicitZeroPriorDayAggregate,
   parseProviderAsOf,
   type PolygonTicker,
+  collectMainUniverseQualified,
+  finalizeMainUniverseSelections,
+  selectMainUniverseTabs,
+  extendedQuoteSemanticsForTicker,
   priorSessionVolume,
   PROVIDER_FUTURE_SKEW_MS,
   qualifiesDayTradeRadar,
@@ -673,4 +677,51 @@ Deno.test("gainers/losers rank by |MOVE| then volume, not volume alone", () => {
   });
   const selected = selectForTab("gainers_losers", [loud, mover]);
   assertEquals(selected.map((t) => t.ticker), ["MOVE", "LOUD"]);
+});
+
+Deno.test("ISS-034: Day Trade Radar filters contradictory observation sessions before volume-first top 20", () => {
+  const nowMs = Date.parse("2026-10-30T21:15:00Z");
+  const opts = { nowMs, extendedSession: true, observationSessionFields: true };
+  const updated = (nowMs - 5 * 60_000) * 1_000_000;
+  const validMinMs = Date.parse("2026-10-30T21:09:00Z");
+  const staleMinMs = Date.parse("2026-10-30T19:59:00Z");
+  const bad = ticker({ ticker: "ISS034BAD", volume: 99_000_000, prevVol: 1_000_000, price: 10, prevClose: 8 });
+  bad.updated = updated;
+  bad.min = { t: staleMinMs, av: 100_000_000 };
+  const valid = Array.from({ length: 21 }, (_, i) => {
+    const t = ticker({
+      ticker: `ISS034V${String(i + 1).padStart(2, "0")}`,
+      volume: 31_000_000 - i * 100_000,
+      prevVol: 1_000_000,
+      price: 10,
+      prevClose: 8,
+    });
+    t.updated = updated;
+    t.min = { t: validMinMs, av: 32_000_000 };
+    return t;
+  });
+  assertEquals(extendedQuoteSemanticsForTicker(bad, opts), null);
+  assertEquals(extendedQuoteSemanticsForTicker(valid[0], opts), true);
+  const candidates = [bad, ...valid];
+  const staged = finalizeMainUniverseSelections(collectMainUniverseQualified(candidates, opts), opts);
+  const monolithic = selectMainUniverseTabs(candidates, opts);
+  for (const selected of [staged.day_trade_radar, monolithic.day_trade_radar]) {
+    assertEquals(selected.length, SCREENER_ROW_LIMIT);
+    assertEquals(selected.some((t) => t.ticker === "ISS034BAD"), false);
+    assertEquals(selected.map((t) => t.ticker), valid.slice(0, 20).map((t) => t.ticker));
+  }
+  // Removing the highest-volume but invalid candidate fills the last slot.
+  assertEquals(staged.day_trade_radar[19].ticker, "ISS034V20");
+  assertEquals(monolithic.day_trade_radar.map((t) => t.ticker), staged.day_trade_radar.map((t) => t.ticker));
+});
+
+Deno.test("ISS-034: regular-session Day Trade Radar retains valid market candidates", () => {
+  const nowMs = Date.parse("2026-10-30T19:45:00Z");
+  const opts = { nowMs, extendedSession: false, observationSessionFields: true };
+  const t = ticker({ ticker: "REGULAR", volume: 6_000_000, prevVol: 1_000_000, price: 10, prevClose: 8 });
+  t.updated = (nowMs - 60_000) * 1_000_000;
+  t.min = { t: nowMs - 2 * 60_000, av: 6_000_000 };
+  assertEquals(extendedQuoteSemanticsForTicker(t, opts), false);
+  assertEquals(finalizeMainUniverseSelections(collectMainUniverseQualified([t], opts), opts).day_trade_radar.map((x) => x.ticker), ["REGULAR"]);
+  assertEquals(selectMainUniverseTabs([t], opts).day_trade_radar.map((x) => x.ticker), ["REGULAR"]);
 });
