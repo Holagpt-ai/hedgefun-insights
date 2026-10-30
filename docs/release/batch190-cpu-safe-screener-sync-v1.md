@@ -28,6 +28,7 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 5. **`20261030183000_screener_sync_staging_advance_acl_v1.sql`** (Batch **190.4**) — revoke PUBLIC/anon/authenticated EXECUTE on six-arg **`advance_screener_sync_chunk_v1`**; **service_role** only. See `docs/release/batch190-4-staging-advance-acl-v1.md`.
 6. **`20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql`** (Batch **190.5**, Gate B prerequisite) — explicit revoke **anon/authenticated** EXECUTE on the other five staging RPCs (Lovable production gap). See `docs/release/batch190-5-staging-rpc-acl-hardening-v1.md`.
 7. **`20261030210000_screener_sync_abort_diagnostics_v1.sql`** (Batch **190.6**) — `abort_reason` / `abort_evidence` on `screener_sync_generation_jobs` for finalization abort audit. See `docs/release/batch190-6-abort-diagnostics-v1.md`.
+8. **Batch 190.7** — finalize exception diagnostics + **`20261030220000`** CAS lease release RPC + Edge handler. See `docs/release/batch190-7-finalize-recovery-v1.md`. Apply migration **before** Edge 190.7.
 
 **Postgres integration gate (mandatory on PR #196):** GitHub Actions provisions **PostgreSQL 16**, runs `scripts/supabase/screener-sync-pg-test-setup.mjs` (bootstrap + migrations **20260914200000** → **20261028230000**), then `sync-staging-postgres-integration_test.ts`. Local: disposable Docker Postgres only — never Lovable production.
 

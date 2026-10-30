@@ -10,6 +10,8 @@ import {
   type StagedGenerationJob,
 } from "./sync-staging-types.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
+import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
+import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   jobFromRow,
   jobToInsertRow,
@@ -138,37 +140,39 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   }
 
   async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
-    const res = await this.sb
-      .from(TABLE)
-      .select("*")
-      .eq("status", "chunking")
-      .limit(8);
-    if (res.error || !res.data) return null;
-    const cutoffMs = nowMs - SCREENER_SYNC_JOB_TTL_MS;
     let best: StagedGenerationJob | null = null;
-    for (const row of res.data as StagingJobRow[]) {
-      const job = jobFromRow(row);
-      if (job.status !== "chunking" && job.status !== "finalizing") continue;
-      if (job.createdAtMs < cutoffMs) continue;
-      const leaseExpired = job.leaseExpiresMs === null ||
-        job.leaseExpiresMs <= nowMs;
-      const dispatchFailed = !!job.continueLastError;
-      if (!leaseExpired && !dispatchFailed) continue;
-      if (!best || job.createdAtMs > best.createdAtMs) best = job;
-    }
-    if (!best) {
-      const fin = await this.sb
+    for (const status of ["chunking", "finalizing"] as const) {
+      const res = await this.sb
         .from(TABLE)
         .select("*")
-        .eq("status", "finalizing")
-        .limit(4);
-      for (const row of fin.data ?? [] as StagingJobRow[]) {
-        const job = jobFromRow(row as StagingJobRow);
-        if (job.createdAtMs < cutoffMs) continue;
+        .eq("status", status)
+        .limit(16);
+      if (res.error || !res.data) continue;
+      for (const row of res.data as StagingJobRow[]) {
+        const job = jobFromRow(row);
+        if (!stagedJobNeedsResume(job, nowMs)) continue;
         if (!best || job.createdAtMs > best.createdAtMs) best = job;
       }
     }
     return best;
+  }
+
+  async releaseFinalizeLeasesForRetry(
+    input: ReleaseFinalizeLeaseCas,
+  ): Promise<boolean> {
+    const nowIso = new Date(input.nowMs).toISOString();
+    const rpc = await this.sb.rpc("release_screener_sync_finalize_lease_cas_v1", {
+      p_job_id: input.jobId,
+      p_expected_state_version: input.expectedStateVersion,
+      p_expected_finalize_lease_token: input.expectedFinalizeLeaseToken,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean };
+      return parsed?.ok === true;
+    }
+    if (!isMissingRpc(rpc.error)) return false;
+    return false;
   }
 
   async acquireOrCreate(

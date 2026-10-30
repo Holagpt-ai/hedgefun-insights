@@ -13,6 +13,7 @@ import type { PolicyExclusionEvidence } from "../_shared/screeners/baseline-cove
 import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "../_shared/screeners/baseline-coverage.ts";
 import type { NhlBaselineQuote } from "../_shared/screeners/new-highs-lows.ts";
 import type { SyncStagingStore } from "../_shared/screeners/sync-staging-memory.ts";
+import { parseContinueDispatchError } from "../_shared/screeners/sync-finalize-recovery.ts";
 import type { StagedSyncRequest } from "../_shared/screeners/sync-staging-types.ts";
 import type { DbClient, SyncDeps } from "./handler.ts";
 
@@ -121,7 +122,13 @@ export async function dispatchStagedContinue(
       signal: AbortSignal.timeout(CONTINUE_DISPATCH_TIMEOUT_MS),
     });
     if (!res.ok) {
-      return { ok: false, error: `http_${res.status}` };
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        body = null;
+      }
+      return { ok: false, error: parseContinueDispatchError(res.status, body) };
     }
     return { ok: true };
   } catch (e) {
