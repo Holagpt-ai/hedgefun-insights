@@ -43,9 +43,7 @@ export type StagingTableClient = {
       error: { message: string; code?: string } | null;
     }>;
     update: (row: Record<string, unknown>) => {
-      eq: (col: string, val: string) => Promise<{
-        error: { message: string; code?: string } | null;
-      }>;
+      eq: (col: string, val: string) => StagingUpdateEqChain;
     };
   };
   rpc: (
@@ -57,6 +55,14 @@ export type StagingTableClient = {
 type StagingQueryResult = {
   data: Array<StagingJobRow | { id: string; created_at: string }> | null;
   error: { message: string; code?: string } | null;
+};
+
+type StagingUpdateResult = Promise<{
+  error: { message: string; code?: string } | null;
+}>;
+
+type StagingUpdateEqChain = StagingUpdateResult & {
+  in: (col: string, vals: string[]) => StagingUpdateResult;
 };
 
 const TABLE = "screener_sync_generation_jobs";
