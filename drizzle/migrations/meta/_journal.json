@@ -435,6 +435,13 @@
       "when": 1793377707366,
       "tag": "0061_screener_sync_staging_recovery_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793379523672,
+      "tag": "0062_screener_sync_staging_advance_acl_v1",
+      "breakpoints": true
     }
   ]
 }
