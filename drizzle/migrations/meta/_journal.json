@@ -442,6 +442,13 @@
       "when": 1793379523672,
       "tag": "0062_screener_sync_staging_advance_acl_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793382740407,
+      "tag": "0063_screener_sync_staging_rpc_acl_hardening_v1",
+      "breakpoints": true
     }
   ]
 }
