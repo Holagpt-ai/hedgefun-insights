@@ -101,6 +101,8 @@ export type StagingJobRow = {
   finalize_lease_expires_at: string | null;
   publish_rows_inserted: number | null;
   publish_rpc_recorded_at: string | null;
+  abort_reason: string | null;
+  abort_evidence: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -140,6 +142,8 @@ export function jobFromRow(row: StagingJobRow): StagedGenerationJob {
     publishRpcRecordedAtMs: row.publish_rpc_recorded_at
       ? Date.parse(row.publish_rpc_recorded_at)
       : null,
+    abortReason: row.abort_reason ?? null,
+    abortEvidence: row.abort_evidence ?? null,
   };
 }
 
@@ -179,6 +183,8 @@ export function jobToInsertRow(
     publish_rpc_recorded_at: job.publishRpcRecordedAtMs
       ? new Date(job.publishRpcRecordedAtMs).toISOString()
       : null,
+    abort_reason: job.abortReason,
+    abort_evidence: job.abortEvidence,
   };
 }
 

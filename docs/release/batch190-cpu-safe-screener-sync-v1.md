@@ -27,6 +27,7 @@ PR #194 reduced local wall-clock ~5× but production still **CPU Time exceeded**
 4. `20261028230000_screener_sync_staging_recovery_v1.sql` — **`expire_screener_sync_stale_jobs_v1`**, atomic **`publish_screener_sync_staged_generation_v1`** (replace + job record in one transaction), **DROP** obsolete 7-arg `advance_screener_sync_chunk_v1`
 5. **`20261030183000_screener_sync_staging_advance_acl_v1.sql`** (Batch **190.4**) — revoke PUBLIC/anon/authenticated EXECUTE on six-arg **`advance_screener_sync_chunk_v1`**; **service_role** only. See `docs/release/batch190-4-staging-advance-acl-v1.md`.
 6. **`20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql`** (Batch **190.5**, Gate B prerequisite) — explicit revoke **anon/authenticated** EXECUTE on the other five staging RPCs (Lovable production gap). See `docs/release/batch190-5-staging-rpc-acl-hardening-v1.md`.
+7. **`20261030210000_screener_sync_abort_diagnostics_v1.sql`** (Batch **190.6**) — `abort_reason` / `abort_evidence` on `screener_sync_generation_jobs` for finalization abort audit. See `docs/release/batch190-6-abort-diagnostics-v1.md`.
 
 **Postgres integration gate (mandatory on PR #196):** GitHub Actions provisions **PostgreSQL 16**, runs `scripts/supabase/screener-sync-pg-test-setup.mjs` (bootstrap + migrations **20260914200000** → **20261028230000**), then `sync-staging-postgres-integration_test.ts`. Local: disposable Docker Postgres only — never Lovable production.
 
@@ -59,7 +60,9 @@ Validate locally: `node scripts/supabase/migration-order.mjs`
 | Finalize owner conflict | 409; other worker owns finalize lease |
 | RPC ok, publish state CAS fails | Response includes `publish_state_pending`; retry finalize is safe if feed already shows `sync_run_id` |
 | NHL baseline generation changes mid-run | Job `failed` with `nhl_baseline_generation_changed` |
-| Job TTL exceeded (25m) | `aborted`; no publish |
+| Job TTL exceeded (25m) | `aborted`; no publish; `abort_reason` NULL (expiry path) |
+| Prior generation retained at finalize | `aborted`; `abort_reason=prior_generation_retained`; feed unchanged |
+| Newer feed live at publish RPC | `aborted`; `abort_reason=newer_generation_live` |
 
 ## Validation (local — typed Deno)
 
