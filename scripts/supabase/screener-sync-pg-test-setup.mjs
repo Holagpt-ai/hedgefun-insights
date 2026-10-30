@@ -34,6 +34,7 @@ const MIGRATION_CHAIN = [
   "20261028210000_screener_sync_staging_rpc_v1.sql",
   "20261028220000_screener_sync_staging_hardening_v1.sql",
   "20261028230000_screener_sync_staging_recovery_v1.sql",
+  "20261030183000_screener_sync_staging_advance_acl_v1.sql",
 ];
 
 function runSql(label, filePath) {

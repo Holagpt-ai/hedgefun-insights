@@ -66,7 +66,7 @@ jobs:
           deno-version: 2.9.4
       - name: Screener regression tests
         run: >
-          deno test --frozen --allow-env --allow-net=localhost:5432,127.0.0.1:5432
+          deno test --frozen --allow-read --allow-env --allow-net=localhost:5432,127.0.0.1:5432
           supabase/functions/_shared/screeners/extended-session-move_test.ts
           supabase/functions/_shared/screeners/gappers-premarket_test.ts
           supabase/functions/_shared/screeners/premarket-rollover_test.ts
@@ -82,5 +82,7 @@ jobs:
           supabase/functions/_shared/screeners/sync-chunk-handoff_test.ts
           supabase/functions/_shared/screeners/policy-exclusion-serialize_test.ts
           supabase/functions/_shared/screeners/sync-staging-postgres-integration_test.ts
+          supabase/functions/_shared/screeners/sync-staging-advance-acl_contract_test.ts
+          supabase/functions/_shared/screeners/sync-staging-advance-acl-postgres_test.ts
           supabase/functions/_shared/screeners/sync-staging-expiry_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
