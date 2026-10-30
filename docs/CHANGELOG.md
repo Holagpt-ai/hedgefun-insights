@@ -8,11 +8,13 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **P0 screener CPU publication** PR **#194** @ **`268ffabc`**: bound session-volume cache, `selectMainUniverseTabs`, staged 13,262 benchmark, `session-volume-cache-parity_test.ts`. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **BLOCKED** for production sign-off (local ~3–4.5s ≠ Edge CPU). **NOT MERGED**.
+- **Batch 190 release gate** CPU-safe staged screener sync (PR **#196**, branch `cursor/batch190-cpu-safe-screener-sync`): Architecture A — chunked Edge + CAS staging RPCs; atomic `publish_screener_sync_staged_generation_v1` with **fail-closed** staged handler (no replace+record fallback); **Postgres 16 mandatory CI** (`screener-deno-regressions.yml` + `screener-sync-pg-test-setup.mjs` + 11 integration tests). Migrations **not applied**; **ISS-034** remains open until production publish verified.
+- **Master Continuity Sync V4** (PR **#195** → **`4eaa8504`** / doc head **`b98e2724`**): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 ## 2026-10-28
 
-- **P0 D1** Extended-hours screener volume integrity merged (PR **#193** → **`4f7c10db`**). **Lovable Edge deployed** (source fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`). Oct 28 16:45/16:50 UTC **CPU Time exceeded** on full universe — tracked **ISS-034**.
+- **P0 CPU mitigation** merged (PR **#194** → **`1398d16a`**; implementation core **`268ffabc`**, PR branch head **`f3a2d23e`**): bound session-volume cache, `selectMainUniverseTabs`, staged benchmark, parity tests. Runbook `docs/release/p0-screener-cpu-publication-v1.md`. **Deployed Lovable `sync-screener-data` 17:29:52 UTC** — submitted source SHA-256 `cfd9032b…cc3af`, 37-file closure SHA-256 `c3a70628…8a167`. **Publication failed** — **17:30 / 17:35 UTC** **CPU Time exceeded**; **ISS-034** **open**.
+- **P0 D1** Extended-hours screener volume integrity merged (PR **#193** → **`4f7c10db`**). **Lovable Edge deployed** (fingerprint SHA-256 `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`). **Premarket live acceptance pending.**
 - Batch **189** Homepage final cleanup merged (PR **#192** → **`68092518`**): AI Trader off homepage, market clocks, live session countdown, Market Pulse disclosures.
 
 ## 2026-10-27 (Batch 188)

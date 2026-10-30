@@ -18,8 +18,10 @@ import {
 import { isLiveSurveillanceSessionKind } from "../_shared/screeners/screener-session.ts";
 import {
   allHaveProviderAsOf,
+  finalizeMainUniverseSelections,
   normalizeSymbol,
   type PolygonTicker,
+  SCREENER_ROW_LIMIT,
   selectForTab,
   selectMainUniverseTabs,
 } from "../_shared/screeners/selection.ts";
@@ -28,7 +30,10 @@ import {
   createEmptyRadarRejectionSummary,
   formatRadarRejectionLog,
 } from "../_shared/screeners/diagnostics.ts";
-import { createSessionVolumeCache } from "../_shared/screeners/session-volume.ts";
+import {
+  createSessionVolumeCache,
+  volumeContextFromOpts,
+} from "../_shared/screeners/session-volume.ts";
 import {
   attachRvol20dToRows,
   easternTradingDateFromMs,
@@ -52,6 +57,7 @@ import {
   type PolicyExclusionEvidence,
 } from "../_shared/screeners/baseline-coverage.ts";
 import {
+  finalizeNhlSelections,
   isValidBaselineQuote,
   type NhlBaselineQuote,
   type NhlBaselineStatus,
@@ -59,6 +65,27 @@ import {
 } from "../_shared/screeners/new-highs-lows.ts";
 import { captureDayTradeQualificationFromSync } from "../_shared/day-trade/capture-from-sync.ts";
 import type { QualificationDb } from "../_shared/day-trade/persist-qualification-lifecycle.ts";
+import { buildTabEvaluationEvidenceFromChunkAccums } from "../_shared/screeners/evaluation-evidence-chunk.ts";
+import { buildStagedJobFromUniverse } from "../_shared/screeners/sync-orchestrator.ts";
+import {
+  MemorySyncStagingStore,
+  type SyncStagingStore,
+} from "../_shared/screeners/sync-staging-memory.ts";
+import {
+  createSupabaseSyncStagingStore,
+} from "../_shared/screeners/sync-staging-supabase.ts";
+import {
+  assertFrozenBaselineStillValid,
+  createFrozenNhlBaselineSnapshot,
+  quotesFromSnapshot,
+} from "../_shared/screeners/nhl-baseline-snapshot.ts";
+import type { StagedGenerationJob } from "../_shared/screeners/sync-staging-types.ts";
+import {
+  createContinueInvoker,
+  handleStagedSyncStart,
+  parseStagedSyncBody,
+  type StagedChunkContext,
+} from "./sync-staged-handler.ts";
 
 const BASE = "https://api.polygon.io";
 export const REPLACE_GENERATION_RPC = "replace_screener_results_generation_v1";
@@ -126,7 +153,29 @@ export type SyncDeps = {
   nowMs?: () => number;
   /** Injectable for deterministic tests; defaults to crypto.randomUUID(). */
   newSyncRunId?: () => string;
+  /** Batch 190: inject in-memory staging for Deno tests. */
+  stagingStore?: SyncStagingStore;
 };
+
+function isStagedSyncEnabled(env: EnvReader): boolean {
+  const v = (env("SCREENER_SYNC_STAGED") ?? "0").trim().toLowerCase();
+  return v === "1" || v === "chain" || v === "memory";
+}
+
+function resolveStagingStore(
+  mode: string,
+  sb: DbClient,
+  deps: SyncDeps,
+): SyncStagingStore | null {
+  if (deps.stagingStore) return deps.stagingStore;
+  if (mode === "memory") return new MemorySyncStagingStore();
+  if (mode === "1" || mode === "chain") {
+    return createSupabaseSyncStagingStore(
+      sb as unknown as import("../_shared/screeners/sync-staging-supabase.ts").StagingTableClient,
+    );
+  }
+  return null;
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -165,12 +214,47 @@ function unavailableBaseline(status: NhlBaselineStatus = "unavailable"): {
   status: NhlBaselineStatus;
   quotes: Map<string, NhlBaselineQuote>;
   policyExclusions: PolicyExclusionEvidence;
+  baselineGenerationId: string;
+  declaredSymbolCount: number;
 } {
   return {
     status,
     quotes: new Map(),
     policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+    baselineGenerationId: "",
+    declaredSymbolCount: 0,
   };
+}
+
+function chunkContextFromJob(job: StagedGenerationJob): StagedChunkContext {
+  const snap = job.nhlBaselineSnapshot;
+  if (snap) {
+    return {
+      nhlBaselines: quotesFromSnapshot(snap),
+      policyExclusions: snap.policyExclusions,
+    };
+  }
+  return {
+    nhlBaselines: new Map(),
+    policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  };
+}
+
+async function validateJobBaselineDrift(
+  job: StagedGenerationJob,
+  sb: DbClient,
+  store: SyncStagingStore,
+): Promise<Response | null> {
+  const snap = job.nhlBaselineSnapshot;
+  if (!snap || !snap.baselineGenerationId) return null;
+  const live = await loadNhlBaseline(sb);
+  const check = assertFrozenBaselineStillValid(snap, {
+    baselineGenerationId: live.baselineGenerationId,
+    status: live.status,
+  });
+  if (check.ok) return null;
+  await store.failJob(job.id, check.reason, Date.now());
+  return json({ error: check.reason, generation_id: job.id }, 409);
 }
 
 async function loadPolicyExclusions(
@@ -360,10 +444,12 @@ async function loadCurrentFeedEvidenceContext(
   }
 }
 
-async function loadNhlBaseline(sb: DbClient): Promise<{
+export async function loadNhlBaseline(sb: DbClient): Promise<{
   status: NhlBaselineStatus;
   quotes: Map<string, NhlBaselineQuote>;
   policyExclusions: PolicyExclusionEvidence;
+  baselineGenerationId: string;
+  declaredSymbolCount: number;
 }> {
   try {
     let stateRes = await sb
@@ -449,7 +535,13 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       row.policy_min_sessions,
       row.policy_excluded_count,
     );
-    return { status: "available", quotes, policyExclusions };
+    return {
+      status: "available",
+      quotes,
+      policyExclusions,
+      baselineGenerationId: generationId,
+      declaredSymbolCount,
+    };
   } catch {
     return unavailableBaseline("unavailable");
   }
@@ -479,6 +571,466 @@ function providerAsOfBounds(
   return { min, max };
 }
 
+async function finalizeStagedScreenerGeneration(
+  generationId: string,
+  deps: SyncDeps,
+  store: SyncStagingStore,
+  sb: DbClient,
+): Promise<Response> {
+  const peek = await store.get(generationId);
+  if (!peek) {
+    return json({ error: "generation_not_found" }, 404);
+  }
+  if (peek.status === "published") {
+    return json({
+      ok: true,
+      staged: true,
+      already_published: true,
+      sync_run_id: peek.observation.syncRunId,
+      generation_id: peek.id,
+    });
+  }
+  if (peek.nextChunkIndex < peek.totalChunks) {
+    return json({ error: "chunks_incomplete" }, 409);
+  }
+  const drift = await validateJobBaselineDrift(peek, sb, store);
+  if (drift) return drift;
+
+  const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
+  const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
+  const claimed = await store.claimWork({
+    jobId: generationId,
+    leaseToken: finalizeLease,
+    nowMs: wallNowMs,
+    mode: "finalize",
+  });
+  if (!claimed.ok) {
+    return json({ error: claimed.reason }, 409);
+  }
+  const job = claimed.job;
+
+  const snap = job.nhlBaselineSnapshot;
+  const nhlBaseline = snap
+    ? {
+      status: snap.status,
+      quotes: quotesFromSnapshot(snap),
+      policyExclusions: snap.policyExclusions,
+      baselineGenerationId: snap.baselineGenerationId,
+      declaredSymbolCount: snap.declaredSymbolCount,
+    }
+    : await loadNhlBaseline(sb);
+
+  const { observation } = job;
+  const nowMs = observation.nowMs;
+  const syncedAt = observation.syncedAt;
+  const syncRunId = observation.syncRunId;
+  const extendedTabOpts = {
+    extendedSession: observation.extendedSession,
+    observationSessionFields: observation.observationSessionFields,
+    nowMs,
+    sessionVolumeCache: createSessionVolumeCache({
+      nowMs,
+      observationSessionVolume: observation.observationSessionFields,
+      extendedSession: observation.extendedSession,
+    }),
+  };
+
+  console.log(
+    `[sync-screener-data] staged ${formatRadarRejectionLog(job.merged.radar)}`,
+  );
+
+  const mainTabSelections = finalizeMainUniverseSelections(
+    job.merged.mainQualified,
+    extendedTabOpts,
+  );
+  const dayTradeSelected = mainTabSelections.day_trade_radar;
+  const gapperSelected = mainTabSelections.gappers;
+  const volumeSpikeSelected = mainTabSelections.volume_spikes;
+  const unusualSelected = mainTabSelections.unusual_volume;
+
+  const providerGainersLosers = [...job.gainers, ...job.losers];
+  const gainersLosersUniverse = providerGainersLosers.length > 0
+    ? providerGainersLosers
+    : job.allTickers;
+  const gainersLosersSelected = selectForTab(
+    "gainers_losers",
+    gainersLosersUniverse,
+    undefined,
+    extendedTabOpts,
+  );
+
+  const volumeBaselines = await loadVolumeBaselines(sb);
+  const volumeCtx = volumeContextFromOpts(extendedTabOpts);
+  const nhlSelected = nhlBaseline.status === "available"
+    ? finalizeNhlSelections(
+      job.merged.nhlCandidates,
+      SCREENER_ROW_LIMIT,
+      volumeCtx,
+    )
+    : [];
+  const nhlTickers = nhlSelected.map((item) => item.ticker);
+
+  const selectedAll = [
+    ...dayTradeSelected,
+    ...gapperSelected,
+    ...volumeSpikeSelected,
+    ...gainersLosersSelected,
+    ...unusualSelected,
+    ...nhlTickers,
+  ];
+  if (!allHaveProviderAsOf(selectedAll, nowMs)) {
+    return json({ error: "provider_freshness_unavailable" }, 503);
+  }
+
+  const selectedSymbols = selectedSymbolUnion(
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    gainersLosersSelected,
+    unusualSelected,
+    nhlTickers,
+  );
+  const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
+  const getName = (ticker: string) => nameMap[ticker] ?? ticker;
+
+  const meta: GenerationMeta = {
+    syncedAt,
+    syncRunId,
+    nowMs,
+    extendedSession: observation.extendedSession,
+    observationSessionFields: observation.observationSessionFields,
+    sessionVolumeCache: extendedTabOpts.sessionVolumeCache,
+  };
+
+  const dayTradeRows = mapTabRows(
+    "day_trade_radar",
+    dayTradeSelected,
+    getName,
+    meta,
+  );
+  const gapperRows = mapTabRows("gappers", gapperSelected, getName, meta);
+  const volumeSpikeRows = mapTabRows(
+    "volume_spikes",
+    volumeSpikeSelected,
+    getName,
+    meta,
+  );
+  const gainersLosersRows = mapTabRows(
+    "gainers_losers",
+    gainersLosersSelected,
+    getName,
+    meta,
+  );
+  const unusualVolumeRows = mapTabRows(
+    "unusual_volume",
+    unusualSelected,
+    getName,
+    meta,
+  );
+  const nhlRows = mapNewHighsLows(nhlSelected, getName, meta);
+
+  let allRows = [
+    ...dayTradeRows,
+    ...gapperRows,
+    ...volumeSpikeRows,
+    ...gainersLosersRows,
+    ...unusualVolumeRows,
+    ...nhlRows,
+  ];
+  allRows = attachRvol20dToRows(
+    allRows,
+    volumeBaselines,
+    easternTradingDateFromMs(nowMs),
+  );
+
+  const tabEvaluationEvidence = buildTabEvaluationEvidenceFromChunkAccums({
+    universe: job.allTickers,
+    gappersAccum: job.merged.gappersAccum,
+    primaryAccum: job.merged.primaryAccum,
+    nhlAccum: job.merged.nhlEvidenceAccum,
+    nhlBaselineStatus: nhlBaseline.status,
+    nhlBaselines: nhlBaseline.quotes,
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    gainersLosersUniverse,
+    gainersLosersSelected,
+    unusualSelected,
+    nhlSelected,
+    extendedSession: observation.extendedSession,
+    observationSessionFields: observation.observationSessionFields,
+    nowMs,
+    sessionVolumeCache: extendedTabOpts.sessionVolumeCache,
+  });
+
+  const priorFeed = await loadCurrentFeedEvidenceContext(sb);
+  if (
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence: priorFeed.evidence,
+      nextEvidence: tabEvaluationEvidence,
+      nowMs,
+      priorSyncedAt: priorFeed.syncedAt,
+    })
+  ) {
+    await store.abortJob(job.id, wallNowMs);
+    return json({
+      ok: true,
+      preserved: true,
+      reason: "prior_generation_retained",
+      sync_run_id: syncRunId,
+      tickers_scanned: job.allTickers.length,
+      staged: true,
+      generation_id: job.id,
+    });
+  }
+
+  let evidencePersistence: TabEvaluationEvidencePersistenceResult = {
+    mode: "atomic_rpc",
+  };
+  let rowsInserted = job.publishRowsInserted;
+  let publishVersion = job.stateVersion;
+
+  if (rowsInserted === null) {
+    const atomicPublish = await store.publishStagedGeneration({
+      jobId: job.id,
+      finalizeLeaseToken: finalizeLease,
+      expectedStateVersion: publishVersion,
+      syncRunId,
+      syncedAt,
+      nhlBaselineStatus: nhlBaseline.status,
+      tabEvaluationEvidence,
+      rows: allRows,
+      nowMs: wallNowMs,
+    });
+
+    if (atomicPublish.ok) {
+      rowsInserted = atomicPublish.rowsInserted;
+      publishVersion = atomicPublish.job.stateVersion;
+      evidencePersistence = { mode: "atomic_rpc" };
+    } else if (atomicPublish.reason === "newer_generation_live") {
+      await store.abortJob(job.id, wallNowMs);
+      return json({
+        ok: true,
+        preserved: true,
+        reason: "newer_generation_live",
+        sync_run_id: syncRunId,
+        staged: true,
+        generation_id: job.id,
+      });
+    } else {
+      const reason = atomicPublish.reason === "staging_rpc_missing"
+        ? "staged_publish_rpc_unavailable"
+        : atomicPublish.reason;
+      console.error(
+        `[sync-screener-data] staged atomic_publish_failed reason=${reason}`,
+      );
+      await store.failJob(job.id, reason, wallNowMs);
+      const status = reason === "staged_publish_rpc_unavailable" ? 503 : 409;
+      return json({ error: reason, generation_id: job.id }, status);
+    }
+  } else if (rowsInserted !== allRows.length) {
+    await store.failJob(job.id, "publish_rows_replay_mismatch", wallNowMs);
+    return json({ error: "database_error" }, 500);
+  }
+
+  const completed = await store.completePublish({
+    jobId: job.id,
+    finalizeLeaseToken: finalizeLease,
+    expectedStateVersion: publishVersion,
+    nowMs: wallNowMs,
+  });
+  if (!completed.ok) {
+    console.error(
+      `[sync-screener-data] staged publish_complete_rejected reason=${completed.reason}`,
+    );
+    return json({
+      ok: true,
+      staged: true,
+      publish_rpc_ok: true,
+      publish_state_pending: true,
+      sync_run_id: syncRunId,
+      generation_id: job.id,
+    });
+  }
+
+  try {
+    const sessionDate = easternTradingDateFromMs(nowMs);
+    await captureDayTradeQualificationFromSync({
+      db: sb as unknown as QualificationDb,
+      sessionDate,
+      syncRunId,
+      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
+      allTickers: job.allTickers,
+      volumeBaselines,
+    });
+  } catch {
+    console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
+  }
+
+  const bounds = providerAsOfBounds(allRows);
+  return json({
+    ok: true,
+    staged: true,
+    generation_id: job.id,
+    sync_run_id: syncRunId,
+    tickers_scanned: job.allTickers.length,
+    rows_inserted: rowsInserted,
+    tab_evaluation_evidence_persistence: evidencePersistence,
+    nhl_baseline_status: nhlBaseline.status,
+    tabs: {
+      day_trade_radar: dayTradeRows.length,
+      gappers: gapperRows.length,
+      volume_spikes: volumeSpikeRows.length,
+      gainers_losers: gainersLosersRows.length,
+      unusual_volume: unusualVolumeRows.length,
+      new_highs_lows: nhlRows.length,
+    },
+    provider_as_of_min: bounds.min,
+    provider_as_of_max: bounds.max,
+    synced_at: syncedAt,
+  });
+}
+
+async function handleStagedSyncScreenerData(
+  req: Request,
+  deps: SyncDeps,
+  stagedMode: string,
+): Promise<Response> {
+  const parsedBody = await parseStagedSyncBody(req);
+  const supabaseUrl = deps.env("SUPABASE_URL") ?? "";
+  const serviceRole = deps.env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceRole) {
+    return json({ error: "misconfigured" }, 500);
+  }
+  const sb = deps.createClient(supabaseUrl, serviceRole);
+  const store = resolveStagingStore(stagedMode, sb, deps);
+  if (!store) {
+    return json({ error: "staging_misconfigured" }, 500);
+  }
+
+  const functionUrl = `${supabaseUrl}/functions/v1/sync-screener-data`;
+  const nowMs = (deps.nowMs ?? (() => Date.now()))();
+  const stagedDeps = {
+    ...deps,
+    stagingStore: store,
+    invokeContinue: createContinueInvoker(deps, functionUrl, store),
+    finalizeStagedGeneration: (generationId: string) =>
+      finalizeStagedScreenerGeneration(generationId, deps, store, sb),
+  };
+
+  if (parsedBody.action === "continue" || parsedBody.action === "finalize") {
+    const job = await store.get(parsedBody.generation_id);
+    if (!job) {
+      return json({ error: "generation_not_found" }, 404);
+    }
+    const drift = await validateJobBaselineDrift(job, sb, store);
+    if (drift) return drift;
+    return handleStagedSyncStart(
+      stagedDeps,
+      parsedBody,
+      null,
+      chunkContextFromJob(job),
+    );
+  }
+
+  const resume = await store.findResumableJob(nowMs);
+  if (resume && parsedBody.action === "cron") {
+    const drift = await validateJobBaselineDrift(resume, sb, store);
+    if (drift) return drift;
+    const resumeBody = resume.nextChunkIndex >= resume.totalChunks
+      ? { action: "finalize" as const, generation_id: resume.id }
+      : { action: "continue" as const, generation_id: resume.id };
+    return handleStagedSyncStart(
+      stagedDeps,
+      resumeBody,
+      null,
+      chunkContextFromJob(resume),
+    );
+  }
+
+  const nhlBaseline = await loadNhlBaseline(sb);
+  const frozenSnapshot = createFrozenNhlBaselineSnapshot({
+    baselineGenerationId: nhlBaseline.baselineGenerationId,
+    status: nhlBaseline.status,
+    declaredSymbolCount: nhlBaseline.declaredSymbolCount,
+    quotes: nhlBaseline.quotes,
+    policyExclusions: nhlBaseline.policyExclusions,
+    frozenAtMs: nowMs,
+  });
+  const chunkContext: StagedChunkContext = {
+    nhlBaselines: nhlBaseline.quotes,
+    policyExclusions: nhlBaseline.policyExclusions,
+  };
+
+  const apiKey = deps.env("POLYGON_API_KEY") ?? "";
+  if (!apiKey) {
+    return json({ error: "misconfigured" }, 500);
+  }
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  let allTickers: PolygonTicker[];
+  let gainers: PolygonTicker[];
+  let losers: PolygonTicker[];
+  try {
+    const [snapBody, gainBody, lossBody] = await Promise.all([
+      fetchJsonBounded(
+        `${BASE}/v2/snapshot/locale/us/markets/stocks/tickers?include_otc=false`,
+        { headers },
+        { fetchImpl: deps.fetch },
+      ),
+      fetchJsonBounded(
+        `${BASE}/v2/snapshot/locale/us/markets/stocks/gainers?include_otc=false`,
+        { headers },
+        { fetchImpl: deps.fetch },
+      ),
+      fetchJsonBounded(
+        `${BASE}/v2/snapshot/locale/us/markets/stocks/losers?include_otc=false`,
+        { headers },
+        { fetchImpl: deps.fetch },
+      ),
+    ]);
+    allTickers = parseTickersPayload(snapBody) as PolygonTicker[];
+    gainers = parseTickersPayload(gainBody) as PolygonTicker[];
+    losers = parseTickersPayload(lossBody) as PolygonTicker[];
+  } catch (e) {
+    if (!(e instanceof ProviderUnavailableError)) {
+      console.error("[sync-screener-data] provider error");
+    }
+    return json({ error: "provider_unavailable" }, 503);
+  }
+
+  const sessionKind = resolveSyncSessionKind(nowMs);
+  const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
+  if (observationSessionFields) {
+    const previousCloseOverlay = await loadRadarPreviousCloseOverlay(sb);
+    if (previousCloseOverlay.size > 0) {
+      allTickers = overlayVerifiedPreviousCloseOnUniverse(
+        allTickers,
+        previousCloseOverlay,
+      );
+    }
+  }
+
+  const syncedAt = deps.nowIso();
+  const syncRunId = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
+  const startJob = buildStagedJobFromUniverse(
+    allTickers,
+    gainers,
+    losers,
+    nowMs,
+    syncedAt,
+    syncRunId,
+  );
+  startJob.nhlBaselineLoaded = nhlBaseline.status === "available";
+  startJob.nhlBaselineSnapshot = frozenSnapshot;
+
+  return handleStagedSyncStart(
+    stagedDeps,
+    parsedBody,
+    startJob,
+    chunkContext,
+  );
+}
+
 /**
  * Full Screener sync request handler with injectable dependencies.
  * Auth runs before any provider or database work.
@@ -502,6 +1054,12 @@ export async function handleSyncScreenerData(
   );
   if (!auth.ok) {
     return json({ error: auth.error }, auth.status);
+  }
+
+  if (isStagedSyncEnabled(deps.env)) {
+    const stagedMode = (deps.env("SCREENER_SYNC_STAGED") ?? "0").trim()
+      .toLowerCase();
+    return handleStagedSyncScreenerData(req, deps, stagedMode);
   }
 
   const apiKey = deps.env("POLYGON_API_KEY") ?? "";

@@ -1,30 +1,68 @@
-> **Current Git state correction (2026-10-27):** GitHub `main` `e65746aba706e50ed0fec42a40f88140d99da0c2` (PR #184 merged); PR #174 closed without merge. The Vercel commit-to-asset, current Fly image SHA, live Edge versions, and updated Lovable integration branch remain **unverified for this exact head**. Do not infer production parity from this docs-only reconciliation. No production deployment was performed. New issues and current proposed batches: `docs/release/master-reset-2026-10-27.md`.
+> **Current production snapshot (2026-10-28, Master Continuity Sync V4):** GitHub `main` **`1398d16ad0041c34661e4bc76487c5a3757c207e`**. Lovable integration **`cursor/lovable-sync-from-main-20261024`** @ **`04da6d7f87994c93a0c5fc64492654df2424fe0b`**. **`sync-screener-data`** PR **#194** deployed **2026-10-28 17:29:52 UTC**; publication **failed** at **17:30** and **17:35 UTC** (**CPU Time exceeded**). Latest confirmed DB generation **16:15:04.456 UTC** (`sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**, **108** rows). Vercel/Fly/live Edge revision matrix for every function **not fully re-queried** this cycle. Sections below marked **historical** are preserved records, not current state.
 
-﻿# Deployment status
+# Deployment status
 
-Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+**Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## GitHub `main` (2026-10-26)
+## Current — GitHub and Lovable integration (2026-10-28)
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` HEAD | **`1398d16ad0041c34661e4bc76487c5a3757c207e`** — PR **#194** merged |
+| Lovable integration branch | `cursor/lovable-sync-from-main-20261024` |
+| Lovable integration tip | **`04da6d7f87994c93a0c5fc64492654df2424fe0b`** |
+| PR **#174** | **CLOSED** — not merged (superseded) |
+
+## Current — `sync-screener-data` (Lovable Cloud, owner-reported)
+
+| Field | Value |
+| --- | --- |
+| Function | `sync-screener-data` |
+| Cron job **25** | Active (`*/5 * * * *`) — invoke ≠ successful publish |
+| **PR #193** D1 deploy | Source fingerprint SHA-256 **`23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`** |
+| **PR #194** deploy time | **2026-10-28 17:29:52 UTC** (only this function redeployed in this step) |
+| PR **#194** submitted source SHA-256 | **`cfd9032b5d8c724bea5889a0e9888395219e0815626c2895bf1cdc705a2cc3af`** |
+| PR **#194** 37-file runtime closure SHA-256 | **`c3a70628e6af107d10c73026b79e21850bf21f2b03427e700c859cdfcdb8a167`** |
+| Edge function revision id (post-#194) | **Not reported** — do not invent |
+| Post-deploy failures | **17:30 UTC** — 13,262 evaluated, 10 qualified, **CPU Time exceeded** ~17:30:07; **17:35 UTC** — 13,262 / 9 qualified, **CPU Time exceeded** ~17:35:05 |
+| Last **confirmed** DB publication | `synced_at` **2026-10-28T16:15:04.456Z**; `sync_run_id` **`d3b3cd1b-42de-4c93-8170-9fd036c41f4e`**; **108** rows; six tab counts consistent with persisted generation |
+| D1 premarket live acceptance | **Pending** — deploy ≠ timed ET window sign-off |
+| Emergency rollback candidate (pre-D1 git) | `680925181d1f7ea768ccc5f5b3201fde10c7b411` — **not** exact deployed-version restore; reintroduces ISS-033; not default for Batch **190** rollout |
+
+**Do not conflate** the two PR #194 SHA-256 values (submitted source vs 37-file closure) with each other or with git merge commit `1398d16a`.
+
+## Current — other surfaces (partially unknown)
+
+| Surface | Status |
+| --- | --- |
+| Vercel SPA @ Batch **189** merge `68092518` | Deploy **SUCCESS** reported; manifest **no git SHA** — not re-probed for `1398d16a` |
+| Batch **187** earnings Edge functions | Activation **NOT APPLIED** — revision ids **UNKNOWN** (master batch **194**) |
+| **`chat` Edge (ISS-015)** | **BLOCKED** — rollback revision **UNKNOWN** (master batch **204**) |
+| Fly `stocksist-radar-v22-worker` v45 | Historical parity **PASS** (2026-10-24) — see historical section |
+
+---
+
+## Historical — GitHub `main` (2026-10-26)
 
 | Field | Value |
 | --- | --- |
 | HEAD | **`13a018a9eab70d0a8f75d51bce790b94ebd8e98f`** |
 | Last merge | PR **#183** — Batch 174/175 Monday acceptance docs |
 
-## Open PR (GitHub)
+## Historical — Open PR snapshot (2026-10-26)
 
 | PR | Branch | State | Notes |
 | --- | --- | --- | --- |
-| **#174** | `cursor/batch174-monday-scanner-acceptance` | **OPEN**, **CONFLICTING** | Supersede — do not merge; see `docs/release/batch174-175-monday-acceptance-inbox-v1.md` |
+| **#174** | `cursor/batch174-monday-scanner-acceptance` | Was **OPEN**, **CONFLICTING** | **Superseded — closed without merge** as of Master Reset V3 |
 
-## Vercel SPA (2026-10-26 ~17:00 ET)
+## Historical — Vercel SPA (2026-10-26 ~17:00 ET)
 
 | Field | Value |
 | --- | --- |
 | Production manifest js | **`/assets/index-BD3GjFFl.js`** |
 | Git SHA on manifest | **None** — parity by hash only |
 
-## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
+## Historical — Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
 
 | Field | Value |
 | --- | --- |
@@ -34,7 +72,7 @@ Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch or
 | Git SHA in image | **Unverified** (Fly deployment tag only) |
 | Parity vs `main` `b735073b` worker logic | **PASS** — no ranking / qualification behavior delta in the worker Docker COPY set; redeploy **not required** for scanner logic |
 
-## Vercel SPA (2026-10-24)
+## Historical — Vercel SPA (2026-10-24)
 
 | Field | Value |
 | --- | --- |
@@ -42,15 +80,15 @@ Checked **2026-10-26** (Batch 174/175 continuation). Git SHAs from `git fetch or
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
 
-## Scanner live-market acceptance V1
+## Historical — Scanner live-market acceptance V1
 
 Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. Polygon volume fix on **`main`** (`58aed1b1`, ISS-020). **Full RTH acceptance pending** Monday 2026-10-26 ET per `docs/release/monday-scanner-acceptance-2026-10-26.md`.
 
-## Scanner + catalyst integration V1
+## Historical — Scanner + catalyst integration V1
 
 Merged to `main` as **`ce68e0d8`** (PR #167).
 
-## AI Analyst V2 — `chat` Edge activation (2026-10-24)
+## Historical — AI Analyst V2 — `chat` Edge activation (2026-10-24)
 
 Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e80308dd75`** (PR #164) to project **`zcjptaolpumhtlwhlemq`**.
 
@@ -72,7 +110,7 @@ Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e
 
 **Unblock (Lovable Cloud):** follow `docs/release/edge-function-release-lovable.md`. Record the current production `chat` **version id** (not git SHA alone) for rollback, confirm required secrets exist, then deploy **`chat` only** from approved source **`10723434`** with no source edits. Roll back by redeploying the saved previous revision through Lovable Cloud.
 
-## Lovable integration branch sync (2026-10-25)
+## Historical — Lovable integration branch sync (2026-10-25)
 
 | Field | Value |
 | --- | --- |
@@ -81,7 +119,7 @@ Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e
 | Parity vs `main` | **PASS** — only `bun.lock` differs (Lovable-generated) |
 | Publish | **Not performed** from Cursor |
 
-## Confirmed this session
+## Historical — Confirmed session (2026-10-24)
 
 | Surface | Observation |
 | --- | --- |
@@ -100,10 +138,10 @@ A local `npm run build` of this tree also wrote `index-ACjVgNSC.js`. That hash d
 
 | Branch | Role |
 | --- | --- |
-| `cursor/lovable-sync-from-main-20261024` | Active integration branch. Forward-merge `main` after each ownership or continuity doc merge; carries Lovable-generated files (e.g. `bun.lock`) plus `main` application source. |
+| `cursor/lovable-sync-from-main-20261024` | Active integration branch. Forward-merge `main` after each ownership or continuity doc merge; carries Lovable-generated files (e.g. `bun.lock`) plus `main` application source. **Current tip:** **`04da6d7f`** (2026-10-28). |
 | `cursor/chat-single-pass-v1` | Archived recovery source for the analyst commits. Those commits are cherry-picked onto the catalyst evidence recovery. The branch itself was not merged. Its older divergence from `main` is not a current production or Lovable synchronization problem. |
 
-Lovable was not opened in this session. Preview hosts remain preview.
+Lovable was not opened in the Oct 28 docs sync session. Preview hosts remain preview.
 
 ## Gate I.3 — historical production activation
 

@@ -511,6 +511,83 @@ export type MainUniverseTabSelections = {
   unusual_volume: PolygonTicker[];
 };
 
+export type MainUniverseQualified = {
+  day_trade_radar: PolygonTicker[];
+  gappers: PolygonTicker[];
+  volume_spikes: PolygonTicker[];
+  unusual_volume: PolygonTicker[];
+};
+
+/** Collect every qualified symbol on a slice (no global top-N yet). */
+export function collectMainUniverseQualified(
+  universe: PolygonTicker[],
+  extendedTabOpts: TabSelectionOpts,
+): MainUniverseQualified {
+  const volumeCtx = volumeContextFromOpts(extendedTabOpts);
+  const dayTradeQ: PolygonTicker[] = [];
+  const gappersQ: PolygonTicker[] = [];
+  const spikesQ: PolygonTicker[] = [];
+  const unusualQ: PolygonTicker[] = [];
+  for (const t of universe) {
+    if (qualifiesDayTradeRadar(t)) dayTradeQ.push(t);
+    if (qualifiesGappers(t, extendedTabOpts)) gappersQ.push(t);
+    if (qualifiesVolumeSpikes(t, volumeCtx)) spikesQ.push(t);
+    if (qualifiesUnusualVolume(t, volumeCtx)) unusualQ.push(t);
+  }
+  return {
+    day_trade_radar: dayTradeQ,
+    gappers: gappersQ,
+    volume_spikes: spikesQ,
+    unusual_volume: unusualQ,
+  };
+}
+
+function dedupeTickersBySymbol(tickers: PolygonTicker[]): PolygonTicker[] {
+  const bySym = new Map<string, PolygonTicker>();
+  for (const t of tickers) {
+    const sym = normalizeSymbol(t?.ticker);
+    if (!sym) continue;
+    if (!bySym.has(sym)) bySym.set(sym, { ...t, ticker: sym });
+  }
+  return [...bySym.values()];
+}
+
+export function mergeMainUniverseQualified(
+  a: MainUniverseQualified,
+  b: MainUniverseQualified,
+): MainUniverseQualified {
+  return {
+    day_trade_radar: dedupeTickersBySymbol([
+      ...a.day_trade_radar,
+      ...b.day_trade_radar,
+    ]),
+    gappers: dedupeTickersBySymbol([...a.gappers, ...b.gappers]),
+    volume_spikes: dedupeTickersBySymbol([
+      ...a.volume_spikes,
+      ...b.volume_spikes,
+    ]),
+    unusual_volume: dedupeTickersBySymbol([
+      ...a.unusual_volume,
+      ...b.unusual_volume,
+    ]),
+  };
+}
+
+/** Apply global volume-first top-N after all chunks contributed qualifiers. */
+export function finalizeMainUniverseSelections(
+  merged: MainUniverseQualified,
+  extendedTabOpts: TabSelectionOpts,
+  limit: number = SCREENER_ROW_LIMIT,
+): MainUniverseTabSelections {
+  const volumeCtx = volumeContextFromOpts(extendedTabOpts);
+  return {
+    day_trade_radar: selectVolumeFirst(merged.day_trade_radar, limit, {}),
+    gappers: selectVolumeFirst(merged.gappers, limit, volumeCtx),
+    volume_spikes: selectVolumeFirst(merged.volume_spikes, limit, volumeCtx),
+    unusual_volume: selectVolumeFirst(merged.unusual_volume, limit, volumeCtx),
+  };
+}
+
 /** One qualification pass over the main snapshot for four volume-first tabs. */
 export function selectMainUniverseTabs(
   universe: PolygonTicker[],
