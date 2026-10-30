@@ -8,6 +8,7 @@ import {
   publishStagedGenerationInMemory,
   recordPublishRpcInMemory,
 } from "./sync-staging-cas.ts";
+import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   emptyChunkArtifacts,
   SCREENER_SYNC_JOB_TTL_MS,
@@ -105,6 +106,7 @@ export interface SyncStagingStore {
     nowMs: number;
   }): Promise<void>;
   abortExpired(nowMs: number): Promise<number>;
+  releaseFinalizeLeasesForRetry(jobId: string, nowMs: number): Promise<boolean>;
 }
 
 function cloneJob(job: StagedGenerationJob): StagedGenerationJob {
@@ -146,14 +148,26 @@ export class MemorySyncStagingStore implements SyncStagingStore {
   async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
     let best: StagedGenerationJob | null = null;
     for (const job of this.jobs.values()) {
-      if (job.status !== "chunking" && job.status !== "finalizing") continue;
-      if (nowMs - job.createdAtMs > SCREENER_SYNC_JOB_TTL_MS) continue;
-      const needsResume = !leaseActive(job, nowMs) ||
-        (job.continueLastError !== null && job.continueLastError.length > 0);
-      if (!needsResume) continue;
+      if (!stagedJobNeedsResume(job, nowMs)) continue;
       if (!best || job.createdAtMs > best.createdAtMs) best = job;
     }
     return best ? cloneJob(best) : null;
+  }
+
+  async releaseFinalizeLeasesForRetry(
+    jobId: string,
+    nowMs: number,
+  ): Promise<boolean> {
+    const job = this.jobs.get(jobId);
+    if (!job || job.status !== "finalizing") return false;
+    if (job.publishRowsInserted !== null) return false;
+    job.finalizeLeaseToken = null;
+    job.finalizeLeaseExpiresMs = null;
+    job.leaseToken = null;
+    job.leaseExpiresMs = null;
+    job.updatedAtMs = nowMs;
+    this.jobs.set(jobId, job);
+    return true;
   }
 
   async acquireOrCreate(

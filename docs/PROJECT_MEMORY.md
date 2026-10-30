@@ -11,7 +11,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 **PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
 
-**ISS-034 P0** is the immediate blocker — **Batch 190** (CPU-safe publisher architecture). Staged mode is **active** in production; Gate C needs durable abort diagnostics (**Batch 190.6**) before ISS-034 can close. Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent.
+**ISS-034 P0** is the immediate blocker — **Batch 190** (CPU-safe publisher architecture). Staged mode is **active**; **2026-10-30 ~20:15 UTC** finalize exception blocked cron until lease expiry (**Batch 190.7** Edge recovery). Abort audit columns (**190.6**) are separate migration work. Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 

@@ -90,4 +90,6 @@ jobs:
           supabase/functions/_shared/screeners/sync-staging-abort-diagnostics_test.ts
           supabase/functions/_shared/screeners/sync-staging-abort-diagnostics-postgres_test.ts
           supabase/functions/_shared/screeners/sync-staging-abort-diagnostics_contract_test.ts
+          supabase/functions/_shared/screeners/sync-staging-resume_test.ts
+          supabase/functions/_shared/screeners/sync-finalize-recovery_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

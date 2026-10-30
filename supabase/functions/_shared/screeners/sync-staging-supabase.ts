@@ -10,6 +10,7 @@ import {
   type StagedGenerationJob,
 } from "./sync-staging-types.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
+import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   jobFromRow,
   jobToInsertRow,
@@ -138,37 +139,38 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   }
 
   async findResumableJob(nowMs: number): Promise<StagedGenerationJob | null> {
-    const res = await this.sb
-      .from(TABLE)
-      .select("*")
-      .eq("status", "chunking")
-      .limit(8);
-    if (res.error || !res.data) return null;
-    const cutoffMs = nowMs - SCREENER_SYNC_JOB_TTL_MS;
     let best: StagedGenerationJob | null = null;
-    for (const row of res.data as StagingJobRow[]) {
-      const job = jobFromRow(row);
-      if (job.status !== "chunking" && job.status !== "finalizing") continue;
-      if (job.createdAtMs < cutoffMs) continue;
-      const leaseExpired = job.leaseExpiresMs === null ||
-        job.leaseExpiresMs <= nowMs;
-      const dispatchFailed = !!job.continueLastError;
-      if (!leaseExpired && !dispatchFailed) continue;
-      if (!best || job.createdAtMs > best.createdAtMs) best = job;
-    }
-    if (!best) {
-      const fin = await this.sb
+    for (const status of ["chunking", "finalizing"] as const) {
+      const res = await this.sb
         .from(TABLE)
         .select("*")
-        .eq("status", "finalizing")
-        .limit(4);
-      for (const row of fin.data ?? [] as StagingJobRow[]) {
-        const job = jobFromRow(row as StagingJobRow);
-        if (job.createdAtMs < cutoffMs) continue;
+        .eq("status", status)
+        .limit(16);
+      if (res.error || !res.data) continue;
+      for (const row of res.data as StagingJobRow[]) {
+        const job = jobFromRow(row);
+        if (!stagedJobNeedsResume(job, nowMs)) continue;
         if (!best || job.createdAtMs > best.createdAtMs) best = job;
       }
     }
     return best;
+  }
+
+  async releaseFinalizeLeasesForRetry(
+    jobId: string,
+    nowMs: number,
+  ): Promise<boolean> {
+    const job = await this.get(jobId);
+    if (!job || job.status !== "finalizing") return false;
+    if (job.publishRowsInserted !== null) return false;
+    const upd = await this.sb.from(TABLE).update({
+      finalize_lease_token: null,
+      finalize_lease_expires_at: null,
+      lease_token: null,
+      lease_expires_at: null,
+      updated_at: new Date(nowMs).toISOString(),
+    }).eq("id", jobId);
+    return !upd.error;
   }
 
   async acquireOrCreate(

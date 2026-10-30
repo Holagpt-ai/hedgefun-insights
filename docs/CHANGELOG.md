@@ -8,6 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- **Batch 190.7** Staged finalization exception recovery (PR pending): structured finalize diagnostics, lease release after pre-publish failures, resume gating, and publish-complete reconciliation — Edge-only, no migration. Documents 2026-10-30 ~20:15 UTC incident; original throw not reproduced. **ISS-034** unchanged.
 - **Batch 190.6** Staged finalization abort diagnostics (PR pending): migration `20261030210000_screener_sync_abort_diagnostics_v1.sql`; persist `prior_generation_retained` / `newer_generation_live` on staged abort without changing scanner or publish decisions. Gate C observations documented; historical aborts remain NULL. **ISS-034** unchanged.
 - **Batch 190.5** Staging RPC ACL hardening (PR pending): migration `20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql` revokes anon/authenticated EXECUTE on five remaining staging RPCs; disposable PG bootstrap simulates Lovable direct grants. **ISS-034** unchanged.
 - **Batch 190.4** Staging advance RPC ACL correction (PR pending): migration `20261030183000_screener_sync_staging_advance_acl_v1.sql` revokes PUBLIC/anon/authenticated EXECUTE on six-arg `advance_screener_sync_chunk_v1`; **service_role** only. Lovable apply required before Gate B; **ISS-034** unchanged.
