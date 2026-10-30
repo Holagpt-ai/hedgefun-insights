@@ -57,13 +57,90 @@ export async function assertStagingRpcIntendedAcl(
   assertEquals(await publicHasExecute(client, signature), false);
 }
 
+/**
+ * Split SQL on statement terminators outside dollar-quoted bodies and strings.
+ * Required for PL/pgSQL migrations that contain semicolons inside `AS $$ ... $$`.
+ */
+export function splitSqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = "";
+  let i = 0;
+  const len = sql.length;
+
+  while (i < len) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (ch === "-" && next === "-") {
+      i += 2;
+      while (i < len && sql[i] !== "\n") i += 1;
+      continue;
+    }
+
+    if (ch === "$") {
+      const start = i;
+      i += 1;
+      let tag = "";
+      while (i < len && /[A-Za-z0-9_]/.test(sql[i])) {
+        tag += sql[i++];
+      }
+      if (i < len && sql[i] === "$") {
+        const delimiter = `$${tag}$`;
+        current += sql.slice(start, i + 1);
+        i += 1;
+        const closeAt = sql.indexOf(delimiter, i);
+        if (closeAt === -1) {
+          current += sql.slice(i);
+          i = len;
+          break;
+        }
+        current += sql.slice(i, closeAt + delimiter.length);
+        i = closeAt + delimiter.length;
+        continue;
+      }
+      current += "$";
+      continue;
+    }
+
+    if (ch === "'") {
+      current += ch;
+      i += 1;
+      while (i < len) {
+        const c = sql[i];
+        current += c;
+        i += 1;
+        if (c === "'") {
+          if (i < len && sql[i] === "'") {
+            current += sql[i];
+            i += 1;
+            continue;
+          }
+          break;
+        }
+      }
+      continue;
+    }
+
+    if (ch === ";") {
+      const trimmed = current.trim();
+      if (trimmed.length > 0) statements.push(trimmed);
+      current = "";
+      i += 1;
+      continue;
+    }
+
+    current += ch;
+    i += 1;
+  }
+
+  const tail = current.trim();
+  if (tail.length > 0) statements.push(tail);
+  return statements;
+}
+
 export async function applySqlFile(client: Client, fileUrl: URL): Promise<void> {
   const raw = await Deno.readTextFile(fileUrl);
-  const withoutComments = raw.replace(/^\s*--[^\n]*\n?/gm, "");
-  const statements = withoutComments
-    .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const statements = splitSqlStatements(raw);
   for (const statement of statements) {
     await client.queryObject(`${statement};`);
   }
