@@ -12,11 +12,11 @@ import {
 } from "./sync-staging-postgres-acl-helpers.ts";
 
 const SIMULATE_LOVABLE_GRANTS = new URL(
-  "../../../../tests/screener-sync-pg/01-simulate-lovable-staging-rpc-grants.sql",
+  "../../../tests/screener-sync-pg/01-simulate-lovable-staging-rpc-grants.sql",
   import.meta.url,
 );
 const HARDENING_MIGRATION = new URL(
-  "../../../../migrations/20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql",
+  "../../../migrations/20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql",
   import.meta.url,
 );
 
