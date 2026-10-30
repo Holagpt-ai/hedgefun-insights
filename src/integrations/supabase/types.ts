@@ -10300,6 +10300,18 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      advance_screener_sync_chunk_v1: {
+        Args: {
+          p_expected_chunk_index: number
+          p_expected_state_version: number
+          p_job_id: string
+          p_lease_expires_at: string
+          p_lease_token: string
+          p_merged_artifacts: Json
+          p_now: string
+        }
+        Returns: Json
+      }
       ai_trader_apply_watchlist_transition_v1: {
         Args: { p_row: Json }
         Returns: Json
@@ -10502,6 +10514,16 @@ export type Database = {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
       }
+      claim_screener_sync_lease_v1: {
+        Args: {
+          p_job_id: string
+          p_lease_expires_at: string
+          p_lease_token: string
+          p_mode: string
+          p_now: string
+        }
+        Returns: Json
+      }
       claim_watchlist_v2_ticker_lease: {
         Args: {
           p_lease_seconds: number
@@ -10533,6 +10555,15 @@ export type Database = {
       cleanup_stale_screener_volume_generations_v1: {
         Args: { p_keep_generation_id: string }
         Returns: undefined
+      }
+      complete_screener_sync_publish_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_now: string
+        }
+        Returns: Json
       }
       complete_wl_v2_run: {
         Args: { p_cursor_end: string; p_run_id: string; p_status: string }

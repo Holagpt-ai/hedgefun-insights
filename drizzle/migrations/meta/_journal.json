@@ -414,6 +414,13 @@
       "when": 1793377601992,
       "tag": "0058_screener_sync_generation_staging_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793377643718,
+      "tag": "0059_screener_sync_staging_rpc_v1",
+      "breakpoints": true
     }
   ]
 }
