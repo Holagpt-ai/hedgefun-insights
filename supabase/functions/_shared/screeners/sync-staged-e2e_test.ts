@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { mapTabRows } from "./rows.ts";
 import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
 import { buildTabEvaluationEvidence } from "./evaluation-evidence.ts";
 import { buildTabEvaluationEvidenceFromChunkAccums } from "./evaluation-evidence-chunk.ts";
@@ -73,6 +74,18 @@ for (const { session, nowMs } of SESSIONS) {
       session,
       nowMs,
     );
+    // Reproduce the after-close quote mismatch that used to abort build_rows.
+    // The large regular-session mover must not enter Day Trade Radar top-N.
+    if (session === "after-hours") {
+      universe.push({
+        ticker: "ISS034BAD",
+        updated: (nowMs - 2 * 60_000) * 1_000_000,
+        day: { c: 10, o: 10, v: 99_000_000, h: 11, l: 9 },
+        prevDay: { c: 8, v: 1_000_000 },
+        min: { t: etMs("2026-10-28", 15, 59), av: 101_000_000 },
+        lastTrade: { p: 10 },
+      });
+    }
     const nhlBaselines = buildRepresentativeNhlBaselines(universe, 26);
     const gainersLosersUniverse = universe.slice(0, 800);
     const frozen = createFrozenNhlBaselineSnapshot({
@@ -189,6 +202,22 @@ for (const { session, nowMs } of SESSIONS) {
       tickerSymbols(monolithicMain.unusual_volume),
     );
     assertEquals(tickerSymbols(stagedGl), tickerSymbols(monolithicGl));
+    if (session === "after-hours") {
+      assertEquals(stagedMain.day_trade_radar.some((t) => t.ticker === "ISS034BAD"), false);
+      assertEquals(monolithicMain.day_trade_radar.some((t) => t.ticker === "ISS034BAD"), false);
+      const meta = {
+        nowMs,
+        syncedAt: new Date(nowMs).toISOString(),
+        syncRunId: "11111111-2222-3333-4444-555555555555",
+        extendedSession,
+        observationSessionFields,
+        sessionVolumeCache: cache,
+      };
+      assertEquals(
+        mapTabRows("day_trade_radar", stagedMain.day_trade_radar, (symbol) => symbol, meta).length,
+        stagedMain.day_trade_radar.length,
+      );
+    }
     assertEquals(
       tickerSymbols(stagedNhl.map((n) => n.ticker)),
       tickerSymbols(monolithicNhl.map((n) => n.ticker)),
