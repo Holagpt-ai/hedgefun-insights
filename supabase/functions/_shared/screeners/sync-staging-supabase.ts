@@ -180,6 +180,8 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       | "finalizeLeaseExpiresMs"
       | "publishRowsInserted"
       | "publishRpcRecordedAtMs"
+      | "abortReason"
+      | "abortEvidence"
     >,
     leaseToken: string,
     nowMs: number,
@@ -227,6 +229,8 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       nhlBaselineSnapshot: input.nhlBaselineSnapshot ?? null,
       publishRowsInserted: null,
       publishRpcRecordedAtMs: null,
+      abortReason: null,
+      abortEvidence: null,
     };
     const ins = await this.sb.from(TABLE).insert(jobToInsertRow(job));
     if (ins.error) {
@@ -456,15 +460,23 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     }).eq("id", jobId);
   }
 
-  async abortJob(jobId: string, nowMs: number): Promise<void> {
+  async abortJob(
+    jobId: string,
+    nowMs: number,
+    detail?: import("./generation-abort-diagnostics.ts").ScreenerSyncAbortDetail,
+  ): Promise<void> {
     await this.sb.from(TABLE).update({
       status: "aborted",
       lease_token: null,
       lease_expires_at: null,
       finalize_lease_token: null,
       finalize_lease_expires_at: null,
+      abort_reason: detail?.reason ?? null,
+      abort_evidence: detail?.evidence ?? null,
       updated_at: new Date(nowMs).toISOString(),
-    }).eq("id", jobId);
+    })
+      .eq("id", jobId)
+      .in("status", ["chunking", "finalizing"]);
   }
 
   async recordContinueDispatch(params: {

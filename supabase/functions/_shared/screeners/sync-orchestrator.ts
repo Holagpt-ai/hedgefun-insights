@@ -57,6 +57,8 @@ export async function runStagedSyncStep(
     | "finalizeLeaseExpiresMs"
     | "publishRowsInserted"
     | "publishRpcRecordedAtMs"
+    | "abortReason"
+    | "abortEvidence"
   > | null,
   deps: StagedOrchestratorDeps,
 ): Promise<StagedStepResult> {
@@ -191,6 +193,8 @@ export function buildStagedJobFromUniverse(
   | "finalizeLeaseExpiresMs"
   | "publishRowsInserted"
   | "publishRpcRecordedAtMs"
+  | "abortReason"
+  | "abortEvidence"
 > {
   const sessionKind = resolveSyncSessionKind(nowMs);
   const totalChunks = Math.max(1, Math.ceil(allTickers.length / chunkSize));

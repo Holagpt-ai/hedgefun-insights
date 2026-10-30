@@ -103,6 +103,8 @@ Deno.test("jobToInsertRow JSON round-trip preserves NHL snapshot exclusions", ()
     finalizeLeaseExpiresMs: null,
     publishRowsInserted: null,
     publishRpcRecordedAtMs: null,
+    abortReason: null,
+    abortEvidence: null,
     nhlBaselineSnapshot: snap,
   };
   const row = jobToInsertRow(job);

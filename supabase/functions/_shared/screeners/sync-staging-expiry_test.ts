@@ -39,6 +39,8 @@ Deno.test("abortExpired releases stranded finalizing job after finalize lease ex
     finalizeLeaseExpiresMs: created + SCREENER_SYNC_LEASE_MS,
     publishRowsInserted: null,
     publishRpcRecordedAtMs: null,
+    abortReason: null,
+    abortEvidence: null,
   });
   const expiredFinalizeNow = created + SCREENER_SYNC_LEASE_MS + 1;
   const n = await store.abortExpired(expiredFinalizeNow);
@@ -92,6 +94,8 @@ Deno.test("abortExpired does not abort finalizing job with publish record pendin
     finalizeLeaseExpiresMs: created + 1,
     publishRowsInserted: 40,
     publishRpcRecordedAtMs: created + 1000,
+    abortReason: null,
+    abortEvidence: null,
   });
   const afterTtl = created + SCREENER_SYNC_JOB_TTL_MS + 1;
   const n = await store.abortExpired(afterTtl);
@@ -131,6 +135,8 @@ Deno.test("publishStagedGeneration is idempotent after record", async () => {
     finalizeLeaseExpiresMs: nowMs + 60_000,
     publishRowsInserted: null,
     publishRpcRecordedAtMs: null,
+    abortReason: null,
+    abortEvidence: null,
   });
   const rows = Array.from({ length: 5 }, (_, i) => ({ i }));
   const first = await store.publishStagedGeneration({

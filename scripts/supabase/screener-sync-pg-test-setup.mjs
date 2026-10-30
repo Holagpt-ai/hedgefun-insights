@@ -62,4 +62,8 @@ runSql("20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql", join(
   migrationsDir,
   "20261030193000_screener_sync_staging_rpc_acl_hardening_v1.sql",
 ));
+runSql("20261030210000_screener_sync_abort_diagnostics_v1.sql", join(
+  migrationsDir,
+  "20261030210000_screener_sync_abort_diagnostics_v1.sql",
+));
 console.log("\nBootstrap complete.");

@@ -226,6 +226,8 @@ Deno.test("publish RPC record then complete survives retry (crash-safe)", async 
     finalizeLeaseExpiresMs: nowMs + 60_000,
     publishRowsInserted: null,
     publishRpcRecordedAtMs: null,
+    abortReason: null,
+    abortEvidence: null,
     nextChunkIndex: base.totalChunks,
     status: "finalizing",
   });
