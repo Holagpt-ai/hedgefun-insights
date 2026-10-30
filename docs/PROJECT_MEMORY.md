@@ -2,16 +2,15 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-10-30
+## Current operating baseline — 2026-10-30 after Batch 190.8 Edge release
 
-**GitHub `main`:** `07172bd65c385398f38cb736935c9c65896ce7d0` (PR **#200** / Batch **190.7** merged). **Batch 190.8** is under review on draft PR **#201**, not merged.
-**Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `2691424bbfa89b4da9a3ca9a832c007606b5a582`; 190.8 NOT synced.
+**GitHub `main`:** `b720106771950b7ed90c81d53f3ce2f196e35c49` (Batch 190.8 PR #201 squash-merged). **Lovable integration/editor:** `f8e2fda698c473519d4ddb40f06f04ad6f13c4d6`; source aligned. Preserve Lovable-specific generated files and migrations.
 
-**Lovable Cloud `sync-screener-data`:** Batch **190.7** CAS migration ledger 67 and service-role-only ACL verified. Edge-only deployment succeeded 2026-10-30 before 21:00:50 UTC; submitted source SHA-256 `f96a2b79cf4d375766dfbed005f2adede394c0e1d41c00a819260b772950122e`, revision ID unreported. **Gate 4 FAILED:** postdeploy jobs 21:15, 21:45, 22:15, 22:45 UTC processed 13,267 symbols / 7 chunks but failed `finalize_failed:build_rows:internal_error`. Last confirmed publish 20:10:02 UTC, 108 rows. **Batch 190.8** code-only Day Trade Radar observation-session guard proposed in PR **#201**; not merged/deployed; ISS-034 remains P0 OPEN.
+**Lovable Cloud `sync-screener-data`:** Batch 190.8 PR #201 merged into GitHub main b720106771950b7ed90c81d53f3ce2f196e35c49; Lovable forward-sync f8e2fda698c473519d4ddb40f06f04ad6f13c4d6. Owner authorized Git-snapshot-only rollback exception (exact previous Edge revision unavailable). Lovable Cloud reported one successful sync-screener-data-only Edge deployment 2026-10-30 23:54:35–23:54:46 UTC, submitted source SHA-256 7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6; deployed revision ID unavailable. Rollback source: last approved Batch 190.7 Lovable integration commit 2691424bbfa89b4da9a3ca9a832c007606b5a582, requiring a new source deploy to restore (not exact binary). Read-only 23:55:40 UTC: cron 25 still active */5; old 23:45 job still finalizing with build_rows:internal_error, 23:55 cron DO not a new publish; current six-tab feed unchanged at 20:10:02 UTC / 108 rows / one run / zero duplicate symbols or missing provider timestamps. Gate 4 = PENDING 0/3 new naturally scheduled publications. ISS-034 remains P0 OPEN; no migrations/cron/secrets/frontend/other Edge touched.
 
 **PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
 
-**ISS-034 P0** is the immediate blocker. Staged mode remains active; 190.7 recovery and diagnostics are deployed but Gate 4 FAILED. Independent reproducible investigation traced Day Trade Radar selecting a regular-session `min.t` paired with after-hours `updated`; `baseRow` then rejects unresolved observation session and aborts `build_rows`. The actual production ticker is not yet identified. Batch 190.8 selection fix and regressions are proposed in draft PR #201; Edge deployment and after-hours acceptance are PENDING. Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent.
+**ISS-034 P0** remains OPEN. The Day Trade Radar observation-session mismatch was locally reproduced and corrected in Batch 190.8; the corrected Edge was deployed, but recovery is NOT yet production-verified. Gate 4 PENDING 0/3 fresh naturally scheduled atomic six-tab publications. Do not close before acceptance.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
