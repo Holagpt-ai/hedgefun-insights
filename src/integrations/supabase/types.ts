@@ -8518,6 +8518,8 @@ export type Database = {
           nhl_baseline_loaded: boolean
           nhl_baseline_snapshot: Json | null
           observation: Json
+          publish_rows_inserted: number | null
+          publish_rpc_recorded_at: string | null
           state_version: number
           status: string
           sync_run_id: string
@@ -8542,6 +8544,8 @@ export type Database = {
           nhl_baseline_loaded?: boolean
           nhl_baseline_snapshot?: Json | null
           observation: Json
+          publish_rows_inserted?: number | null
+          publish_rpc_recorded_at?: string | null
           state_version?: number
           status: string
           sync_run_id: string
@@ -8566,6 +8570,8 @@ export type Database = {
           nhl_baseline_loaded?: boolean
           nhl_baseline_snapshot?: Json | null
           observation?: Json
+          publish_rows_inserted?: number | null
+          publish_rpc_recorded_at?: string | null
           state_version?: number
           status?: string
           sync_run_id?: string
@@ -10300,18 +10306,30 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
-      advance_screener_sync_chunk_v1: {
-        Args: {
-          p_expected_chunk_index: number
-          p_expected_state_version: number
-          p_job_id: string
-          p_lease_expires_at: string
-          p_lease_token: string
-          p_merged_artifacts: Json
-          p_now: string
-        }
-        Returns: Json
-      }
+      advance_screener_sync_chunk_v1:
+        | {
+            Args: {
+              p_expected_chunk_index: number
+              p_expected_state_version: number
+              p_job_id: string
+              p_lease_expires_at: string
+              p_lease_token: string
+              p_merged_artifacts: Json
+              p_now: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_expected_chunk_index: number
+              p_expected_state_version: number
+              p_job_id: string
+              p_lease_token: string
+              p_merged_artifacts: Json
+              p_now: string
+            }
+            Returns: Json
+          }
       ai_trader_apply_watchlist_transition_v1: {
         Args: { p_row: Json }
         Returns: Json
@@ -11019,6 +11037,17 @@ export type Database = {
       purge_radar_v22_events_v1: {
         Args: { p_retain_days?: number }
         Returns: number
+      }
+      record_screener_sync_publish_rpc_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_finalize_lease_token: string
+          p_job_id: string
+          p_now: string
+          p_rows_inserted: number
+          p_sync_run_id: string
+        }
+        Returns: Json
       }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
