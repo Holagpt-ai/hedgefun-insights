@@ -8,6 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- **Batch 190.4** Staging advance RPC ACL correction (PR pending): migration `20261030183000_screener_sync_staging_advance_acl_v1.sql` revokes PUBLIC/anon/authenticated EXECUTE on six-arg `advance_screener_sync_chunk_v1`; **service_role** only. Lovable apply required before Gate B; **ISS-034** unchanged.
 - **Batch 190 release gate** CPU-safe staged screener sync (PR **#196**, branch `cursor/batch190-cpu-safe-screener-sync`): Architecture A — chunked Edge + CAS staging RPCs; atomic `publish_screener_sync_staged_generation_v1` with **fail-closed** staged handler (no replace+record fallback); **Postgres 16 mandatory CI** (`screener-deno-regressions.yml` + `screener-sync-pg-test-setup.mjs` + 11 integration tests). Migrations **not applied**; **ISS-034** remains open until production publish verified.
 - **Master Continuity Sync V4** (PR **#195** → **`4eaa8504`** / doc head **`b98e2724`**): master backlog `STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
