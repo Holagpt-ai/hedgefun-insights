@@ -32,6 +32,24 @@ async function hasExecute(
   return result.rows[0]?.ok === true;
 }
 
+async function publicHasExecute(
+  client: Client,
+  signature: string,
+): Promise<boolean> {
+  const result = await client.queryObject<{ ok: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM pg_proc p,
+            LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+       WHERE p.oid = $1::regprocedure
+         AND acl.grantee = 0
+         AND acl.privilege_type = 'EXECUTE'
+     ) AS ok`,
+    [signature],
+  );
+  return result.rows[0]?.ok === true;
+}
+
 async function assertStagingRpcIntendedAcl(
   client: Client,
   signature: string,
@@ -39,7 +57,7 @@ async function assertStagingRpcIntendedAcl(
   assertEquals(await hasExecute(client, "service_role", signature), true);
   assertEquals(await hasExecute(client, "anon", signature), false);
   assertEquals(await hasExecute(client, "authenticated", signature), false);
-  assertEquals(await hasExecute(client, "PUBLIC", signature), false);
+  assertEquals(await publicHasExecute(client, signature), false);
 }
 
 Deno.test("postgres gate 190.4: advance six-arg ACL is service_role only", async () => {
