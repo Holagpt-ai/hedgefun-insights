@@ -8,6 +8,7 @@ import {
   publishStagedGenerationInMemory,
   recordPublishRpcInMemory,
 } from "./sync-staging-cas.ts";
+import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   emptyChunkArtifacts,
@@ -106,7 +107,9 @@ export interface SyncStagingStore {
     nowMs: number;
   }): Promise<void>;
   abortExpired(nowMs: number): Promise<number>;
-  releaseFinalizeLeasesForRetry(jobId: string, nowMs: number): Promise<boolean>;
+  releaseFinalizeLeasesForRetry(
+    input: ReleaseFinalizeLeaseCas,
+  ): Promise<boolean>;
 }
 
 function cloneJob(job: StagedGenerationJob): StagedGenerationJob {
@@ -155,18 +158,21 @@ export class MemorySyncStagingStore implements SyncStagingStore {
   }
 
   async releaseFinalizeLeasesForRetry(
-    jobId: string,
-    nowMs: number,
+    input: ReleaseFinalizeLeaseCas,
   ): Promise<boolean> {
-    const job = this.jobs.get(jobId);
+    const job = this.jobs.get(input.jobId);
     if (!job || job.status !== "finalizing") return false;
     if (job.publishRowsInserted !== null) return false;
+    if (job.stateVersion !== input.expectedStateVersion) return false;
+    if (job.finalizeLeaseToken !== input.expectedFinalizeLeaseToken) {
+      return false;
+    }
     job.finalizeLeaseToken = null;
     job.finalizeLeaseExpiresMs = null;
     job.leaseToken = null;
     job.leaseExpiresMs = null;
-    job.updatedAtMs = nowMs;
-    this.jobs.set(jobId, job);
+    job.updatedAtMs = input.nowMs;
+    this.jobs.set(input.jobId, job);
     return true;
   }
 

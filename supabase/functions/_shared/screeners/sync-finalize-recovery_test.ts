@@ -12,16 +12,16 @@ Deno.test("dispatch error parser: structured finalize_failed body", () => {
   const err = parseContinueDispatchError(503, {
     error: "finalize_failed",
     stage: "atomic_publish",
-    reason: "exception_typeerror",
+    reason: "type_error",
   });
-  assertEquals(err, "finalize_failed:atomic_publish:exception_typeerror");
+  assertEquals(err, "finalize_failed:atomic_publish:type_error");
 });
 
 Deno.test("dispatch error parser: falls back to http status", () => {
   assertEquals(parseContinueDispatchError(500, null), "http_500");
 });
 
-Deno.test("recovery: releases finalize lease after failed dispatch before retry", async () => {
+Deno.test("recovery: releases finalize lease after definitive dispatch failure", async () => {
   const store = new MemorySyncStagingStore();
   const nowMs = Date.parse("2026-10-30T20:16:00.000Z");
   const sessionKind = resolveSyncSessionKind(nowMs);
@@ -51,8 +51,8 @@ Deno.test("recovery: releases finalize lease after failed dispatch before retry"
     nhlBaselineSnapshot: null,
     stateVersion: 7,
     continueLastAtMs: nowMs,
-    continueLastError: "http_500",
-    finalizeLeaseToken: "bbbb",
+    continueLastError: "finalize_failed:build_rows:type_error",
+    finalizeLeaseToken: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     finalizeLeaseExpiresMs: nowMs + SCREENER_SYNC_LEASE_MS,
     publishRowsInserted: null,
     publishRpcRecordedAtMs: null,
@@ -125,6 +125,12 @@ Deno.test("recovery: does not release lease when publish rows already recorded",
     abortEvidence: null,
   });
 
-  const released = await store.releaseFinalizeLeasesForRetry(jobId, nowMs);
+  const released = await store.releaseFinalizeLeasesForRetry({
+    jobId,
+    nowMs,
+    expectedStateVersion: 8,
+    expectedFinalizeLeaseToken: "keep",
+    authorization: "in_process_finalize_exception",
+  });
   assertEquals(released, false);
 });

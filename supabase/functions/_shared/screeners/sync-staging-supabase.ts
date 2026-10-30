@@ -10,6 +10,7 @@ import {
   type StagedGenerationJob,
 } from "./sync-staging-types.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
+import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   jobFromRow,
@@ -157,20 +158,21 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   }
 
   async releaseFinalizeLeasesForRetry(
-    jobId: string,
-    nowMs: number,
+    input: ReleaseFinalizeLeaseCas,
   ): Promise<boolean> {
-    const job = await this.get(jobId);
-    if (!job || job.status !== "finalizing") return false;
-    if (job.publishRowsInserted !== null) return false;
-    const upd = await this.sb.from(TABLE).update({
-      finalize_lease_token: null,
-      finalize_lease_expires_at: null,
-      lease_token: null,
-      lease_expires_at: null,
-      updated_at: new Date(nowMs).toISOString(),
-    }).eq("id", jobId);
-    return !upd.error;
+    const nowIso = new Date(input.nowMs).toISOString();
+    const rpc = await this.sb.rpc("release_screener_sync_finalize_lease_cas_v1", {
+      p_job_id: input.jobId,
+      p_expected_state_version: input.expectedStateVersion,
+      p_expected_finalize_lease_token: input.expectedFinalizeLeaseToken,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as { ok?: boolean };
+      return parsed?.ok === true;
+    }
+    if (!isMissingRpc(rpc.error)) return false;
+    return false;
   }
 
   async acquireOrCreate(

@@ -1,3 +1,7 @@
+import {
+  isDefinitiveContinueDispatchFailure,
+  releaseFinalizeLeaseCas,
+} from "./sync-finalize-lease-release.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
 import type { StagedGenerationJob } from "./sync-staging-types.ts";
 
@@ -81,17 +85,19 @@ export async function prepareStagedFinalizeRetry(
     }
   }
 
-  const dispatchFailed = working.continueLastError !== null &&
-    working.continueLastError.length > 0;
   if (
-    dispatchFailed &&
+    isDefinitiveContinueDispatchFailure(working.continueLastError) &&
     working.status === "finalizing" &&
-    working.publishRowsInserted === null
+    working.publishRowsInserted === null &&
+    working.finalizeLeaseToken
   ) {
-    out.releasedStaleLease = await store.releaseFinalizeLeasesForRetry(
-      working.id,
+    out.releasedStaleLease = await releaseFinalizeLeaseCas(store, {
+      jobId: working.id,
       nowMs,
-    );
+      expectedStateVersion: working.stateVersion,
+      expectedFinalizeLeaseToken: working.finalizeLeaseToken,
+      authorization: "dispatch_finalize_failed",
+    });
   }
 
   return out;
@@ -108,14 +114,6 @@ export function parseContinueDispatchError(
       const reason = typeof o.reason === "string" ? o.reason : "unknown";
       return `finalize_failed:${stage}:${reason}`;
     }
-    if (typeof o.error === "string" && o.error.length > 0) {
-      return truncateContinueError(o.error);
-    }
   }
   return `http_${status}`;
-}
-
-function truncateContinueError(value: string): string {
-  const trimmed = value.replace(/\s+/g, " ").trim();
-  return trimmed.length <= 200 ? trimmed : trimmed.slice(0, 200);
 }

@@ -66,4 +66,8 @@ runSql("20261030210000_screener_sync_abort_diagnostics_v1.sql", join(
   migrationsDir,
   "20261030210000_screener_sync_abort_diagnostics_v1.sql",
 ));
+runSql("20261030220000_screener_sync_finalize_lease_release_cas_v1.sql", join(
+  migrationsDir,
+  "20261030220000_screener_sync_finalize_lease_release_cas_v1.sql",
+));
 console.log("\nBootstrap complete.");

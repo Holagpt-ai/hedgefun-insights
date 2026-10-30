@@ -12,36 +12,45 @@ export type FinalizeStage =
   | "complete_publish"
   | "response";
 
+export type SanitizedFinalizeErrorCode =
+  | "type_error"
+  | "range_error"
+  | "reference_error"
+  | "syntax_error"
+  | "uri_error"
+  | "aggregate_error"
+  | "internal_error"
+  | "unclassified";
+
 export type FinalizeErrorClassification = {
   stage: FinalizeStage;
-  code: string;
-  detail: string;
+  code: SanitizedFinalizeErrorCode;
 };
 
-const MAX_DETAIL = 160;
+const ERROR_NAME_TO_CODE: Record<string, SanitizedFinalizeErrorCode> = {
+  typeerror: "type_error",
+  rangeerror: "range_error",
+  referenceerror: "reference_error",
+  syntaxerror: "syntax_error",
+  urierror: "uri_error",
+  aggregateerror: "aggregate_error",
+};
 
-function truncateDetail(value: string): string {
-  const trimmed = value.replace(/\s+/g, " ").trim();
-  if (trimmed.length <= MAX_DETAIL) return trimmed;
-  return `${trimmed.slice(0, MAX_DETAIL - 3)}...`;
+export function sanitizeErrorToCode(error: unknown): SanitizedFinalizeErrorCode {
+  if (error instanceof Error) {
+    const key = error.name.replace(/\s+/g, "").toLowerCase();
+    return ERROR_NAME_TO_CODE[key] ?? "internal_error";
+  }
+  return "unclassified";
 }
 
 export function classifyFinalizeError(
   error: unknown,
   stage: FinalizeStage,
 ): FinalizeErrorClassification {
-  if (error instanceof Error) {
-    const name = error.name && error.name !== "Error" ? error.name : "Error";
-    return {
-      stage,
-      code: `exception_${name.toLowerCase()}`,
-      detail: truncateDetail(error.message),
-    };
-  }
   return {
     stage,
-    code: "exception_unknown",
-    detail: truncateDetail(String(error)),
+    code: sanitizeErrorToCode(error),
   };
 }
 
@@ -50,18 +59,24 @@ export function logFinalizeFailure(input: {
   syncRunId?: string;
   classification: FinalizeErrorClassification;
 }): void {
-  console.error(
-    `[sync-screener-data] staged_finalize_failed generation_id=${input.generationId}` +
-      (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
-      ` stage=${input.classification.stage} code=${input.classification.code}` +
-      ` detail=${JSON.stringify(input.classification.detail)}`,
-  );
+  try {
+    console.error(
+      `[sync-screener-data] staged_finalize_failed generation_id=${input.generationId}` +
+        (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
+        ` stage=${input.classification.stage} code=${input.classification.code}`,
+    );
+  } catch {
+    console.error(
+      `[sync-screener-data] staged_finalize_failed generation_id=${input.generationId} code=log_failed`,
+    );
+  }
 }
 
 export function logUnhandledSyncError(error: unknown): void {
-  const classification = classifyFinalizeError(error, "preflight");
-  console.error(
-    `[sync-screener-data] unhandled_error code=${classification.code}` +
-      ` detail=${JSON.stringify(classification.detail)}`,
-  );
+  try {
+    const code = sanitizeErrorToCode(error);
+    console.error(`[sync-screener-data] unhandled_error code=${code}`);
+  } catch {
+    console.error("[sync-screener-data] unhandled_error code=log_failed");
+  }
 }

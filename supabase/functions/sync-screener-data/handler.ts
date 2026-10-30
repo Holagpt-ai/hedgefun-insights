@@ -19,6 +19,7 @@ import {
   logFinalizeFailure,
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
+import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
 import { prepareStagedFinalizeRetry } from "../_shared/screeners/sync-finalize-recovery.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
@@ -960,14 +961,37 @@ async function finalizeStagedScreenerGeneration(
   });
   } catch (e) {
     const classification = classifyFinalizeError(e, stage);
-    const failedJob = await store.get(generationId);
-    logFinalizeFailure({
-      generationId,
-      syncRunId: failedJob?.observation.syncRunId,
-      classification,
-    });
-    if (failedJob?.publishRowsInserted === null) {
-      await store.releaseFinalizeLeasesForRetry(generationId, wallNowMs);
+    let syncRunId: string | undefined;
+    try {
+      const failedJob = await store.get(generationId);
+      syncRunId = failedJob?.observation.syncRunId;
+      logFinalizeFailure({
+        generationId,
+        syncRunId,
+        classification,
+      });
+      if (
+        failedJob?.publishRowsInserted === null &&
+        failedJob.finalizeLeaseToken
+      ) {
+        await releaseFinalizeLeaseCas(store, {
+          jobId: generationId,
+          nowMs: wallNowMs,
+          expectedStateVersion: failedJob.stateVersion,
+          expectedFinalizeLeaseToken: failedJob.finalizeLeaseToken,
+          authorization: "in_process_finalize_exception",
+        });
+      }
+    } catch {
+      try {
+        logFinalizeFailure({
+          generationId,
+          syncRunId,
+          classification,
+        });
+      } catch {
+        /* preserve original failure response */
+      }
     }
     return json({
       ok: false,
@@ -975,7 +999,7 @@ async function finalizeStagedScreenerGeneration(
       stage: classification.stage,
       reason: classification.code,
       generation_id: generationId,
-      sync_run_id: failedJob?.observation.syncRunId,
+      sync_run_id: syncRunId,
     }, 503);
   }
 }
