@@ -456,6 +456,13 @@
       "when": 1793390012079,
       "tag": "0064_screener_sync_abort_diagnostics_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793393696187,
+      "tag": "0065_screener_sync_finalize_lease_release_cas_v1",
+      "breakpoints": true
     }
   ]
 }
