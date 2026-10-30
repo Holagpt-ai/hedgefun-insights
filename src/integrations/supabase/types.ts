@@ -8499,6 +8499,81 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_sync_generation_jobs: {
+        Row: {
+          all_tickers: Json
+          chunk_size: number
+          continue_last_at: string | null
+          continue_last_error: string | null
+          created_at: string
+          finalize_lease_expires_at: string | null
+          finalize_lease_token: string | null
+          gainers: Json
+          id: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          losers: Json
+          merged_artifacts: Json
+          next_chunk_index: number
+          nhl_baseline_loaded: boolean
+          nhl_baseline_snapshot: Json | null
+          observation: Json
+          state_version: number
+          status: string
+          sync_run_id: string
+          total_chunks: number
+          updated_at: string
+        }
+        Insert: {
+          all_tickers: Json
+          chunk_size: number
+          continue_last_at?: string | null
+          continue_last_error?: string | null
+          created_at?: string
+          finalize_lease_expires_at?: string | null
+          finalize_lease_token?: string | null
+          gainers?: Json
+          id?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          losers?: Json
+          merged_artifacts?: Json
+          next_chunk_index?: number
+          nhl_baseline_loaded?: boolean
+          nhl_baseline_snapshot?: Json | null
+          observation: Json
+          state_version?: number
+          status: string
+          sync_run_id: string
+          total_chunks: number
+          updated_at?: string
+        }
+        Update: {
+          all_tickers?: Json
+          chunk_size?: number
+          continue_last_at?: string | null
+          continue_last_error?: string | null
+          created_at?: string
+          finalize_lease_expires_at?: string | null
+          finalize_lease_token?: string | null
+          gainers?: Json
+          id?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          losers?: Json
+          merged_artifacts?: Json
+          next_chunk_index?: number
+          nhl_baseline_loaded?: boolean
+          nhl_baseline_snapshot?: Json | null
+          observation?: Json
+          state_version?: number
+          status?: string
+          sync_run_id?: string
+          total_chunks?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_volume_baselines: {
         Row: {
           avg_volume_20d: number | null

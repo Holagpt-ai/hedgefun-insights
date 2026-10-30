@@ -407,6 +407,13 @@
       "when": 1791032933541,
       "tag": "0057_catalyst_intel_provider_cache_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793377601992,
+      "tag": "0058_screener_sync_generation_staging_v1",
+      "breakpoints": true
     }
   ]
 }
