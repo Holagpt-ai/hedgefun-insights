@@ -2,16 +2,16 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-10-30
+## Current operating baseline — 2026-10-31
 
-**GitHub `main`:** `07172bd65c385398f38cb736935c9c65896ce7d0` (PR **#200** / Batch **190.7** merged). **Batch 190.8** is under review on draft PR **#201**, not merged.
-**Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `2691424bbfa89b4da9a3ca9a832c007606b5a582`; 190.8 NOT synced.
+**GitHub `main`:** `b720106771950b7ed90c81d53f3ce2f196e35c49` (PR **#201** / Batch **190.8** merged). **Batch 190.9** weekend-session correction is in review, not merged and not deployed.
+**Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `f8e2fda698c473519d4ddb40f06f04ad6f13c4d6` as reported for the 190.8 Edge release.
 
-**Lovable Cloud `sync-screener-data`:** Batch **190.7** CAS migration ledger 67 and service-role-only ACL verified. Edge-only deployment succeeded 2026-10-30 before 21:00:50 UTC; submitted source SHA-256 `f96a2b79cf4d375766dfbed005f2adede394c0e1d41c00a819260b772950122e`, revision ID unreported. **Gate 4 FAILED:** postdeploy jobs 21:15, 21:45, 22:15, 22:45 UTC processed 13,267 symbols / 7 chunks but failed `finalize_failed:build_rows:internal_error`. Last confirmed publish 20:10:02 UTC, 108 rows. **Batch 190.8** code-only Day Trade Radar observation-session guard proposed in PR **#201**; not merged/deployed; ISS-034 remains P0 OPEN.
+**Lovable Cloud `sync-screener-data`:** Batch **190.8** Edge-only deploy **2026-10-30 23:54:35–23:54:46 UTC**; submitted source SHA-256 `7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6`; revision ID unreported. Approved Git-snapshot rollback source `2691424bbfa89b4da9a3ca9a832c007606b5a582`. **Gate 4 passed at 2026-10-31 01:08 UTC** (three consecutive six-tab publications). Last successful publication **03:20:02 UTC**, **110** rows, six tabs. From **03:25 UTC** through about **21:35 UTC**: **164** `http_409` failures and **54** `prior_generation_retained` aborts; failed runs completed 7/7 chunks with no publication markers. Cron job 25 remains active. **ISS-034 P0 OPEN.**
 
 **PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
 
-**ISS-034 P0** is the immediate blocker. Staged mode remains active; 190.7 recovery and diagnostics are deployed but Gate 4 FAILED. Independent reproducible investigation traced Day Trade Radar selecting a regular-session `min.t` paired with after-hours `updated`; `baseRow` then rejects unresolved observation session and aborts `build_rows`. The actual production ticker is not yet identified. Batch 190.8 selection fix and regressions are proposed in draft PR #201; Edge deployment and after-hours acceptance are PENDING. Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent.
+**ISS-034 P0** remains the blocker. The 190.8 Day Trade Radar observation-session guard is on `main` and was the Edge build that passed Gate 4; that acceptance stands, and the later Saturday regression is a separate open defect. The scanner calls `resolveSessionSchedule` with a null holiday calendar, which classified Saturday and Sunday as open fallback sessions before the weekend guard. Batch **190.9** closes that fallback in git only. It does not change publish CAS. Master register: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`. Source merges and production activation are independent. Do not start Batch **191** until 190.9 is reviewed and production acceptance is established.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
@@ -40,14 +40,14 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024` @ **`2691424b`** (Batch 190.7, before Batch 190.8 review). After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
+- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024` @ **`f8e2fda6`** (reported with the Batch 190.8 Edge release). After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
 - **Archived recovery branch:** `cursor/chat-single-pass-v1`. Source of analyst commits below; large divergence is historical — not current Lovable sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Recovery used archived-branch versions.
 
 ## Master roadmap (2026-10-28)
 
 - **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
-- **Current approved Git-only work:** Batch **190.8** draft PR **#201**; no merge or production deployment authorization.
+- **Current approved Git-only work:** Batch **190.9** weekend session classification. Batch **191** stays blocked on review and production acceptance. No production deployment authorization.
 - **Historical batches 171–189:** complete in git; open work is **acceptance/ops** under **191–198**, not reimplementation.
 - **Batch 174 / 175:** unfinished **verification** (batches **191–192**). PR **#174** closed without merge.
 
