@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`07172bd6`** (2026-10-30); Batch 190.8 draft PR #201, not merged. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`b7201067`** (2026-10-31); Batch 190.8 PR #201 merged and Edge-deployed; Batch 190.9 weekend correction in review, not deployed. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.7 migration/Edge deployed; Gate 4 FAILED. Postdeploy 21:15/21:45/22:15/22:45 UTC, all 13,267 symbols/7 chunks, `finalize_failed:build_rows:internal_error`; last successful publish 20:10:02 UTC (108 rows). **Reproduced cause:** Day Trade Radar selection admits `min.t` market / `updated` after-hours mismatch, `baseRow` rejects unresolved session. Actual production ticker not identified. **190.8 draft PR #201** guards both selection paths; tests/CI, merge, Lovable Edge deploy and three fresh after-hours/premarket publications PENDING. **DO NOT CLOSE.** |
+| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.8 PR #201 is on `main` and was the Edge build deployed 2026-10-30 23:54 UTC. **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications). That acceptance stands. Last successful publication **03:20:02 UTC**, 110 rows, six tabs. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failures (7/7 chunks, no publication markers, failed status, lease fields retained) and **54** `prior_generation_retained` aborts. Null-calendar `resolveSessionSchedule` classified Saturday as open before the weekend guard (`pre-market` at 08:00 UTC, `after-hours` at 21:30 UTC). **190.9** corrects that classification in git only and does not change publish CAS. **DO NOT CLOSE.** Do not start Batch **191** until review and a new production acceptance. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |
