@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`b7201067`** (2026-10-30); Batch 190.8 PR #201 merged, Lovable Edge deployed, Gate 4 acceptance PENDING. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`b7201067`** (2026-10-31); Batch 190.8 PR #201 merged and Edge-deployed. Gate 4 passed 01:08 UTC, then regressed. Weekend correction is PR **#203**, not deployed. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.8 PR #201 merged, Lovable integration synced, single `sync-screener-data` Edge deployment reported successful 23:54:35–23:54:46 UTC. Submitted fingerprint `7bf8c45d…c32d6`; platform revision ID unavailable, Git snapshot `2691424b…` is approved rollback exception. 23:55 UTC: predeploy 23:45 job still finalizing `build_rows:internal_error` (not a new-build failure), cron running but feed remains 20:10:02 UTC/108 rows; six tabs intact. **Gate 4 PENDING 0/3** naturally scheduled postdeploy publications; **DO NOT CLOSE** before three consecutive verified successes. |
+| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.8 PR #201 merged, Lovable integration synced, single `sync-screener-data` Edge deployment reported successful 23:54:35–23:54:46 UTC. Submitted fingerprint `7bf8c45d…c32d6`; platform revision ID unavailable, Git snapshot `2691424b…` is approved rollback exception. 23:55 UTC: predeploy 23:45 job still finalizing `build_rows:internal_error` (not a new-build failure), cron running but feed remains 20:10:02 UTC/108 rows; six tabs intact. **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications; that acceptance stands). Last success **03:20:02 UTC**, 110 rows. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failures and **54** `prior_generation_retained` aborts. The 23:55 UTC pending check above is the pre-pass snapshot. **DO NOT CLOSE.** Correction is PR **#203**, not deployed. Do not start Batch **191**. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |

@@ -2,15 +2,15 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-10-30 after Batch 190.8 Edge release
+## Current operating baseline — 2026-10-31 after Batch 190.8 Gate 4 and regression
 
 **GitHub `main`:** `b720106771950b7ed90c81d53f3ce2f196e35c49` (Batch 190.8 PR #201 squash-merged). **Lovable integration/editor:** `f8e2fda698c473519d4ddb40f06f04ad6f13c4d6`; source aligned. Preserve Lovable-specific generated files and migrations.
 
-**Lovable Cloud `sync-screener-data`:** Batch 190.8 PR #201 merged into GitHub main b720106771950b7ed90c81d53f3ce2f196e35c49; Lovable forward-sync f8e2fda698c473519d4ddb40f06f04ad6f13c4d6. Owner authorized Git-snapshot-only rollback exception (exact previous Edge revision unavailable). Lovable Cloud reported one successful sync-screener-data-only Edge deployment 2026-10-30 23:54:35–23:54:46 UTC, submitted source SHA-256 7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6; deployed revision ID unavailable. Rollback source: last approved Batch 190.7 Lovable integration commit 2691424bbfa89b4da9a3ca9a832c007606b5a582, requiring a new source deploy to restore (not exact binary). Read-only 23:55:40 UTC: cron 25 still active */5; old 23:45 job still finalizing with build_rows:internal_error, 23:55 cron DO not a new publish; current six-tab feed unchanged at 20:10:02 UTC / 108 rows / one run / zero duplicate symbols or missing provider timestamps. Gate 4 = PENDING 0/3 new naturally scheduled publications. ISS-034 remains P0 OPEN; no migrations/cron/secrets/frontend/other Edge touched.
+**Lovable Cloud `sync-screener-data`:** Batch 190.8 PR #201 merged into GitHub main b720106771950b7ed90c81d53f3ce2f196e35c49; Lovable forward-sync f8e2fda698c473519d4ddb40f06f04ad6f13c4d6. Owner authorized Git-snapshot-only rollback exception (exact previous Edge revision unavailable). Lovable Cloud reported one successful sync-screener-data-only Edge deployment 2026-10-30 23:54:35–23:54:46 UTC, submitted source SHA-256 7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6; deployed revision ID unavailable. Rollback source: last approved Batch 190.7 Lovable integration commit 2691424bbfa89b4da9a3ca9a832c007606b5a582, requiring a new source deploy to restore (not exact binary). Read-only 23:55:40 UTC: cron 25 still active */5; old 23:45 job still finalizing with build_rows:internal_error, 23:55 cron DO not a new publish; current six-tab feed unchanged at 20:10:02 UTC / 108 rows / one run / zero duplicate symbols or missing provider timestamps. The 23:55 UTC read is the pre-acceptance snapshot. **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications). Last success **03:20:02 UTC**, 110 rows, six tabs. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failures and **54** `prior_generation_retained` aborts. ISS-034 remains P0 OPEN. Weekend correction is PR **#203** and is not deployed. Do not start Batch **191**. No migrations/cron/secrets/frontend/other Edge touched.
 
 **PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
 
-**ISS-034 P0** remains OPEN. The Day Trade Radar observation-session mismatch was locally reproduced and corrected in Batch 190.8; the corrected Edge was deployed, but recovery is NOT yet production-verified. Gate 4 PENDING 0/3 fresh naturally scheduled atomic six-tab publications. Do not close before acceptance.
+**ISS-034 P0** remains OPEN. The Day Trade Radar observation-session mismatch was corrected in Batch 190.8 and that Edge build **passed Gate 4 at 2026-10-31 01:08 UTC**. That acceptance stands. The later Saturday `http_409` regression is a separate unresolved defect. Do not close ISS-034. Do not start Batch **191** until PR **#203** is reviewed and a new production acceptance is established.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
@@ -46,7 +46,7 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Master roadmap (2026-10-28)
 
 - **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
-- **Current approved Git-only work:** Batch **190.8** draft PR **#201**; no merge or production deployment authorization.
+- **Current approved Git-only work:** Batch **190.9** weekend session correction, PR **#203**. Batch **190.8** is merged. No production deployment authorization. Batch **191** is blocked.
 - **Historical batches 171–189:** complete in git; open work is **acceptance/ops** under **191–198**, not reimplementation.
 - **Batch 174 / 175:** unfinished **verification** (batches **191–192**). PR **#174** closed without merge.
 
