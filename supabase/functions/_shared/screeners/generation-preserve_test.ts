@@ -111,6 +111,43 @@ Deno.test("preserve: validated zero after evaluated does not retain", () => {
   );
 });
 
+Deno.test("preserve: Saturday 04:00 ET clock can retain a degraded Friday feed", () => {
+  const prior: TabEvaluationEvidenceMap = {
+    gappers: {
+      status: "evaluated",
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 40,
+      no_prior_session_count: 10,
+      unresolved_gap_input_count: 0,
+      qualified_count: 2,
+      selected_count: 2,
+    },
+  };
+  const next: TabEvaluationEvidenceMap = {
+    gappers: {
+      status: "prerequisite_unavailable",
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 0,
+      no_prior_session_count: 0,
+      unresolved_gap_input_count: 50,
+      qualified_count: 0,
+      selected_count: 0,
+      reason: "prior_close_gap_inputs_unavailable",
+    },
+  };
+  assertEquals(
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence: prior,
+      nextEvidence: next,
+      nowMs: Date.parse("2026-10-31T08:00:00.000Z"),
+      priorSyncedAt: "2026-10-31T03:20:02.000Z",
+    }),
+    true,
+  );
+});
+
 Deno.test("preserve: prior snapshot from previous surveillance date is not retained at pre-market open", () => {
   const prior: TabEvaluationEvidenceMap = {
     gappers: {

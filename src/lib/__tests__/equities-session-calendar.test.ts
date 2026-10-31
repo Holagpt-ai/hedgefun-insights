@@ -77,6 +77,21 @@ describe("equities session calendar", () => {
     expect(isWithinAfterHoursWindow(NORMAL_REGULAR_CLOSE_MS + 1, schedule)).toBe(true);
   });
 
+  it("unavailable calendar still closes Saturday and Sunday", () => {
+    for (const date of ["2026-10-31", "2026-11-01"]) {
+      const weekend = resolveSessionSchedule(date, null);
+      expect(weekend.marketStatus).toBe("closed");
+      expect(weekend.source).toBe("fallback");
+      expect(sessionKindAtMsOfDay(4 * 3600_000, weekend)).toBe("closed");
+      expect(sessionKindAtMsOfDay(10 * 3600_000, weekend)).toBe("closed");
+      expect(sessionKindAtMsOfDay(17 * 3600_000 + 30 * 60_000, weekend)).toBe("closed");
+    }
+    const monday = resolveSessionSchedule("2026-11-02", null);
+    expect(monday.marketStatus).toBe("open");
+    expect(sessionKindAtMsOfDay(4 * 3600_000, monday)).toBe("pre-market");
+    expect(sessionKindAtMsOfDay((9 * 60 + 30) * 60_000, monday)).toBe("market");
+  });
+
   it("loaded calendar treats weekends as closed", () => {
     const schedule = resolveSessionSchedule("2026-08-15", []);
     expect(schedule.marketStatus).toBe("closed");

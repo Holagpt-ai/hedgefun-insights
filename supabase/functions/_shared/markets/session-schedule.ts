@@ -1,7 +1,9 @@
 /**
  * U.S. equities session schedule (Deno). Mirrors src/lib/equities-session-calendar.ts.
- * Exception days come from market_session_calendar; unavailable calendars fall
- * back to 09:30 / 16:00 / 20:00 ET.
+ * Holiday and early-close rows come from market_session_calendar. When that
+ * calendar is unavailable, weekdays fall back to 09:30 / 16:00 / 20:00 ET.
+ * Saturday and Sunday stay closed, including on that fallback. This does not
+ * open a 23×5 session.
  */
 
 export const MS_PER_SECOND = 1_000;
@@ -222,6 +224,21 @@ function exceptionToSchedule(
   };
 }
 
+function closedWeekendSchedule(
+  sessionDate: string,
+  source: ResolvedSessionSchedule["source"],
+): ResolvedSessionSchedule {
+  return {
+    sessionDate,
+    marketStatus: "closed",
+    regularOpenMsOfDay: NORMAL_REGULAR_OPEN_MS,
+    regularCloseMsOfDay: NORMAL_REGULAR_CLOSE_MS,
+    afterHoursEndMsOfDay: NORMAL_AFTER_HOURS_END_MS,
+    holidayName: null,
+    source,
+  };
+}
+
 export function resolveSessionSchedule(
   sessionDate: string,
   exceptions: CalendarExceptionRow[] | null,
@@ -229,27 +246,28 @@ export function resolveSessionSchedule(
   if (!isIsoDate(sessionDate)) {
     return fallbackOpenSchedule(sessionDate);
   }
-  if (exceptions === null) {
-    return fallbackOpenSchedule(sessionDate);
-  }
 
-  const match = exceptions.find((row) => row.session_date === sessionDate);
-  if (match) {
-    const resolved = exceptionToSchedule(match);
-    if (resolved) return resolved;
-    return fallbackOpenSchedule(sessionDate);
+  // A matching row wins, including on Saturday or Sunday. An invalid row
+  // keeps the historical open fallback. Null means the holiday calendar was
+  // not loaded; it must not skip the weekend close below.
+  if (exceptions !== null) {
+    const match = exceptions.find((row) => row.session_date === sessionDate);
+    if (match) {
+      const resolved = exceptionToSchedule(match);
+      if (resolved) return resolved;
+      return fallbackOpenSchedule(sessionDate);
+    }
   }
 
   if (isWeekendIsoDate(sessionDate)) {
-    return {
+    return closedWeekendSchedule(
       sessionDate,
-      marketStatus: "closed",
-      regularOpenMsOfDay: NORMAL_REGULAR_OPEN_MS,
-      regularCloseMsOfDay: NORMAL_REGULAR_CLOSE_MS,
-      afterHoursEndMsOfDay: NORMAL_AFTER_HOURS_END_MS,
-      holidayName: null,
-      source: "calendar",
-    };
+      exceptions === null ? "fallback" : "calendar",
+    );
+  }
+
+  if (exceptions === null) {
+    return fallbackOpenSchedule(sessionDate);
   }
 
   return {
