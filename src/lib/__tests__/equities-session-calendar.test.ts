@@ -77,10 +77,55 @@ describe("equities session calendar", () => {
     expect(isWithinAfterHoursWindow(NORMAL_REGULAR_CLOSE_MS + 1, schedule)).toBe(true);
   });
 
+  it("unavailable calendar still closes Saturday and Sunday", () => {
+    for (const date of ["2026-10-31", "2026-11-01"]) {
+      const weekend = resolveSessionSchedule(date, null);
+      expect(weekend.marketStatus).toBe("closed");
+      expect(weekend.source).toBe("fallback");
+      expect(sessionKindAtMsOfDay(4 * 3600_000, weekend)).toBe("closed");
+      expect(sessionKindAtMsOfDay(10 * 3600_000, weekend)).toBe("closed");
+      expect(sessionKindAtMsOfDay(17 * 3600_000 + 30 * 60_000, weekend)).toBe("closed");
+    }
+    const monday = resolveSessionSchedule("2026-11-02", null);
+    expect(monday.marketStatus).toBe("open");
+    expect(sessionKindAtMsOfDay(4 * 3600_000, monday)).toBe("pre-market");
+    expect(sessionKindAtMsOfDay((9 * 60 + 30) * 60_000, monday)).toBe("market");
+  });
+
   it("loaded calendar treats weekends as closed", () => {
     const schedule = resolveSessionSchedule("2026-08-15", []);
     expect(schedule.marketStatus).toBe("closed");
     expect(schedule.source).toBe("calendar");
+  });
+
+  it("invalid weekend exceptions stay closed and invalid weekdays stay open", () => {
+    for (const date of ["2026-10-31", "2026-11-01"]) {
+      const invalid = resolveSessionSchedule(date, [
+        {
+          session_date: date,
+          market_status: "closed",
+          regular_open_et: "not-a-time",
+          regular_close_et: "16:00:00",
+          after_hours_end_et: "20:00:00",
+          holiday_name: null,
+        },
+      ]);
+      expect(invalid.marketStatus).toBe("closed");
+      expect(invalid.source).toBe("calendar");
+      expect(sessionKindAtMsOfDay(10 * 3600_000, invalid)).toBe("closed");
+    }
+    const weekday = resolveSessionSchedule("2026-11-02", [
+      {
+        session_date: "2026-11-02",
+        market_status: "early_close",
+        regular_open_et: "not-a-time",
+        regular_close_et: "13:00:00",
+        after_hours_end_et: "20:00:00",
+        holiday_name: null,
+      },
+    ]);
+    expect(weekday.marketStatus).toBe("open");
+    expect(weekday.source).toBe("fallback");
   });
 });
 

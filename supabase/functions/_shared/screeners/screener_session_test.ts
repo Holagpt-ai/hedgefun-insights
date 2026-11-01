@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { resolveSyncSessionKind } from "./session-sync-context.ts";
 import {
   assessScreenerGenerationSession,
   feedSessionMatchesConsumerClock,
@@ -49,6 +50,48 @@ Deno.test("surveillance date flips at 04:00:00.000 ET and not one millisecond ea
   assertEquals(surveillanceTradingDateFromMs(before), "2026-10-04");
   assertEquals(surveillanceTradingDateFromMs(at), "2026-10-05");
   assertEquals(surveillanceTradingDateFromMs(after), "2026-10-05");
+});
+
+Deno.test("scanner null calendar closes weekend clocks and reopens Monday across DST", () => {
+  const kind = (iso: string) => resolveSyncSessionKind(Date.parse(iso));
+
+  // Friday 2026-10-30 EDT. Inclusive regular close, then after-hours through 20:00 ET.
+  assertEquals(kind("2026-10-30T20:00:00.000Z"), "market");
+  assertEquals(kind("2026-10-30T20:00:00.001Z"), "after-hours");
+  assertEquals(kind("2026-10-31T00:00:00.000Z"), "after-hours");
+  assertEquals(kind("2026-10-31T00:00:00.001Z"), "closed");
+
+  // Saturday production clocks: 04:00, 10:00, and 17:30 ET. Not a 23×5 open.
+  assertEquals(kind("2026-10-31T08:00:00.000Z"), "closed");
+  assertEquals(kind("2026-10-31T14:00:00.000Z"), "closed");
+  assertEquals(kind("2026-10-31T21:30:00.000Z"), "closed");
+
+  // Sunday 2026-11-01 fallback: both 01:30 ET occurrences, then a regular-hour clock.
+  assertEquals(kind("2026-11-01T05:30:00.000Z"), "closed");
+  assertEquals(kind("2026-11-01T06:30:00.000Z"), "closed");
+  assertEquals(kind("2026-11-01T15:00:00.000Z"), "closed");
+
+  // Monday reopen in EST, including the 04:00 ET premarket boundary.
+  assertEquals(kind("2026-11-02T08:59:00.000Z"), "closed");
+  assertEquals(kind("2026-11-02T09:00:00.000Z"), "pre-market");
+  assertEquals(kind("2026-11-02T14:30:00.000Z"), "market");
+  assertEquals(kind("2026-11-02T22:30:00.000Z"), "after-hours");
+
+  // Spring-forward Sunday stays closed; the following Monday reopens in EDT.
+  assertEquals(kind("2026-03-08T06:30:00.000Z"), "closed");
+  assertEquals(kind("2026-03-08T07:30:00.000Z"), "closed");
+  assertEquals(kind("2026-03-09T13:30:00.000Z"), "market");
+});
+
+Deno.test("Saturday premarket clock does not treat Friday's feed as a live-session miss", () => {
+  const saturdayPremarketClock = Date.parse("2026-10-31T08:00:00.000Z");
+  assertEquals(
+    assessScreenerGenerationSession({
+      nowMs: saturdayPremarketClock,
+      referenceIso: "2026-10-31T03:20:02.000Z",
+    }),
+    "not_applicable",
+  );
 });
 
 Deno.test("closed overnight session does not apply live-session rejection", () => {
