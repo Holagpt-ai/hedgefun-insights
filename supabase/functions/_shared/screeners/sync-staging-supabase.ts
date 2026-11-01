@@ -69,6 +69,9 @@ type StagingUpdateEqChain = StagingUpdateResult & {
 
 const TABLE = "screener_sync_generation_jobs";
 
+/** Continuation error text may change only while work is still in progress. */
+const CONTINUATION_ERROR_STATUSES = ["chunking", "finalizing"] as const;
+
 function isMissingTable(error: { message: string; code?: string } | null): boolean {
   if (!error) return false;
   const msg = error.message.toLowerCase();
@@ -496,21 +499,24 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     error?: string;
     nowMs: number;
   }): Promise<void> {
-    const job = await this.get(params.jobId);
-    if (!job) return;
-    const patch: Record<string, string | null> = {
-      continue_last_at: new Date(params.nowMs).toISOString(),
-      updated_at: new Date(params.nowMs).toISOString(),
-    };
-    if (params.ok) {
-      if (job.status !== "failed") patch.continue_last_error = null;
-    } else {
-      const err = params.error ?? "continue_failed";
-      if (job.status !== "failed" || !job.continueLastError) {
-        patch.continue_last_error = err;
-      }
-    }
-    await this.sb.from(TABLE).update(patch).eq("id", params.jobId);
+    const nowIso = new Date(params.nowMs).toISOString();
+    // Timestamps are continuation metadata. Error text is a separate update
+    // predicated on nonterminal status so a concurrent failJob cannot be
+    // overwritten by a stale in-memory status read.
+    await this.sb.from(TABLE).update({
+      continue_last_at: nowIso,
+      updated_at: nowIso,
+    }).eq("id", params.jobId);
+
+    const continueLastError = params.ok
+      ? null
+      : (params.error ?? "continue_failed");
+    await this.sb.from(TABLE).update({
+      continue_last_error: continueLastError,
+      updated_at: nowIso,
+    })
+      .eq("id", params.jobId)
+      .in("status", [...CONTINUATION_ERROR_STATUSES]);
   }
 }
 

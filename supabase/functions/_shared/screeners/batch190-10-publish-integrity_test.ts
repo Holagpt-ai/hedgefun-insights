@@ -7,9 +7,16 @@ import {
   type PolygonTicker,
   qualifiesDayTradeRadar,
   SCREENER_ROW_LIMIT,
+  selectForTab,
   selectMainUniverseTabs,
 } from "./selection.ts";
-import { expectedVolumeRatio, mapDayTradeRadar, mapTabRows } from "./rows.ts";
+import {
+  expectedVolumeRatio,
+  mapDayTradeRadar,
+  mapNewHighsLows,
+  mapTabRows,
+  type ScreenerResultRow,
+} from "./rows.ts";
 import type { GenerationMeta } from "./rows.ts";
 import { volumeContextFromOpts } from "./session-volume.ts";
 import { MemorySyncStagingStore } from "./sync-staging-memory.ts";
@@ -150,6 +157,94 @@ Deno.test("Batch 190.10: mapped DTR rows satisfy Postgres ratio contract", () =>
   const otherTabs = mapTabRows("volume_spikes", selected, (s) => s, meta);
   for (const row of otherTabs) {
     assertEquals(row.volume !== null && (row.volume as number) > 0, true);
+  }
+});
+
+const RATIO_TABS = new Set([
+  "day_trade_radar",
+  "volume_spikes",
+  "unusual_volume",
+]);
+
+Deno.test("Batch 190.10: six-tab payload excludes invalid DTR and satisfies publish contract", () => {
+  const nowMs = Date.parse("2026-11-02T09:00:00.000Z");
+  const opts = { nowMs, extendedSession: true, observationSessionFields: true };
+  const meta: GenerationMeta = {
+    syncedAt: new Date(nowMs).toISOString(),
+    syncRunId: "11111111-2222-4333-8444-555555555555",
+    nowMs,
+    extendedSession: true,
+    observationSessionFields: true,
+  };
+  const updated = nowMs * 1_000_000;
+  const minT = nowMs;
+  const bad = dtrTicker({ ticker: "PMBAD", dayV: 50_000_000, prevVol: 1_000_000 });
+  bad.updated = updated;
+  bad.min = { t: minT, o: 10, c: 10.5, v: 1000 };
+  const universe = [bad, ...Array.from({ length: 8 }, (_, i) => {
+    const t = dtrTicker({
+      ticker: `SIX${i}`,
+      dayV: 9_000_000 - i * 100_000,
+      prevVol: 1_000_000,
+    });
+    t.updated = updated;
+    t.min = { t: minT, av: 9_200_000 - i * 100_000, o: 10, c: 10.5 };
+    return t;
+  })];
+  const staged = finalizeMainUniverseSelections(
+    collectMainUniverseQualified(universe, opts),
+    opts,
+  );
+  const monolithic = selectMainUniverseTabs(universe, opts);
+  const gainers = selectForTab("gainers_losers", universe, SCREENER_ROW_LIMIT, opts);
+  const name = (symbol: string) => symbol;
+  const nhlSource = staged.day_trade_radar[0];
+  const rows: ScreenerResultRow[] = [
+    ...mapTabRows("day_trade_radar", staged.day_trade_radar, name, meta),
+    ...mapTabRows("gappers", staged.gappers, name, meta),
+    ...mapTabRows("volume_spikes", staged.volume_spikes, name, meta),
+    ...mapTabRows("gainers_losers", gainers, name, meta),
+    ...mapTabRows("unusual_volume", staged.unusual_volume, name, meta),
+    ...mapNewHighsLows(
+      nhlSource
+        ? [{
+          ticker: nhlSource,
+          range_event: "new_high",
+          high_52w: 12,
+          low_52w: 6,
+        }]
+        : [],
+      name,
+      meta,
+    ),
+  ];
+  const seen = new Set<string>();
+  const tabs = new Set(rows.map((row) => row.tab_id));
+  assertEquals(tabs.size, 6);
+  assertEquals(rows.some((row) => row.symbol === "PMBAD"), false);
+  assertEquals(
+    monolithic.day_trade_radar.map((t) => t.ticker),
+    staged.day_trade_radar.map((t) => t.ticker),
+  );
+  for (const row of rows) {
+    const key = `${row.tab_id}:${row.symbol}`;
+    assertEquals(seen.has(key), false);
+    seen.add(key);
+    assertEquals(typeof row.volume, "number");
+    assertEquals((row.volume as number) > 0, true);
+    assertEquals(Number.isInteger(row.volume), true);
+    assertEquals(typeof row.provider_as_of, "string");
+    if (RATIO_TABS.has(row.tab_id)) {
+      assertEquals(row.prior_session_volume !== null && row.prior_session_volume! > 0, true);
+      assertEquals(
+        row.volume_ratio_prior_session !== null && row.volume_ratio_prior_session! > 0,
+        true,
+      );
+      assertEquals(
+        expectedVolumeRatio(row.volume as number, row.prior_session_volume as number),
+        row.volume_ratio_prior_session,
+      );
+    }
   }
 });
 

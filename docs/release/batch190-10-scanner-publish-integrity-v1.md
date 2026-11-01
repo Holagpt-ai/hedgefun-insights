@@ -14,12 +14,12 @@
 
 - **Selection:** After Batch 190.8 observation-session guard, Day Trade Radar in `finalizeMainUniverseSelections` and `selectMainUniverseTabs` requires `hasPersistedPublicationVolumePair` (integer positive volume + positive prior + one-decimal ratio > 0) using observation volume context; volume-first ranking still uses `{}`.
 
-- **Dispatch errors:** `sanitizeContinueDispatchError` + JSON `error` preservation in `parseContinueDispatchError`; `recordContinueDispatch` in memory and Supabase stores does not overwrite `continue_last_error` when job status is already terminal `failed` with a reason.
+- **Dispatch errors:** `sanitizeContinueDispatchError` + JSON `error` preservation in `parseContinueDispatchError`. Supabase `recordContinueDispatch` writes continuation timestamps separately from `continue_last_error`. The error column updates only while `status` is `chunking` or `finalizing`, so a concurrent `failJob` cannot be overwritten by a stale status read. Memory staging still skips overwriting an existing terminal reason in-process.
 
 ## Coordination
 
-- Merge order recommended: **PR #202** → **PR #203** → **Batch 190.10**.
-- **PR #203 follow-up (optional before merge):** invalid weekend calendar exception rows can still fall back to open weekday schedule; not fixed in 190.10.
+- **PR #202** and **PR #203** are merged on `main` (`f74b7c83…`). This batch rebases onto that baseline.
+- Batch **190.9** weekend fix is on `main` but **not deployed** to Edge; **190.10** stacks publication-integrity fixes for the next deploy.
 - **03:25 UTC 4/7 chunk failure / baseline drift:** separate from atomic-publication volume defect; no change in this batch.
 
 ## Production acceptance (Monday 2026-11-02)
