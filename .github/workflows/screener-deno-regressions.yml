@@ -98,4 +98,7 @@ jobs:
           supabase/functions/_shared/screeners/sync-finalize-lease-release_contract_test.ts
           supabase/functions/_shared/screeners/sync-finalize-lease-release-acl-postgres_test.ts
           supabase/functions/_shared/screeners/sync-staging-postgres-acl-helpers_test.ts
+          supabase/functions/_shared/screeners/batch190-10-publish-integrity_test.ts
+          supabase/functions/_shared/screeners/sync-publish-rpc-error_test.ts
+          supabase/functions/_shared/screeners/sync-staging-supabase-publish-error_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
