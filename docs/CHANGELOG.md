@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204**, branch `cursor/batch190-10-scanner-publish-integrity`): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20 while preserving `{}` volume-first ranking; sanitized continuation-error parsing; Supabase `continue_last_error` updates only while job status is `chunking` or `finalizing`. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Git-only, NOT MERGED or deployed.** **ISS-034 P0 OPEN.** Update continuity docs after merge; live Edge remains Batch **190.8** until Lovable deploy.
+- **Batch 190.9+190.10 Edge preflight (docs):** Combined Lovable handoff record — integration **`b7a76d9a`**, live Edge still **190.8**, ISS-034 open, Monday **2026-11-02** acceptance pending. Runbook `docs/release/batch190-9-10-sync-screener-edge-preflight-v1.md`.
 
 - **Batch 190.7** Staged finalization exception recovery (PR **#200**): allowlisted finalize diagnostics, atomic CAS lease release RPC **`20261030220000`**, uncertain `http_*` dispatch preserves leases, reconciliation for recorded publish rows. Documents 2026-10-30 ~20:15 UTC incident; root throw not reproduced. **190.6** applied/deployed Lovable; **190.7** migration/Edge deployed, Gate 4 FAILED at `build_rows`. **ISS-034** OPEN.
 - **Batch 190.6** Staged finalization abort diagnostics (PR pending): migration `20261030210000_screener_sync_abort_diagnostics_v1.sql`; persist `prior_generation_retained` / `newer_generation_live` on staged abort without changing scanner or publish decisions. Gate C observations documented; historical aborts remain NULL. **ISS-034** unchanged.
@@ -17,13 +17,19 @@ Application history below is a map of `main`, not a claim that each merge was de
 - **Batch 190 release gate** CPU-safe staged screener sync (PR **#196**, branch `cursor/batch190-cpu-safe-screener-sync`): Architecture A — chunked Edge + CAS staging RPCs; atomic `publish_screener_sync_staged_generation_v1` with **fail-closed** staged handler (no replace+record fallback); **Postgres 16 mandatory CI** (`screener-deno-regressions.yml` + `screener-sync-pg-test-setup.mjs` + 11 integration tests). Migrations **not applied**; **ISS-034** remains open until production publish verified.
 - **Master Continuity Sync V4** (PR **#195** → **`4eaa8504`** / doc head **`b98e2724`**): master backlog `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
+## 2026-11-01
+
+- **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204** → **`ed4fbd8d7dc2722d89bc36320095ec87c31bc3e9`**): Day Trade Radar publish-eligible volume/ratio filter; continuation-error preservation; staged Supabase race guard on `continue_last_error`. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Merged to `main`; Lovable Edge NOT deployed** (live remains **190.8**). **ISS-034 P0 OPEN.**
+
+- **Combined Edge preflight (docs + integration forward-sync):** Lovable integration **`b7a76d9a34a9fc2418d3ec6e483945fe0745c9f7`**; runbook `docs/release/batch190-9-10-sync-screener-edge-preflight-v1.md`. **Monday 2026-11-02** production acceptance pending.
+
 ## 2026-10-31
 
-- **Batch 190.9** Weekend session classification (PR **#203** → **`f74b7c83c332fad8e1109c69fe3f877b7a533ee1`**): `resolveSessionSchedule(null)` closes Saturday and Sunday before the weekday open fallback; invalid matching weekend exception rows stay closed. Valid exceptions still win; invalid weekdays keep the historical open fallback. Not a 23×5 open. **Merged to `main`; Lovable Edge NOT deployed.** CAS and freshness checks unchanged. **ISS-034 P0 OPEN.**
+- **Batch 190.9** Weekend session classification (PR **#203** → **`f74b7c83c332fad8e1109c69fe3f877b7a533ee1`**): `resolveSessionSchedule(null)` closes Saturday and Sunday before the weekday open fallback; invalid matching weekend exception rows stay closed. **Merged to `main`; Lovable Edge NOT deployed.** **ISS-034 P0 OPEN.**
 
-- **Batch 190.8** observation-session guard (PR **#201** → **`b720106771950b7ed90c81d53f3ce2f196e35c49`**): Day Trade Radar rejects unresolved observation sessions before volume-first top-N. **Deployed Lovable `sync-screener-data` 2026-10-30 23:54:35–23:54:46 UTC** (source SHA-256 `7bf8c45d…c32d6`). **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications). Last success **03:20:02 UTC**, 110 rows.
+- **Batch 190.8** observation-session guard (PR **#201** → **`b720106771950b7ed90c81d53f3ce2f196e35c49`**): **Deployed Lovable `sync-screener-data` 2026-10-30 23:54:35–23:54:46 UTC** (source SHA-256 `7bf8c45d…c32d6`). **Gate 4 passed 2026-10-31 01:08 UTC**. Last success **03:20:02 UTC**, 110 rows.
 
-- **Batch 190.8 Gate 4 pass and Saturday regression (continuity docs):** PR **#202** → **`56816bd54778541fff3ec5fb076f03cf5e73dd75`**. Records Gate 4 pass, last success **03:20:02 UTC**, and subsequent **`http_409`** / **`prior_generation_retained`** regression through ~**21:35 UTC**. Pre-pass **23:55 UTC** snapshot preserved in `docs/DEPLOYMENT_STATUS.md`. No application or Edge deploy.
+- **Batch 190.8 Gate 4 pass and Saturday regression (continuity docs):** PR **#202** → **`56816bd54778541fff3ec5fb076f03cf5e73dd75`**. **`http_409`** / **`prior_generation_retained`** regression through ~**21:35 UTC**. No Edge deploy.
 
 ## 2026-10-28
 
