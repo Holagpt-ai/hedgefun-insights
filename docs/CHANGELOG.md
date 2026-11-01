@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190.11** Publish validation surface + RPC transport diagnostics (PR pending, branch `cursor/iss-034-publish-error-surface-19c6`): migration `20261101143000_screener_sync_publish_validation_surface_v1.sql` returns bounded `{ ok: false, reason }` when `replace_screener_results_generation_v1` rejects rows; Edge `formatStagedPublishRpcTransportFailure` preserves PostgREST failure tokens. Stacks on Batch **190.10**. **Git-only; NOT applied or deployed.** **ISS-034 P0 OPEN.**
+- **Batch 190.11** Staged publish RPC diagnostics (PR **#206**, branch `cursor/iss-034-publish-error-surface-19c6`): Edge `formatStagedPublishRpcTransportFailure` sanitizes PostgREST `code` / `message` / `details` into bounded `failJob` reasons; **no SQL migration** (preserves publish RPC transaction rollback). Stacks on Batch **190.10**. **Git-only; NOT deployed.** **ISS-034 P0 OPEN.**
 
 - **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204** → **`ed4fbd8d`**): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20; continuation error overwrite fix. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Merged to `main`; Lovable Edge NOT deployed.** **ISS-034 P0 OPEN.**
 
