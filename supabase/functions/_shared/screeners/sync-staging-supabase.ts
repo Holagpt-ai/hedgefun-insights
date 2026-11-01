@@ -18,6 +18,7 @@ import {
   serializeMergedArtifacts,
   type StagingJobRow,
 } from "./sync-staging-serialize.ts";
+import { formatStagedPublishRpcTransportFailure } from "./sync-publish-rpc-error.ts";
 
 export type StagingTableClient = {
   from: (table: string) => {
@@ -433,7 +434,10 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     if (isMissingRpc(rpc.error)) {
       return { ok: false, reason: "staging_rpc_missing" };
     }
-    return { ok: false, reason: "staged_publish_failed" };
+    return {
+      ok: false,
+      reason: formatStagedPublishRpcTransportFailure(rpc.error),
+    };
   }
 
   async completePublish(params: {

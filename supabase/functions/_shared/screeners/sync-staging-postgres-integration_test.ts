@@ -349,6 +349,11 @@ Deno.test("postgres gate: replace failure rolls back publish record", async () =
       [jobId],
     );
     assertEquals(job.rows[0]?.publish_rows_inserted, null);
+    const feed = await client.queryObject<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.screener_results WHERE sync_run_id = $1`,
+      [syncRunId],
+    );
+    assertEquals(feed.rows[0]?.n, 0);
   });
 });
 
