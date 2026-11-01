@@ -21,6 +21,16 @@ Deno.test("dispatch error parser: falls back to http status", () => {
   assertEquals(parseContinueDispatchError(500, null), "http_500");
 });
 
+Deno.test("dispatch error parser: preserves JSON publish error on 409", () => {
+  assertEquals(
+    parseContinueDispatchError(409, {
+      error: "finalize_owner_conflict",
+      generation_id: "x",
+    }),
+    "finalize_owner_conflict",
+  );
+});
+
 Deno.test("recovery: releases finalize lease after definitive dispatch failure", async () => {
   const store = new MemorySyncStagingStore();
   const nowMs = Date.parse("2026-10-30T20:16:00.000Z");

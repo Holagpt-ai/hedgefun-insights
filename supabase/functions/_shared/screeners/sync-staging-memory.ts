@@ -381,7 +381,14 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     const job = this.jobs.get(params.jobId);
     if (!job) return;
     job.continueLastAtMs = params.nowMs;
-    job.continueLastError = params.ok ? null : (params.error ?? "continue_failed");
+    if (params.ok) {
+      if (job.status !== "failed") job.continueLastError = null;
+    } else {
+      const err = params.error ?? "continue_failed";
+      if (job.status !== "failed" || !job.continueLastError) {
+        job.continueLastError = err;
+      }
+    }
     job.updatedAtMs = params.nowMs;
     this.jobs.set(params.jobId, job);
   }
