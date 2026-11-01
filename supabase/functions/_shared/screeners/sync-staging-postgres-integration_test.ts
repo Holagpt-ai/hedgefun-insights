@@ -3,7 +3,7 @@
  * CI sets SCREENER_SYNC_PG_TEST_URL after bootstrap (Postgres 16 service).
  */
 
-import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
 import {
   insertChunkingJob,
@@ -336,19 +336,60 @@ Deno.test("postgres gate: replace failure rolls back publish record", async () =
                $4::uuid, now() + interval '12 minutes', 0)`,
       [jobId, syncRunId, JSON.stringify(sampleObservation(syncRunId)), finalizeLease],
     );
-    await assertRejects(async () => {
-      await client.queryObject(
-        `SELECT public.publish_screener_sync_staged_generation_v1(
-          $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, now(), 'initializing', '{}'::jsonb, now()
-        )`,
-        [jobId, finalizeLease, JSON.stringify(badRows), syncRunId],
-      );
-    });
+    const pub = await client.queryObject<{ payload: string }>(
+      `SELECT public.publish_screener_sync_staged_generation_v1(
+        $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, now(), 'initializing', '{}'::jsonb, now()
+      )::text AS payload`,
+      [jobId, finalizeLease, JSON.stringify(badRows), syncRunId],
+    );
+    const parsed = JSON.parse(String(pub.rows[0]?.payload ?? "{}"));
+    assertEquals(parsed.ok, false);
+    assertEquals(parsed.reason, "nonpositive_volume");
     const job = await client.queryObject<{ publish_rows_inserted: number | null }>(
       `SELECT publish_rows_inserted FROM public.screener_sync_generation_jobs WHERE id = $1`,
       [jobId],
     );
     assertEquals(job.rows[0]?.publish_rows_inserted, null);
+  });
+});
+
+Deno.test("postgres gate: ratio tab validation surfaces prior_session_volume reason", async () => {
+  await withPg(async (client) => {
+    await truncateStaging(client);
+    const jobId = crypto.randomUUID();
+    const syncRunId = crypto.randomUUID();
+    const finalizeLease = crypto.randomUUID();
+    const badRows = [{
+      tab_id: "day_trade_radar",
+      symbol: "RATIO",
+      company_name: "RATIO",
+      price: "10",
+      change_percent: "1",
+      volume: "1000000",
+      prior_session_volume: null,
+      volume_ratio_prior_session: null,
+      provider_as_of: "2026-10-28T14:00:00.000Z",
+    }];
+    await client.queryObject(
+      `INSERT INTO public.screener_sync_generation_jobs
+       (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
+        next_chunk_index, finalize_lease_token, finalize_lease_expires_at, state_version)
+       VALUES ($1, $2, 'finalizing', $3::jsonb, '[]'::jsonb, 2200, 1, 1,
+               $4::uuid, now() + interval '12 minutes', 0)`,
+      [jobId, syncRunId, JSON.stringify(sampleObservation(syncRunId)), finalizeLease],
+    );
+    const pub = await client.queryObject<{ payload: string }>(
+      `SELECT public.publish_screener_sync_staged_generation_v1(
+        $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, now(), 'initializing', '{}'::jsonb, now()
+      )::text AS payload`,
+      [jobId, finalizeLease, JSON.stringify(badRows), syncRunId],
+    );
+    const parsed = JSON.parse(String(pub.rows[0]?.payload ?? "{}"));
+    assertEquals(parsed.ok, false);
+    assertEquals(
+      parsed.reason,
+      "ratio_tabs_require_positive_prior_session_volume",
+    );
   });
 });
 

@@ -70,4 +70,8 @@ runSql("20261030220000_screener_sync_finalize_lease_release_cas_v1.sql", join(
   migrationsDir,
   "20261030220000_screener_sync_finalize_lease_release_cas_v1.sql",
 ));
+runSql("20261101143000_screener_sync_publish_validation_surface_v1.sql", join(
+  migrationsDir,
+  "20261101143000_screener_sync_publish_validation_surface_v1.sql",
+));
 console.log("\nBootstrap complete.");
