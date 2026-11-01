@@ -496,11 +496,21 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     error?: string;
     nowMs: number;
   }): Promise<void> {
-    await this.sb.from(TABLE).update({
+    const job = await this.get(params.jobId);
+    if (!job) return;
+    const patch: Record<string, string | null> = {
       continue_last_at: new Date(params.nowMs).toISOString(),
-      continue_last_error: params.ok ? null : (params.error ?? "continue_failed"),
       updated_at: new Date(params.nowMs).toISOString(),
-    }).eq("id", params.jobId);
+    };
+    if (params.ok) {
+      if (job.status !== "failed") patch.continue_last_error = null;
+    } else {
+      const err = params.error ?? "continue_failed";
+      if (job.status !== "failed" || !job.continueLastError) {
+        patch.continue_last_error = err;
+      }
+    }
+    await this.sb.from(TABLE).update(patch).eq("id", params.jobId);
   }
 }
 

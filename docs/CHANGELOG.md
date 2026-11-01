@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190.9** Weekend session classification when the holiday calendar is unavailable: `resolveSessionSchedule(null)` now closes Saturday and Sunday before the weekday open fallback, including the scanner path `resolveSyncSessionKind`. Invalid matching weekend exception rows stay closed instead of falling through to the open fallback; valid exceptions still win and invalid weekdays keep the historical open fallback. Not a 23×5 open. Deno and client calendar tests cover Friday close, Saturday 04:00/10:00/17:30 ET, Sunday including the DST fallback hour, and Monday reopen in EST and after the spring-forward. **Not merged or deployed.** `http_409` remains the continuation label for a post-claim publish 409; CAS and freshness checks are unchanged. **ISS-034 P0 OPEN.** Gate 4's 2026-10-31 01:08 UTC pass stands; the later Saturday regression is unresolved.
+- **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204**, branch `cursor/batch190-10-scanner-publish-integrity`): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20 while preserving `{}` volume-first ranking; sanitized continuation-error parsing; Supabase `continue_last_error` updates only while job status is `chunking` or `finalizing`. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Git-only, NOT MERGED or deployed.** **ISS-034 P0 OPEN.** Update continuity docs after merge; live Edge remains Batch **190.8** until Lovable deploy.
 
 - **Batch 190.7** Staged finalization exception recovery (PR **#200**): allowlisted finalize diagnostics, atomic CAS lease release RPC **`20261030220000`**, uncertain `http_*` dispatch preserves leases, reconciliation for recorded publish rows. Documents 2026-10-30 ~20:15 UTC incident; root throw not reproduced. **190.6** applied/deployed Lovable; **190.7** migration/Edge deployed, Gate 4 FAILED at `build_rows`. **ISS-034** OPEN.
 - **Batch 190.6** Staged finalization abort diagnostics (PR pending): migration `20261030210000_screener_sync_abort_diagnostics_v1.sql`; persist `prior_generation_retained` / `newer_generation_live` on staged abort without changing scanner or publish decisions. Gate C observations documented; historical aborts remain NULL. **ISS-034** unchanged.
@@ -19,7 +19,11 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## 2026-10-31
 
-- **Batch 190.8 Gate 4 pass and Saturday regression (continuity docs):** PR **#202** → **`56816bd54778541fff3ec5fb076f03cf5e73dd75`**. Records Gate 4 pass at **01:08 UTC**, last success **03:20:02 UTC**, and subsequent **`http_409`** / **`prior_generation_retained`** regression through ~**21:35 UTC** on the Batch **190.8** Edge deploy (source SHA-256 `7bf8c45d…c32d6`). Pre-pass **23:55 UTC** snapshot preserved in `docs/DEPLOYMENT_STATUS.md`. No application or Edge deploy.
+- **Batch 190.9** Weekend session classification (PR **#203** → **`f74b7c83c332fad8e1109c69fe3f877b7a533ee1`**): `resolveSessionSchedule(null)` closes Saturday and Sunday before the weekday open fallback; invalid matching weekend exception rows stay closed. Valid exceptions still win; invalid weekdays keep the historical open fallback. Not a 23×5 open. **Merged to `main`; Lovable Edge NOT deployed.** CAS and freshness checks unchanged. **ISS-034 P0 OPEN.**
+
+- **Batch 190.8** observation-session guard (PR **#201** → **`b720106771950b7ed90c81d53f3ce2f196e35c49`**): Day Trade Radar rejects unresolved observation sessions before volume-first top-N. **Deployed Lovable `sync-screener-data` 2026-10-30 23:54:35–23:54:46 UTC** (source SHA-256 `7bf8c45d…c32d6`). **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications). Last success **03:20:02 UTC**, 110 rows.
+
+- **Batch 190.8 Gate 4 pass and Saturday regression (continuity docs):** PR **#202** → **`56816bd54778541fff3ec5fb076f03cf5e73dd75`**. Records Gate 4 pass, last success **03:20:02 UTC**, and subsequent **`http_409`** / **`prior_generation_retained`** regression through ~**21:35 UTC**. Pre-pass **23:55 UTC** snapshot preserved in `docs/DEPLOYMENT_STATUS.md`. No application or Edge deploy.
 
 ## 2026-10-28
 

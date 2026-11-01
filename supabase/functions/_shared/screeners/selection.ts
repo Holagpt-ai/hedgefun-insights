@@ -193,6 +193,46 @@ export function volumeRatioPriorSession(
   return Math.round(ratio * 10) / 10;
 }
 
+/** Integer volume persisted to screener_results (mirrors rows.ts). */
+function persistedPublicationVolume(raw: number | null): number | null {
+  return raw === null ? null : Math.round(raw);
+}
+
+/**
+ * True when observation-session volume and prior-session ratio will survive
+ * replace_screener_results_generation_v1 validation (ratio tabs).
+ */
+export function hasPersistedPublicationVolumePair(
+  t: PolygonTicker,
+  volumeCtx: SessionVolumeContext,
+): boolean {
+  const volume = persistedPublicationVolume(
+    sessionQualificationVolume(t, volumeCtx),
+  );
+  if (volume === null || !(volume > 0)) return false;
+  const priorRaw = priorSessionVolume(t);
+  if (priorRaw === null) return false;
+  const prior = persistedPublicationVolume(priorRaw);
+  if (prior === null || !(prior > 0)) return false;
+  const ratio = volume / prior;
+  if (!Number.isFinite(ratio) || !(ratio > 0)) return false;
+  const rounded = Math.round(ratio * 10) / 10;
+  return rounded > 0;
+}
+
+function dayTradeRadarPublishEligible(
+  t: PolygonTicker,
+  extendedTabOpts: TabSelectionOpts,
+): boolean {
+  if (extendedQuoteSemanticsForTicker(t, extendedTabOpts) === null) {
+    return false;
+  }
+  return hasPersistedPublicationVolumePair(
+    t,
+    volumeContextFromOpts(extendedTabOpts),
+  );
+}
+
 function isExplicitNumericZero(value: unknown): boolean {
   if (value === undefined || value === null || typeof value === "boolean") {
     return false;
@@ -585,7 +625,7 @@ export function finalizeMainUniverseSelections(
     // Keep Day Trade Radar's intentional regular-day volume ranking ({}).
     day_trade_radar: selectVolumeFirst(
       merged.day_trade_radar.filter((t) =>
-        extendedQuoteSemanticsForTicker(t, extendedTabOpts) !== null
+        dayTradeRadarPublishEligible(t, extendedTabOpts)
       ),
       limit,
       {},
@@ -610,7 +650,7 @@ export function selectMainUniverseTabs(
   for (const t of universe) {
     if (
       qualifiesDayTradeRadar(t) &&
-      extendedQuoteSemanticsForTicker(t, extendedTabOpts) !== null
+      dayTradeRadarPublishEligible(t, extendedTabOpts)
     ) dayTradeQ.push(t);
     if (qualifiesGappers(t, extendedTabOpts)) gappersQ.push(t);
     if (qualifiesVolumeSpikes(t, volumeCtx)) spikesQ.push(t);

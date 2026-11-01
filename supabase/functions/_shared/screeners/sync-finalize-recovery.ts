@@ -103,6 +103,17 @@ export async function prepareStagedFinalizeRetry(
   return out;
 }
 
+const CONTINUE_DISPATCH_ERROR_RE = /^[a-z0-9_]{1,120}$/;
+
+/** Bounded publish/claim reason from JSON finalize responses (no secrets or prose). */
+export function sanitizeContinueDispatchError(error: unknown): string | null {
+  if (typeof error !== "string") return null;
+  const trimmed = error.trim();
+  if (!trimmed || !CONTINUE_DISPATCH_ERROR_RE.test(trimmed)) return null;
+  if (trimmed === "finalize_failed") return null;
+  return trimmed;
+}
+
 export function parseContinueDispatchError(
   status: number,
   body: unknown,
@@ -114,6 +125,8 @@ export function parseContinueDispatchError(
       const reason = typeof o.reason === "string" ? o.reason : "unknown";
       return `finalize_failed:${stage}:${reason}`;
     }
+    const sanitized = sanitizeContinueDispatchError(o.error);
+    if (sanitized) return sanitized;
   }
   return `http_${status}`;
 }
