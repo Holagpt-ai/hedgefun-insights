@@ -190,6 +190,9 @@ export function resolveSessionSchedule(
     if (match) {
       const resolved = exceptionToSchedule(match);
       if (resolved) return resolved;
+      if (isWeekendIsoDate(sessionDate)) {
+        return closedWeekendSchedule(sessionDate, "calendar");
+      }
       return fallbackOpenSchedule(sessionDate);
     }
   }

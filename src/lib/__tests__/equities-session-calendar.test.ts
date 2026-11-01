@@ -97,6 +97,36 @@ describe("equities session calendar", () => {
     expect(schedule.marketStatus).toBe("closed");
     expect(schedule.source).toBe("calendar");
   });
+
+  it("invalid weekend exceptions stay closed and invalid weekdays stay open", () => {
+    for (const date of ["2026-10-31", "2026-11-01"]) {
+      const invalid = resolveSessionSchedule(date, [
+        {
+          session_date: date,
+          market_status: "closed",
+          regular_open_et: "not-a-time",
+          regular_close_et: "16:00:00",
+          after_hours_end_et: "20:00:00",
+          holiday_name: null,
+        },
+      ]);
+      expect(invalid.marketStatus).toBe("closed");
+      expect(invalid.source).toBe("calendar");
+      expect(sessionKindAtMsOfDay(10 * 3600_000, invalid)).toBe("closed");
+    }
+    const weekday = resolveSessionSchedule("2026-11-02", [
+      {
+        session_date: "2026-11-02",
+        market_status: "early_close",
+        regular_open_et: "not-a-time",
+        regular_close_et: "13:00:00",
+        after_hours_end_et: "20:00:00",
+        holiday_name: null,
+      },
+    ]);
+    expect(weekday.marketStatus).toBe("open");
+    expect(weekday.source).toBe("fallback");
+  });
 });
 
 describe("DST, midnight, and exact boundaries", () => {

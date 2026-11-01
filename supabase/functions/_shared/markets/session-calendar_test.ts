@@ -274,7 +274,7 @@ Deno.test("loaded empty calendar still closes weekends from calendar rules", () 
   assertEquals(saturday.source, "calendar");
 });
 
-Deno.test("valid weekend exception wins; invalid weekend exception stays open", () => {
+Deno.test("valid weekend exception wins; invalid weekend exception stays closed", () => {
   const closed = resolveSessionSchedule("2026-10-31", [
     {
       session_date: "2026-10-31",
@@ -289,18 +289,41 @@ Deno.test("valid weekend exception wins; invalid weekend exception stays open", 
   assertEquals(closed.holidayName, "Weekend observance");
   assertEquals(closed.source, "calendar");
 
-  const invalid = resolveSessionSchedule("2026-10-31", [
+  for (const date of ["2026-10-31", "2026-11-01"]) {
+    const invalid = resolveSessionSchedule(date, [
+      {
+        session_date: date,
+        market_status: "closed",
+        regular_open_et: "not-a-time",
+        regular_close_et: "16:00:00",
+        after_hours_end_et: "20:00:00",
+        holiday_name: null,
+      },
+    ]);
+    assertEquals(invalid.marketStatus, "closed");
+    assertEquals(invalid.source, "calendar");
+    assertEquals(invalid.holidayName, null);
+    assertEquals(sessionKindAtMsOfDay(4 * 3600_000, invalid), "closed");
+    assertEquals(sessionKindAtMsOfDay(10 * 3600_000, invalid), "closed");
+    assertEquals(
+      sessionKindAtMsOfDay(17 * 3600_000 + 30 * 60_000, invalid),
+      "closed",
+    );
+  }
+
+  const invalidWeekday = resolveSessionSchedule("2026-11-02", [
     {
-      session_date: "2026-10-31",
-      market_status: "closed",
+      session_date: "2026-11-02",
+      market_status: "early_close",
       regular_open_et: "not-a-time",
-      regular_close_et: "16:00:00",
+      regular_close_et: "13:00:00",
       after_hours_end_et: "20:00:00",
       holiday_name: null,
     },
   ]);
-  assertEquals(invalid.marketStatus, "open");
-  assertEquals(invalid.source, "fallback");
+  assertEquals(invalidWeekday.marketStatus, "open");
+  assertEquals(invalidWeekday.source, "fallback");
+  assertEquals(sessionKindAtMsOfDay(10 * 3600_000, invalidWeekday), "market");
 });
 
 Deno.test("closed holiday has no regular or after-hours window", () => {

@@ -247,14 +247,18 @@ export function resolveSessionSchedule(
     return fallbackOpenSchedule(sessionDate);
   }
 
-  // A matching row wins, including on Saturday or Sunday. An invalid row
-  // keeps the historical open fallback. Null means the holiday calendar was
-  // not loaded; it must not skip the weekend close below.
+  // A valid matching row wins, including on Saturday or Sunday. An invalid
+  // weekday row keeps the historical open fallback. An invalid Saturday or
+  // Sunday row stays closed. Null means the holiday calendar was not loaded
+  // and must not skip the weekend close below.
   if (exceptions !== null) {
     const match = exceptions.find((row) => row.session_date === sessionDate);
     if (match) {
       const resolved = exceptionToSchedule(match);
       if (resolved) return resolved;
+      if (isWeekendIsoDate(sessionDate)) {
+        return closedWeekendSchedule(sessionDate, "calendar");
+      }
       return fallbackOpenSchedule(sessionDate);
     }
   }
