@@ -1,4 +1,6 @@
-> **Current production snapshot (2026-10-31, Batch 190.8 Gate 4 then regression):** GitHub `main` **`56816bd54778541fff3ec5fb076f03cf5e73dd75`** (PR **#202** continuity docs only; scanner application code remains **`b720106771950b7ed90c81d53f3ce2f196e35c49`** from PR **#201**). Lovable integration reported at **`f8e2fda698c473519d4ddb40f06f04ad6f13c4d6`**. `sync-screener-data` Edge deploy **2026-10-30 23:54:35–23:54:46 UTC**, submitted source SHA-256 `7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6`, revision ID unreported. Approved Git-snapshot rollback source `2691424bbfa89b4da9a3ca9a832c007606b5a582`. Gate 4 **passed 01:08 UTC** (three consecutive six-tab publications; that acceptance stands). Last successful publication **03:20:02 UTC**, 110 rows, six tabs. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failed generations (7/7 chunks, no publication markers) and **54** `prior_generation_retained` aborts. Cron job 25 remains active. Batch **190.9** weekend classification (PR **#203**) is git-only and **not merged or deployed**. ISS-034 P0 OPEN. The 23:55 UTC paragraph below is the pre-acceptance snapshot.
+> **Current production snapshot (2026-11-03, Batch 191 acceptance sync):** GitHub `main` **`7e456ace0929238807b8d6186151b2094ca93284`** (Batches **190.9–190.11** merged). November 1 Lovable Cloud deployment/integration source for `sync-screener-data` is reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**. November 2 naturally scheduled premarket acceptance is reported **PASS** with seven consecutive successful publications between **04:00–04:30 ET**, latest publication row counts **60 / 62 / 63**, and no new recorded `http_409` publication failures. **ISS-034 remains OPEN** until regular-session and after-hours acceptance criteria are verified.
+
+> **Historical production snapshot (2026-10-31, Batch 190.8 Gate 4 then regression):** GitHub `main` **`56816bd54778541fff3ec5fb076f03cf5e73dd75`** (PR **#202** continuity docs only; scanner application code remains **`b720106771950b7ed90c81d53f3ce2f196e35c49`** from PR **#201**). Lovable integration reported at **`f8e2fda698c473519d4ddb40f06f04ad6f13c4d6`**. `sync-screener-data` Edge deploy **2026-10-30 23:54:35–23:54:46 UTC**, submitted source SHA-256 `7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6`, revision ID unreported. Approved Git-snapshot rollback source `2691424bbfa89b4da9a3ca9a832c007606b5a582`. Gate 4 **passed 01:08 UTC** (three consecutive six-tab publications; that acceptance stands). Last successful publication **03:20:02 UTC**, 110 rows, six tabs. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failed generations (7/7 chunks, no publication markers) and **54** `prior_generation_retained` aborts. Cron job 25 remains active. Batch **190.9** weekend classification (PR **#203**) is git-only and **not merged or deployed**. ISS-034 P0 OPEN. The 23:55 UTC paragraph below is the pre-acceptance snapshot.
 
 > **Pre-acceptance snapshot (2026-10-30 23:55:40 UTC, Batch 190.8):** Batch 190.8 PR #201 merged into GitHub main b720106771950b7ed90c81d53f3ce2f196e35c49; Lovable forward-sync f8e2fda698c473519d4ddb40f06f04ad6f13c4d6. Owner authorized Git-snapshot-only rollback exception (exact previous Edge revision unavailable). Lovable Cloud reported one successful sync-screener-data-only Edge deployment 2026-10-30 23:54:35–23:54:46 UTC, submitted source SHA-256 7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6; deployed revision ID unavailable. Rollback source: last approved Batch 190.7 Lovable integration commit 2691424bbfa89b4da9a3ca9a832c007606b5a582, requiring a new source deploy to restore (not exact binary). Read-only 23:55:40 UTC: cron 25 still active */5; old 23:45 job still finalizing with build_rows:internal_error, 23:55 cron DO not a new publish; current six-tab feed unchanged at 20:10:02 UTC / 108 rows / one run / zero duplicate symbols or missing provider timestamps. Gate 4 = PENDING 0/3 new naturally scheduled publications. ISS-034 remains P0 OPEN; no migrations/cron/secrets/frontend/other Edge touched.
 
@@ -10,7 +12,19 @@
 
 **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## Current — GitHub and Lovable integration (2026-10-28)
+## Current — GitHub and Lovable integration (2026-11-03)
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` HEAD | **`7e456ace0929238807b8d6186151b2094ca93284`** |
+| Reported Nov 1 deployment/integration source (`sync-screener-data`) | **`ccb4055b3f8b84c46fa38529844150c140638705`** |
+| November 2 premarket acceptance | **PASS** (reported, naturally scheduled 04:00-04:30 ET) |
+| Reported consecutive successful publications | **7** |
+| Last three reported publication row counts | **60, 62, 63** |
+| New recorded `http_409` failures in that acceptance window | **None reported** |
+| Batch 191 full-session status | **PARTIAL** (regular and after-hours windows still required) |
+
+## Historical — GitHub and Lovable integration (2026-10-28)
 
 | Field | Value |
 | --- | --- |
@@ -19,7 +33,19 @@
 | Lovable integration tip | **`04da6d7f87994c93a0c5fc64492654df2424fe0b`** |
 | PR **#174** | **CLOSED** — not merged (superseded) |
 
-## Current — `sync-screener-data` (Lovable Cloud, owner-reported)
+## Current — `sync-screener-data` (Nov 1/Nov 2 reported evidence)
+
+| Field | Value |
+| --- | --- |
+| Function | `sync-screener-data` |
+| Reported Nov 1 deployment/integration source | **`ccb4055b3f8b84c46fa38529844150c140638705`** |
+| November 2 naturally scheduled premarket acceptance | **PASS** |
+| Reported consecutive successful publications | **7** (04:00-04:30 ET) |
+| Last three reported publication row counts | **60, 62, 63** |
+| New recorded `http_409` publication failures in that window | **None reported** |
+| Full Batch 191 acceptance | **PARTIAL** (regular-session and after-hours windows still required) |
+
+## Historical — `sync-screener-data` (Lovable Cloud, owner-reported)
 
 | Field | Value |
 | --- | --- |
