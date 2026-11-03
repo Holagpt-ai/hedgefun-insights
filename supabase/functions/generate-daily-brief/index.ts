@@ -628,8 +628,9 @@ serve(async (req) => {
       console.error("premarket screener fetch failed:", pmScrRes.error.message);
     }
 
+    const evidenceCutoffMs = sourceCheckedAt.getTime();
     const ranked = rankHeadlines((newsRes.data ?? []) as never, AM_HEADLINE_RANK_POOL);
-    const headlines = selectRankedHeadlines(ranked);
+    const headlines = selectRankedHeadlines(ranked, evidenceCutoffMs);
 
     const attributed: AttributedCatalystRow[] = [];
     for (const r of (catRes.data ?? []) as Array<Record<string, unknown>>) {

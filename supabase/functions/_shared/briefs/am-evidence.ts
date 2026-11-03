@@ -27,6 +27,7 @@ import type {
   CatalystFeedStatus,
 } from "./am-enrichment.ts";
 import { mapToTaxonomyV2 } from "../catalyst/intelligence-v2.ts";
+import { stripInternalRvolCaptureLabels } from "../am-inbox/rvol-capture-evidence.ts";
 
 export const AM_INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
 export type AmIndexSymbol = (typeof AM_INDEX_SYMBOLS)[number];
@@ -197,8 +198,26 @@ export function leadershipOrder(
   });
 }
 
-export function selectRankedHeadlines(ranked: RankedHeadline[]): AmHeadlineEvidence[] {
+/** Headlines with unparseable timestamps never enter verified AM evidence. */
+export function isPublishedWithinEvidenceCutoff(
+  publishedAt: string | null | undefined,
+  evidenceCutoffMs: number,
+): boolean {
+  if (!publishedAt || !Number.isFinite(evidenceCutoffMs)) return false;
+  const publishedMs = Date.parse(publishedAt);
+  if (!Number.isFinite(publishedMs)) return false;
+  return publishedMs <= evidenceCutoffMs;
+}
+
+export function selectRankedHeadlines(
+  ranked: RankedHeadline[],
+  evidenceCutoffMs?: number,
+): AmHeadlineEvidence[] {
   return ranked
+    .filter((h) =>
+      evidenceCutoffMs === undefined ||
+      isPublishedWithinEvidenceCutoff(h.published_at, evidenceCutoffMs)
+    )
     .filter((h) => h.materiality >= AM_HEADLINE_MIN_MATERIALITY)
     .slice(0, AM_HEADLINE_LIMIT)
     .map((h) => ({
@@ -226,15 +245,10 @@ export function selectDirectCatalysts(
     if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {
       continue;
     }
-    if (row.published_at) {
-      const publishedMs = Date.parse(row.published_at);
-      if (
-        Number.isFinite(publishedMs) &&
-        asOfMs - publishedMs > AM_CATALYST_MAX_PUBLISHED_AGE_MS
-      ) {
-        continue;
-      }
-    }
+    const publishedMs = row.published_at ? Date.parse(row.published_at) : Number.NaN;
+    if (!Number.isFinite(publishedMs)) continue;
+    if (publishedMs > asOfMs) continue;
+    if (asOfMs - publishedMs > AM_CATALYST_MAX_PUBLISHED_AGE_MS) continue;
     const cls = classifyCatalystPresentation({
       title: row.title,
       provider: row.provider,
@@ -332,9 +346,11 @@ export function selectContinuationCarryovers(
     const key = `${symbol}:${row.source_session_date}:${row.source_category}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const labels = Array.isArray(row.evidence_labels)
-      ? row.evidence_labels.filter((x): x is string => typeof x === "string")
-      : [];
+    const labels = stripInternalRvolCaptureLabels(
+      Array.isArray(row.evidence_labels)
+        ? row.evidence_labels.filter((x): x is string => typeof x === "string")
+        : [],
+    );
     out.push({
       key,
       symbol,

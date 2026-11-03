@@ -83,3 +83,12 @@ export function resolveV22RvolCapture(row: {
     baselineSampleSize: null,
   };
 }
+
+export function stripInternalRvolCaptureLabels(labels: readonly string[]): string[] {
+  return labels.filter(
+    (label) =>
+      !label.startsWith(KIND_PREFIX) &&
+      !label.startsWith(BASELINE_PREFIX) &&
+      !label.startsWith(SAMPLES_PREFIX),
+  );
+}
