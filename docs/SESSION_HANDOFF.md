@@ -20,7 +20,7 @@
 
 **Evidence handling:** screenshot findings and operator notes are treated as reported evidence unless independently rechecked. Missing windows must be marked **NOT VERIFIED**, not inferred.
 
-**Next:** complete remaining Batch 191 acceptance evidence, then continue the approved backlog order (192/194/195/196/197 and launch residuals). No manual scanner triggers, deploys, migrations, cron edits, or secret changes from this session.
+**Next:** complete remaining Batch 191 regular-session and after-hours acceptance evidence. Once Batch 191 passes, **Batch 196** is the next scanner numerical-integrity priority. **Batch 192** can proceed independently while those Batch 191 windows remain pending. No manual scanner triggers, deploys, migrations, cron edits, or secret changes from this session.
 
 **Deferred:** AI Trader, brokers, billing, and large real-time-feed upgrades.
 
