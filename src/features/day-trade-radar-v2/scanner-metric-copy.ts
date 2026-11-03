@@ -1,5 +1,5 @@
 export const TODAY_VOL_HEADER =
-  "Today's cumulative trading volume for the current session.";
+  "Today's cumulative session volume at the row observation time. This is not 5-minute rolling volume or shares/min velocity (see VOL SPEED / participation columns).";
 export const TODAY_VOL_BLANK =
   "Current-session volume is not available for this ticker yet.";
 

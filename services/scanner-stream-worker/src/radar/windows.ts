@@ -8,6 +8,31 @@ const PRECEDING_BUCKETS = 4;
  * Event-time rolling window. Missing seconds contribute 0 volume.
  * Does not fabricate OHLC for absent seconds.
  */
+/** Volume in window plus verified elapsed coverage (missing seconds are not treated as zero history). */
+export function rollingWindowVolumeCoverage(
+  bars: ReadonlyMap<number, SecondBar>,
+  eventNowMs: number,
+  windowMs: number,
+  field: "volume" | "dollarVolume" = "volume",
+): { total: number; coveredMs: number; lateCorrection: boolean } | null {
+  if (!(windowMs > 0) || !Number.isFinite(eventNowMs)) return null;
+  const from = eventNowMs - windowMs;
+  let total = 0;
+  const minuteBuckets = new Set<number>();
+  let lateCorrection = false;
+  const msPerMinute = 60_000;
+  for (const bar of bars.values()) {
+    if (bar.startMs >= from && bar.startMs < eventNowMs) {
+      total += bar[field];
+      minuteBuckets.add(Math.floor((bar.startMs - from) / msPerMinute));
+      if (bar.lateCorrected) lateCorrection = true;
+    }
+  }
+  if (minuteBuckets.size === 0) return null;
+  const coveredMs = minuteBuckets.size * msPerMinute;
+  return { total, coveredMs, lateCorrection };
+}
+
 export function rollingVolume(
   bars: ReadonlyMap<number, SecondBar>,
   eventNowMs: number,

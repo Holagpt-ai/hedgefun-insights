@@ -2,9 +2,11 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-11-03 Batch 191 acceptance sync
+## Current operating baseline — 2026-11-03 (post Batch 192)
 
-**GitHub `main`:** `7e456ace0929238807b8d6186151b2094ca93284` (Batches **190.9–190.11** merged). Preserve Lovable-specific generated files and migrations.
+**GitHub `main`:** `f1f0121b6a4316aaecf62bdd425cb36c33deed24` (Batch **192** PR **#208** merged atop Batch **191** continuity). Preserve Lovable-specific generated files and migrations.
+
+**Batch 192 (reported production activation):** Vercel frontend + Lovable Cloud **`generate-daily-brief`** Edge deploy recorded for AM Inbox / brief evidence-cutoff scope. **ISS-025** authenticated visual acceptance remains **NOT VERIFIED**.
 
 **Lovable Cloud `sync-screener-data`:** November 1 deployment/integration source reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance reported **PASS** with seven consecutive successful publications (04:00–04:30 ET), no new recorded `http_409` publication failures, and latest publication row counts of 60, 62, and 63. Treat these as acceptance evidence for the covered premarket window only.
 

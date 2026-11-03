@@ -6,11 +6,15 @@ import {
   isWithinRegularSession,
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import type { SecondBar } from "./types.ts";
-import { rollingVolume } from "./windows.ts";
+import { rollingWindowVolumeCoverage } from "./windows.ts";
 import {
   MOMENTUM_WINDOW_5M_MS,
   RVOL_5M_MIN_TOD_SAMPLES,
 } from "./momentum-metrics.config.ts";
+import { VOLUME_ACCEL_MIN_COVERED_MINUTES } from "../../../../src/config/intraday-participation.config.ts";
+
+const MIN_ACCEL_COVERED_MS = VOLUME_ACCEL_MIN_COVERED_MINUTES * MS_PER_MINUTE;
+const MIN_VELOCITY_COVERED_MS = MS_PER_MINUTE;
 
 export type MomentumMetrics = {
   rvol_5m: number | null;
@@ -36,15 +40,11 @@ export function regularSessionBucketIndex(
   return Math.floor(minutesFromOpen / 5);
 }
 
-function volumeInWindow(
-  bars: ReadonlyMap<number, SecondBar>,
-  eventNowMs: number,
-  windowMs: number,
-): number | null {
-  if (!(windowMs > 0)) return null;
-  const { total } = rollingVolume(bars, eventNowMs, windowMs, "volume");
-  if (!Number.isFinite(total)) return null;
-  return total;
+function shareVelocityFromCoverage(total: number, coveredMs: number): number | null {
+  const coveredMinutes = coveredMs / MS_PER_MINUTE;
+  if (!(total >= 0) || !(coveredMinutes >= 1)) return null;
+  const v = total / coveredMinutes;
+  return Number.isFinite(v) ? Math.round(v * 100) / 100 : null;
 }
 
 /**
@@ -54,16 +54,19 @@ export function volumeAccelerationPct(
   bars: ReadonlyMap<number, SecondBar>,
   eventNowMs: number,
 ): number | null {
-  const curr = volumeInWindow(bars, eventNowMs, MOMENTUM_WINDOW_5M_MS);
-  const prev = volumeInWindow(
+  const currW = rollingWindowVolumeCoverage(bars, eventNowMs, MOMENTUM_WINDOW_5M_MS);
+  const prevW = rollingWindowVolumeCoverage(
     bars,
     eventNowMs - MOMENTUM_WINDOW_5M_MS,
     MOMENTUM_WINDOW_5M_MS,
   );
-  if (curr === null || prev === null) return null;
-  const currVel = curr / 5;
-  const prevVel = prev / 5;
-  if (!(prevVel > 0) || !Number.isFinite(prevVel)) return null;
+  if (!currW || !prevW) return null;
+  if (currW.coveredMs < MIN_ACCEL_COVERED_MS || prevW.coveredMs < MIN_ACCEL_COVERED_MS) {
+    return null;
+  }
+  const currVel = shareVelocityFromCoverage(currW.total, currW.coveredMs);
+  const prevVel = shareVelocityFromCoverage(prevW.total, prevW.coveredMs);
+  if (currVel === null || prevVel === null || !(prevVel > 0)) return null;
   const pct = ((currVel - prevVel) / prevVel) * 100;
   return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
 }
@@ -97,12 +100,15 @@ export function computeMomentumMetrics(input: {
   };
   if (!input.bars || input.bars.size === 0) return empty;
 
-  const curr5m = volumeInWindow(input.bars, input.eventNowMs, MOMENTUM_WINDOW_5M_MS);
-  if (curr5m === null) return empty;
+  const currW = rollingWindowVolumeCoverage(
+    input.bars,
+    input.eventNowMs,
+    MOMENTUM_WINDOW_5M_MS,
+  );
+  if (!currW || currW.coveredMs < MIN_VELOCITY_COVERED_MS) return empty;
 
-  const volume_velocity = Number.isFinite(curr5m)
-    ? Math.round((curr5m / 5) * 100) / 100
-    : null;
+  const volume_velocity = shareVelocityFromCoverage(currW.total, currW.coveredMs);
+  const curr5m = currW.total;
 
   const volume_acceleration_pct = volumeAccelerationPct(
     input.bars,

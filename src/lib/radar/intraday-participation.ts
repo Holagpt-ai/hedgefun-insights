@@ -11,6 +11,7 @@ import {
   PARTICIPATION_ACCEL_RISING_MAX,
   PARTICIPATION_ACCEL_STEADY_MAX,
   PARTICIPATION_ACCEL_SURGING_MAX,
+  VOLUME_ACCEL_MIN_COVERED_MINUTES,
   type ParticipationState,
 } from "../../config/intraday-participation.config.ts";
 
@@ -64,19 +65,18 @@ export function rollingMinuteVolume(
   const from = eventNowMs - windowMs;
   let volume = 0;
   let dollarVolume = 0;
-  let minStart: number | null = null;
+  const minuteBuckets = new Set<number>();
   let lateCorrection = false;
   for (const bar of bars) {
     if (bar.startMs >= from && bar.startMs < eventNowMs) {
       volume += bar.volume;
       dollarVolume += bar.dollarVolume;
-      minStart = minStart === null ? bar.startMs : Math.min(minStart, bar.startMs);
+      minuteBuckets.add(Math.floor((bar.startMs - from) / MINUTE_MS));
       if (bar.lateCorrected) lateCorrection = true;
     }
   }
-  if (minStart === null) return null;
-  const coveredMs = Math.min(windowMs, eventNowMs - minStart);
-  const coveredMinutes = coveredMs / MINUTE_MS;
+  if (minuteBuckets.size === 0) return null;
+  const coveredMinutes = minuteBuckets.size;
   if (!(coveredMinutes >= 1)) return null;
   return { volume, dollarVolume, coveredMinutes, lateCorrection };
 }
@@ -136,6 +136,12 @@ export function volumeAccelerationPctFromMinuteWindows(
   const curr = rollingMinuteVolume(bars, eventNowMs, 5);
   const prev = rollingMinuteVolume(bars, eventNowMs - 5 * MINUTE_MS, 5);
   if (!curr || !prev) return null;
+  if (
+    curr.coveredMinutes < VOLUME_ACCEL_MIN_COVERED_MINUTES ||
+    prev.coveredMinutes < VOLUME_ACCEL_MIN_COVERED_MINUTES
+  ) {
+    return null;
+  }
   const currVel = shareVelocity(curr.volume, curr.coveredMinutes);
   const prevVel = shareVelocity(prev.volume, prev.coveredMinutes);
   if (currVel === null || prevVel === null || !(prevVel > 0)) return null;

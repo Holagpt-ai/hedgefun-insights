@@ -14,6 +14,12 @@ export const INTRADAY_PARTICIPATION_LOOKBACK_CALENDAR_DAYS = 30;
 /** Max symbols retained in the in-memory participation baseline cache. */
 export const INTRADAY_PARTICIPATION_CACHE_MAX_SYMBOLS = 512;
 
+/**
+ * Minimum verified minute coverage in each 5m window before acceleration % is computed.
+ * Prevents divide-by-near-zero from sparse/partial prior windows (not a cap on legitimate extremes).
+ */
+export const VOLUME_ACCEL_MIN_COVERED_MINUTES = 4;
+
 /** Participation state thresholds (volume_acceleration_pct vs prior 5m window). */
 export const PARTICIPATION_ACCEL_COOLING_MAX = -20;
 export const PARTICIPATION_ACCEL_STEADY_MAX = 20;

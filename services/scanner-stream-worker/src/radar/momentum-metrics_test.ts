@@ -77,6 +77,26 @@ Deno.test("volumeAccelerationPct — null when prior window empty", () => {
   assertEquals(volumeAccelerationPct(bars, eventNow), null);
 });
 
+Deno.test("volumeAccelerationPct — null when prior window has insufficient coverage", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 1_000);
+  // Only ~90s of prior window — sparse history must not produce extreme acceleration.
+  for (let t = eventNow - 300_000; t < eventNow - 210_000; t += 1_000) {
+    bars.set(t, bar(t, 1));
+  }
+  assertEquals(volumeAccelerationPct(bars, eventNow), null);
+});
+
+Deno.test("volumeAccelerationPct — legitimate high acceleration with full windows", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 500);
+  fillWindow(bars, eventNow - 300_000, 300_000, 50);
+  const pct = volumeAccelerationPct(bars, eventNow);
+  assertEquals(pct, 900);
+});
+
 Deno.test("computeMomentumMetrics — velocity from 5m window", () => {
   const eventNow = 300_000;
   const bars = new Map<number, SecondBar>();

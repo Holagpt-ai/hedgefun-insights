@@ -68,6 +68,17 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(w.dollarVolume / w.coveredMinutes).toBeCloseTo(30_000, 0);
   });
 
+  it("15b. acceleration null when either 5m window lacks 4+ minutes coverage", () => {
+    const bars: MinuteBarSlice[] = [];
+    for (let t = T0 - 300_000; t < T0; t += 1_000) {
+      bars.push({ startMs: t, volume: 500, dollarVolume: 5_000 });
+    }
+    for (let t = T0 - 600_000; t < T0 - 480_000; t += 1_000) {
+      bars.push({ startMs: t, volume: 1, dollarVolume: 10 });
+    }
+    expect(volumeAccelerationPctFromMinuteWindows(bars, T0)).toBeNull();
+  });
+
   it("15-18. acceleration safe handling", () => {
     const rising = barsEverySecond(600, 100);
     expect(volumeAccelerationPctFromMinuteWindows(rising, T0)).toBe(0);
