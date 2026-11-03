@@ -14,6 +14,7 @@ import {
   formatContinuationCaptureTimestampEt,
 } from "@/lib/am-inbox/continuation-rvol-display";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
+import { stripInternalRvolCaptureLabels } from "@/lib/am-inbox/rvol-capture-evidence";
 import { revealToggleLabel } from "@/lib/session-intelligence/reveal";
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
 
@@ -40,8 +41,11 @@ function HandoffCard({
   const categories = entry.sourceCategories.length > 0
     ? entry.sourceCategories
     : [context.sourceCategory];
+  const userFacingEvidenceLabels = stripInternalRvolCaptureLabels(context.evidenceLabels).map(
+    (label) => formatScannerEventLabel(label) ?? label,
+  );
   const eventLabel =
-    context.evidenceLabels[0] ??
+    userFacingEvidenceLabels[0] ??
     formatScannerEventLabel(entry.sourceCategories[0] ?? null) ??
     null;
   const rvolDisplay = buildContinuationCapturedRvolDisplay(context);
@@ -91,8 +95,8 @@ function HandoffCard({
         {context.historicalContextAvailable
           ? `Historical context · ${context.comparableEpisodeCount} comparable episodes`
           : "Historical context unavailable"}
-        {context.evidenceLabels.length > 0
-          ? ` · ${context.evidenceLabels.join(", ")}`
+        {userFacingEvidenceLabels.length > 0
+          ? ` · ${userFacingEvidenceLabels.join(", ")}`
           : null}
       </div>
       <PreMarketSymbolActions symbol={context.symbol} securityId={context.securityId} />

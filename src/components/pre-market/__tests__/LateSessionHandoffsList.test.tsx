@@ -9,6 +9,7 @@ import { MemoryRouter } from "react-router-dom";
 import { LateSessionHandoffsList } from "@/components/pre-market/LateSessionHandoffsList";
 import { buildLateSessionContinuationContext } from "@/lib/am-inbox/build-late-session-continuation-context";
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
+import type { RepeatMoverEvidenceLabel } from "@/config/repeat-mover.config";
 
 function makePriorityCandidates(count: number): AmInboxLateSessionCandidate[] {
   return Array.from({ length: count }, (_, i) => {
@@ -206,6 +207,42 @@ describe("LateSessionHandoffsList", () => {
     expect(screen.getByTestId("am-inbox-late-session-handoffs-refresh-warning")).toBeInTheDocument();
     expect(screen.getByTestId("am-inbox-late-session-handoffs")).toBeInTheDocument();
     expect(screen.queryByTestId("am-inbox-late-session-handoffs-error")).not.toBeInTheDocument();
+  });
+
+  it("never renders internal RVOL capture metadata in card copy", () => {
+    const ctx = buildLateSessionContinuationContext({
+      symbol: "META",
+      sourceSessionDate: "2026-09-21",
+      sourceTimestamp: "2026-09-21T20:00:00.000Z",
+      sourceCategory: "POWER_HOUR_MOMENTUM",
+      volume: 2_000_000,
+      rvol: 3.2,
+    });
+    const withInternal = {
+      ...ctx,
+      rvolMetricKind: "time_adjusted" as const,
+      evidenceLabels: [
+        "__RVOL_KIND:time_adjusted",
+        "__RVOL_BASELINE:900000",
+        "__RVOL_SAMPLES:20",
+        "VOLUME EXPLOSION",
+      ] as unknown as RepeatMoverEvidenceLabel[],
+    };
+    const candidates: AmInboxLateSessionCandidate[] = [
+      {
+        context: withInternal,
+        workflow: null,
+        sourceCategories: ["POWER_HOUR_MOMENTUM"],
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <LateSessionHandoffsList candidates={candidates} qualifiedCandidates={candidates} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/__RVOL_/)).toBeNull();
+    expect(screen.getByText(/Time-adjusted RVOL: 3\.20/)).toBeTruthy();
+    expect(screen.getAllByText(/VOLUME EXPLOSION/).length).toBeGreaterThan(0);
   });
 
   it("keeps cards visible while a background refresh is in progress", () => {
