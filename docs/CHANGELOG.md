@@ -8,6 +8,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- **Batch 191** Scanner release acceptance + continuity synchronization (docs-only): continuity docs and master backlog synchronized to GitHub `main` `7e456ace`, reported Nov 1 deployment/integration source `ccb4055b3f8b84c46fa38529844150c140638705`, and Nov 2 naturally scheduled premarket PASS evidence (seven consecutive successful publications; latest row counts 60/62/63; no new recorded `http_409` in that window). **ISS-034 remains OPEN** pending regular-session and after-hours acceptance.
+
 - **Batch 190.11** Staged publish RPC diagnostics (PR **#206**, branch `cursor/iss-034-publish-error-surface-19c6`): Edge `formatStagedPublishRpcTransportFailure` sanitizes PostgREST `code` / `message` / `details` into bounded `failJob` reasons; **no SQL migration** (preserves publish RPC transaction rollback). Stacks on Batch **190.10**. **Git-only; NOT deployed.** **ISS-034 P0 OPEN.**
 
 - **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204** → **`ed4fbd8d`**): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20; continuation error overwrite fix. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Merged to `main`; Lovable Edge NOT deployed.** **ISS-034 P0 OPEN.**

@@ -1,4 +1,32 @@
-# Session handoff — current 2026-10-31 ET
+# Session handoff — current 2026-11-03 ET
+
+**Code:** GitHub `main` **`7e456ace0929238807b8d6186151b2094ca93284`** (Batch 190.11 merged). Batches **190.9–190.11** are merged in source.
+
+**Deployment and acceptance evidence synchronized:**
+- November 1 Lovable Cloud deployment/integration source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
+- November 2 naturally scheduled premarket acceptance reported **PASS**.
+- Seven consecutive successful publications were reported during **04:00–04:30 AM ET**.
+- Last three publication row counts were **60**, **62**, and **63**.
+- No new recorded `http_409` publication failures were reported in that acceptance window.
+
+**Batch 191 status:** **PARTIAL**. Premarket acceptance is recorded, but regular-session and after-hours acceptance remain open.
+
+**ISS-034 remains OPEN** pending the remaining Batch 191 criteria:
+1. Regular-session successful publications (naturally scheduled evidence).
+2. After-hours successful publications (naturally scheduled evidence).
+3. Consistent six-tab generation/publication identifiers in those windows.
+4. Session classification and provider-observation timestamp correctness in those windows.
+5. No actual post-deployment publication failures in those windows.
+
+**Evidence handling:** screenshot findings and operator notes are treated as reported evidence unless independently rechecked. Missing windows must be marked **NOT VERIFIED**, not inferred.
+
+**Next:** complete remaining Batch 191 acceptance evidence, then continue the approved backlog order (192/194/195/196/197 and launch residuals). No manual scanner triggers, deploys, migrations, cron edits, or secret changes from this session.
+
+**Deferred:** AI Trader, brokers, billing, and large real-time-feed upgrades.
+
+---
+
+**Historical continuity snapshots (preserved):**
 
 **October 31 update (acceptance stands, then regression):** Gate 4 **passed at 01:08 UTC** with three consecutive successful six-tab publications. That result stands. Last successful publication **03:20:02 UTC**, **110** rows, six tabs. First subsequent failed generation **03:25 UTC**. Through about **21:35 UTC**: **164** failed generations recorded as `http_409` (7/7 chunks, no publication markers) and **54** intentional `prior_generation_retained` aborts. Cron job 25 stayed active. **ISS-034 P0 remains OPEN.** Do not start Batch **191**. PR **#202** merged the continuity record to **`56816bd5`**; the weekend-session correction remains PR **#203** (rebased, not merged or deployed). The 23:55 UTC section below is the pre-acceptance snapshot and stays as history.
 
