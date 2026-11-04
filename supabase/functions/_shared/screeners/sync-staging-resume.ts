@@ -11,6 +11,13 @@ export function stagedJobNeedsResume(
   jobTtlMs: number = SCREENER_SYNC_JOB_TTL_MS,
 ): boolean {
   if (job.status !== "chunking" && job.status !== "finalizing") return false;
+  if (
+    job.status === "finalizing" &&
+    job.publishRowsInserted !== null &&
+    !finalizeLeaseActive(job, nowMs)
+  ) {
+    return true;
+  }
   if (nowMs - job.createdAtMs > jobTtlMs) return false;
   if (job.continueLastError !== null && job.continueLastError.length > 0) {
     return true;

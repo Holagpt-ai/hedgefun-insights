@@ -14,6 +14,8 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 **ISS-034 P0** remains OPEN until Batch 191 regular-session and after-hours acceptance criteria are also verified. Do not claim full-session closure from premarket-only evidence.
 
+**Nov 4 2026 publication deadlock (confirmed):** Production stranded `finalizing` job after successful atomic publish (`09346799…`, 65 rows); blocks all new generations via active-generation index. Fix path: **Batch 190.12** reconcile RPC + Edge cron/finalize hook — apply via Lovable only when approved; never hand-edit the production job row.
+
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
 ## Product
