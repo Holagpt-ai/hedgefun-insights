@@ -2,7 +2,7 @@
 
 **Code:** GitHub `main` **`b90a306b22712f7b2a0148cdfc43531611ad7b42`** (Batch **196.1** Fly v46 continuity, PR **#210** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In review:** Batch **196.2** presentation parity — PR **#211** (`cursor/batch196-2-presentation-parity`, head **`a28ef1fb`**). Fixes Day Trade status-line Five Pillars count (momentum vs freshness), Unusual Volume tab evidence labels, regression tests. **Not merged; not deployed.**
+**In review:** Batch **196.2** presentation parity — PR **#211** (`cursor/batch196-2-presentation-parity`, head **`169acbc1`**). Fixes Day Trade status-line Five Pillars count (momentum vs freshness), Unusual Volume tab evidence labels, regression tests. **ISS-037** logged (screener free-float reliability — reported, not verified; no float fix in this PR). **Not merged; not deployed.**
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
