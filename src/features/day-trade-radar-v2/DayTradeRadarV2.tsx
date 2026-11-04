@@ -251,6 +251,12 @@ export function DayTradeRadarV2({
         qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
         topOpportunityCount={boardVisible ? deskRows.length : 0}
         qualifiedMonitoringCount={boardVisible ? qualifiedMonitoringCount : 0}
+        momentumQualifiedCount={
+          boardVisible ? opportunityBoard.gateAudit.qualifiedStrategyCount : undefined
+        }
+        fivePillarsPassedCount={
+          boardVisible ? opportunityBoard.gateAudit.qualifiedFreshCount : undefined
+        }
         funnel={boardVisible ? opportunityBoard.funnel : undefined}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}

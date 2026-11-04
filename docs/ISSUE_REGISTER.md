@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`797cc615`** (2026-11-04). Batch **196.1** merged (PR **#209**); Fly worker **v46** deployed. Batch **192** merged (PR **#208**); Batch **191** continuity (PR **#207**). Batches 190.9-190.11 are merged. November 1 deployment/integration source for `sync-screener-data` is reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance is reported PASS (04:00-04:30 ET, seven consecutive successful publications, latest row counts 60/62/63, no new recorded `http_409` failures). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`b90a306b`** (2026-11-04). Batch **196.1** Fly v46 continuity (PR **#210**); Batch **196.1** scanner integrity (PR **#209** → **`797cc615`**); Fly worker **v46** deployed. Batch **196.2** presentation parity in review (PR **#211**). Batch **192** merged (PR **#208**); Batch **191** continuity (PR **#207**). Batches 190.9-190.11 are merged. November 1 deployment/integration source for `sync-screener-data` is reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance is reported PASS (04:00-04:30 ET, seven consecutive successful publications, latest row counts 60/62/63, no new recorded `http_409` failures). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -22,6 +22,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
 | ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
 | ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |
+| **ISS-037** | P2 | Screener free-float missing or unreliable | **REPORTED / NOT VERIFIED.** User/product reports that `float_shares` (free float) on screener rows may be absent, stale, or inconsistent with desk expectations. **No change to Day Trade unknown-float qualification** (unknown float still allowed; verified high float still fails). **Future investigation scope (deferred):** Massive/Polygon float source and field mapping; market-data Edge response shape; cache TTL and refresh; enrichment path into screener publish rows; table display copy; **free float vs short float** semantics and UI labeling. Do not treat as confirmed defect until source-to-UI trace is verified. |
 
 **Verification (not new implementation):** Batch **174** **CONDITIONAL**; Batch **175** persistence **PASS**, UI **NOT VERIFIED**; PR **#174** **CLOSED** unmerged.
 
@@ -46,6 +47,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-005 | Batch 34 status | Not refreshed. |
 | ISS-006 | Catalyst distribution | Deferred — **Batch 203**. |
 | ISS-007 | AI Analyst streaming | Deferred — **Batch 204**. |
+| ISS-037 | Screener free-float reliability | See active triage; **NOT VERIFIED** — investigation deferred post–Batch **196.2**. |
 
 ## Deferred (product / platform)
 

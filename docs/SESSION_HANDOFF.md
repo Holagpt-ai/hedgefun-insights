@@ -1,6 +1,8 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (Batch **196.1** PR **#209** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from that commit.
+**Code:** GitHub `main` **`b90a306b22712f7b2a0148cdfc43531611ad7b42`** (Batch **196.1** Fly v46 continuity, PR **#210** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+
+**In review:** Batch **196.2** presentation parity — PR **#211** (`cursor/batch196-2-presentation-parity`, head **`ce7bad31`**). Fixes Day Trade status-line Five Pillars count (momentum vs freshness), Unusual Volume tab evidence labels, regression tests. **ISS-037** logged (screener free-float reliability — reported, not verified; no float fix in this PR). **Not merged; not deployed.**
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.

@@ -5,6 +5,24 @@
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import type { ManagedTabId } from "@/lib/screeners/contract";
 import { formatScreenerMetric } from "@/lib/screeners/screener-metric-display";
+import {
+  resolveUnusualVolumeQualificationSignal,
+  type RadarTabCandidate,
+} from "@/lib/screeners/scanner-tab-qualification";
+
+function screenerRowAsRadarTabCandidate(row: ScreenerResultRow): RadarTabCandidate {
+  const extended = row as ScreenerResultRow & { time_adjusted_rvol?: number | null };
+  return {
+    symbol: row.symbol,
+    last_price: row.price,
+    session_volume: row.volume,
+    prior_session_volume: row.prior_session_volume,
+    volume_velocity: null,
+    volume_acceleration_pct: null,
+    volume_60s: null,
+    time_adjusted_rvol: extended.time_adjusted_rvol ?? null,
+  };
+}
 
 export interface ScannerTabEvidence {
   tabId: ManagedTabId | string;
@@ -83,20 +101,45 @@ export function buildScannerTabEvidence(
       return null;
     }
     case "unusual_volume": {
-      if (row.rvol_20d !== null) {
+      const candidate = screenerRowAsRadarTabCandidate(row);
+      const { signal, priorRatio, timeAdjustedRvol } =
+        resolveUnusualVolumeQualificationSignal(candidate);
+      if (signal === "prior_session_ratio" && priorRatio !== null) {
         return {
           tabId,
-          primaryLabel: `RVOL 20D ${formatScreenerMetric(row.rvol_20d, "multiplier")}`,
+          primaryLabel: `Vol/Yday ${formatScreenerMetric(priorRatio, "multiplier")}`,
+          detail: "Verified prior-session volume ratio ≥4×",
         };
       }
-      if (row.volume_ratio_prior_session !== null) {
+      if (signal === "time_adjusted_rvol" && timeAdjustedRvol !== null) {
         return {
           tabId,
-          primaryLabel: `Cumulative vol ${formatScreenerMetric(row.volume_ratio_prior_session, "multiplier")}× prior day`,
-          detail: "Same-time RVOL unavailable — cumulative context only",
+          primaryLabel: `Time-adjusted RVOL ${formatScreenerMetric(timeAdjustedRvol, "multiplier")}`,
+          detail: "Session participation vs same-time-of-day baseline (≥2×)",
         };
       }
-      return null;
+      if (priorRatio !== null && priorRatio > 0) {
+        return {
+          tabId,
+          primaryLabel: `Vol/Yday ${formatScreenerMetric(priorRatio, "multiplier")}`,
+          detail:
+            "Tab membership may use radar fields not shown here — qualifying signal unavailable on this row",
+        };
+      }
+      if (timeAdjustedRvol !== null) {
+        return {
+          tabId,
+          primaryLabel: `Time-adjusted RVOL ${formatScreenerMetric(timeAdjustedRvol, "multiplier")}`,
+          detail:
+            "Tab membership may use radar fields not shown here — qualifying signal unavailable on this row",
+        };
+      }
+      return {
+        tabId,
+        primaryLabel: "Unusual volume",
+        detail:
+          "Qualifying signal not available on this row — prior-session ratio and time-adjusted RVOL are missing",
+      };
     }
     default:
       return null;
