@@ -1,8 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-04 (Batch 190.15 — in review)
+
+- **Batch 190.15 / slim staging RPC payloads** (PR pending, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers`). Claim stays full. Finalize baseline drift reads state identity only. Chunk top-20 Gainers/Losers rejected for duplicate-symbol parity. Migration `20261104230000` not applied. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **Not merged; not deployed.**
+
 ## 2026-11-04 (Batch 190.14 — release-safety revision, in review)
 
-- **Batch 190.14 / CPU-safe staged finalize** (PR **#216**, base **`3bd3ee68`**): Nov **4** production **HTTP 546** on finalize before publish (`sync-screener-data` v506). Release-safety pass: G/L qualify fast-path + chunk `volumeActive` for extended evidence; `build_evidence` stage; finalize stage **enter/exit** logs; **await** day-trade qualification capture after `completePublish`. Final corrections: session fixtures 07:35 / 12:45 / 16:20 ET asserted with `resolveSyncSessionKind`; RPC timing serializes representative rows and evidence; rollback source is git **`3bd3ee68`** (not a promised Edge revision id). Lovable Edge CPU constraint and post-launch Fly contingency recorded in `docs/PROJECT_MEMORY.md`. **190.12 SQL and 190.13 cron normalization already deployed — do not reapply.** Runbook `docs/release/batch190-14-cpu-safe-finalize-v1.md`. **Not merged; not deployed.**
+- **Batch 190.14 / CPU-safe staged finalize** (PR **#216**, base **`3bd3ee68`**): Nov **4** production **HTTP 546** on finalize before publish (`sync-screener-data` v506). Release-safety pass: G/L qualify fast-path + chunk `volumeActive` for extended evidence; `build_evidence` stage; finalize stage **enter/exit** logs; **await** day-trade qualification capture after `completePublish`. Final corrections: session fixtures 07:35 / 12:45 / 16:20 ET asserted with `resolveSyncSessionKind`; RPC timing serializes representative rows and evidence; rollback source is git **`3bd3ee68`** (not a promised Edge revision id). Lovable Edge CPU constraint and post-launch Fly contingency recorded in `docs/PROJECT_MEMORY.md`. **190.12 SQL and 190.13 cron normalization already deployed — do not reapply.** Runbook `docs/release/batch190-14-cpu-safe-finalize-v1.md`. Merged as **`1b7d86d6`**. Edge deploy of that revision is separate from Batch 190.15.
 
 Application history below is a map of `main`, not a claim that each merge was deployed. Deploy facts belong in `docs/DEPLOYMENT_STATUS.md`.
 

@@ -13,9 +13,11 @@ import type { SyncStagingStore } from "./sync-staging-memory.ts";
 import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
+  jobFromControl,
   jobFromRow,
   jobToInsertRow,
   serializeMergedArtifacts,
+  type StagingJobControl,
   type StagingJobRow,
 } from "./sync-staging-serialize.ts";
 import { formatStagedPublishRpcTransportFailure } from "./sync-publish-rpc-error.ts";
@@ -328,7 +330,15 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       p_now: nowIso,
     });
     if (!rpc.error) {
-      const parsed = rpc.data as { ok?: boolean; reason?: string; job?: StagingJobRow };
+      const parsed = rpc.data as {
+        ok?: boolean;
+        reason?: string;
+        job?: StagingJobRow;
+        control?: StagingJobControl;
+      };
+      if (parsed?.ok && parsed.control) {
+        return { ok: true, job: jobFromControl(parsed.control) };
+      }
       if (parsed?.ok && parsed.job) {
         return { ok: true, job: jobFromRow(parsed.job) };
       }
@@ -365,7 +375,15 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       p_now: nowIso,
     });
     if (!rpc.error) {
-      const parsed = rpc.data as { ok?: boolean; reason?: string; job?: StagingJobRow };
+      const parsed = rpc.data as {
+        ok?: boolean;
+        reason?: string;
+        job?: StagingJobRow;
+        control?: StagingJobControl;
+      };
+      if (parsed?.ok && parsed.control) {
+        return { ok: true, job: jobFromControl(parsed.control) };
+      }
       if (parsed?.ok && parsed.job) {
         return { ok: true, job: jobFromRow(parsed.job) };
       }
@@ -414,7 +432,15 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
         reason?: string;
         rows_inserted?: number;
         job?: StagingJobRow;
+        control?: StagingJobControl;
       };
+      if (parsed?.ok && typeof parsed.rows_inserted === "number" && parsed.control) {
+        return {
+          ok: true,
+          rowsInserted: parsed.rows_inserted,
+          job: jobFromControl(parsed.control),
+        };
+      }
       if (
         parsed?.ok &&
         typeof parsed.rows_inserted === "number" &&
@@ -447,7 +473,9 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
   ): Promise<StagedGenerationJob | null> {
     const res = await this.sb
       .from(TABLE)
-      .select("*")
+      .select(
+        "id,sync_run_id,status,observation,chunk_size,next_chunk_index,total_chunks,state_version,publish_rows_inserted,publish_rpc_recorded_at,finalize_lease_token,finalize_lease_expires_at,lease_token,lease_expires_at,created_at,updated_at,nhl_baseline_loaded,continue_last_at,continue_last_error,abort_reason,abort_evidence",
+      )
       .eq("status", "finalizing")
       .limit(16);
     if (res.error || !res.data) return null;

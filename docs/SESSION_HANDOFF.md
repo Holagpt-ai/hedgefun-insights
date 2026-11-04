@@ -1,8 +1,8 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`3bd3ee68`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+**Code:** GitHub `main` **`1b7d86d6`** (Batch **190.14** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** **Batch 190.14** CPU-safe staged finalize (ISS-034) — PR **#216** head **`ce5d8937`** plus this handoff commit. Edge **`sync-screener-data`** only after merge. **ISS-037** PR **#215** separate track. Batch **190.12** SQL and **190.13** cron normalization are **already deployed** — do not reapply.
+**In flight:** **Batch 190.15** slim staging payloads (ISS-034) — branch `cursor/batch190-15-slim-staging-payload` at **`0bf30db3`** plus this handoff commit. Deploy Edge `sync-screener-data` before applying migration `20261104230000`. **ISS-037** PR **#215** separate track. Batch **190.12** SQL and **190.13** cron normalization are **already deployed** — do not reapply.
 
 **Nov 4 production (preserved):** `sync-screener-data` **v506** finalize **HTTP 546** at **20:55:47 UTC** after 7/7 chunks; CPU Time exceeded; no new generation.
 
