@@ -103,6 +103,77 @@ export function advanceChunkInMemory(
   return { ok: true, job };
 }
 
+const REQUIRED_TAB_EVIDENCE_KEYS = [
+  "gappers",
+  "gainers_losers",
+  "new_highs_lows",
+  "volume_spikes",
+  "unusual_volume",
+  "day_trade_radar",
+] as const;
+
+export type InMemoryFeedReconcileSnapshot = {
+  syncRunId: string;
+  rowsInserted: number;
+  tabEvaluationEvidence: Record<string, { status?: string }>;
+  persistedRowCount: number;
+};
+
+export function reconcilePublishInMemory(
+  job: StagedGenerationJob,
+  input: {
+    expectedStateVersion: number;
+    nowMs: number;
+    feed: InMemoryFeedReconcileSnapshot;
+  },
+): StoreOk<{ published: true; idempotent?: boolean }> | StoreErr {
+  if (job.status === "published") {
+    return { ok: true, published: true, idempotent: true };
+  }
+  if (job.status !== "finalizing") {
+    return { ok: false, reason: "not_finalizing" };
+  }
+  if (job.nextChunkIndex < job.totalChunks) {
+    return { ok: false, reason: "chunks_incomplete" };
+  }
+  if (job.publishRowsInserted === null || job.publishRpcRecordedAtMs === null) {
+    return { ok: false, reason: "publish_not_recorded" };
+  }
+  if (job.stateVersion !== input.expectedStateVersion) {
+    return { ok: false, reason: "state_version_conflict" };
+  }
+  if (job.finalizeLeaseExpiresMs === null) {
+    return { ok: false, reason: "finalize_lease_expiry_missing" };
+  }
+  if (finalizeLeaseActive(job, input.nowMs)) {
+    return { ok: false, reason: "finalize_lease_still_active" };
+  }
+  if (input.feed.syncRunId !== job.observation.syncRunId) {
+    return { ok: false, reason: "feed_generation_mismatch" };
+  }
+  if (input.feed.rowsInserted !== job.publishRowsInserted) {
+    return { ok: false, reason: "feed_row_count_mismatch" };
+  }
+  if (input.feed.persistedRowCount !== job.publishRowsInserted) {
+    return { ok: false, reason: "published_row_count_mismatch" };
+  }
+  for (const tab of REQUIRED_TAB_EVIDENCE_KEYS) {
+    const evidence = input.feed.tabEvaluationEvidence[tab];
+    if (!evidence || evidence.status !== "evaluated") {
+      return { ok: false, reason: "tab_evidence_incomplete" };
+    }
+  }
+  job.status = "published";
+  job.stateVersion = input.expectedStateVersion + 1;
+  job.leaseToken = null;
+  job.leaseExpiresMs = null;
+  job.finalizeLeaseToken = null;
+  job.finalizeLeaseExpiresMs = null;
+  job.continueLastError = null;
+  job.updatedAtMs = input.nowMs;
+  return { ok: true, published: true };
+}
+
 export function completePublishInMemory(
   job: StagedGenerationJob,
   input: {
