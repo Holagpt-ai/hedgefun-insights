@@ -352,7 +352,9 @@ export function validateGeneration(
 
     if (row.avg_volume !== null) return fail("legacy_avg_volume_present");
     if (row.rvol !== null) return fail("legacy_rvol_present");
-    if (row.float_shares !== null) return fail("float_shares_present");
+    if (row.float_shares !== null && !isPositiveFinite(row.float_shares)) {
+      return fail("invalid_float_shares");
+    }
     if (row.market_cap !== null) return fail("market_cap_present");
 
     if (row.tab_id === NHL_TAB_ID) {

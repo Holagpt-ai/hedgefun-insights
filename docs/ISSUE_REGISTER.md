@@ -22,7 +22,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
 | ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
 | ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |
-| **ISS-037** | P2 | Screener free-float missing or unreliable | **REPORTED / NOT VERIFIED.** User/product reports that `float_shares` (free float) on screener rows may be absent, stale, or inconsistent with desk expectations. **No change to Day Trade unknown-float qualification** (unknown float still allowed; verified high float still fails). **Future investigation scope (deferred):** Massive/Polygon float source and field mapping; market-data Edge response shape; cache TTL and refresh; enrichment path into screener publish rows; table display copy; **free float vs short float** semantics and UI labeling. Do not treat as confirmed defect until source-to-UI trace is verified. |
+| **ISS-037** | P2 | Screener free-float missing or unreliable | **CONFIRMED DEFECT (source traced).** Production Nov 4: all published rows `float_shares` NULL because `rows.ts` hard-coded null. Massive Float contract exists (`market-data` + Radar). **Fix in review:** bounded publish-time enrichment for selected symbols only (PR pending, base `2edaabfc`). Day Trade unknown-float qualification unchanged. Production verification **NOT VERIFIED** until Edge deploy. |
 
 **Verification (not new implementation):** Batch **174** **CONDITIONAL**; Batch **175** persistence **PASS**, UI **NOT VERIFIED**; PR **#174** **CLOSED** unmerged.
 
