@@ -11049,6 +11049,14 @@ export type Database = {
         Args: { p_retain_days?: number }
         Returns: number
       }
+      reconcile_screener_sync_staged_publish_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_job_id: string
+          p_now: string
+        }
+        Returns: Json
+      }
       record_screener_sync_publish_rpc_v1: {
         Args: {
           p_expected_state_version: number
