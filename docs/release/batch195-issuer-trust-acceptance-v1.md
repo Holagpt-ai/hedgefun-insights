@@ -26,7 +26,8 @@
 ## Correction (narrow)
 
 - **`headlineQualifiesForTickerScopedNews`** — exclude market-attention/commentary titles and block `provider_associated` recent-news when the headline does not mention the row ticker or company (closes SpaceX-primary slip on TSLA Radar cells). Market-attention patterns live in `market-attention.ts` (no attribution/precedence cycle).
-- Tests: `batch195-recent-news-headline-gate.test.ts`, `radar-news-display.test.ts`.
+- Tests: `batch195-recent-news-headline-gate.test.ts`, `batch195-radar-news-integration.test.ts`, `radar-news-display.test.ts`.
+- Radar grid, mobile card, detail panel, and panel board pass verified `company_name` into the recent-news resolver (no symbol fallback).
 
 ## ISS-028
 

@@ -9,6 +9,7 @@ import {
 
 export function resolveRadarNewsCellStateWithPlatform(opts: {
   symbol: string;
+  companyName?: string | null;
   platform?: SymbolCatalystPlatformContext | null;
   catalyst?: CatalystEnrichmentEntry | undefined;
   recent?: RecentProviderHeadline | undefined;
@@ -25,11 +26,18 @@ export function resolveRadarNewsCellStateWithPlatform(opts: {
         platform.enrichment,
         opts.recent,
         opts.nowMs,
+        opts.companyName,
       );
     }
     if (platform?.availability === "unavailable" || opts.catalystUnavailable) {
       if (opts.recent?.title && opts.recent.publishedAt) {
-        return resolveRadarNewsDisplay(opts.symbol, undefined, opts.recent, opts.nowMs);
+        return resolveRadarNewsDisplay(
+          opts.symbol,
+          undefined,
+          opts.recent,
+          opts.nowMs,
+          opts.companyName,
+        );
       }
       return { level: "unavailable" };
     }
@@ -37,7 +45,13 @@ export function resolveRadarNewsCellStateWithPlatform(opts: {
   }
   if (platform?.availability === "unavailable" || opts.catalystUnavailable) {
     if (opts.recent?.title && opts.recent.publishedAt) {
-      return resolveRadarNewsDisplay(opts.symbol, undefined, opts.recent, opts.nowMs);
+      return resolveRadarNewsDisplay(
+        opts.symbol,
+        undefined,
+        opts.recent,
+        opts.nowMs,
+        opts.companyName,
+      );
     }
     return { level: "unavailable" };
   }
@@ -47,11 +61,13 @@ export function resolveRadarNewsCellStateWithPlatform(opts: {
       platform.enrichment,
       opts.recent,
       opts.nowMs,
+      opts.companyName,
     );
   }
   if (platform?.availability === "none") {
     return resolveRadarNewsCellState({
       symbol: opts.symbol,
+      companyName: opts.companyName,
       catalyst: undefined,
       recent: opts.recent,
       newsStatus: opts.newsStatus,
@@ -62,6 +78,7 @@ export function resolveRadarNewsCellStateWithPlatform(opts: {
   }
   return resolveRadarNewsCellState({
     symbol: opts.symbol,
+    companyName: opts.companyName,
     catalyst: opts.catalyst,
     recent: opts.recent,
     newsStatus: opts.newsStatus,

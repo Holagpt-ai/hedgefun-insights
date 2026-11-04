@@ -65,6 +65,7 @@ import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -82,6 +83,7 @@ interface RadarGridProps {
 
 function NewsCatalystCell({
   symbol,
+  companyName,
   catalystPending,
   catalystUnavailable,
   newsStatus,
@@ -90,6 +92,7 @@ function NewsCatalystCell({
   platform,
 }: {
   symbol: string;
+  companyName: string | null;
   catalystPending: boolean;
   catalystUnavailable: boolean;
   newsStatus: RadarNewsSymbolStatus;
@@ -99,6 +102,7 @@ function NewsCatalystCell({
 }) {
   const display = resolveRadarNewsCellStateWithPlatform({
     symbol,
+    companyName,
     platform,
     catalyst,
     recent,
@@ -512,6 +516,7 @@ export function RadarGrid({
                         {accessible ? (
                           <NewsCatalystCell
                             symbol={sym}
+                            companyName={radarRowCompanyName(row)}
                             catalystPending={catalystCheckPending && !catalystMap?.get(sym)}
                             catalystUnavailable={!!catalystError && !catalystMap?.get(sym)}
                             newsStatus={newsState.getStatus(sym)}
