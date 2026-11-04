@@ -14,6 +14,25 @@ export const INTRADAY_PARTICIPATION_LOOKBACK_CALENDAR_DAYS = 30;
 /** Max symbols retained in the in-memory participation baseline cache. */
 export const INTRADAY_PARTICIPATION_CACHE_MAX_SYMBOLS = 512;
 
+/**
+ * Minimum wall-clock span between earliest and latest bar in a 5m window before
+ * acceleration % is computed (guards fragmented/partial history, not low trade frequency).
+ */
+export const VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES = 4;
+
+/**
+ * Max silence between window open and first bar before the prior/current 5m window
+ * is treated as missing feed history (Polygon omits no-trade seconds; silence here
+ * indicates late join, not illiquidity).
+ */
+export const VOLUME_ACCEL_MAX_LEADING_SILENCE_MS = 60_000;
+
+/**
+ * Minimum total share volume in the prior 5m window before acceleration % is shown.
+ * Guards two-point / near-zero priors (not intermittent trading with meaningful baseline).
+ */
+export const VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME = 100;
+
 /** Participation state thresholds (volume_acceleration_pct vs prior 5m window). */
 export const PARTICIPATION_ACCEL_COOLING_MAX = -20;
 export const PARTICIPATION_ACCEL_STEADY_MAX = 20;

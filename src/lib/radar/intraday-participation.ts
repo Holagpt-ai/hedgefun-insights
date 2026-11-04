@@ -11,6 +11,9 @@ import {
   PARTICIPATION_ACCEL_RISING_MAX,
   PARTICIPATION_ACCEL_STEADY_MAX,
   PARTICIPATION_ACCEL_SURGING_MAX,
+  VOLUME_ACCEL_MAX_LEADING_SILENCE_MS,
+  VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES,
+  VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME,
   type ParticipationState,
 } from "../../config/intraday-participation.config.ts";
 
@@ -54,6 +57,63 @@ function finite(n: number | null | undefined): n is number {
   return n !== null && n !== undefined && Number.isFinite(n);
 }
 
+/** Elapsed wall-clock minutes in `[fromMs, eventNowMs)` capped to the configured window. */
+export function wallClockWindowMinutes(
+  fromMs: number,
+  eventNowMs: number,
+  windowMinutes: number,
+): number {
+  if (!(windowMinutes > 0) || !Number.isFinite(eventNowMs)) return 0;
+  const windowMs = windowMinutes * MINUTE_MS;
+  const elapsedMs = Math.min(windowMs, eventNowMs - fromMs);
+  if (!(elapsedMs > 0)) return 0;
+  return elapsedMs / MINUTE_MS;
+}
+
+export type WindowBarSpan = {
+  minStartMs: number;
+  maxStartMs: number;
+  barCount: number;
+};
+
+export function windowBarSpanInRange(
+  bars: readonly { startMs: number }[],
+  fromMs: number,
+  eventNowMs: number,
+): WindowBarSpan | null {
+  let minStartMs: number | null = null;
+  let maxStartMs: number | null = null;
+  let barCount = 0;
+  for (const bar of bars) {
+    if (bar.startMs >= fromMs && bar.startMs < eventNowMs) {
+      barCount += 1;
+      minStartMs = minStartMs === null ? bar.startMs : Math.min(minStartMs, bar.startMs);
+      maxStartMs = maxStartMs === null ? bar.startMs : Math.max(maxStartMs, bar.startMs);
+    }
+  }
+  if (minStartMs === null || maxStartMs === null || barCount === 0) return null;
+  return { minStartMs, maxStartMs, barCount };
+}
+
+/**
+ * Whether a 5m window has enough contiguous feed observation for acceleration comparisons.
+ * Does not treat low trade frequency as incomplete data (no minimum bars per minute).
+ */
+export function windowEligibleForAcceleration(
+  bars: readonly { startMs: number }[],
+  fromMs: number,
+  eventNowMs: number,
+  windowMinutes: number,
+): boolean {
+  const wallMinutes = wallClockWindowMinutes(fromMs, eventNowMs, windowMinutes);
+  if (wallMinutes < VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES) return false;
+  const span = windowBarSpanInRange(bars, fromMs, eventNowMs);
+  if (!span) return false;
+  if (span.minStartMs - fromMs > VOLUME_ACCEL_MAX_LEADING_SILENCE_MS) return false;
+  const observationSpanMinutes = (span.maxStartMs - span.minStartMs) / MINUTE_MS;
+  return observationSpanMinutes >= VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES;
+}
+
 export function rollingMinuteVolume(
   bars: readonly MinuteBarSlice[],
   eventNowMs: number,
@@ -64,19 +124,18 @@ export function rollingMinuteVolume(
   const from = eventNowMs - windowMs;
   let volume = 0;
   let dollarVolume = 0;
-  let minStart: number | null = null;
   let lateCorrection = false;
+  let sawBar = false;
   for (const bar of bars) {
     if (bar.startMs >= from && bar.startMs < eventNowMs) {
+      sawBar = true;
       volume += bar.volume;
       dollarVolume += bar.dollarVolume;
-      minStart = minStart === null ? bar.startMs : Math.min(minStart, bar.startMs);
       if (bar.lateCorrected) lateCorrection = true;
     }
   }
-  if (minStart === null) return null;
-  const coveredMs = Math.min(windowMs, eventNowMs - minStart);
-  const coveredMinutes = coveredMs / MINUTE_MS;
+  if (!sawBar) return null;
+  const coveredMinutes = wallClockWindowMinutes(from, eventNowMs, windowMinutes);
   if (!(coveredMinutes >= 1)) return null;
   return { volume, dollarVolume, coveredMinutes, lateCorrection };
 }
@@ -136,6 +195,15 @@ export function volumeAccelerationPctFromMinuteWindows(
   const curr = rollingMinuteVolume(bars, eventNowMs, 5);
   const prev = rollingMinuteVolume(bars, eventNowMs - 5 * MINUTE_MS, 5);
   if (!curr || !prev) return null;
+  const currFrom = eventNowMs - 5 * MINUTE_MS;
+  const prevFrom = eventNowMs - 10 * MINUTE_MS;
+  if (
+    !windowEligibleForAcceleration(bars, currFrom, eventNowMs, 5) ||
+    !windowEligibleForAcceleration(bars, prevFrom, eventNowMs - 5 * MINUTE_MS, 5)
+  ) {
+    return null;
+  }
+  if (prev.volume < VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME) return null;
   const currVel = shareVelocity(curr.volume, curr.coveredMinutes);
   const prevVel = shareVelocity(prev.volume, prev.coveredMinutes);
   if (currVel === null || prevVel === null || !(prevVel > 0)) return null;

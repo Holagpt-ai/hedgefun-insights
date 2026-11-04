@@ -77,6 +77,37 @@ Deno.test("volumeAccelerationPct — null when prior window empty", () => {
   assertEquals(volumeAccelerationPct(bars, eventNow), null);
 });
 
+Deno.test("volumeAccelerationPct — null when only isolated ticks span minutes", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 1_000);
+  for (let m = 0; m < 4; m += 1) {
+    const t = eventNow - 600_000 + m * 60_000 + 1_000;
+    bars.set(t, bar(t, 1));
+  }
+  assertEquals(volumeAccelerationPct(bars, eventNow), null);
+});
+
+Deno.test("volumeAccelerationPct — null when prior window has insufficient coverage", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 1_000);
+  // Only ~90s of prior window — sparse history must not produce extreme acceleration.
+  for (let t = eventNow - 300_000; t < eventNow - 210_000; t += 1_000) {
+    bars.set(t, bar(t, 1));
+  }
+  assertEquals(volumeAccelerationPct(bars, eventNow), null);
+});
+
+Deno.test("volumeAccelerationPct — legitimate high acceleration with full windows", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 500);
+  fillWindow(bars, eventNow - 300_000, 300_000, 50);
+  const pct = volumeAccelerationPct(bars, eventNow);
+  assertEquals(pct, 900);
+});
+
 Deno.test("computeMomentumMetrics — velocity from 5m window", () => {
   const eventNow = 300_000;
   const bars = new Map<number, SecondBar>();
@@ -90,6 +121,35 @@ Deno.test("computeMomentumMetrics — velocity from 5m window", () => {
   });
   assertEquals(m.volume_velocity, 60_000);
   assertEquals(m.rvol_5m, null);
+});
+
+Deno.test("volumeAccelerationPct — intermittent prior with full span still accelerates", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 500);
+  for (let m = 0; m < 5; m += 1) {
+    const t = eventNow - 600_000 + m * 60_000 + 5_000;
+    bars.set(t, bar(t, 200));
+  }
+  const pct = volumeAccelerationPct(bars, eventNow);
+  assertEquals(pct !== null && pct > 0, true);
+});
+
+Deno.test("computeMomentumMetrics — intermittent trades use wall-clock velocity", () => {
+  const eventNow = 300_000;
+  const bars = new Map<number, SecondBar>();
+  for (let m = 0; m < 5; m += 1) {
+    const t = eventNow - 300_000 + m * 60_000 + 5_000;
+    bars.set(t, bar(t, 1_000));
+  }
+  const m = computeMomentumMetrics({
+    bars,
+    eventNowMs: eventNow,
+    sessionKind: "pre-market",
+    schedule: null,
+    todBaseline: null,
+  });
+  assertEquals(m.volume_velocity, 1_000);
 });
 
 Deno.test("computeMomentumMetrics — missing bars", () => {
