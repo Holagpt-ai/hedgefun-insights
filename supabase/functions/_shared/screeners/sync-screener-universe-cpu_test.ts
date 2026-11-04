@@ -4,6 +4,9 @@
  */
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  buildRepresentativeUniverse,
+  measureGainersLosersEvidenceScanMs,
+  REPRESENTATIVE_UNIVERSE_SIZE,
   runRepresentativeSyncCpuBenchmark,
   type SyncCpuBenchmarkResult,
 } from "./sync-screener-cpu-benchmark.ts";
@@ -44,6 +47,24 @@ function logBenchmark(label: string, result: SyncCpuBenchmarkResult) {
     })}`,
   );
 }
+
+Deno.test("cpu: Batch 190.14 precomputed G/L evidence avoids full-universe rescan", () => {
+  const nowMs = Date.parse("2026-10-28T16:45:00.000Z");
+  const universe = buildRepresentativeUniverse(REPRESENTATIVE_UNIVERSE_SIZE, "regular", nowMs);
+  const { legacyRescanMs, precomputedMs, qualifiedCount } =
+    measureGainersLosersEvidenceScanMs(universe, nowMs);
+  console.log(
+    `[sync-screener-cpu-benchmark] batch190-14-gainers-evidence ${JSON.stringify({
+      universe_size: universe.length,
+      qualified_count: qualifiedCount,
+      legacy_rescan_ms: legacyRescanMs,
+      precomputed_ms: precomputedMs,
+      note: "local_elapsed_not_edge_cpu",
+    })}`,
+  );
+  assertEquals(qualifiedCount >= 0, true);
+  assertEquals(precomputedMs < legacyRescanMs, true);
+});
 
 for (const session of ["regular", "pre-market", "after-hours"] as const) {
   Deno.test({

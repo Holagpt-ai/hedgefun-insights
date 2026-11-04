@@ -165,7 +165,7 @@ Previously deferred Batch 6: newsletter/account/billing foundation; payment prov
 
 Separate authorization and architecture, legal/compliance, provider risk and credential controls. No broker integration now.
 
-#### Batch 208 — AI Trader shadow/paper/product lifecycle — LAST-STAGE DEFERRED
+#### Batch 208 — AI Trader — **POST-LAUNCH PAUSED** (not active pre-launch backlog)
 
 Operating mode OFF; no homepage promotion, no live/paper trading activation, no performance redesign until owner explicitly reopens after core product work.
 

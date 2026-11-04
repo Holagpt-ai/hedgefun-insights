@@ -19,7 +19,11 @@ import {
 } from "./rows.ts";
 import { selectNewHighsLows, type NhlBaselineQuote } from "./new-highs-lows.ts";
 import {
+  evaluateGenericTabEvidence,
+} from "./evaluation-evidence.ts";
+import {
   selectForTab,
+  selectGainersLosersFromUniverse,
   selectMainUniverseTabs,
   type PolygonTicker,
   type TabSelectionOpts,
@@ -284,6 +288,32 @@ function runStages(input: {
     },
     rows: allRows,
     rpcBytes,
+  };
+}
+
+/** Local wall-clock delta: second full-universe G/L evidence scan removed at finalize. */
+export function measureGainersLosersEvidenceScanMs(
+  universe: readonly PolygonTicker[],
+  nowMs: number,
+): { legacyRescanMs: number; precomputedMs: number; qualifiedCount: number } {
+  const pick = selectGainersLosersFromUniverse(universe, 20, {
+    extendedSession: false,
+    observationSessionFields: false,
+    nowMs,
+  });
+  let t0 = performance.now();
+  evaluateGenericTabEvidence("gainers_losers", universe, pick.selected, { nowMs });
+  const legacyRescanMs = performance.now() - t0;
+  t0 = performance.now();
+  evaluateGenericTabEvidence("gainers_losers", universe, pick.selected, {
+    nowMs,
+    precomputedQualifiedCount: pick.qualifiedCount,
+  });
+  const precomputedMs = performance.now() - t0;
+  return {
+    legacyRescanMs,
+    precomputedMs,
+    qualifiedCount: pick.qualifiedCount,
   };
 }
 

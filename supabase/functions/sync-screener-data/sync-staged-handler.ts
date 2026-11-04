@@ -33,13 +33,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function deferEdgeWork(work: () => Promise<void>): void {
-  const pending = work().catch(() => {});
-  const waitUntil = (globalThis as {
-    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
-  }).EdgeRuntime?.waitUntil;
-  if (typeof waitUntil === "function") waitUntil(pending);
-}
+import { deferEdgeWork } from "../_shared/edge/defer-work.ts";
 
 export type StagedChunkContext = {
   nhlBaselines: ReadonlyMap<string, NhlBaselineQuote>;

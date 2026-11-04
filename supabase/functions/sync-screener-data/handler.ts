@@ -17,8 +17,10 @@ import {
 import {
   classifyFinalizeError,
   logFinalizeFailure,
+  logFinalizeStageTimings,
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
+import { deferEdgeWork } from "../_shared/edge/defer-work.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
 import { prepareStagedFinalizeRetry } from "../_shared/screeners/sync-finalize-recovery.ts";
 import { reconcileStrandedPublishedGeneration } from "../_shared/screeners/sync-staging-post-publish-reconcile.ts";
@@ -35,6 +37,7 @@ import {
   type PolygonTicker,
   SCREENER_ROW_LIMIT,
   selectForTab,
+  selectGainersLosersFromUniverse,
   selectMainUniverseTabs,
 } from "../_shared/screeners/selection.ts";
 import {
@@ -584,6 +587,24 @@ function providerAsOfBounds(
   return { min, max };
 }
 
+function createFinalizeStageTimer(initialStage: FinalizeStage) {
+  let stage = initialStage;
+  let clock = performance.now();
+  const timingsMs: Partial<Record<FinalizeStage, number>> = {};
+  return {
+    advance(next: FinalizeStage) {
+      timingsMs[stage] = (timingsMs[stage] ?? 0) + (performance.now() - clock);
+      stage = next;
+      clock = performance.now();
+    },
+    timingsMs,
+  };
+}
+
+function scheduleDayTradeQualificationCapture(work: () => Promise<void>): void {
+  deferEdgeWork(work);
+}
+
 async function finalizeStagedScreenerGeneration(
   generationId: string,
   deps: SyncDeps,
@@ -592,6 +613,7 @@ async function finalizeStagedScreenerGeneration(
 ): Promise<Response> {
   const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
   let stage: FinalizeStage = "load_job";
+  const finalizeTimer = createFinalizeStageTimer(stage);
   try {
   const peek = await store.get(generationId);
   if (!peek) {
@@ -609,10 +631,12 @@ async function finalizeStagedScreenerGeneration(
   if (peek.nextChunkIndex < peek.totalChunks) {
     return json({ error: "chunks_incomplete" }, 409);
   }
+  finalizeTimer.advance("baseline_drift");
   stage = "baseline_drift";
   const drift = await validateJobBaselineDrift(peek, sb, store);
   if (drift) return drift;
 
+  finalizeTimer.advance("preflight");
   stage = "preflight";
   const prep = await prepareStagedFinalizeRetry(
     store,
@@ -643,6 +667,7 @@ async function finalizeStagedScreenerGeneration(
     }
   }
 
+  finalizeTimer.advance("claim_finalize_lease");
   stage = "claim_finalize_lease";
   const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
   const claimed = await store.claimWork({
@@ -686,6 +711,7 @@ async function finalizeStagedScreenerGeneration(
     `[sync-screener-data] staged ${formatRadarRejectionLog(job.merged.radar)}`,
   );
 
+  finalizeTimer.advance("merge_selections");
   stage = "merge_selections";
   const mainTabSelections = finalizeMainUniverseSelections(
     job.merged.mainQualified,
@@ -700,13 +726,14 @@ async function finalizeStagedScreenerGeneration(
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
     : job.allTickers;
-  const gainersLosersSelected = selectForTab(
-    "gainers_losers",
+  const gainersLosersPick = selectGainersLosersFromUniverse(
     gainersLosersUniverse,
     undefined,
     extendedTabOpts,
   );
+  const gainersLosersSelected = gainersLosersPick.selected;
 
+  finalizeTimer.advance("load_volume_baselines");
   stage = "load_volume_baselines";
   const volumeBaselines = await loadVolumeBaselines(sb);
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
@@ -739,10 +766,12 @@ async function finalizeStagedScreenerGeneration(
     unusualSelected,
     nhlTickers,
   );
+  finalizeTimer.advance("load_names");
   stage = "load_names";
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
+  finalizeTimer.advance("build_rows");
   stage = "build_rows";
   const meta: GenerationMeta = {
     syncedAt,
@@ -806,6 +835,7 @@ async function finalizeStagedScreenerGeneration(
     volumeSpikeSelected,
     gainersLosersUniverse,
     gainersLosersSelected,
+    gainersLosersQualifiedCount: gainersLosersPick.qualifiedCount,
     unusualSelected,
     nhlSelected,
     extendedSession: observation.extendedSession,
@@ -814,6 +844,7 @@ async function finalizeStagedScreenerGeneration(
     sessionVolumeCache: extendedTabOpts.sessionVolumeCache,
   });
 
+  finalizeTimer.advance("preserve_check");
   stage = "preserve_check";
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
@@ -853,6 +884,7 @@ async function finalizeStagedScreenerGeneration(
   let publishVersion = job.stateVersion;
 
   if (rowsInserted === null) {
+    finalizeTimer.advance("atomic_publish");
     stage = "atomic_publish";
     const atomicPublish = await store.publishStagedGeneration({
       jobId: job.id,
@@ -903,6 +935,7 @@ async function finalizeStagedScreenerGeneration(
     return json({ error: "database_error" }, 500);
   }
 
+  finalizeTimer.advance("complete_publish");
   stage = "complete_publish";
   const completed = await store.completePublish({
     jobId: job.id,
@@ -924,21 +957,31 @@ async function finalizeStagedScreenerGeneration(
     });
   }
 
-  try {
-    const sessionDate = easternTradingDateFromMs(nowMs);
-    await captureDayTradeQualificationFromSync({
-      db: sb as unknown as QualificationDb,
-      sessionDate,
-      syncRunId,
-      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
-      allTickers: job.allTickers,
-      volumeBaselines,
-    });
-  } catch {
-    console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
-  }
+  const sessionDate = easternTradingDateFromMs(nowMs);
+  const dayTradeSymbols = dayTradeSelected.map((t) => String(t.ticker ?? ""));
+  const allTickersForCapture = job.allTickers;
+  scheduleDayTradeQualificationCapture(async () => {
+    try {
+      await captureDayTradeQualificationFromSync({
+        db: sb as unknown as QualificationDb,
+        sessionDate,
+        syncRunId,
+        dayTradeSymbols,
+        allTickers: allTickersForCapture,
+        volumeBaselines,
+      });
+    } catch {
+      console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
+    }
+  });
 
+  finalizeTimer.advance("response");
   stage = "response";
+  logFinalizeStageTimings({
+    generationId: job.id,
+    syncRunId,
+    timingsMs: finalizeTimer.timingsMs,
+  });
   const bounds = providerAsOfBounds(allRows);
   return json({
     ok: true,
@@ -1280,12 +1323,12 @@ export async function handleSyncScreenerData(
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
     : allTickers;
-  const gainersLosersSelected = selectForTab(
-    "gainers_losers",
+  const gainersLosersPick = selectGainersLosersFromUniverse(
     gainersLosersUniverse,
     undefined,
     extendedTabOpts,
   );
+  const gainersLosersSelected = gainersLosersPick.selected;
 
   const selectedAll = [
     ...dayTradeSelected,
@@ -1395,6 +1438,7 @@ export async function handleSyncScreenerData(
     volumeSpikeSelected,
     gainersLosersUniverse,
     gainersLosersSelected,
+    gainersLosersQualifiedCount: gainersLosersPick.qualifiedCount,
     unusualSelected,
     nhlBaselineStatus: nhlBaseline.status,
     nhlBaselines: nhlBaseline.quotes,
@@ -1499,19 +1543,22 @@ export async function handleSyncScreenerData(
 
   const bounds = providerAsOfBounds(allRows);
 
-  try {
-    const sessionDate = easternTradingDateFromMs(nowMs);
-    await captureDayTradeQualificationFromSync({
-      db: sb as unknown as QualificationDb,
-      sessionDate,
-      syncRunId,
-      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
-      allTickers,
-      volumeBaselines,
-    });
-  } catch {
-    console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
-  }
+  const sessionDate = easternTradingDateFromMs(nowMs);
+  const dayTradeSymbols = dayTradeSelected.map((t) => String(t.ticker ?? ""));
+  scheduleDayTradeQualificationCapture(async () => {
+    try {
+      await captureDayTradeQualificationFromSync({
+        db: sb as unknown as QualificationDb,
+        sessionDate,
+        syncRunId,
+        dayTradeSymbols,
+        allTickers,
+        volumeBaselines,
+      });
+    } catch {
+      console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
+    }
+  });
 
   return json({
     ok: true,

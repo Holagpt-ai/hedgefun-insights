@@ -54,6 +54,22 @@ export function classifyFinalizeError(
   };
 }
 
+export function logFinalizeStageTimings(input: {
+  generationId: string;
+  syncRunId?: string;
+  timingsMs: Partial<Record<FinalizeStage, number>>;
+}): void {
+  try {
+    console.log(
+      `[sync-screener-data] staged_finalize_timing generation_id=${input.generationId}` +
+        (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
+        ` ${JSON.stringify(input.timingsMs)}`,
+    );
+  } catch {
+    /* best-effort instrumentation */
+  }
+}
+
 export function logFinalizeFailure(input: {
   generationId: string;
   syncRunId?: string;

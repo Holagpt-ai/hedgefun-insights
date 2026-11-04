@@ -676,9 +676,7 @@ export function selectForTab(
     return selectVolumeFirst(qualified, limit, volumeCtx);
   }
   if (tabId === "gainers_losers") {
-    const qualify = TAB_QUALIFIERS[tabId];
-    const qualified = universe.filter(qualify);
-    return selectGainersLosersRanked(qualified, limit, opts);
+    return selectGainersLosersFromUniverse(universe, limit, opts).selected;
   }
   if (tabId === "volume_spikes") {
     const qualified = universe.filter((t) => qualifiesVolumeSpikes(t, volumeCtx));
@@ -706,6 +704,34 @@ function moverPercent(
     );
   }
   return regularChangePercent(t);
+}
+
+export function indexPolygonTickersBySymbol(
+  tickers: readonly PolygonTicker[],
+): Map<string, PolygonTicker> {
+  const bySymbol = new Map<string, PolygonTicker>();
+  for (const ticker of tickers) {
+    const sym = normalizeSymbol(ticker.ticker);
+    if (sym) bySymbol.set(sym, ticker);
+  }
+  return bySymbol;
+}
+
+/** One qualification pass for G/L selection and tab-evidence qualified_count. */
+export function selectGainersLosersFromUniverse(
+  universe: readonly PolygonTicker[],
+  limit: number = SCREENER_ROW_LIMIT,
+  opts?: TabSelectionOpts,
+): { selected: PolygonTicker[]; qualifiedCount: number } {
+  const qualify = TAB_QUALIFIERS.gainers_losers;
+  const qualified: PolygonTicker[] = [];
+  for (const t of universe) {
+    if (qualify(t)) qualified.push(t);
+  }
+  return {
+    selected: selectGainersLosersRanked(qualified, limit, opts),
+    qualifiedCount: qualified.length,
+  };
 }
 
 /** Rank verified movers by |session MOVE|, then volume. Never fabricates %. */
