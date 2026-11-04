@@ -8,7 +8,7 @@
 - **Batch 191:** **PARTIAL** — regular-session and after-hours acceptance still **NOT VERIFIED**.
 - **Batch 192 activation (reported):** Vercel production deploy for AM Inbox UI; Lovable Cloud **`generate-daily-brief`** Edge deploy for evidence-cutoff rules. Cached brief rows unchanged until regeneration.
 
-**Batch 196.1 (this session):** PR **#209** — coverage-gated `volume_acceleration_pct` (≥4 **reliable** minutes per 5m window via `VOLUME_WINDOW_MIN_BARS_PER_MINUTE`); worker Docker image copies `session-volume.ts` (+ session sync helpers); Vitest cache-dedupe test fixed via `AbortSignal.timeout` jsdom polyfill (not batch logic). PERI-style cross-view volume delta **NOT CONFIRMED** as data error. **ISS-034 OPEN.** **ISS-025 OPEN** (visual acceptance). **ISS-036** pending merge/deploy.
+**Batch 196.1 (this session):** PR **#209** — wall-clock velocity denominators; acceleration gated on observation span + leading-silence (not bars/minute trade frequency); worker Docker `session-volume.ts` closure; Vitest `AbortSignal.timeout` polyfill. PERI-style cross-view volume delta **NOT CONFIRMED** as data error. **ISS-034 OPEN.** **ISS-025 OPEN** (visual acceptance). **ISS-036** pending merge/deploy.
 
 **Next:** Owner review + merge PR **#209**; **Fly `scanner-stream-worker` deploy** for acceleration fixes. Complete Batch **191** RTH/AH acceptance. No manual scanner sync, migrations, or cron edits from Cursor unless explicitly approved.
 

@@ -123,6 +123,35 @@ Deno.test("computeMomentumMetrics — velocity from 5m window", () => {
   assertEquals(m.rvol_5m, null);
 });
 
+Deno.test("volumeAccelerationPct — intermittent prior with full span still accelerates", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 500);
+  for (let m = 0; m < 5; m += 1) {
+    const t = eventNow - 600_000 + m * 60_000 + 5_000;
+    bars.set(t, bar(t, 200));
+  }
+  const pct = volumeAccelerationPct(bars, eventNow);
+  assertEquals(pct !== null && pct > 0, true);
+});
+
+Deno.test("computeMomentumMetrics — intermittent trades use wall-clock velocity", () => {
+  const eventNow = 300_000;
+  const bars = new Map<number, SecondBar>();
+  for (let m = 0; m < 5; m += 1) {
+    const t = eventNow - 300_000 + m * 60_000 + 5_000;
+    bars.set(t, bar(t, 1_000));
+  }
+  const m = computeMomentumMetrics({
+    bars,
+    eventNowMs: eventNow,
+    sessionKind: "pre-market",
+    schedule: null,
+    todBaseline: null,
+  });
+  assertEquals(m.volume_velocity, 1_000);
+});
+
 Deno.test("computeMomentumMetrics — missing bars", () => {
   const m = computeMomentumMetrics({
     bars: new Map(),

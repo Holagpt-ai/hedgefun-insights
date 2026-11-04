@@ -68,7 +68,7 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(w.dollarVolume / w.coveredMinutes).toBeCloseTo(30_000, 0);
   });
 
-  it("15c. four isolated one-second ticks in four minutes are not reliable coverage", () => {
+  it("15c. fragmented prior observation span does not produce acceleration", () => {
     const bars: MinuteBarSlice[] = [];
     for (let t = T0 - 300_000; t < T0; t += 1_000) {
       bars.push({ startMs: t, volume: 10_000, dollarVolume: 100_000 });
@@ -83,7 +83,7 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(volumeAccelerationPctFromMinuteWindows(bars, T0)).toBeNull();
   });
 
-  it("15b. acceleration null when either 5m window lacks 4+ minutes coverage", () => {
+  it("15b. acceleration null when prior window lacks 4+ minute observation span", () => {
     const bars: MinuteBarSlice[] = [];
     for (let t = T0 - 300_000; t < T0; t += 1_000) {
       bars.push({ startMs: t, volume: 500, dollarVolume: 5_000 });
@@ -105,11 +105,42 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(volumeAccelerationPctFromMinuteWindows([], T0)).toBeNull();
   });
 
-  it("19. partial window uses covered minutes", () => {
+  it("19. velocity uses wall-clock window minutes (no-trade seconds in denominator)", () => {
     const bars = barsEverySecond(120);
     const w = rollingMinuteVolume(bars, T0, 5);
-    expect(w!.coveredMinutes).toBeLessThan(5);
-    expect(shareVelocity(w!.volume, w!.coveredMinutes)).not.toBeNull();
+    expect(w!.coveredMinutes).toBe(5);
+    expect(shareVelocity(w!.volume, w!.coveredMinutes)).toBe(2_400);
+  });
+
+  it("15d. intermittent premarket trading keeps velocity with wall-clock denominator", () => {
+    const bars: MinuteBarSlice[] = [];
+    for (let m = 0; m < 5; m += 1) {
+      bars.push({
+        startMs: T0 - 300_000 + m * 60_000 + 5_000,
+        volume: 1_000,
+        dollarVolume: 10_000,
+      });
+    }
+    const w = rollingMinuteVolume(bars, T0, 5)!;
+    expect(w.volume).toBe(5_000);
+    expect(w.coveredMinutes).toBe(5);
+    expect(shareVelocity(w.volume, w.coveredMinutes)).toBe(1_000);
+  });
+
+  it("15e. intermittent but span-complete prior still allows acceleration", () => {
+    const bars: MinuteBarSlice[] = [];
+    for (let t = T0 - 300_000; t < T0; t += 1_000) {
+      bars.push({ startMs: t, volume: 500, dollarVolume: 5_000 });
+    }
+    for (let m = 0; m < 5; m += 1) {
+      bars.push({
+        startMs: T0 - 600_000 + m * 60_000 + 5_000,
+        volume: 200,
+        dollarVolume: 2_000,
+      });
+    }
+    const pct = volumeAccelerationPctFromMinuteWindows(bars, T0);
+    expect(pct !== null && pct > 0).toBe(true);
   });
 
   it("20. stale bars mark participation stale", () => {

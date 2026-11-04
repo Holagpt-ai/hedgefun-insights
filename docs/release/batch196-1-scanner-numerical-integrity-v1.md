@@ -12,8 +12,8 @@
 
 ## Changes
 
-- **Coverage-gated acceleration:** Both windows need ≥4 **reliable** minutes before computing acceleration % (`VOLUME_ACCEL_MIN_COVERED_MINUTES`).
-- **Reliable-minute coverage:** A minute counts only with ≥30 second-level observations (`VOLUME_WINDOW_MIN_BARS_PER_MINUTE`); isolated ticks cannot fabricate four minutes of history.
+- **Coverage-gated acceleration:** Both 5m windows need ≥4 minutes of **bar observation span** plus feed present within 60s of window open (`VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES`, `VOLUME_ACCEL_MAX_LEADING_SILENCE_MS`). Low trade frequency (Polygon no-trade seconds) is **not** treated as missing data.
+- **Wall-clock velocity:** Shares/min and dollar/min divide window totals by full elapsed window minutes (includes legitimate no-trade seconds); numerator and denominator use the same `[from, eventNow)` range.
 - **Fly Docker image:** `session-volume.ts` (+ `session-sync-context.ts`, `screener-session.ts`) copied into worker image for `selection.ts` dependency closure.
 - **Worker velocity:** `volume_velocity` uses verified minute coverage (≥1 minute), not fixed `/5` on partial windows.
 - **UI copy:** TODAY VOL header distinguishes cumulative session volume from 5m / shares-min metrics.
@@ -23,8 +23,9 @@
 | Scenario | Before | After |
 | --- | --- | --- |
 | Full 5m @ 500 sh/s vs full prior @ 50 sh/s | +900% | +900% (unchanged) |
-| Full current 5m, prior window only 2 minutes with ~1 sh/s | Could show +100,000%+ | `null` → participation **UNAVAILABLE** |
-| CJMB-class sparse prior (reported ~297,666%) | Shown as SURGING/EXTREME | `null` when coverage gate fails |
+| Full current 5m, prior window only ~90s of contiguous bars | Could show +100,000%+ | `null` → participation **UNAVAILABLE** |
+| CJMB-class sparse prior (reported ~297,666%) | Shown as SURGING/EXTREME | `null` when observation-span gate fails |
+| Premarket: one trade/minute for 5 minutes | Could be suppressed by bars/min rule | Velocity = total/5; acceleration allowed when span complete |
 
 ## Verification
 

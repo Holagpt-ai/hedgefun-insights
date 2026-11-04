@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 196.1** Scanner numerical integrity & volume provenance (PR **#209**, head pending push): coverage-gated 5m acceleration with **reliable-minute** coverage (`VOLUME_WINDOW_MIN_BARS_PER_MINUTE`); Fly worker Docker image `session-volume.ts` closure; Vitest `AbortSignal.timeout` polyfill for participation cache dedupe test. Runbook `docs/release/batch196-1-scanner-numerical-integrity-v1.md`. **Fly worker deploy required;** Vercel optional (copy only). **Not merged; no Fly deploy.**
+- **Batch 196.1** Scanner numerical integrity & volume provenance (PR **#209**): wall-clock velocity denominators; acceleration gated on observation span + feed leading silence (not per-minute bar counts); Fly worker Docker `session-volume.ts` closure; Vitest `AbortSignal.timeout` polyfill. Runbook `docs/release/batch196-1-scanner-numerical-integrity-v1.md`. **Fly worker deploy required;** Vercel optional (copy only). **Not merged; no Fly deploy.**
 
 - **Batch 192** AM Inbox metadata + AI Brief evidence cutoff (PR **#208** → **`f1f0121b`** merged): strip internal `__RVOL_*` labels from continuation UI; bound AM headline/direct-catalyst evidence to `source_checked_at` (missing or invalid `published_at` fail closed for direct catalysts; before-open earnings unchanged); tighten initial late-session loading gate. Cached AM brief rows are served unchanged until material regeneration — no production data reset. Runbook `docs/release/batch192-am-inbox-ai-brief-integrity-v1.md`. **Vercel production and Lovable Cloud `generate-daily-brief` Edge deploy reported complete** for Batch 192 scope. **ISS-025** visual acceptance still **NOT VERIFIED**.
 
