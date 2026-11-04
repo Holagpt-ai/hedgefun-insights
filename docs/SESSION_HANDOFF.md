@@ -2,7 +2,7 @@
 
 **Code:** GitHub `main` **`0db6063f6d7636d56ba78715216196a068fcb062`** (Batch **196.2** PR **#211** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In review:** Batch **195** issuer-trust acceptance — PR **#212** (`cursor/batch195-issuer-trust-acceptance`, head **`e60f41da`**). Batch **181** regression suite **PASS**; one Radar recent-news gate fix (SpaceX-primary on TSLA). Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**. **ISS-028** remains open. **Not merged; not deployed.**
+**In review:** Batch **195** issuer-trust acceptance — PR **#212** (`cursor/batch195-issuer-trust-acceptance`, head **`6060f0b3`**). Batch **181** regression suite **PASS**; one Radar recent-news gate fix (SpaceX-primary on TSLA). Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**. **ISS-028** remains open. **Not merged; not deployed.**
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
