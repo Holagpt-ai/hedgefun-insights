@@ -24,7 +24,8 @@ const HARDENING_MIGRATION = new URL(
 const LOVABLE_SIMULATED_RPCS = ALL_STAGING_SYNC_RPCS.filter(
   (s) =>
     !s.startsWith("advance_screener_sync_chunk_v1") &&
-    !s.startsWith("release_screener_sync_finalize_lease_cas_v1"),
+    !s.startsWith("release_screener_sync_finalize_lease_cas_v1") &&
+    !s.startsWith("reconcile_screener_sync_staged_publish_v1"),
 );
 
 Deno.test("postgres gate 190.5: all six staging RPCs are service_role-only after bootstrap", async () => {

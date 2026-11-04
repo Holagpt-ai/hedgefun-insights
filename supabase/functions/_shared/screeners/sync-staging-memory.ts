@@ -7,7 +7,11 @@ import {
   leaseActive,
   publishStagedGenerationInMemory,
   recordPublishRpcInMemory,
+  reconcilePublishInMemory,
+  type InMemoryFeedReconcileSnapshot,
 } from "./sync-staging-cas.ts";
+import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
+import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
@@ -110,6 +114,14 @@ export interface SyncStagingStore {
   releaseFinalizeLeasesForRetry(
     input: ReleaseFinalizeLeaseCas,
   ): Promise<boolean>;
+  findPostPublishReconcileCandidate(
+    nowMs: number,
+  ): Promise<StagedGenerationJob | null>;
+  reconcileStagedPublish(params: {
+    jobId: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<ReconcileStagedPublishResult>;
 }
 
 function cloneJob(job: StagedGenerationJob): StagedGenerationJob {
@@ -118,10 +130,16 @@ function cloneJob(job: StagedGenerationJob): StagedGenerationJob {
 
 export class MemorySyncStagingStore implements SyncStagingStore {
   private jobs = new Map<string, StagedGenerationJob>();
+  private feedReconcileSnapshot: InMemoryFeedReconcileSnapshot | null = null;
 
   /** Test helper: insert a fully-formed job without acquire semantics. */
   seedJob(job: StagedGenerationJob): void {
     this.jobs.set(job.id, cloneJob(job));
+  }
+
+  /** Test helper: feed + persisted row evidence for post-publish reconciliation. */
+  seedFeedReconcileSnapshot(snapshot: InMemoryFeedReconcileSnapshot): void {
+    this.feedReconcileSnapshot = structuredClone(snapshot);
   }
 
   private hasActiveGeneration(): boolean {
@@ -155,6 +173,41 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       if (!best || job.createdAtMs > best.createdAtMs) best = job;
     }
     return best ? cloneJob(best) : null;
+  }
+
+  async findPostPublishReconcileCandidate(
+    nowMs: number,
+  ): Promise<StagedGenerationJob | null> {
+    let best: StagedGenerationJob | null = null;
+    for (const job of this.jobs.values()) {
+      if (!jobEligibleForPostPublishReconcile(job, nowMs)) continue;
+      if (!best || job.createdAtMs > best.createdAtMs) best = job;
+    }
+    return best ? cloneJob(best) : null;
+  }
+
+  async reconcileStagedPublish(params: {
+    jobId: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<ReconcileStagedPublishResult> {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return { ok: false, reason: "generation_not_found" };
+    if (!this.feedReconcileSnapshot) {
+      return { ok: false, reason: "feed_state_missing" };
+    }
+    const reconciled = reconcilePublishInMemory(job, {
+      expectedStateVersion: params.expectedStateVersion,
+      nowMs: params.nowMs,
+      feed: this.feedReconcileSnapshot,
+    });
+    if (!reconciled.ok) return reconciled;
+    this.jobs.set(job.id, job);
+    return {
+      ok: true,
+      jobId: job.id,
+      idempotent: reconciled.idempotent,
+    };
   }
 
   async releaseFinalizeLeasesForRetry(

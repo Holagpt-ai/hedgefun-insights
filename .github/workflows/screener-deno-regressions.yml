@@ -8,6 +8,7 @@ on:
       - "supabase/functions/sync-screener-data/**"
       - "supabase/tests/screener-sync-pg/**"
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
+      - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "supabase/functions/sync-screener-data/**"
       - "supabase/tests/screener-sync-pg/**"
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
+      - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
 
@@ -101,4 +103,6 @@ jobs:
           supabase/functions/_shared/screeners/batch190-10-publish-integrity_test.ts
           supabase/functions/_shared/screeners/sync-publish-rpc-error_test.ts
           supabase/functions/_shared/screeners/sync-staging-supabase-publish-error_test.ts
+          supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile_test.ts
+          supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile-postgres_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts

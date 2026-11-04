@@ -21,6 +21,7 @@ import {
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
 import { prepareStagedFinalizeRetry } from "../_shared/screeners/sync-finalize-recovery.ts";
+import { reconcileStrandedPublishedGeneration } from "../_shared/screeners/sync-staging-post-publish-reconcile.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
   isExtendedSyncSession,
@@ -1023,6 +1024,15 @@ async function handleStagedSyncScreenerData(
 
   const functionUrl = `${supabaseUrl}/functions/v1/sync-screener-data`;
   const nowMs = (deps.nowMs ?? (() => Date.now()))();
+  if (parsedBody.action === "cron") {
+    await store.abortExpired(nowMs);
+    const unlocked = await reconcileStrandedPublishedGeneration(store, nowMs);
+    if (unlocked.ok) {
+      console.log(
+        `[sync-screener-data] reconciled_stranded_publish job_id=${unlocked.jobId}`,
+      );
+    }
+  }
   const stagedDeps = {
     ...deps,
     stagingStore: store,

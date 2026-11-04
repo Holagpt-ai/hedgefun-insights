@@ -19,6 +19,8 @@ import {
   type StagingJobRow,
 } from "./sync-staging-serialize.ts";
 import { formatStagedPublishRpcTransportFailure } from "./sync-publish-rpc-error.ts";
+import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
+import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 
 export type StagingTableClient = {
   from: (table: string) => {
@@ -438,6 +440,62 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       ok: false,
       reason: formatStagedPublishRpcTransportFailure(rpc.error),
     };
+  }
+
+  async findPostPublishReconcileCandidate(
+    nowMs: number,
+  ): Promise<StagedGenerationJob | null> {
+    const res = await this.sb
+      .from(TABLE)
+      .select("*")
+      .eq("status", "finalizing")
+      .limit(16);
+    if (res.error || !res.data) return null;
+    let best: StagedGenerationJob | null = null;
+    for (const row of res.data as StagingJobRow[]) {
+      const job = jobFromRow(row);
+      if (!jobEligibleForPostPublishReconcile(job, nowMs)) continue;
+      if (!best || job.createdAtMs > best.createdAtMs) best = job;
+    }
+    return best;
+  }
+
+  async reconcileStagedPublish(params: {
+    jobId: string;
+    expectedStateVersion: number;
+    nowMs: number;
+  }): Promise<ReconcileStagedPublishResult> {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const rpc = await this.sb.rpc("reconcile_screener_sync_staged_publish_v1", {
+      p_job_id: params.jobId,
+      p_expected_state_version: params.expectedStateVersion,
+      p_now: nowIso,
+    });
+    if (!rpc.error) {
+      const parsed = rpc.data as {
+        ok?: boolean;
+        reason?: string;
+        job_id?: string;
+        idempotent?: boolean;
+      };
+      if (parsed?.ok && typeof parsed.job_id === "string") {
+        return {
+          ok: true,
+          jobId: parsed.job_id,
+          idempotent: parsed.idempotent === true,
+        };
+      }
+      return {
+        ok: false,
+        reason: typeof parsed?.reason === "string"
+          ? parsed.reason
+          : "reconcile_rejected",
+      };
+    }
+    if (isMissingRpc(rpc.error)) {
+      return { ok: false, reason: "staging_rpc_missing" };
+    }
+    return { ok: false, reason: "reconcile_rpc_failed" };
   }
 
   async completePublish(params: {

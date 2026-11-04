@@ -8,6 +8,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- **Batch 190.12** Stale finalizing recovery (PR pending, base **`5d6399de`**): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`; Edge cron/finalize post-publish reconciliation for stranded `finalizing` jobs (Nov 4 production deadlock: job `2fe9fca8…`, gen `09346799…`, 65 rows published, completion blocked by expired finalize lease + 25m TTL). Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Not merged; migration not applied; Edge not deployed.**
+
 - **Batch 195** Catalyst / Watchlist / Radar issuer-trust acceptance (PR pending, base **`0db6063f`**): Batch **181** regression **PASS**; tightens Radar recent-news headline gate (SpaceX-primary commentary on TSLA); runbook `docs/release/batch195-issuer-trust-acceptance-v1.md`. **ISS-028** not closed — authenticated prod surfaces **NOT VERIFIED**. **Not merged; not deployed.**
 
 - **Batch 196.2** Day Trade / scanner presentation parity (PR **#211** → **`0db6063f`** merged): status rail reports distinct momentum-qualified vs full Five Pillars (freshness-inclusive) counts; Unusual Volume row evidence names prior-session ≥4× vs time-adjusted RVOL ≥2× without mislabeling; focused Vitest regressions; **ISS-037** (screener free-float **NOT VERIFIED**).
