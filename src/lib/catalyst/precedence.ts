@@ -6,6 +6,14 @@
 import { EARNINGS_CALENDAR_PROVIDER } from "@/lib/pre-market/builders";
 import { catalystAuthorityMultiplierFromAttribution } from "@/lib/catalyst/relevance";
 import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
+import {
+  looksLikeMarketAttention,
+  MARKET_ATTENTION_TITLE,
+  EVENT_TYPE_SECONDARY,
+  EXPLICIT_ANALYST_HEADLINE,
+} from "@/lib/catalyst/market-attention";
+
+export { looksLikeMarketAttention, MARKET_ATTENTION_TITLE };
 
 export type CatalystPrecedenceTier = "primary" | "secondary";
 
@@ -151,33 +159,6 @@ const PRIMARY_EVIDENCE: EvidenceRule[] = [
   },
 ];
 
-export const MARKET_ATTENTION_TITLE: RegExp[] = [
-  /\bbull\s+of\s+the\s+day\b/i,
-  /\bbear\s+of\s+the\s+day\b/i,
-  /\bfeatured\s+highlights\b/i,
-  /\b(?:top|best)\s+stocks?\s+to\s+(?:buy|watch|own)\b/i,
-  /\bstock\s+picks?\b/i,
-  /\btop\s+picks?\b/i,
-  /\bwhich\s+(?:stock|is)\b/i,
-  /\bvs\.?\b/i,
-  /\broundup\b/i,
-  /\blisticle\b/i,
-  /\bstocks?\s+to\s+(?:watch|buy|avoid)\b/i,
-  /\banalyst\s+commentary\b/i,
-  /\b(?:buy|sell|hold)\s+recommendation\b/i,
-  /\b(?:is|are)\s+.{0,80}\bstill\s+a\s+buy\b/i,
-  /\bstill\s+a\s+buy\s*\??\s*$/i,
-  /\bworth\s+(?:buying|a\s+buy)\b/i,
-  /\bshould\s+you\s+(?:buy|sell|hold)\b/i,
-  /\bbuy[, ]\s*hold[, ]\s*(?:or\s+)?sell\b/i,
-  /\b(?:better|worse)\s+(?:stock|pick|buy)\b/i,
-  /\b(?:momentum|value|growth)\s+stock\s+pick\b/i,
-  /\b(?:wall\s+street|analyst)\s+(?:says|sees|expects)\b/i,
-  /\bwhy\s+.{0,60}\b(?:jumped|rose|rallied|fell|sold\s+off|moving|volatile)\b/i,
-  /\bearnings\s+beat\s+hopes\b/i,
-  /\bstock\s+is\s+moving\b/i,
-];
-
 const VAGUE_NON_EVENT: RegExp[] = [
   /\bshares?\s+(?:jump|rise|soar|surge|fall|drop|slide|tumble|rally)\b/i,
   /\bstock\s+jumped\b/i,
@@ -193,19 +174,8 @@ const EVENT_TYPE_PRIMARY: Partial<Record<string, PrimaryCatalystClass>> = {
   investor_day: "investor_day",
 };
 
-const EVENT_TYPE_SECONDARY = new Set(["analyst_action", "legal", "market_attention"]);
-
-const EXPLICIT_ANALYST_HEADLINE =
-  /\b(?:upgrade[sd]?|downgrade[sd]?|initiat(?:es|ed)|raise[sd]?|lower[sd]?|cut[s]?)\b.{0,40}\b(?:price\s+target|pt|rating|to\s+(?:buy|sell|hold|overweight|underweight|neutral))\b/i;
-
 function catalystText(row: CatalystPrecedenceInput): string {
   return `${row.title} ${row.description ?? ""}`.trim();
-}
-
-export function looksLikeMarketAttention(title: string, eventType?: string): boolean {
-  if (eventType === "analyst_action" && EXPLICIT_ANALYST_HEADLINE.test(title)) return false;
-  if (eventType && EVENT_TYPE_SECONDARY.has(eventType)) return true;
-  return MARKET_ATTENTION_TITLE.some((p) => p.test(title));
 }
 
 export function hasVagueNonEventEvidence(text: string): boolean {

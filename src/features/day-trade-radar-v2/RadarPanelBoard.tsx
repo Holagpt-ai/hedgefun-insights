@@ -16,6 +16,7 @@ import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { HistoryCell } from "./HistoricalBehavior";
 import { VolumeTrendMark } from "./VolumeTrendMark";
@@ -615,6 +616,7 @@ function renderCell(args: {
     if (!args.accessible) return "—";
     const display = resolveRadarNewsCellStateWithPlatform({
       symbol: row.symbol,
+      companyName: radarRowCompanyName(row),
       platform: args.catalystPlatform,
       catalyst: args.catalystEntry,
       recent: args.recent,

@@ -35,6 +35,7 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { formatScreenerDollarVolume } from "@/lib/screeners/screener-metric-display";
 import {
@@ -85,6 +86,7 @@ export function RadarMobileCard({
   const turnover = computeFloatTurnover(row.volume, floatShares);
   const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
+    companyName: radarRowCompanyName(row),
     platform: platformBySymbol.get(symKey),
     catalyst: entry,
     recent: newsState.getHeadline(sym),

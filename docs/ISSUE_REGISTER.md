@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`b90a306b`** (2026-11-04). Batch **196.1** Fly v46 continuity (PR **#210**); Batch **196.1** scanner integrity (PR **#209** → **`797cc615`**); Fly worker **v46** deployed. Batch **196.2** presentation parity in review (PR **#211**). Batch **192** merged (PR **#208**); Batch **191** continuity (PR **#207**). Batches 190.9-190.11 are merged. November 1 deployment/integration source for `sync-screener-data` is reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance is reported PASS (04:00-04:30 ET, seven consecutive successful publications, latest row counts 60/62/63, no new recorded `http_409` failures). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`0db6063f`** (2026-11-04). Batch **196.2** merged (PR **#211**); Batch **196.1** Fly v46 / scanner integrity (**#209**/**#210**); Fly worker **v46** deployed. Batch **195** issuer-trust acceptance in review. Batch **192** merged (PR **#208**); Batch **191** continuity (PR **#207**). Batches 190.9-190.11 are merged. November 1 deployment/integration source for `sync-screener-data` is reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance is reported PASS (04:00-04:30 ET, seven consecutive successful publications, latest row counts 60/62/63, no new recorded `http_409` failures). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -18,7 +18,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-032 | P2 | Journal terminal-error loading | Fixed on `main` (Batch **188**) → **Batch 193** acceptance. |
 | ISS-026 | P1 | Earnings ranking / Edge | Batch **187** merged; Edge activation **UNVERIFIED** → **Batch 194**. |
 | ISS-027 | P1 | Risk / AI Brief mobile layout | Fixed on `main` (Batch **188**) → **Batch 193**. |
-| ISS-028 | P1 | TSLA/SpaceX direct catalyst in UI | Batch **181** in git; prod **NOT RE-VERIFIED** → **Batch 195**. |
+| ISS-028 | P1 | TSLA/SpaceX direct catalyst in UI | Batch **195**: Batch **181** paths **PASS** in source/tests; Radar recent-news SpaceX-primary slip **fixed** (pending PR). Authenticated Catalyst/Watchlist/Action Center/Radar prod **NOT VERIFIED** — **cannot close**. |
 | ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
 | ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
 | ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |

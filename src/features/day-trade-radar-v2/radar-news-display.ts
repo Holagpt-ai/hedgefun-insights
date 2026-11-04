@@ -55,7 +55,10 @@ export function resolveRadarNewsDisplay(
   catalyst: CatalystEnrichmentEntry | undefined,
   recent: RecentProviderHeadline | undefined,
   nowMs: number = Date.now(),
+  companyName?: string | null,
 ): RadarNewsDisplay {
+  const verifiedCompanyName =
+    typeof companyName === "string" && companyName.trim() ? companyName.trim() : null;
   if (catalyst?.event) {
     const category = catalystDisplayLabelFromEvent({
       event_type: catalyst.event.event_type,
@@ -82,7 +85,7 @@ export function resolveRadarNewsDisplay(
       !headlineQualifiesForTickerScopedNews({
         title: recent.title,
         symbol,
-        companyName: null,
+        companyName: verifiedCompanyName,
         providerTickers: [symbol],
         providerAssociatesSymbol: true,
       })
@@ -105,6 +108,7 @@ export function resolveRadarNewsDisplay(
 
 export function resolveRadarNewsCellState(opts: {
   symbol: string;
+  companyName?: string | null;
   catalyst: CatalystEnrichmentEntry | undefined;
   recent: RecentProviderHeadline | undefined;
   newsStatus: RadarNewsSymbolStatus;
@@ -112,7 +116,13 @@ export function resolveRadarNewsCellState(opts: {
   catalystUnavailable?: boolean;
   nowMs?: number;
 }): RadarNewsDisplay {
-  const display = resolveRadarNewsDisplay(opts.symbol, opts.catalyst, opts.recent, opts.nowMs);
+  const display = resolveRadarNewsDisplay(
+    opts.symbol,
+    opts.catalyst,
+    opts.recent,
+    opts.nowMs,
+    opts.companyName,
+  );
   if (display.level === "catalyst" || display.level === "recent") return display;
   if (opts.catalystPending || opts.newsStatus === "pending") return { level: "pending" };
   if (opts.catalystUnavailable || opts.newsStatus === "unavailable") return { level: "unavailable" };

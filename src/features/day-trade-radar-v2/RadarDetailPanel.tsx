@@ -40,6 +40,7 @@ import type { RadarChartBar, RadarChartStatus, RadarRankedRow } from "./types";
 import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { HistoricalBehaviorSection } from "./HistoricalBehavior";
 import { HistoricalIntelligenceSection } from "./HistoricalIntelligenceSection";
@@ -138,6 +139,7 @@ export function RadarDetailPanel({
   const entry = catalystMap?.get(symKey);
   const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
+    companyName: radarRowCompanyName(row),
     platform: platformBySymbol.get(symKey),
     catalyst: entry,
     recent: newsState.getHeadline(sym),

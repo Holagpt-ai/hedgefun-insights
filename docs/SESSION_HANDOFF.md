@@ -1,8 +1,8 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`b90a306b22712f7b2a0148cdfc43531611ad7b42`** (Batch **196.1** Fly v46 continuity, PR **#210** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+**Code:** GitHub `main` **`0db6063f6d7636d56ba78715216196a068fcb062`** (Batch **196.2** PR **#211** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In review:** Batch **196.2** presentation parity — PR **#211** (`cursor/batch196-2-presentation-parity`, head **`ce7bad31`**). Fixes Day Trade status-line Five Pillars count (momentum vs freshness), Unusual Volume tab evidence labels, regression tests. **ISS-037** logged (screener free-float reliability — reported, not verified; no float fix in this PR). **Not merged; not deployed.**
+**In review:** Batch **195** issuer-trust acceptance — PR **#212** (`cursor/batch195-issuer-trust-acceptance`, head **`e75bb3df`**). Batch **181** regression suite **PASS**; one Radar recent-news gate fix (SpaceX-primary on TSLA). Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**. **ISS-028** remains open. **Not merged; not deployed.**
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
