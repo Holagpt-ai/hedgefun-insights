@@ -8,7 +8,9 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190.12** Stale finalizing recovery (PR pending, base **`5d6399de`**): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`; Edge cron/finalize post-publish reconciliation for stranded `finalizing` jobs (Nov 4 production deadlock: job `2fe9fca8…`, gen `09346799…`, 65 rows published, completion blocked by expired finalize lease + 25m TTL). Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Not merged; migration not applied; Edge not deployed.**
+- **Batch 190.13** Cron `{}` body normalization (PR pending, base **`fce9b95b`**): production pg_cron sends `{}`; normalize to `{ action: "cron" }` so Batch **190.12** reconciliation preflight runs. Edge-only deploy (`sync-screener-data`). Runbook `docs/release/batch190-13-cron-body-normalize-v1.md`. **Not merged; not deployed.**
+
+- **Batch 190.12** Stale finalizing recovery (PR **#213** → **`fce9b95b`** merged): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`; Edge cron/finalize post-publish reconciliation. Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Lovable migration apply + Edge deploy owner pending.**
 
 - **Batch 195** Catalyst / Watchlist / Radar issuer-trust acceptance (PR pending, base **`0db6063f`**): Batch **181** regression **PASS**; tightens Radar recent-news headline gate (SpaceX-primary commentary on TSLA); runbook `docs/release/batch195-issuer-trust-acceptance-v1.md`. **ISS-028** not closed — authenticated prod surfaces **NOT VERIFIED**. **Not merged; not deployed.**
 

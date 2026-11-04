@@ -105,4 +105,5 @@ jobs:
           supabase/functions/_shared/screeners/sync-staging-supabase-publish-error_test.ts
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile_test.ts
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile-postgres_test.ts
+          supabase/functions/sync-screener-data/batch190-13-cron-body-normalize_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
