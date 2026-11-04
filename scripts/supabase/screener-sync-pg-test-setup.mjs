@@ -74,4 +74,8 @@ runSql("20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql", join(
   migrationsDir,
   "20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql",
 ));
+runSql("20261104230000_screener_sync_slim_control_json_v1.sql", join(
+  migrationsDir,
+  "20261104230000_screener_sync_slim_control_json_v1.sql",
+));
 console.log("\nBootstrap complete.");

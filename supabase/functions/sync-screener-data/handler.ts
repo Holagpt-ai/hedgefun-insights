@@ -257,6 +257,38 @@ function chunkContextFromJob(job: StagedGenerationJob): StagedChunkContext {
   };
 }
 
+async function loadNhlBaselineIdentity(sb: DbClient): Promise<{
+  baselineGenerationId: string;
+  status: NhlBaselineStatus;
+} | null> {
+  try {
+    const stateRes = await sb
+      .from("screener_52w_baseline_state")
+      .select("current_generation_id,status")
+      .eq("state_key", "current")
+      .limit(1);
+    if (stateRes.error || !stateRes.data || stateRes.data.length === 0) return null;
+    const row = stateRes.data[0];
+    const status = row.status;
+    if (
+      status !== "available" &&
+      status !== "initializing" &&
+      status !== "unavailable" &&
+      status !== "empty"
+    ) {
+      return null;
+    }
+    return {
+      baselineGenerationId: typeof row.current_generation_id === "string"
+        ? row.current_generation_id
+        : "",
+      status: status === "empty" ? "initializing" : status,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function validateJobBaselineDrift(
   job: StagedGenerationJob,
   sb: DbClient,
@@ -264,11 +296,12 @@ async function validateJobBaselineDrift(
 ): Promise<Response | null> {
   const snap = job.nhlBaselineSnapshot;
   if (!snap || !snap.baselineGenerationId) return null;
-  const live = await loadNhlBaseline(sb);
-  const check = assertFrozenBaselineStillValid(snap, {
-    baselineGenerationId: live.baselineGenerationId,
-    status: live.status,
-  });
+  const live = await loadNhlBaselineIdentity(sb);
+  if (!live) {
+    await store.failJob(job.id, "nhl_baseline_identity_unavailable", Date.now());
+    return json({ error: "nhl_baseline_identity_unavailable", generation_id: job.id }, 503);
+  }
+  const check = assertFrozenBaselineStillValid(snap, live);
   if (check.ok) return null;
   await store.failJob(job.id, check.reason, Date.now());
   return json({ error: check.reason, generation_id: job.id }, 409);

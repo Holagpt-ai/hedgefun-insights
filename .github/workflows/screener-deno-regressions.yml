@@ -9,6 +9,7 @@ on:
       - "supabase/tests/screener-sync-pg/**"
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
+      - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
   push:
@@ -20,6 +21,7 @@ on:
       - "supabase/tests/screener-sync-pg/**"
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
+      - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
 
@@ -106,6 +108,7 @@ jobs:
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile_test.ts
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile-postgres_test.ts
           supabase/functions/_shared/screeners/batch190-14-finalize-cpu_test.ts
+          supabase/functions/_shared/screeners/batch190-15-slim-payload_test.ts
           supabase/functions/sync-screener-data/batch190-13-cron-body-normalize_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts

@@ -257,6 +257,9 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
     const pubParsed = JSON.parse(String(pub.rows[0]?.payload ?? "{}"));
     assertEquals(pubParsed.ok, true);
     assertEquals(pubParsed.rows_inserted, 2);
+    assertEquals(typeof pubParsed.control?.state_version, "number");
+    assertEquals(pubParsed.job, undefined);
+    assertEquals(Object.hasOwn(pubParsed.control, "all_tickers"), false);
     const jobAfter = await client.queryObject<{ publish_rows_inserted: number | null; state_version: number }>(
       `SELECT publish_rows_inserted, state_version FROM public.screener_sync_generation_jobs WHERE id = $1`,
       [jobId],
