@@ -2,7 +2,7 @@
 
 **Code:** GitHub `main` **`3bd3ee68`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** **Batch 190.14** CPU-safe staged finalize (ISS-034) — PR **#216** release-safety revision pushed (await head SHA after commit); Edge **`sync-screener-data`** only after merge. **ISS-037** PR **#215** separate track. Batch **190.12** migration + **190.13** cron: Lovable owner pending.
+**In flight:** **Batch 190.14** CPU-safe staged finalize (ISS-034) — PR **#216** head **`3d1dcea2`** (release-safety revision); Edge **`sync-screener-data`** only after merge. **ISS-037** PR **#215** separate track. Batch **190.12** migration + **190.13** cron: Lovable owner pending.
 
 **Nov 4 production (preserved):** `sync-screener-data` **v506** finalize **HTTP 546** at **20:55:47 UTC** after 7/7 chunks; CPU Time exceeded; no new generation.
 
