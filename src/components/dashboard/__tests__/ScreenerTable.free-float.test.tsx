@@ -28,6 +28,8 @@ vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
     bySymbol: new Map(),
     isPending: false,
     getFloat: (symbol: string) => (symbol === "AAA" ? 3_700_000 : null),
+    getMeasurementAsOf: (symbol: string) => (symbol === "AAA" ? "2026-09-23" : null),
+    getFloatRecord: () => null,
   }),
 }));
 
@@ -77,7 +79,7 @@ describe("ScreenerTable Free Float presentation", () => {
 
     expect(screen.getAllByText("Free Float").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Short Float").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("3.7M").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/3\.7M \(as of Sep 23, 2026\)/).length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Short float unavailable").length).toBeGreaterThan(0);
   });
 });

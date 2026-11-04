@@ -21,6 +21,7 @@ import {
   formatScreenerVolumeVelocity,
 } from "@/lib/screeners/screener-metric-display";
 import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-display";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 import {
   formatFreshness,
   formatHodDistance,
@@ -489,9 +490,10 @@ export function RadarGrid({
                           <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
                             Free Float
                           </ScannerFieldHelp>{" "}
-                          {floatState.isPending && floatShares === null
-                            ? "…"
-                            : formatRadarContextVolume(floatShares)}
+                          {formatScreenerVerifiedFreeFloat(floatShares, {
+                            pending: floatState.isPending && floatShares === null,
+                            measurementAsOf: floatState.getMeasurementAsOf(sym),
+                          })}
                         </div>
                         <div className="text-[10px] font-normal leading-tight text-muted-foreground">
                           <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">

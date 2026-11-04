@@ -7,6 +7,14 @@ describe("Massive float mapping", () => {
     expect(FLOAT_STALE_TIME_MS).toBeLessThanOrEqual(24 * 60 * 60 * 1000);
   });
 
+  it("maps Massive free_float with effective_date", () => {
+    const mapped = mapFloatPayload("TEST", {
+      results: [{ ticker: "TEST", free_float: 3_700_000, effective_date: "2026-09-23" }],
+    });
+    expect(mapped.float).toBe(3_700_000);
+    expect(mapped.asOf).toBe("2026-09-23");
+  });
+
   it("maps a verified provider float and ignores outstanding shares", () => {
     const mapped = mapFloatPayload("AAPL", {
       status: "OK",
@@ -22,6 +30,14 @@ describe("Massive float mapping", () => {
     expect(mapped.asOf).toBe("2026-09-01");
     expect(mapped.source).toBe("massive_float");
     expect(mapped.status).toBe("ok");
+  });
+
+  it("keeps float without measurement date unverified for display", () => {
+    const mapped = mapFloatPayload("AAA", {
+      results: { ticker: "AAA", free_float: 1_000_000 },
+    });
+    expect(mapped.float).toBe(1_000_000);
+    expect(mapped.asOf).toBeNull();
   });
 
   it("keeps missing or non-positive float unavailable", () => {

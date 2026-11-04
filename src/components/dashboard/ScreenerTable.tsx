@@ -412,8 +412,14 @@ export function ScreenerTable({
             <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
               Free Float
             </ScannerFieldHelp>{" "}
-            <span className="tabular-nums text-foreground">
-              {formatScreenerVerifiedFreeFloat(freeFloat, { pending: freeFloatPending })}
+            <span
+              className="tabular-nums text-foreground"
+              title={floatState.getMeasurementAsOf(sym) ?? undefined}
+            >
+              {formatScreenerVerifiedFreeFloat(freeFloat, {
+                pending: freeFloatPending,
+                measurementAsOf: floatState.getMeasurementAsOf(sym),
+              })}
             </span>
             {" · "}
             <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
@@ -943,7 +949,10 @@ export function ScreenerTable({
                       Free Float
                     </ScannerFieldHelp>{" "}
                     <span className="font-medium">
-                      {formatScreenerVerifiedFreeFloat(freeFloat, { pending: freeFloatPending })}
+                      {formatScreenerVerifiedFreeFloat(freeFloat, {
+                        pending: freeFloatPending,
+                        measurementAsOf: floatState.getMeasurementAsOf(sym),
+                      })}
                     </span>
                   </div>
                   <div>

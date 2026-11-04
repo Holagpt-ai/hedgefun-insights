@@ -27,6 +27,8 @@ vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
     bySymbol: new Map(),
     isPending: false,
     getFloat: () => null,
+    getMeasurementAsOf: () => null,
+    getFloatRecord: () => null,
   }),
 }));
 
