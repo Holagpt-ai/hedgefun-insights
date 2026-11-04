@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-04 (Batch 190.14 — in review)
+## 2026-11-04 (Batch 190.14 — release-safety revision, in review)
 
-- **Batch 190.14 / CPU-safe staged finalize** (PR pending, base **`3bd3ee68`**): Nov **4** production **HTTP 546** on finalize after 7/7 chunks (`sync-screener-data` v506). Single-pass gainers/losers evidence, defer day-trade qualification capture via `EdgeRuntime.waitUntil`, finalize stage timing logs, shared ticker index for capture. Edge-only. Runbook `docs/release/batch190-14-cpu-safe-finalize-v1.md`. **Not merged; not deployed.**
+- **Batch 190.14 / CPU-safe staged finalize** (PR **#216**, base **`3bd3ee68`**): Nov **4** production **HTTP 546** on finalize before publish (`sync-screener-data` v506). Release-safety pass: G/L qualify fast-path + chunk `volumeActive` for extended evidence; `build_evidence` stage; finalize stage **enter/exit** logs; **await** day-trade qualification capture after `completePublish` (no defer); `batch190-14-finalize-benchmark.ts` before/after on 13,262 symbols; deterministic evidence parity tests. Edge-only. Runbook `docs/release/batch190-14-cpu-safe-finalize-v1.md`. **Not merged; not deployed.**
 
 Application history below is a map of `main`, not a claim that each merge was deployed. Deploy facts belong in `docs/DEPLOYMENT_STATUS.md`.
 

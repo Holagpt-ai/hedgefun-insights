@@ -399,6 +399,7 @@ export function buildTabEvaluationEvidenceFromChunkAccums(input: {
   gainersLosersUniverse: readonly PolygonTicker[];
   gainersLosersSelected: readonly PolygonTicker[];
   gainersLosersQualifiedCount?: number;
+  gainersLosersVolumeActiveCount?: number;
   unusualSelected: readonly PolygonTicker[];
   nhlSelected: readonly NhlClassification[];
   extendedSession?: boolean;
@@ -442,6 +443,7 @@ export function buildTabEvaluationEvidenceFromChunkAccums(input: {
       {
         ...evidenceOpts,
         precomputedQualifiedCount: input.gainersLosersQualifiedCount,
+        precomputedVolumeActive: input.gainersLosersVolumeActiveCount,
       },
     ),
     unusual_volume: evaluateGenericTabEvidence(

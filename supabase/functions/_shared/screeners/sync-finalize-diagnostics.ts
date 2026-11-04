@@ -7,6 +7,7 @@ export type FinalizeStage =
   | "load_volume_baselines"
   | "load_names"
   | "build_rows"
+  | "build_evidence"
   | "preserve_check"
   | "atomic_publish"
   | "complete_publish"
@@ -52,6 +53,40 @@ export function classifyFinalizeError(
     stage,
     code: sanitizeErrorToCode(error),
   };
+}
+
+export function logFinalizeStageEnter(input: {
+  generationId: string;
+  stage: FinalizeStage;
+  syncRunId?: string;
+}): void {
+  try {
+    console.log(
+      `[sync-screener-data] staged_finalize_stage_enter generation_id=${input.generationId}` +
+        (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
+        ` stage=${input.stage}`,
+    );
+  } catch {
+    /* best-effort instrumentation */
+  }
+}
+
+export function logFinalizeStageExit(input: {
+  generationId: string;
+  stage: FinalizeStage;
+  syncRunId?: string;
+  detail?: string;
+}): void {
+  try {
+    console.log(
+      `[sync-screener-data] staged_finalize_stage_exit generation_id=${input.generationId}` +
+        (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
+        ` stage=${input.stage}` +
+        (input.detail ? ` detail=${input.detail}` : ""),
+    );
+  } catch {
+    /* best-effort instrumentation */
+  }
 }
 
 export function logFinalizeStageTimings(input: {
