@@ -1,5 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { runBatch19014StagedFinalizeBenchmark } from "./batch190-14-finalize-benchmark.ts";
+import {
+  BATCH19014_SESSION_FIXTURES,
+  runBatch19014StagedFinalizeBenchmark,
+} from "./batch190-14-finalize-benchmark.ts";
+import { resolveSyncSessionKind } from "./session-sync-context.ts";
 import { buildTabEvaluationEvidenceFromChunkAccums } from "./evaluation-evidence-chunk.ts";
 import { evaluateGenericTabEvidence } from "./evaluation-evidence.ts";
 import {
@@ -14,6 +18,16 @@ import {
   gainersLosersUniverseQualifiedCount,
   selectGainersLosersFromUniverse,
 } from "./selection.ts";
+
+Deno.test("Batch 190.14: fixture clocks match resolveSyncSessionKind", () => {
+  for (const fixture of BATCH19014_SESSION_FIXTURES) {
+    assertEquals(
+      resolveSyncSessionKind(fixture.nowMs),
+      fixture.expectedSyncSessionKind,
+      `${fixture.session} ${fixture.labelEt} ET`,
+    );
+  }
+});
 
 Deno.test("Batch 190.14: gainers/losers evidence reuses single-pass qualified_count", () => {
   const nowMs = Date.parse("2026-10-28T16:45:00.000Z");

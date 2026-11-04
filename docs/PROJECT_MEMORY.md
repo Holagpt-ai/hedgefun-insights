@@ -14,7 +14,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 **ISS-034 P0** remains OPEN until Batch 191 regular-session and after-hours acceptance criteria are also verified. Do not claim full-session closure from premarket-only evidence.
 
-**Nov 4 2026 publication deadlock (confirmed):** Production stranded `finalizing` job after successful atomic publish (`09346799…`, 65 rows). **Batch 190.12** merged (`fce9b95b`); Lovable migration + Edge deploy owner pending. **Batch 190.13:** pg_cron sends `{}` — must normalize to `{ action: "cron" }` or reconcile preflight never runs. Never hand-edit the production job row.
+**Nov 4 2026 publication deadlock (confirmed):** Production stranded `finalizing` job after successful atomic publish (`09346799…`, 65 rows). **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
@@ -24,6 +24,18 @@ Deferred product/platform work is batched **203–209** in the master register (
 - Repository and several internal ids still say Hedgefun (`hedgefun-insights`, MCP server id `hedgefun-mcp`). Those ids are not the public brand.
 - Legacy hostname redirects are declared in `vercel.json`. Do not advertise that host as a canonical origin.
 - Lovable preview hosts are not production. `src/integrations/supabase/previewAuthStorage.ts` may list them for preview auth only.
+
+## Screener sync — Edge CPU is a hard constraint
+
+Lovable Cloud runs Supabase Edge Functions; **`sync-screener-data` billed CPU (~2s per invocation) is a hard budget**, not a tuning target. Staged sync (Batch 190) exists because a single monolithic pass at ~13k symbols exceeded that limit before atomic publish (**ISS-034**, HTTP **546**).
+
+**Order of operations:**
+
+1. **Optimize on Edge first** — remove duplicate full-universe scans, reuse chunk accumulators, split finalize stages with enter/exit logs, keep atomic publish + lease/idempotency on Edge (Batch **190.14** and follow-on Edge-only batches).
+2. **Prove in production** — stage logs and successful `published` generations; local wall-clock benchmarks are regression hints only, not proof of Edge CPU headroom.
+3. **Fly offload only if Edge still cannot reliably finalize** — move **CPU-heavy, pure computation** (selection merge, G/L rank on full snapshot, row/evidence assembly) to **`stocksist-radar-v22-worker`**, which already ships shared `selection.ts` and is not Edge-bound. **Do not migrate Supabase off Lovable**, change Fly machines/scaling, or deploy worker/bridge/Edge changes without an **approved batch**. Edge remains orchestrator: cron/chunks, lease CAS, **`publish_screener_sync_staged_generation_v1`**, and Postgres truth. Worker writes prepared artifacts via existing **`radar-worker-bridge`** pattern (`RADAR_WORKER_SECRET`), not `SUPABASE_SERVICE_ROLE_KEY` on Fly.
+
+Batch 190 explicitly chose Architecture A (Edge staging) over Fly; that choice stands until production proves finalize still exceeds Edge CPU after 190.14-class fixes.
 
 ## Platform ownership
 

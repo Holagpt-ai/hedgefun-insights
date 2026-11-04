@@ -11,7 +11,13 @@ import {
   buildRepresentativeUniverse,
   REPRESENTATIVE_UNIVERSE_SIZE,
 } from "./sync-screener-cpu-benchmark.ts";
-import { resolveSyncSessionKind } from "./session-sync-context.ts";
+import { isExtendedSyncSession, resolveSyncSessionKind } from "./session-sync-context.ts";
+import {
+  attachRvol20dToRows,
+  easternTradingDateFromMs,
+  mapTabRows,
+  type GenerationMeta,
+} from "./rows.ts";
 import {
   finalizeMainUniverseSelections,
   selectGainersLosersFromUniverse,
@@ -47,15 +53,38 @@ export type Batch19014FinalizeBenchmarkResult = {
 
 function etMs(isoDate: string, hour: number, minute: number): number {
   const [y, m, d] = isoDate.split("-").map(Number);
+  // 2026-10-28 is EDT (UTC-4).
   return Date.UTC(y, m - 1, d, hour + 4, minute, 0, 0);
 }
 
+const FIXTURE_DATE = "2026-10-28";
+
+/** Clock times are America/New_York. `market` is the regular-session kind. */
+export const BATCH19014_SESSION_FIXTURES = [
+  {
+    session: "pre-market" as const,
+    labelEt: "07:35",
+    nowMs: etMs(FIXTURE_DATE, 7, 35),
+    expectedSyncSessionKind: "pre-market" as const,
+  },
+  {
+    session: "regular" as const,
+    labelEt: "12:45",
+    nowMs: etMs(FIXTURE_DATE, 12, 45),
+    expectedSyncSessionKind: "market" as const,
+  },
+  {
+    session: "after-hours" as const,
+    labelEt: "16:20",
+    nowMs: etMs(FIXTURE_DATE, 16, 20),
+    expectedSyncSessionKind: "after-hours" as const,
+  },
+];
+
 function sessionNowMs(session: "pre-market" | "regular" | "after-hours"): number {
-  return session === "pre-market"
-    ? etMs("2026-10-28", 9, 35)
-    : session === "after-hours"
-    ? etMs("2026-10-28", 16, 20)
-    : etMs("2026-10-28", 16, 45);
+  const fixture = BATCH19014_SESSION_FIXTURES.find((row) => row.session === session);
+  if (!fixture) throw new Error(`missing fixture ${session}`);
+  return fixture.nowMs;
 }
 
 /** Pre-190.14: redundant qualify buffer before rank. */
@@ -104,12 +133,13 @@ function runFinalizePath(
   use19014Fixes: boolean,
 ): Batch19014FinalizeTimings {
   const nowMs = sessionNowMs(session);
+  const syncSessionKind = resolveSyncSessionKind(nowMs);
   const universe = buildRepresentativeUniverse(
     REPRESENTATIVE_UNIVERSE_SIZE,
     session,
     nowMs,
   );
-  const extendedSession = session !== "regular";
+  const extendedSession = isExtendedSyncSession(syncSessionKind);
   const sessionVolumeCache = createSessionVolumeCache({
     nowMs,
     observationSessionVolume: true,
@@ -146,8 +176,9 @@ function runFinalizePath(
   const glMs = performance.now() - t0;
 
   t0 = performance.now();
+  let evidence: ReturnType<typeof buildTabEvaluationEvidenceFromChunkAccums>;
   if (use19014Fixes) {
-    buildTabEvaluationEvidenceFromChunkAccums({
+    evidence = buildTabEvaluationEvidenceFromChunkAccums({
       universe,
       gappersAccum: merged.gappersAccum,
       primaryAccum: merged.primaryAccum,
@@ -182,7 +213,7 @@ function runFinalizePath(
         sessionVolumeCache,
       },
     );
-    buildTabEvaluationEvidenceFromChunkAccums({
+    evidence = buildTabEvaluationEvidenceFromChunkAccums({
       universe,
       gappersAccum: merged.gappersAccum,
       primaryAccum: merged.primaryAccum,
@@ -204,15 +235,38 @@ function runFinalizePath(
   }
   const evidenceMs = performance.now() - t0;
 
+  const meta: GenerationMeta = {
+    syncedAt: new Date(nowMs).toISOString(),
+    syncRunId: "11111111-2222-3333-4444-555555555555",
+    nowMs,
+    extendedSession,
+    observationSessionFields: true,
+    sessionVolumeCache,
+  };
+  const getName = (symbol: string) => symbol;
+  let publishedRows = [
+    ...mapTabRows("day_trade_radar", mainTabSelections.day_trade_radar, getName, meta),
+    ...mapTabRows("gappers", mainTabSelections.gappers, getName, meta),
+    ...mapTabRows("volume_spikes", mainTabSelections.volume_spikes, getName, meta),
+    ...mapTabRows("gainers_losers", glPick.selected, getName, meta),
+    ...mapTabRows("unusual_volume", mainTabSelections.unusual_volume, getName, meta),
+  ];
+  publishedRows = attachRvol20dToRows(
+    publishedRows,
+    new Map(),
+    easternTradingDateFromMs(nowMs),
+  );
+
   t0 = performance.now();
-  void JSON.stringify({
-    p_rows: [],
-    p_sync_run_id: "11111111-2222-3333-4444-555555555555",
-    p_synced_at: new Date(nowMs).toISOString(),
+  const rpcBytes = JSON.stringify({
+    p_rows: publishedRows,
+    p_sync_run_id: meta.syncRunId,
+    p_synced_at: meta.syncedAt,
     p_nhl_baseline_status: "available",
-    p_tab_evaluation_evidence: {},
+    p_tab_evaluation_evidence: evidence,
   }).length;
   const rpcMs = performance.now() - t0;
+  if (rpcBytes < 1) throw new Error("rpc payload empty");
 
   void mainTabSelections;
 
