@@ -94,14 +94,48 @@ export async function handleStagedSyncStart(
   return json({ ok: true, staged: step });
 }
 
-export async function parseStagedSyncBody(req: Request): Promise<StagedSyncRequest> {
-  try {
-    const text = await req.text();
-    if (!text.trim()) return { action: "cron" };
-    return JSON.parse(text) as StagedSyncRequest;
-  } catch {
+export class StagedSyncBodyParseError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
+
+/** Normalize cron job bodies (production pg_cron sends literal `{}`). */
+export function normalizeStagedSyncRequest(parsed: unknown): StagedSyncRequest {
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new StagedSyncBodyParseError("invalid_staged_sync_body");
+  }
+  const record = parsed as Record<string, unknown>;
+  const action = record.action;
+  if (action === undefined) {
+    if (Object.keys(record).length === 0) {
+      return { action: "cron" };
+    }
+    throw new StagedSyncBodyParseError("missing_action");
+  }
+  if (action === "cron") {
     return { action: "cron" };
   }
+  if (action === "continue" || action === "finalize") {
+    const generationId = record.generation_id;
+    if (typeof generationId !== "string" || generationId.trim().length === 0) {
+      throw new StagedSyncBodyParseError("missing_generation_id");
+    }
+    return { action, generation_id: generationId.trim() };
+  }
+  throw new StagedSyncBodyParseError("unsupported_action");
+}
+
+export async function parseStagedSyncBody(req: Request): Promise<StagedSyncRequest> {
+  const text = await req.text();
+  if (!text.trim()) return { action: "cron" };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new StagedSyncBodyParseError("invalid_json");
+  }
+  return normalizeStagedSyncRequest(parsed);
 }
 
 export async function dispatchStagedContinue(
