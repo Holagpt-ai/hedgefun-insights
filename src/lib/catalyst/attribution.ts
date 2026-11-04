@@ -3,7 +3,7 @@
  * A company merely mentioned in an article is not automatically the subject.
  */
 
-import { looksLikeMarketAttention } from "@/lib/catalyst/precedence";
+import { looksLikeMarketAttention } from "@/lib/catalyst/market-attention";
 
 export type AttributionClass =
   | "direct"

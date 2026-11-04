@@ -25,8 +25,8 @@
 
 ## Correction (narrow)
 
-- **`headlineQualifiesForTickerScopedNews`** — exclude market-attention/commentary titles and block `provider_associated` recent-news when the headline does not mention the row ticker or company (closes SpaceX-primary slip on TSLA Radar cells).
-- Test: `radar-news-display.test.ts` SpaceX still-a-buy case.
+- **`headlineQualifiesForTickerScopedNews`** — exclude market-attention/commentary titles and block `provider_associated` recent-news when the headline does not mention the row ticker or company (closes SpaceX-primary slip on TSLA Radar cells). Market-attention patterns live in `market-attention.ts` (no attribution/precedence cycle).
+- Tests: `batch195-recent-news-headline-gate.test.ts`, `radar-news-display.test.ts`.
 
 ## ISS-028
 
