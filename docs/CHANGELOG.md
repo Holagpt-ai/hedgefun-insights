@@ -8,7 +8,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 196.2** Day Trade / scanner presentation parity (PR pending, base **`b90a306b`**): status rail reports distinct momentum-qualified vs full Five Pillars (freshness-inclusive) counts; Unusual Volume row evidence names prior-session ≥4× vs time-adjusted RVOL ≥2× without mislabeling; focused Vitest regressions. **Not merged; not deployed.**
+- **Batch 196.2** Day Trade / scanner presentation parity (PR **#211**, head **`9223d443`**, base **`b90a306b`**): status rail reports distinct momentum-qualified vs full Five Pillars (freshness-inclusive) counts; Unusual Volume row evidence names prior-session ≥4× vs time-adjusted RVOL ≥2× without mislabeling; focused Vitest regressions. **Not merged; not deployed.**
 
 - **Batch 196.1** Scanner numerical integrity & volume provenance (PR **#209** → **`797cc615`** merged). Fly `stocksist-radar-v22-worker` **v46** deployed 2026-11-04 (`deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`). Rollback image remains v45 `deployment-01M5CRQST4MR22JBA8AJK972H2`. Runbook `docs/release/batch196-1-scanner-numerical-integrity-v1.md`. Live acceleration-value acceptance **NOT VERIFIED**. **ISS-034** unchanged.
 
