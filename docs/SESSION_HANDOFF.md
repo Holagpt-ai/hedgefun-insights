@@ -1,6 +1,6 @@
-# Session handoff — current 2026-11-03 ET
+# Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`f1f0121b6a4316aaecf62bdd425cb36c33deed24`** (Batch **192** PR **#208** merged). Batch **196.1** scanner numerical integrity in progress (PR pending).
+**Code:** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (Batch **196.1** PR **#209** merged). Fly `stocksist-radar-v22-worker` **v46** deployed from that commit.
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
@@ -8,9 +8,9 @@
 - **Batch 191:** **PARTIAL** — regular-session and after-hours acceptance still **NOT VERIFIED**.
 - **Batch 192 activation (reported):** Vercel production deploy for AM Inbox UI; Lovable Cloud **`generate-daily-brief`** Edge deploy for evidence-cutoff rules. Cached brief rows unchanged until regeneration.
 
-**Batch 196.1 (this session):** PR **#209** — wall-clock velocity denominators; acceleration gated on observation span, leading-silence, and min prior-window share volume (100); worker Docker `session-volume.ts` closure; Vitest `AbortSignal.timeout` polyfill. PERI-style cross-view volume delta **NOT CONFIRMED** as data error. **ISS-034 OPEN.** **ISS-025 OPEN** (visual acceptance). **ISS-036** pending merge/deploy.
+**Batch 196.1 Fly activation (2026-11-04):** Release **v45 → v46**. New image `deployment-01M6K5GH34NZCA1C5Y45AWPVHZ` (`sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`). Machine **`8e4192a73d09e8`** started once; no new OOM. `/health` moved from brief startup `degraded` to **`running`**; Polygon subscribed, feed not stale. `last_error_code` null after restart (v45 had carried `persist_failed`). Live acceleration percentages were **not sampled**. **ISS-036** not closed. **ISS-034 OPEN** (regular-session and after-hours publication acceptance still required). **ISS-025** visual acceptance **NOT VERIFIED**.
 
-**Next:** Owner review + merge PR **#209**; **Fly `scanner-stream-worker` deploy** for acceleration fixes. Complete Batch **191** RTH/AH acceptance. No manual scanner sync, migrations, or cron edits from Cursor unless explicitly approved.
+**Next:** Owner acceptance of ISS-036 on natural scanner rows. Complete Batch **191** RTH/AH acceptance. No further Fly, migration, or cron changes unless explicitly approved.
 
 **Deferred:** AI Trader, brokers, billing, large real-time-feed upgrades.
 
