@@ -486,13 +486,16 @@ export function RadarGrid({
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
                         <div>
+                          <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+                            Free Float
+                          </ScannerFieldHelp>{" "}
                           {floatState.isPending && floatShares === null
                             ? "…"
                             : formatRadarContextVolume(floatShares)}
                         </div>
                         <div className="text-[10px] font-normal leading-tight text-muted-foreground">
                           <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-                            Short
+                            Short Float
                           </ScannerFieldHelp>{" "}
                           <span title={shortFloat.title}>{shortFloat.display}</span>
                           {" · "}

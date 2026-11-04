@@ -22,6 +22,14 @@ vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
 function row(symbol: string, volume: number, price = 10): ScreenerResultRow {
   return {
     tab_id: "gappers",

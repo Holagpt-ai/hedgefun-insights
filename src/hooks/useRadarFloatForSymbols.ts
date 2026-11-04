@@ -6,6 +6,7 @@ import {
   floatMapHasTransient,
   getFloatForSymbols,
   peekFloatRecord,
+  verifiedFreeFloatFromRecord,
   type RadarFloatRecord,
 } from "@/lib/market-data/float";
 import { uniqueNormalizedSymbols } from "@/lib/market-data/symbols";
@@ -34,12 +35,10 @@ export function useRadarFloatForSymbols(symbols: readonly string[]) {
     isPending: key.length > 0 && query.isPending,
     getFloat: (symbol: string) => {
       const cached = peekFloatRecord(symbol);
-      if (cached) return cached.float;
+      if (cached) return verifiedFreeFloatFromRecord(cached);
       const ticker = normalizeSymbol(symbol);
       if (!ticker) return null;
-      const row = bySymbol.get(ticker);
-      if (!row || row.status === "unavailable") return null;
-      return row.float;
+      return verifiedFreeFloatFromRecord(bySymbol.get(ticker) ?? null);
     },
   };
 }

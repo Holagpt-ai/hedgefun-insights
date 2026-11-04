@@ -22,6 +22,14 @@ vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
 function nhlRow(
   symbol: string,
   overrides: Partial<ScreenerResultRow> = {},

@@ -44,7 +44,10 @@ describe("Massive float mapping", () => {
 });
 
 describe("getFloatForSymbols isolation and bounds", () => {
+  let freshFloatAsOf: string;
+
   beforeEach(() => {
+    freshFloatAsOf = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     resetFloatSymbolCache();
     vi.resetModules();
   });
@@ -58,7 +61,7 @@ describe("getFloatForSymbols isolation and bounds", () => {
     vi.doMock("@/lib/polygon", () => ({
       getFloat: async (ticker: string) => {
         if (ticker === "BAD") throw new Error("upstream");
-        return { ticker, float: 1_000_000, as_of: "2026-09-01", source: "massive_float" };
+        return { ticker, float: 1_000_000, as_of: freshFloatAsOf, source: "massive_float" };
       },
     }));
     const { getFloatForSymbols: fetchFloats } = await import("@/lib/market-data/float");
@@ -81,7 +84,7 @@ describe("getFloatForSymbols isolation and bounds", () => {
         maxInflight = Math.max(maxInflight, inflight);
         await new Promise((resolve) => setTimeout(resolve, 15));
         inflight -= 1;
-        return { ticker, float: 1_000_000, as_of: "2026-09-01", source: "massive_float" };
+        return { ticker, float: 1_000_000, as_of: freshFloatAsOf, source: "massive_float" };
       },
     }));
     const { FLOAT_FETCH_CONCURRENCY, getFloatForSymbols } = await import("@/lib/market-data/float");
@@ -95,7 +98,7 @@ describe("getFloatForSymbols isolation and bounds", () => {
     const getFloat = vi.fn(async (ticker: string) => ({
       ticker,
       float: 1_000_000,
-      as_of: "2026-09-01",
+      as_of: freshFloatAsOf,
       source: "massive_float",
     }));
     vi.doMock("@/lib/polygon", () => ({ getFloat }));
@@ -116,7 +119,7 @@ describe("getFloatForSymbols isolation and bounds", () => {
         return {
           ticker: "AAA",
           float: 2_400_000,
-          as_of: "2026-09-01",
+          as_of: freshFloatAsOf,
           source: "massive_float",
           status: "ok",
         };
@@ -136,7 +139,7 @@ describe("getFloatForSymbols isolation and bounds", () => {
     expect(calls).toBe(2);
   });
 
-  it("long-caches a successful empty Float", async () => {
+  it("does not treat missing float as verified when provider returns ok with null shares", async () => {
     const getFloat = vi.fn(async () => ({
       ticker: "AAA",
       float: null,
@@ -148,9 +151,9 @@ describe("getFloatForSymbols isolation and bounds", () => {
     const { getFloatForSymbols, peekFloatRecord } = await import("@/lib/market-data/float");
     const first = await getFloatForSymbols(["AAA"]);
     expect(first.get("AAA")?.float).toBeNull();
-    expect(first.get("AAA")?.status).toBe("ok");
-    expect(peekFloatRecord("AAA")?.status).toBe("ok");
+    expect(first.get("AAA")?.status).toBe("unavailable");
+    expect(peekFloatRecord("AAA")).toBeNull();
     await getFloatForSymbols(["AAA"]);
-    expect(getFloat).toHaveBeenCalledTimes(1);
+    expect(getFloat).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,33 +1,34 @@
-# Batch ISS-037 — Screener free-float enrichment
+# Batch ISS-037 — Screener free float (display path)
 
 **Issue:** ISS-037 (P2)  
 **Base:** `2edaabfc`  
-**Scope:** Populate `screener_results.float_shares` at publish time for **selected row symbols only**.
+**PR:** #215  
+**Scope:** Show verified **Free Float (shares)** in Scanner / Radar UI without blocking six-tab publication.
 
-## Source contract
+## Release safety
 
-- Massive/Polygon **`/stocks/vX/float`** (same as `market-data` Edge `type=float` and Radar `getFloat`).
-- Mapping: `float` → `free_float` → `float_shares` only (`mapMassiveFloat` / `mapFloatPayload`).
-- **Never** uses `outstanding_shares` or short-interest fields.
+- **No** Polygon float lookup on the `sync-screener-data` publication critical path.
+- Float freshness uses Massive float **`as_of` / observation date** only (18h client TTL). Market quote `provider_as_of` is **not** float freshness proof.
+- **Short Float (%)** stays on `evaluateScreenerShortFloat` only — never derived from free-float shares.
+- Published `screener_results.float_shares` remain **null** (generation contract unchanged).
 
-## Bounded integration
+## UI
 
-1. After tab row selection (~≤120 rows / ~80–100 unique symbols), `enrichPublishedRowsWithVerifiedFloat`:
-   - Reuses **fresh** (`≤12h`) floats from `screener_results` via `loadLatestScreenerFloatSharesBySymbol`.
-   - Uses Edge-isolate cache (`FLOAT_CACHE_TTL_MS`).
-   - Fetches missing symbols from Polygon at concurrency **6** (not the 13k universe).
-2. Failures per symbol → `float_shares: null` (publish continues).
+- `ScreenerTable` (desktop + mobile): `useRadarFloatForSymbols` for visible symbols; labels **Free Float** vs **Short Float**.
+- Radar grid / mobile: same label separation; optional **Free Float** column unchanged in behavior, clearer labeling.
 
 ## Activation (owner)
 
-1. Merge PR.
-2. Deploy Lovable Cloud Edge **`sync-screener-data`** only (no migration, cron, or Fly change).
-3. Read-only: sample published rows for non-null `float_shares` where Massive has data.
+1. Merge PR #215.
+2. **Vercel frontend deploy only** — no Edge `sync-screener-data`, migration, cron, or Fly change.
+3. Visual acceptance: free float appears for symbols Massive returns; short float still unavailable until short-interest evidence exists.
 
 ## Rollback
 
-Redeploy prior `sync-screener-data` bundle; rows revert to null on next generation (no schema rollback).
+Redeploy prior Vercel production build.
 
 ## Tests
 
-`supabase/functions/_shared/screeners/screener-float-enrich_test.ts`
+- `supabase/functions/sync-screener-data/handler_test.ts` — no `/float` calls; 429 float API cannot affect publish.
+- `src/lib/market-data/__tests__/float-freshness.test.ts`
+- `src/components/dashboard/__tests__/ScreenerTable.free-float.test.tsx`

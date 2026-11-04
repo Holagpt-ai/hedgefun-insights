@@ -31,17 +31,10 @@ function finitePositiveShares(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export type LoadScreenerFloatOptions = {
-  /** When set, ignore rows older than this age relative to nowMs. */
-  maxAgeMs?: number;
-  nowMs?: number;
-};
-
 /** Latest verified float per symbol from screener_results (does not fabricate when absent). */
 export async function loadLatestScreenerFloatSharesBySymbol(
   db: QualificationDb,
   symbols: readonly string[],
-  options?: LoadScreenerFloatOptions,
 ): Promise<Map<string, number>> {
   const normalized = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
   const out = new Map<string, number>();
@@ -66,14 +59,6 @@ export async function loadLatestScreenerFloatSharesBySymbol(
       if (floatShares === null) continue;
       const providerMs = Date.parse(String(row.provider_as_of ?? ""));
       const ms = Number.isFinite(providerMs) ? providerMs : Number.NEGATIVE_INFINITY;
-      if (
-        options?.maxAgeMs !== undefined &&
-        options.nowMs !== undefined &&
-        Number.isFinite(ms) &&
-        options.nowMs - ms > options.maxAgeMs
-      ) {
-        continue;
-      }
       const prev = best.get(symbol);
       if (!prev || ms >= prev.providerMs) {
         best.set(symbol, { floatShares, providerMs: ms });

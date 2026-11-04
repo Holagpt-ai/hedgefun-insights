@@ -242,10 +242,13 @@ export function RadarMobileCard({
         </ScannerFieldHelp>{" "}
         <HistoryCell context={row.historicalContext} row={row} />
         {" · "}
-        Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
+        <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+          Free Float
+        </ScannerFieldHelp>{" "}
+        {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
         {" · "}
         <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-          Short
+          Short Float
         </ScannerFieldHelp>{" "}
         <span className="text-foreground" title={shortFloat.title}>
           {shortFloat.display}

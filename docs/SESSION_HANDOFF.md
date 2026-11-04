@@ -2,7 +2,7 @@
 
 **Code:** GitHub `main` **`2edaabfc`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** **ISS-037** screener `float_shares` publish enrichment — PR pending; **Edge `sync-screener-data` only** after merge. Batch **190.12** migration + **190.13** cron body fix: Lovable owner pending as applicable.
+**In flight:** **ISS-037** screener free-float display — PR **#215** (release-safety revision: frontend float only, publication path unchanged); **Vercel only** after merge. Batch **190.12** migration + **190.13** cron body fix: Lovable owner pending as applicable.
 
 **ISS-028** open. Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**.
 

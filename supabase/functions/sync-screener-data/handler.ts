@@ -77,7 +77,6 @@ import {
 } from "../_shared/screeners/new-highs-lows.ts";
 import { captureDayTradeQualificationFromSync } from "../_shared/day-trade/capture-from-sync.ts";
 import type { QualificationDb } from "../_shared/day-trade/persist-qualification-lifecycle.ts";
-import { enrichPublishedRowsWithVerifiedFloat } from "../_shared/screeners/screener-float-enrich.ts";
 import { buildTabEvaluationEvidenceFromChunkAccums } from "../_shared/screeners/evaluation-evidence-chunk.ts";
 import { buildStagedJobFromUniverse } from "../_shared/screeners/sync-orchestrator.ts";
 import {
@@ -794,15 +793,6 @@ async function finalizeStagedScreenerGeneration(
     volumeBaselines,
     easternTradingDateFromMs(nowMs),
   );
-  const polygonKey = deps.env("POLYGON_API_KEY") ?? "";
-  if (polygonKey) {
-    allRows = await enrichPublishedRowsWithVerifiedFloat(allRows, {
-      nowMs: wallNowMs,
-      apiKey: polygonKey,
-      fetchImpl: deps.fetch,
-      db: sb as unknown as QualificationDb,
-    });
-  }
 
   const tabEvaluationEvidence = buildTabEvaluationEvidenceFromChunkAccums({
     universe: job.allTickers,
@@ -1397,14 +1387,6 @@ export async function handleSyncScreenerData(
     volumeBaselines,
     easternTradingDateFromMs(nowMs),
   );
-  if (apiKey) {
-    allRows = await enrichPublishedRowsWithVerifiedFloat(allRows, {
-      nowMs,
-      apiKey,
-      fetchImpl: deps.fetch,
-      db: sb as unknown as QualificationDb,
-    });
-  }
 
   const tabEvaluationEvidence = buildTabEvaluationEvidence({
     universe: allTickers,

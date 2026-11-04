@@ -95,6 +95,50 @@ export function mapFloatPayload(ticker: string, payload: unknown): RadarFloatRec
   };
 }
 
+export function parseFloatObservationMs(asOf: string | null | undefined): number | null {
+  if (typeof asOf !== "string" || !asOf.trim()) return null;
+  const ms = Date.parse(asOf.trim());
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** Float freshness uses the provider float observation date only — never market quote as-of. */
+export function isFloatObservationFresh(
+  record: RadarFloatRecord,
+  nowMs: number = Date.now(),
+  maxAgeMs: number = FLOAT_STALE_TIME_MS,
+): boolean {
+  const obsMs = parseFloatObservationMs(record.asOf);
+  if (obsMs === null) return false;
+  const age = nowMs - obsMs;
+  if (age < 0) return false;
+  return age <= maxAgeMs;
+}
+
+export function verifiedFloatRecordForDisplay(
+  record: RadarFloatRecord,
+  nowMs: number = Date.now(),
+): RadarFloatRecord {
+  if (record.status === "unavailable" || record.float === null) {
+    return record.status === "unavailable"
+      ? record
+      : { ...record, float: null, status: "unavailable" };
+  }
+  if (!isFloatObservationFresh(record, nowMs)) {
+    return { ...record, float: null, status: "unavailable" };
+  }
+  return record;
+}
+
+export function verifiedFreeFloatFromRecord(
+  record: RadarFloatRecord | null | undefined,
+  nowMs: number = Date.now(),
+): number | null {
+  if (!record) return null;
+  const display = verifiedFloatRecordForDisplay(record, nowMs);
+  if (display.status === "unavailable" || display.float === null) return null;
+  return display.float;
+}
+
 function readCachedFloat(ticker: string, nowMs: number = Date.now()): RadarFloatRecord | null {
   const hit = floatMemory.get(ticker);
   if (!hit) return null;
@@ -102,7 +146,12 @@ function readCachedFloat(ticker: string, nowMs: number = Date.now()): RadarFloat
     floatMemory.delete(ticker);
     return null;
   }
-  return hit.record;
+  const verified = verifiedFloatRecordForDisplay(hit.record, nowMs);
+  if (verified.status === "unavailable" && hit.record.float !== null && hit.record.status === "ok") {
+    floatMemory.delete(ticker);
+    return null;
+  }
+  return verified;
 }
 
 function throwTransientFloat(): never {
@@ -122,10 +171,12 @@ export async function getFloatForSymbol(symbol: string): Promise<RadarFloatRecor
   const request = (async () => {
     try {
       const payload = await floatGate.run(() => getFloat(ticker));
+      const nowMs = Date.now();
       const mapped = mapFloatPayload(ticker, payload);
-      if (mapped.status === "unavailable") throwTransientFloat();
-      floatMemory.set(ticker, { record: mapped, ts: Date.now() });
-      return mapped;
+      const verified = verifiedFloatRecordForDisplay(mapped, nowMs);
+      if (verified.status === "unavailable" && mapped.float === null) throwTransientFloat();
+      floatMemory.set(ticker, { record: verified, ts: nowMs });
+      return verified;
     } catch (error) {
       if (error instanceof Error && error.message === FLOAT_UNAVAILABLE_MESSAGE) throw error;
       throwTransientFloat();
