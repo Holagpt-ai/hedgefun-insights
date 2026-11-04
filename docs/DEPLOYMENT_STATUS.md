@@ -1,4 +1,6 @@
-> **Current production snapshot (2026-11-03, post Batch 192):** GitHub `main` **`f1f0121b6a4316aaecf62bdd425cb36c33deed24`** (Batch **192** PR **#208** merged). **Reported activation:** Vercel production (AM Inbox UI); Lovable Cloud **`generate-daily-brief`** Edge (brief evidence cutoff). Batch **191** premarket acceptance and Nov 1 scanner deploy evidence preserved below. **ISS-034 OPEN**; **ISS-025** visual acceptance **NOT VERIFIED**.
+> **Current production snapshot (2026-11-04, Batch 196.1 Fly worker):** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (PR **#209** merged). Fly `stocksist-radar-v22-worker` release **v46** complete. Image `registry.fly.io/stocksist-radar-v22-worker:deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`. Machine **`8e4192a73d09e8`**, `iad`, started. Post-deploy `/health` reached **`running`**; Polygon **subscribed**, `stale: false`. Pre-deploy v45 `persist_failed` and 2026-11-03 OOM (exit 137) are prior conditions. **ISS-036** worker image is live; live acceleration-value acceptance **NOT VERIFIED**. **ISS-034 OPEN**. Prior Batch 192 snapshot follows.
+
+> **Prior snapshot (2026-11-03, post Batch 192):** GitHub `main` **`f1f0121b6a4316aaecf62bdd425cb36c33deed24`** (Batch **192** PR **#208** merged). **Reported activation:** Vercel production (AM Inbox UI); Lovable Cloud **`generate-daily-brief`** Edge (brief evidence cutoff). Batch **191** premarket acceptance and Nov 1 scanner deploy evidence preserved below. **ISS-034 OPEN**; **ISS-025** visual acceptance **NOT VERIFIED**.
 
 > **Prior snapshot (2026-11-03, Batch 191 acceptance sync):** GitHub `main` **`7e456ace0929238807b8d6186151b2094ca93284`** (Batches **190.9–190.11** merged). November 1 Lovable Cloud deployment/integration source for `sync-screener-data` is reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**. November 2 naturally scheduled premarket acceptance is reported **PASS** with seven consecutive successful publications between **04:00–04:30 ET**, latest publication row counts **60 / 62 / 63**, and no new recorded `http_409` publication failures. **ISS-034 remains OPEN** until regular-session and after-hours acceptance criteria are verified.
 
@@ -72,7 +74,7 @@
 | Vercel SPA @ Batch **189** merge `68092518` | Deploy **SUCCESS** reported; manifest **no git SHA** — not re-probed for `1398d16a` |
 | Batch **187** earnings Edge functions | Activation **NOT APPLIED** — revision ids **UNKNOWN** (master batch **194**) |
 | **`chat` Edge (ISS-015)** | **BLOCKED** — rollback revision **UNKNOWN** (master batch **204**) |
-| Fly `stocksist-radar-v22-worker` v45 | Historical parity **PASS** (2026-10-24) — see historical section |
+| Fly `stocksist-radar-v22-worker` **v46** | **Deployed 2026-11-04** from git `797cc615`. Image `deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`. Machine `8e4192a73d09e8` started. Rollback image remains v45 `deployment-01M5CRQST4MR22JBA8AJK972H2` / `sha256:47ff670c6cbefc43ff01cc87c2e1387f20f4c21a734b45558e7b4a35b901979e`. |
 
 ---
 
