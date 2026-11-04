@@ -27,6 +27,12 @@ export const VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES = 4;
  */
 export const VOLUME_ACCEL_MAX_LEADING_SILENCE_MS = 60_000;
 
+/**
+ * Minimum total share volume in the prior 5m window before acceleration % is shown.
+ * Guards two-point / near-zero priors (not intermittent trading with meaningful baseline).
+ */
+export const VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME = 100;
+
 /** Participation state thresholds (volume_acceleration_pct vs prior 5m window). */
 export const PARTICIPATION_ACCEL_COOLING_MAX = -20;
 export const PARTICIPATION_ACCEL_STEADY_MAX = 20;

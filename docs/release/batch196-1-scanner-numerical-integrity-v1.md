@@ -12,7 +12,7 @@
 
 ## Changes
 
-- **Coverage-gated acceleration:** Both 5m windows need ≥4 minutes of **bar observation span** plus feed present within 60s of window open (`VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES`, `VOLUME_ACCEL_MAX_LEADING_SILENCE_MS`). Low trade frequency (Polygon no-trade seconds) is **not** treated as missing data.
+- **Coverage-gated acceleration:** Both 5m windows need ≥4 minutes of **bar observation span** plus feed present within 60s of window open (`VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES`, `VOLUME_ACCEL_MAX_LEADING_SILENCE_MS`). Prior window also needs ≥100 total shares (`VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME`) so endpoint micro-trades cannot imply extreme % change. Low trade frequency (Polygon no-trade seconds) is **not** treated as missing data.
 - **Wall-clock velocity:** Shares/min and dollar/min divide window totals by full elapsed window minutes (includes legitimate no-trade seconds); numerator and denominator use the same `[from, eventNow)` range.
 - **Fly Docker image:** `session-volume.ts` (+ `session-sync-context.ts`, `screener-session.ts`) copied into worker image for `selection.ts` dependency closure.
 - **Worker velocity:** `volume_velocity` uses verified minute coverage (≥1 minute), not fixed `/5` on partial windows.

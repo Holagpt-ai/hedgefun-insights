@@ -13,6 +13,7 @@ import {
   PARTICIPATION_ACCEL_SURGING_MAX,
   VOLUME_ACCEL_MAX_LEADING_SILENCE_MS,
   VOLUME_ACCEL_MIN_OBSERVATION_SPAN_MINUTES,
+  VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME,
   type ParticipationState,
 } from "../../config/intraday-participation.config.ts";
 
@@ -202,6 +203,7 @@ export function volumeAccelerationPctFromMinuteWindows(
   ) {
     return null;
   }
+  if (prev.volume < VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME) return null;
   const currVel = shareVelocity(curr.volume, curr.coveredMinutes);
   const prevVel = shareVelocity(prev.volume, prev.coveredMinutes);
   if (currVel === null || prevVel === null || !(prevVel > 0)) return null;

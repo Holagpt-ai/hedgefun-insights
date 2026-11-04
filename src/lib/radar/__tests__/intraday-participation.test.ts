@@ -127,6 +127,29 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(shareVelocity(w.volume, w.coveredMinutes)).toBe(1_000);
   });
 
+  it("15f. two endpoint micro-trades in prior window do not produce actionable acceleration", () => {
+    const bars: MinuteBarSlice[] = [];
+    for (let t = T0 - 300_000; t < T0; t += 1_000) {
+      bars.push({ startMs: t, volume: 1_000, dollarVolume: 10_000 });
+    }
+    const prevFrom = T0 - 600_000;
+    bars.push({ startMs: prevFrom + 5_000, volume: 1, dollarVolume: 10 });
+    bars.push({ startMs: prevFrom + 4 * 60_000 + 5_000, volume: 1, dollarVolume: 10 });
+    expect(volumeAccelerationPctFromMinuteWindows(bars, T0)).toBeNull();
+    const snap = computeIntradayParticipation({
+      bars,
+      eventNowMs: T0,
+      cumulativeSessionVolume: 500_000,
+      baseline: null,
+      feedStale: false,
+      calculatedAtIso: new Date(T0).toISOString(),
+      sourceAsOfIso: new Date(T0).toISOString(),
+    });
+    expect(snap.volume_velocity_5m).not.toBeNull();
+    expect(snap.volume_acceleration_pct).toBeNull();
+    expect(snap.participation_state).toBe("UNAVAILABLE");
+  });
+
   it("15e. intermittent but span-complete prior still allows acceleration", () => {
     const bars: MinuteBarSlice[] = [];
     for (let t = T0 - 300_000; t < T0; t += 1_000) {

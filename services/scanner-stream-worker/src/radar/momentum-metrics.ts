@@ -11,7 +11,10 @@ import {
   MOMENTUM_WINDOW_5M_MS,
   RVOL_5M_MIN_TOD_SAMPLES,
 } from "./momentum-metrics.config.ts";
-import { windowEligibleForAcceleration } from "../../../../src/lib/radar/intraday-participation.ts";
+import {
+  windowEligibleForAcceleration,
+} from "../../../../src/lib/radar/intraday-participation.ts";
+import { VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME } from "../../../../src/config/intraday-participation.config.ts";
 
 const MIN_VELOCITY_COVERED_MS = MS_PER_MINUTE;
 const MOMENTUM_WINDOW_MINUTES = MOMENTUM_WINDOW_5M_MS / MS_PER_MINUTE;
@@ -75,6 +78,7 @@ export function volumeAccelerationPct(
   ) {
     return null;
   }
+  if (prevW.total < VOLUME_ACCEL_MIN_PRIOR_WINDOW_TOTAL_VOLUME) return null;
   const currVel = shareVelocityFromCoverage(currW.total, currW.coveredMs);
   const prevVel = shareVelocityFromCoverage(prevW.total, prevW.coveredMs);
   if (currVel === null || prevVel === null || !(prevVel > 0)) return null;
