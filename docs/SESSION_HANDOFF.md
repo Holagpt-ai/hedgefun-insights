@@ -1,8 +1,10 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`2edaabfc`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+**Code:** GitHub `main` **`3bd3ee68`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** **ISS-037** screener free-float display — PR **#215** head **`2df98296`** (`effective_date` contract + honest as-of UI); **Vercel + approved `market-data` Edge** after merge; publication path unchanged. Batch **190.12** migration + **190.13** cron body fix: Lovable owner pending as applicable.
+**In flight:** **Batch 190.14** CPU-safe staged finalize (ISS-034) — PR **#216** head **`ce5d8937`** plus this handoff commit. Edge **`sync-screener-data`** only after merge. **ISS-037** PR **#215** separate track. Batch **190.12** SQL and **190.13** cron normalization are **already deployed** — do not reapply.
+
+**Nov 4 production (preserved):** `sync-screener-data` **v506** finalize **HTTP 546** at **20:55:47 UTC** after 7/7 chunks; CPU Time exceeded; no new generation.
 
 **ISS-028** open. Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**.
 
@@ -16,7 +18,7 @@
 
 **Next:** Owner acceptance of ISS-036 on natural scanner rows. Complete Batch **191** RTH/AH acceptance. No further Fly, migration, or cron changes unless explicitly approved.
 
-**Deferred:** AI Trader, brokers, billing, large real-time-feed upgrades.
+**Deferred:** **AI Trader — POST-LAUNCH PAUSED** (no develop/test/deploy); brokers, billing, large real-time-feed upgrades.
 
 ---
 

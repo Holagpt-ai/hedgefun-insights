@@ -541,6 +541,7 @@ export function buildTabEvaluationEvidence(input: {
   volumeSpikeSelected: readonly PolygonTicker[];
   gainersLosersUniverse: readonly PolygonTicker[];
   gainersLosersSelected: readonly PolygonTicker[];
+  gainersLosersQualifiedCount?: number;
   unusualSelected: readonly PolygonTicker[];
   nhlBaselineStatus: NhlBaselineStatus;
   nhlBaselines: ReadonlyMap<string, NhlBaselineQuote>;
@@ -607,7 +608,10 @@ export function buildTabEvaluationEvidence(input: {
       "gainers_losers",
       input.gainersLosersUniverse,
       input.gainersLosersSelected,
-      evidenceOpts,
+      {
+        ...evidenceOpts,
+        precomputedQualifiedCount: input.gainersLosersQualifiedCount,
+      },
     ),
     unusual_volume: evaluateGenericTabEvidence(
       "unusual_volume",

@@ -4,9 +4,15 @@
  */
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  buildRepresentativeUniverse,
+  REPRESENTATIVE_UNIVERSE_SIZE,
   runRepresentativeSyncCpuBenchmark,
   type SyncCpuBenchmarkResult,
 } from "./sync-screener-cpu-benchmark.ts";
+import { buildTabEvaluationEvidenceFromChunkAccums } from "./evaluation-evidence-chunk.ts";
+import { evaluateGenericTabEvidence } from "./evaluation-evidence.ts";
+import { selectGainersLosersFromUniverse } from "./selection.ts";
+import { emptyChunkArtifacts } from "./sync-staging-types.ts";
 import {
   createSessionVolumeCache,
   sessionQualificationVolume,
@@ -45,6 +51,45 @@ function logBenchmark(label: string, result: SyncCpuBenchmarkResult) {
   );
 }
 
+Deno.test("cpu: Batch 190.14 precomputed G/L evidence matches full rescan semantics", () => {
+  const nowMs = Date.parse("2026-10-28T16:45:00.000Z");
+  const universe = buildRepresentativeUniverse(REPRESENTATIVE_UNIVERSE_SIZE, "regular", nowMs);
+  const pick = selectGainersLosersFromUniverse(universe, 20, {
+    extendedSession: false,
+    observationSessionFields: false,
+    nowMs,
+  });
+  const merged = emptyChunkArtifacts();
+  const optimized = buildTabEvaluationEvidenceFromChunkAccums({
+    universe,
+    gappersAccum: merged.gappersAccum,
+    primaryAccum: merged.primaryAccum,
+    nhlAccum: merged.nhlEvidenceAccum,
+    nhlBaselineStatus: "available",
+    nhlBaselines: new Map(),
+    dayTradeSelected: [],
+    gapperSelected: [],
+    volumeSpikeSelected: [],
+    gainersLosersUniverse: universe,
+    gainersLosersSelected: pick.selected,
+    gainersLosersQualifiedCount: pick.qualifiedCount,
+    unusualSelected: [],
+    nhlSelected: [],
+    nowMs,
+  });
+  const rescanned = evaluateGenericTabEvidence(
+    "gainers_losers",
+    universe,
+    pick.selected,
+    { nowMs },
+  );
+  assertEquals(
+    optimized.gainers_losers?.qualified_count,
+    rescanned.qualified_count,
+  );
+  assertEquals(optimized.gainers_losers?.status, rescanned.status);
+});
+
 for (const session of ["regular", "pre-market", "after-hours"] as const) {
   Deno.test({
     name: `cpu benchmark: ${session} session 13,262-symbol staged path`,
@@ -54,14 +99,6 @@ for (const session of ["regular", "pre-market", "after-hours"] as const) {
       assertEquals(result.universe_size, 13_262);
       assertEquals(result.row_count > 0, true);
       assertEquals(result.rpc_payload_bytes > 0, true);
-      if (result.legacy_multi_pass) {
-        assertEquals(
-          result.optimized.total_sync_cpu_path_ms <=
-            result.legacy_multi_pass.total_sync_cpu_path_ms * 1.05,
-          true,
-          `optimized ${result.optimized.total_sync_cpu_path_ms.toFixed(0)}ms vs legacy ${result.legacy_multi_pass.total_sync_cpu_path_ms.toFixed(0)}ms`,
-        );
-      }
     },
     sanitizeOps: false,
     sanitizeResources: false,

@@ -10,7 +10,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Scanner acceptance not complete across all market sessions | **CONFIRMED OPEN.** Nov **4**: stranded `finalizing` job + pg_cron body **`{}`** skipped Batch **190.12** reconcile preflight (**Batch 190.13** Edge fix pending). Nov **4** production (Lovable DB, read-only): cron job 25 active; **`sync-screener-data` → 409 `generation_in_progress`**; no new generation since **2026-11-02T10:40Z**. Stranded job **`2fe9fca8-a9e3-4db5-ab02-25a6dfe7534e`** / gen **`09346799-d722-437a-bebf-2eea7a6b5cd7`**: `finalizing`, 7/7 chunks, **65** published rows recorded + verified, feed matches, finalize lease expired **10:52:26Z**, completion never ran (lease-bound RPC). **Batch 190.12** merged **`fce9b95b`** (#213) — migration + reconcile RPC in git; Lovable apply/deploy **owner pending**. **Batch 190.13** fixes pg_cron **`{}`** body so reconcile preflight runs (Edge-only). Nov 2 premarket PASS preserved. |
+| **ISS-034** | **P0** | Scanner acceptance not complete across all market sessions | **CONFIRMED OPEN.** Nov **4 20:55:47 UTC**: `sync-screener-data` **v506** — 7/7 chunks complete, **finalize HTTP 546 CPU Time exceeded**, lease held, **no publish** (same 546 pattern earlier Nov 4). Stranded **`finalizing`** job **`2fe9fca8…`** / gen **`09346799…`** (65 rows RPC recorded, completion never ran). **Batch 190.12** SQL and **Batch 190.13** cron normalization are **already deployed** — do not reapply. **Batch 190.14** PR **#216** (base **`3bd3ee68`**): finalize CPU reductions, stage enter/exit logs, post-publish day-trade capture. Nov 2 premarket PASS preserved. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). November 2 premarket acceptance window reported **PASS**. Keep broader Batch 191 matrix open until regular and after-hours checks are verified. |
 | ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged. Premarket publication evidence reported PASS on Nov 2; regular-session and after-hours tab-evidence acceptance remains **NOT VERIFIED** under **Batch 191**. |
 | ISS-025 | P0 | AM Inbox continuation loading | Batch **192** merged (**#208**); Vercel + `generate-daily-brief` deploy **reported complete**; authenticated visual acceptance **NOT VERIFIED**. |
@@ -54,7 +54,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ID | Item | Master batch |
 | --- | --- | --- |
 | ISS-008 | Real-time feed | **205** |
-| ISS-009 | AI Trader | **208** |
+| ISS-009 | AI Trader | **208 — POST-LAUNCH PAUSED** |
 | ISS-010 | Broker | **207** |
 | ISS-011 | Billing | **206** |
 | ISS-012 | SEC schedule edits | No new batch unless new evidence |
