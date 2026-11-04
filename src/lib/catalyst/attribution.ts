@@ -3,6 +3,8 @@
  * A company merely mentioned in an article is not automatically the subject.
  */
 
+import { looksLikeMarketAttention } from "@/lib/catalyst/precedence";
+
 export type AttributionClass =
   | "direct"
   | "provider_associated"
@@ -158,8 +160,15 @@ export function reconcileAttributionWithLiveRules(
 
 /** Headline is eligible for ticker-scoped “recent news” surfacing (not a verified catalyst). */
 export function headlineQualifiesForTickerScopedNews(input: AttributionInput): boolean {
+  const title = typeof input.title === "string" ? input.title.trim() : "";
+  if (!title || looksLikeMarketAttention(title)) return false;
   const live = attributeSymbol(input);
   if (!live.ticker_specific) return false;
+  if (live.class === "unverified" || live.class === "sector_related") return false;
+  const selfMention =
+    titleMentionsTicker(title, input.symbol) ||
+    titleMentionsCompany(title, input.companyName ?? null);
+  if (live.class === "provider_associated" && !selfMention) return false;
   return live.class === "direct" || live.class === "provider_associated";
 }
 
