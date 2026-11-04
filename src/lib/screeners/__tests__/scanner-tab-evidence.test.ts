@@ -39,11 +39,32 @@ describe("scanner tab evidence", () => {
     expect(gainer?.primaryLabel).toContain("Move");
   });
 
-  it("marks unusual volume when only cumulative ratio exists", () => {
+  it("labels prior-session ratio when it qualifies unusual volume", () => {
     const evidence = buildScannerTabEvidence(
       "unusual_volume",
-      row({ rvol_20d: null, volume_ratio_prior_session: 4.2 }),
+      row({
+        volume: 4_200_000,
+        prior_session_volume: 1_000_000,
+        volume_ratio_prior_session: 4.2,
+      }),
     );
-    expect(evidence?.detail).toContain("Same-time RVOL unavailable");
+    expect(evidence?.primaryLabel).toContain("Vol/Yday");
+    expect(evidence?.detail).toContain("prior-session");
+    expect(evidence?.primaryLabel).not.toContain("RVOL 20D");
+  });
+
+  it("labels time-adjusted RVOL when it qualifies (not Vol/Yday)", () => {
+    const evidence = buildScannerTabEvidence(
+      "unusual_volume",
+      row({
+        volume: 500_000,
+        prior_session_volume: 400_000,
+        volume_ratio_prior_session: 1.25,
+        time_adjusted_rvol: 2.4,
+      } as Partial<ScreenerResultRow> & { time_adjusted_rvol: number }),
+    );
+    expect(evidence?.primaryLabel).toContain("Time-adjusted RVOL");
+    expect(evidence?.detail).toMatch(/same-time-of-day/i);
+    expect(evidence?.primaryLabel).not.toContain("Vol/Yday");
   });
 });

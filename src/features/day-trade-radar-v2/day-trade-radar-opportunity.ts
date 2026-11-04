@@ -669,12 +669,13 @@ export function buildDayTradeRadarOpportunityBoard(
     };
   });
 
-  const strategyQualified = withVolumeRank.filter((row) =>
-    qualifiesDayTradeMomentum(row),
+  const fivePillarsPassed = withVolumeRank.filter(
+    (row) =>
+      qualifiesDayTradeMomentum(row) && qualifiesDayTradeFreshness(row, nowMs),
   );
   const funnel = buildDayTradeFunnelStats({
     detected: withVolumeRank,
-    qualified: strategyQualified,
+    qualified: fivePillarsPassed,
     priority: qualified.map((entry) => entry.row),
     displayed: top,
     nowMs,
@@ -692,20 +693,29 @@ export function buildDayTradeRadarOpportunityBoard(
 export function formatDayTradeRadarStatusSuffix(input: {
   candidateUniverseCount: number;
   topOpportunityCount: number;
-  /** Five Pillars momentum pass count (funnel.qualifiedCount). */
+  /** Momentum qualification only (Five Pillars strategy rules, before freshness). */
+  momentumQualifiedCount?: number;
+  /** Full Five Pillars pass (momentum + freshness). Defaults to funnel.qualifiedCount. */
   fivePillarsPassedCount?: number;
   /** Off-desk qualified names on the monitoring tab (distinct from on-desk Top 10). */
   qualifiedMonitoringCount?: number;
   funnel?: ScannerFunnelStats;
 }): string | null {
-  const { candidateUniverseCount, topOpportunityCount, fivePillarsPassedCount, funnel } = input;
+  const {
+    candidateUniverseCount,
+    topOpportunityCount,
+    momentumQualifiedCount,
+    fivePillarsPassedCount,
+    funnel,
+  } = input;
   if (candidateUniverseCount <= 0) return null;
+  const momentum = momentumQualifiedCount ?? 0;
   const fivePillars = fivePillarsPassedCount ?? funnel?.qualifiedCount ?? 0;
   const onDesk = topOpportunityCount;
   const monitoring = input.qualifiedMonitoringCount ?? 0;
   const monitoringPart =
     monitoring > 0 ? ` · ${monitoring} qualified monitoring` : "";
-  return `${candidateUniverseCount} detected · ${fivePillars} Five Pillars passed · ${onDesk} on desk${monitoringPart}`;
+  return `${candidateUniverseCount} detected · ${momentum} momentum-qualified · ${fivePillars} Five Pillars passed · ${onDesk} on desk${monitoringPart}`;
 }
 
 export function formatDayTradeQualificationBreakdown(

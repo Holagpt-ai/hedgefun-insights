@@ -88,6 +88,8 @@ describe("Batch 27 — scanner reliability & provenance", () => {
       formatDayTradeRadarStatusSuffix({
         candidateUniverseCount: 30,
         topOpportunityCount: 1,
+        momentumQualifiedCount: 1,
+        fivePillarsPassedCount: 1,
         funnel: {
           detectedCount: 30,
           qualifiedCount: 1,
@@ -97,11 +99,13 @@ describe("Batch 27 — scanner reliability & provenance", () => {
         },
         qualifiedMonitoringCount: 0,
       }),
-    ).toBe("30 detected · 1 Five Pillars passed · 1 on desk");
+    ).toBe("30 detected · 1 momentum-qualified · 1 Five Pillars passed · 1 on desk");
     expect(
       formatDayTradeRadarStatusSuffix({
         candidateUniverseCount: 30,
         topOpportunityCount: 1,
+        momentumQualifiedCount: 5,
+        fivePillarsPassedCount: 3,
         qualifiedMonitoringCount: 2,
         funnel: {
           detectedCount: 30,
@@ -112,5 +116,21 @@ describe("Batch 27 — scanner reliability & provenance", () => {
         },
       }),
     ).toContain("2 qualified monitoring");
+    expect(
+      formatDayTradeRadarStatusSuffix({
+        candidateUniverseCount: 30,
+        topOpportunityCount: 1,
+        momentumQualifiedCount: 5,
+        fivePillarsPassedCount: 3,
+        qualifiedMonitoringCount: 2,
+        funnel: {
+          detectedCount: 30,
+          qualifiedCount: 3,
+          priorityCount: 1,
+          displayedCount: 1,
+          rejectionSummary: {},
+        },
+      }),
+    ).toContain("5 momentum-qualified · 3 Five Pillars passed");
   });
 });

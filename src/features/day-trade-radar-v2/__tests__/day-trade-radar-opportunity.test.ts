@@ -332,7 +332,9 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
         displayedCount: 7,
         rejectionSummary: { PRICE_BELOW_MIN: 16 },
       },
-    })).toBe("59 detected · 12 Five Pillars passed · 7 on desk");
+      momentumQualifiedCount: 14,
+      fivePillarsPassedCount: 12,
+    })).toBe("59 detected · 14 momentum-qualified · 12 Five Pillars passed · 7 on desk");
   });
 
   it("gate audit counts missing MOVE separately from move below +10%", () => {
