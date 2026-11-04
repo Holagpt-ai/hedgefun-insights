@@ -1,10 +1,10 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`5d6399de`** (post Batch **196.2** / **196.1**). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+**Code:** GitHub `main` **`fce9b95b`** (Batch **190.12** #213 merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** Batch **190.12** stale finalizing recovery (**ISS-034** P0 deadlock) — branch `cursor/batch190-12-stale-finalizing-recovery`, PR pending; **not merged; not deployed; no production migration apply.**
+**In flight:** Batch **190.13** pg_cron `{}` → cron normalization (**ISS-034** P0) — PR pending; **Edge-only deploy after merge** (requires **190.12** migration applied in Lovable).
 
-**In review:** Batch **195** issuer-trust acceptance — PR **#212**. **ISS-028** open. Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**.
+**ISS-028** open. Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**.
 
 **Deployment and acceptance evidence (preserved):**
 - November 1 Lovable Cloud `sync-screener-data` source reported as **`ccb4055b3f8b84c46fa38529844150c140638705`**.
