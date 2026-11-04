@@ -1,4 +1,6 @@
 import type { SecondBar } from "./types.ts";
+import { VOLUME_WINDOW_MIN_BARS_PER_MINUTE } from "../../../../src/config/intraday-participation.config.ts";
+import { countReliableCoverageMinutes } from "../../../../src/lib/radar/intraday-participation.ts";
 
 const WINDOW_60S = 60_000;
 const BUCKET_60S = 60_000;
@@ -18,18 +20,24 @@ export function rollingWindowVolumeCoverage(
   if (!(windowMs > 0) || !Number.isFinite(eventNowMs)) return null;
   const from = eventNowMs - windowMs;
   let total = 0;
-  const minuteBuckets = new Set<number>();
   let lateCorrection = false;
   const msPerMinute = 60_000;
+  const barStarts: { startMs: number }[] = [];
   for (const bar of bars.values()) {
     if (bar.startMs >= from && bar.startMs < eventNowMs) {
       total += bar[field];
-      minuteBuckets.add(Math.floor((bar.startMs - from) / msPerMinute));
+      barStarts.push(bar);
       if (bar.lateCorrected) lateCorrection = true;
     }
   }
-  if (minuteBuckets.size === 0) return null;
-  const coveredMs = minuteBuckets.size * msPerMinute;
+  const reliableMinutes = countReliableCoverageMinutes(
+    barStarts,
+    from,
+    eventNowMs,
+    VOLUME_WINDOW_MIN_BARS_PER_MINUTE,
+  );
+  if (reliableMinutes === 0) return null;
+  const coveredMs = reliableMinutes * msPerMinute;
   return { total, coveredMs, lateCorrection };
 }
 

@@ -77,6 +77,17 @@ Deno.test("volumeAccelerationPct — null when prior window empty", () => {
   assertEquals(volumeAccelerationPct(bars, eventNow), null);
 });
 
+Deno.test("volumeAccelerationPct — null when only isolated ticks span minutes", () => {
+  const eventNow = 600_000;
+  const bars = new Map<number, SecondBar>();
+  fillWindow(bars, eventNow, 300_000, 1_000);
+  for (let m = 0; m < 4; m += 1) {
+    const t = eventNow - 600_000 + m * 60_000 + 1_000;
+    bars.set(t, bar(t, 1));
+  }
+  assertEquals(volumeAccelerationPct(bars, eventNow), null);
+});
+
 Deno.test("volumeAccelerationPct — null when prior window has insufficient coverage", () => {
   const eventNow = 600_000;
   const bars = new Map<number, SecondBar>();

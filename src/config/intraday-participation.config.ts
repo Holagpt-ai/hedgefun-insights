@@ -20,6 +20,12 @@ export const INTRADAY_PARTICIPATION_CACHE_MAX_SYMBOLS = 512;
  */
 export const VOLUME_ACCEL_MIN_COVERED_MINUTES = 4;
 
+/**
+ * Minimum second-level observations in a calendar minute before that minute counts
+ * toward window coverage (prevents isolated ticks from masquerading as full minutes).
+ */
+export const VOLUME_WINDOW_MIN_BARS_PER_MINUTE = 30;
+
 /** Participation state thresholds (volume_acceleration_pct vs prior 5m window). */
 export const PARTICIPATION_ACCEL_COOLING_MAX = -20;
 export const PARTICIPATION_ACCEL_STEADY_MAX = 20;

@@ -68,6 +68,21 @@ describe("Intraday Participation Intelligence V1", () => {
     expect(w.dollarVolume / w.coveredMinutes).toBeCloseTo(30_000, 0);
   });
 
+  it("15c. four isolated one-second ticks in four minutes are not reliable coverage", () => {
+    const bars: MinuteBarSlice[] = [];
+    for (let t = T0 - 300_000; t < T0; t += 1_000) {
+      bars.push({ startMs: t, volume: 10_000, dollarVolume: 100_000 });
+    }
+    for (let m = 0; m < 4; m += 1) {
+      bars.push({
+        startMs: T0 - 600_000 + m * 60_000 + 1_000,
+        volume: 1,
+        dollarVolume: 10,
+      });
+    }
+    expect(volumeAccelerationPctFromMinuteWindows(bars, T0)).toBeNull();
+  });
+
   it("15b. acceleration null when either 5m window lacks 4+ minutes coverage", () => {
     const bars: MinuteBarSlice[] = [];
     for (let t = T0 - 300_000; t < T0; t += 1_000) {
@@ -183,7 +198,7 @@ describe("Intraday Participation Intelligence V1", () => {
     await cache.warm(["AAA"], "2026-09-26");
     await cache.warm(["AAA"], "2026-09-26");
     expect(fetches).toBe(1);
-    await cache.warm(["AAA"], "2026-09-27");
+    await cache.warm(["AAA"], "2026-09-29");
     expect(fetches).toBe(2);
   });
 });

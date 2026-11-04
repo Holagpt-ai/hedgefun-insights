@@ -12,8 +12,9 @@
 
 ## Changes
 
-- **Coverage-gated acceleration:** Both windows need ≥4 distinct minutes with bar data before computing acceleration % (`VOLUME_ACCEL_MIN_COVERED_MINUTES`).
-- **Distinct-minute coverage:** `rollingMinuteVolume` and worker `rollingWindowVolumeCoverage` count minute buckets with observations, not span from first tick to now.
+- **Coverage-gated acceleration:** Both windows need ≥4 **reliable** minutes before computing acceleration % (`VOLUME_ACCEL_MIN_COVERED_MINUTES`).
+- **Reliable-minute coverage:** A minute counts only with ≥30 second-level observations (`VOLUME_WINDOW_MIN_BARS_PER_MINUTE`); isolated ticks cannot fabricate four minutes of history.
+- **Fly Docker image:** `session-volume.ts` (+ `session-sync-context.ts`, `screener-session.ts`) copied into worker image for `selection.ts` dependency closure.
 - **Worker velocity:** `volume_velocity` uses verified minute coverage (≥1 minute), not fixed `/5` on partial windows.
 - **UI copy:** TODAY VOL header distinguishes cumulative session volume from 5m / shares-min metrics.
 
@@ -28,7 +29,7 @@
 ## Verification
 
 - `npm run typecheck`
-- `npx vitest run src/lib/radar/__tests__/intraday-participation.test.ts` (cache dedupe test may flake in isolation — unrelated to this batch)
+- `npx vitest run src/lib/radar/__tests__/intraday-participation.test.ts` (cache dedupe: requires `AbortSignal.timeout` polyfill in `src/test/setup.ts` — jsdom gap, not batch logic)
 - `deno test services/scanner-stream-worker/src/radar/momentum-metrics_test.ts`
 
 ## Production activation

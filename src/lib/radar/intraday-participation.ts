@@ -12,6 +12,7 @@ import {
   PARTICIPATION_ACCEL_STEADY_MAX,
   PARTICIPATION_ACCEL_SURGING_MAX,
   VOLUME_ACCEL_MIN_COVERED_MINUTES,
+  VOLUME_WINDOW_MIN_BARS_PER_MINUTE,
   type ParticipationState,
 } from "../../config/intraday-participation.config.ts";
 
@@ -55,6 +56,28 @@ function finite(n: number | null | undefined): n is number {
   return n !== null && n !== undefined && Number.isFinite(n);
 }
 
+/** Minutes with enough second-level observations to treat as verified coverage. */
+export function countReliableCoverageMinutes(
+  bars: readonly { startMs: number }[],
+  fromMs: number,
+  eventNowMs: number,
+  minBarsPerMinute: number = VOLUME_WINDOW_MIN_BARS_PER_MINUTE,
+): number {
+  if (!(minBarsPerMinute >= 1)) return 0;
+  const counts = new Map<number, number>();
+  for (const bar of bars) {
+    if (bar.startMs >= fromMs && bar.startMs < eventNowMs) {
+      const bucket = Math.floor((bar.startMs - fromMs) / MINUTE_MS);
+      counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    }
+  }
+  let reliable = 0;
+  for (const n of counts.values()) {
+    if (n >= minBarsPerMinute) reliable += 1;
+  }
+  return reliable;
+}
+
 export function rollingMinuteVolume(
   bars: readonly MinuteBarSlice[],
   eventNowMs: number,
@@ -65,18 +88,15 @@ export function rollingMinuteVolume(
   const from = eventNowMs - windowMs;
   let volume = 0;
   let dollarVolume = 0;
-  const minuteBuckets = new Set<number>();
   let lateCorrection = false;
   for (const bar of bars) {
     if (bar.startMs >= from && bar.startMs < eventNowMs) {
       volume += bar.volume;
       dollarVolume += bar.dollarVolume;
-      minuteBuckets.add(Math.floor((bar.startMs - from) / MINUTE_MS));
       if (bar.lateCorrected) lateCorrection = true;
     }
   }
-  if (minuteBuckets.size === 0) return null;
-  const coveredMinutes = minuteBuckets.size;
+  const coveredMinutes = countReliableCoverageMinutes(bars, from, eventNowMs);
   if (!(coveredMinutes >= 1)) return null;
   return { volume, dollarVolume, coveredMinutes, lateCorrection };
 }
