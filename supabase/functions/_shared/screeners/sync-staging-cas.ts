@@ -142,6 +142,9 @@ export function reconcilePublishInMemory(
   if (job.stateVersion !== input.expectedStateVersion) {
     return { ok: false, reason: "state_version_conflict" };
   }
+  if (job.finalizeLeaseExpiresMs === null) {
+    return { ok: false, reason: "finalize_lease_expiry_missing" };
+  }
   if (finalizeLeaseActive(job, input.nowMs)) {
     return { ok: false, reason: "finalize_lease_still_active" };
   }

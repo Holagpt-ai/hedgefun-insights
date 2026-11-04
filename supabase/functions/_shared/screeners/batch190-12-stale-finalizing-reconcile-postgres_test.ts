@@ -112,6 +112,82 @@ Deno.test("postgres gate: reconcile completes stranded finalizing after publish 
   });
 });
 
+Deno.test("postgres gate: reconcile rejects NULL finalize lease expiry", async () => {
+  await withPg(async (client) => {
+    await ensureReconcileRpc(client);
+    await truncateStaging(client);
+    const jobId = crypto.randomUUID();
+    const syncRunId = crypto.randomUUID();
+    const syncedAt = "2026-11-02T10:40:01.704Z";
+    const evidence = fullTabEvidence();
+    await client.queryObject(
+      `SELECT public.replace_screener_results_generation_v1(
+        $1::jsonb, $2::uuid, $3::timestamptz, 'available', $4::jsonb
+      )`,
+      [
+        JSON.stringify([validScreenerRow("NULL", "gappers", syncedAt)]),
+        syncRunId,
+        syncedAt,
+        JSON.stringify(evidence),
+      ],
+    );
+    await client.queryObject(
+      `INSERT INTO public.screener_sync_generation_jobs
+       (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
+        next_chunk_index, state_version, publish_rows_inserted, publish_rpc_recorded_at,
+        finalize_lease_expires_at)
+       VALUES ($1, $2, 'finalizing', $3::jsonb, '[]'::jsonb, 2200, 7, 7, 8, 1,
+               now() - interval '2 days', NULL)`,
+      [jobId, syncRunId, JSON.stringify(sampleObservation(syncRunId))],
+    );
+    const reconcile = await client.queryObject<{ payload: string }>(
+      `SELECT public.reconcile_screener_sync_staged_publish_v1($1::uuid, 8, now())::text AS payload`,
+      [jobId],
+    );
+    const parsed = JSON.parse(String(reconcile.rows[0]?.payload ?? "{}"));
+    assertEquals(parsed.ok, false);
+    assertEquals(parsed.reason, "finalize_lease_expiry_missing");
+  });
+});
+
+Deno.test("postgres gate: reconcile rejects active finalize lease", async () => {
+  await withPg(async (client) => {
+    await ensureReconcileRpc(client);
+    await truncateStaging(client);
+    const jobId = crypto.randomUUID();
+    const syncRunId = crypto.randomUUID();
+    const syncedAt = "2026-11-02T10:40:01.704Z";
+    const evidence = fullTabEvidence();
+    await client.queryObject(
+      `SELECT public.replace_screener_results_generation_v1(
+        $1::jsonb, $2::uuid, $3::timestamptz, 'available', $4::jsonb
+      )`,
+      [
+        JSON.stringify([validScreenerRow("ACT", "gappers", syncedAt)]),
+        syncRunId,
+        syncedAt,
+        JSON.stringify(evidence),
+      ],
+    );
+    await client.queryObject(
+      `INSERT INTO public.screener_sync_generation_jobs
+       (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
+        next_chunk_index, state_version, publish_rows_inserted, publish_rpc_recorded_at,
+        finalize_lease_token, finalize_lease_expires_at)
+       VALUES ($1, $2, 'finalizing', $3::jsonb, '[]'::jsonb, 2200, 7, 7, 8, 1,
+               now() - interval '2 days', $4::uuid, now() + interval '10 minutes')`,
+      [jobId, syncRunId, JSON.stringify(sampleObservation(syncRunId)), crypto.randomUUID()],
+    );
+    const reconcile = await client.queryObject<{ payload: string }>(
+      `SELECT public.reconcile_screener_sync_staged_publish_v1($1::uuid, 8, now())::text AS payload`,
+      [jobId],
+    );
+    const parsed = JSON.parse(String(reconcile.rows[0]?.payload ?? "{}"));
+    assertEquals(parsed.ok, false);
+    assertEquals(parsed.reason, "finalize_lease_still_active");
+  });
+});
+
 Deno.test("postgres gate: reconcile fail closed on feed generation mismatch", async () => {
   await withPg(async (client) => {
     await ensureReconcileRpc(client);

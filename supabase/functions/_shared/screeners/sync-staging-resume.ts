@@ -14,6 +14,7 @@ export function stagedJobNeedsResume(
   if (
     job.status === "finalizing" &&
     job.publishRowsInserted !== null &&
+    job.finalizeLeaseExpiresMs !== null &&
     !finalizeLeaseActive(job, nowMs)
   ) {
     return true;

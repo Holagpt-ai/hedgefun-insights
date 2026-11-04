@@ -57,8 +57,11 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'reason', 'state_version_conflict');
   END IF;
 
-  IF v_job.finalize_lease_expires_at IS NOT NULL
-    AND v_job.finalize_lease_expires_at > p_now THEN
+  IF v_job.finalize_lease_expires_at IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'finalize_lease_expiry_missing');
+  END IF;
+
+  IF v_job.finalize_lease_expires_at > p_now THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'finalize_lease_still_active');
   END IF;
 

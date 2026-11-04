@@ -181,7 +181,7 @@ Deno.test("Batch 190.12: concurrent reconcile is idempotent CAS", async () => {
   assertEquals(refreshed?.status, "published");
 });
 
-Deno.test("Batch 190.12: does not reconcile while finalize lease still active", async () => {
+Deno.test("Batch 190.12: rejects active finalize lease", async () => {
   const store = new MemorySyncStagingStore();
   const nowMs = Date.parse("2026-11-02T10:50:00.000Z");
   const job = productionStrandedJob(nowMs);
@@ -195,4 +195,60 @@ Deno.test("Batch 190.12: does not reconcile while finalize lease still active", 
   });
   const result = await reconcileStrandedPublishedGeneration(store, nowMs);
   assertEquals(result.ok, false);
+  if (result.ok) return;
+  assertEquals(result.reason, "no_reconcile_candidate");
+  const direct = await store.reconcileStagedPublish({
+    jobId: job.id,
+    expectedStateVersion: job.stateVersion,
+    nowMs,
+  });
+  assertEquals(direct.ok, false);
+  if (direct.ok) return;
+  assertEquals(direct.reason, "finalize_lease_still_active");
+});
+
+Deno.test("Batch 190.12: rejects NULL finalize lease expiry", async () => {
+  const store = new MemorySyncStagingStore();
+  const nowMs = Date.parse("2026-11-04T16:00:00.000Z");
+  const job = productionStrandedJob(nowMs);
+  job.finalizeLeaseExpiresMs = null;
+  job.finalizeLeaseToken = null;
+  store.seedJob(job);
+  store.seedFeedReconcileSnapshot({
+    syncRunId: job.observation.syncRunId,
+    rowsInserted: 65,
+    tabEvaluationEvidence: evaluatedTabEvidence(),
+    persistedRowCount: 65,
+  });
+  const result = await reconcileStrandedPublishedGeneration(store, nowMs);
+  assertEquals(result.ok, false);
+  if (result.ok) return;
+  assertEquals(result.reason, "no_reconcile_candidate");
+  const direct = await store.reconcileStagedPublish({
+    jobId: job.id,
+    expectedStateVersion: job.stateVersion,
+    nowMs,
+  });
+  assertEquals(direct.ok, false);
+  if (direct.ok) return;
+  assertEquals(direct.reason, "finalize_lease_expiry_missing");
+});
+
+Deno.test("Batch 190.12: expired lease with matching live generation succeeds", async () => {
+  const store = new MemorySyncStagingStore();
+  const nowMs = Date.parse("2026-11-04T16:00:00.000Z");
+  const job = productionStrandedJob(nowMs);
+  store.seedJob(job);
+  store.seedFeedReconcileSnapshot({
+    syncRunId: job.observation.syncRunId,
+    rowsInserted: 65,
+    tabEvaluationEvidence: evaluatedTabEvidence(),
+    persistedRowCount: 65,
+  });
+  const result = await store.reconcileStagedPublish({
+    jobId: job.id,
+    expectedStateVersion: job.stateVersion,
+    nowMs,
+  });
+  assertEquals(result.ok, true);
 });

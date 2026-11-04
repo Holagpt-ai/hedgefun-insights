@@ -21,7 +21,7 @@
 ## Fix summary
 
 1. **Migration** `20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql` — `reconcile_screener_sync_staged_publish_v1(job_id, expected_state_version, now)`:
-   - Fail-closed checks: chunks complete, publish record present, **expired** finalize lease, feed `sync_run_id` + row counts match job, six-tab `evaluated` evidence, persisted `screener_results` count.
+   - Fail-closed checks: chunks complete, publish record present, **non-null expired** finalize lease timestamp, feed `sync_run_id` + row counts match job, six-tab `evaluated` evidence, persisted `screener_results` count. NULL lease expiry does **not** qualify.
    - CAS transition `finalizing` → `published` (no republish, no blind delete).
 2. **Edge** — cron preflight + finalize retry call reconciliation when lease-bound complete cannot run.
 3. **Resume** — post-publish stranded jobs remain resumable beyond TTL when finalize lease expired.

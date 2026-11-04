@@ -15,6 +15,7 @@ export function jobEligibleForPostPublishReconcile(
     return false;
   }
   if (job.nextChunkIndex < job.totalChunks) return false;
+  if (job.finalizeLeaseExpiresMs === null) return false;
   if (finalizeLeaseActive(job, nowMs)) return false;
   return true;
 }
