@@ -21,6 +21,7 @@ import {
   formatScreenerVolumeVelocity,
 } from "@/lib/screeners/screener-metric-display";
 import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-display";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 import {
   formatFreshness,
   formatHodDistance,
@@ -486,13 +487,17 @@ export function RadarGrid({
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
                         <div>
-                          {floatState.isPending && floatShares === null
-                            ? "…"
-                            : formatRadarContextVolume(floatShares)}
+                          <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+                            Free Float
+                          </ScannerFieldHelp>{" "}
+                          {formatScreenerVerifiedFreeFloat(floatShares, {
+                            pending: floatState.isPending && floatShares === null,
+                            measurementAsOf: floatState.getMeasurementAsOf(sym),
+                          })}
                         </div>
                         <div className="text-[10px] font-normal leading-tight text-muted-foreground">
                           <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-                            Short
+                            Short Float
                           </ScannerFieldHelp>{" "}
                           <span title={shortFloat.title}>{shortFloat.display}</span>
                           {" · "}

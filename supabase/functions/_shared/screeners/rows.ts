@@ -1,6 +1,6 @@
 // Map volume-first Polygon tickers to screener_results row shapes.
 // Legacy rvol / avg_volume are always null — use volume_ratio_prior_session /
-// prior_session_volume instead. Float / market_cap remain unavailable.
+// prior_session_volume instead. Float / market_cap remain unavailable on published rows.
 // 52-week fields and range_event are populated only for New Highs/Lows.
 
 import {

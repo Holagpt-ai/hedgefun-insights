@@ -1,8 +1,8 @@
 # Session handoff — current 2026-11-04 ET
 
-**Code:** GitHub `main` **`fce9b95b`** (Batch **190.12** #213 merged). Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
+**Code:** GitHub `main` **`2edaabfc`**. Fly `stocksist-radar-v22-worker` **v46** deployed from **`797cc615`**.
 
-**In flight:** Batch **190.13** pg_cron `{}` → cron normalization (**ISS-034** P0) — PR pending; **Edge-only deploy after merge** (requires **190.12** migration applied in Lovable).
+**In flight:** **ISS-037** screener free-float display — PR **#215** head **`2df98296`** (`effective_date` contract + honest as-of UI); **Vercel + approved `market-data` Edge** after merge; publication path unchanged. Batch **190.12** migration + **190.13** cron body fix: Lovable owner pending as applicable.
 
 **ISS-028** open. Authenticated Catalyst/Watchlist/Radar production walkthrough **NOT VERIFIED**.
 

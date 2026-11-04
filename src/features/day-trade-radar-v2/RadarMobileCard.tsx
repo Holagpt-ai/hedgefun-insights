@@ -6,6 +6,7 @@ import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 import {
   formatRadarContextVolume,
   formatRadarMultiplier,
@@ -242,10 +243,16 @@ export function RadarMobileCard({
         </ScannerFieldHelp>{" "}
         <HistoryCell context={row.historicalContext} row={row} />
         {" · "}
-        Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
+        <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+          Free Float
+        </ScannerFieldHelp>{" "}
+        {formatScreenerVerifiedFreeFloat(floatShares, {
+          measurementAsOf: floatState.getMeasurementAsOf(sym),
+        })}{" "}
+        · Turnover {formatFloatTurnover(turnover)}
         {" · "}
         <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-          Short
+          Short Float
         </ScannerFieldHelp>{" "}
         <span className="text-foreground" title={shortFloat.title}>
           {shortFloat.display}

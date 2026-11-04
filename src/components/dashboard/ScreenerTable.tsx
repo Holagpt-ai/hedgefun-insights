@@ -4,6 +4,7 @@ import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
 import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
@@ -65,6 +66,7 @@ import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { buildScannerTabEvidence } from "@/lib/screeners/scanner-tab-evidence";
 import { resolveDisplayPriceEvidence } from "@/lib/market-data/display-price-evidence";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -265,6 +267,8 @@ export function ScreenerTable({
     isFetching: catalystFetching,
     isError: catalystError,
   } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
+  const floatState = useRadarFloatForSymbols(enrichmentSymbols);
+  const freeFloatPending = enrichmentSymbols.length > 0 && floatState.isPending;
   // Never conflate in-flight enrichment with verified-empty.
   const catalystCheckPending =
     enrichmentSymbols.length > 0 &&
@@ -384,6 +388,7 @@ export function ScreenerTable({
 
     if (col.key === "symbol") {
       const showInlineActions = tab.columns.every((c) => c.key !== "actions");
+      const freeFloat = floatState.getFloat(sym);
       const shortFloat = evaluateScreenerShortFloat(row);
       const continuation = evaluateScreenerContinuation(row);
       return (
@@ -404,8 +409,21 @@ export function ScreenerTable({
             )}
           </div>
           <div className="text-[10px] leading-tight text-muted-foreground">
+            <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+              Free Float
+            </ScannerFieldHelp>{" "}
+            <span
+              className="tabular-nums text-foreground"
+              title={floatState.getMeasurementAsOf(sym) ?? undefined}
+            >
+              {formatScreenerVerifiedFreeFloat(freeFloat, {
+                pending: freeFloatPending,
+                measurementAsOf: floatState.getMeasurementAsOf(sym),
+              })}
+            </span>
+            {" · "}
             <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-              Short
+              Short Float
             </ScannerFieldHelp>{" "}
             <span className="tabular-nums text-foreground" title={shortFloat.title}>
               {shortFloat.display}
@@ -795,6 +813,7 @@ export function ScreenerTable({
               : useMove
                 ? row.change_percent
                 : null;
+            const freeFloat = floatState.getFloat(sym);
             const shortFloat = evaluateScreenerShortFloat(row);
             const continuation = evaluateScreenerContinuation(row);
             const tabEvidence = buildScannerTabEvidence(tab.id, row);
@@ -926,8 +945,19 @@ export function ScreenerTable({
                     </div>
                   )}
                   <div>
+                    <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+                      Free Float
+                    </ScannerFieldHelp>{" "}
+                    <span className="font-medium">
+                      {formatScreenerVerifiedFreeFloat(freeFloat, {
+                        pending: freeFloatPending,
+                        measurementAsOf: floatState.getMeasurementAsOf(sym),
+                      })}
+                    </span>
+                  </div>
+                  <div>
                     <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-                      Short
+                      Short Float
                     </ScannerFieldHelp>{" "}
                     <span className="font-medium" title={shortFloat.title}>
                       {shortFloat.display}

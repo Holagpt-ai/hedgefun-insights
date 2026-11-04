@@ -22,7 +22,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
 | ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
 | ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |
-| **ISS-037** | P2 | Screener free-float missing or unreliable | **REPORTED / NOT VERIFIED.** User/product reports that `float_shares` (free float) on screener rows may be absent, stale, or inconsistent with desk expectations. **No change to Day Trade unknown-float qualification** (unknown float still allowed; verified high float still fails). **Future investigation scope (deferred):** Massive/Polygon float source and field mapping; market-data Edge response shape; cache TTL and refresh; enrichment path into screener publish rows; table display copy; **free float vs short float** semantics and UI labeling. Do not treat as confirmed defect until source-to-UI trace is verified. |
+| **ISS-037** | P2 | Screener free-float missing or unreliable | **CONFIRMED DEFECT (source traced).** Production Nov 4: published rows keep `float_shares` NULL by design; UI lacked verified free-float display. **Fix in review:** PR **#215** — frontend `useRadarFloatForSymbols` on scanner/radar visible rows; float freshness from Massive `as_of` only; Short Float independent. Publication path must not call Polygon float. Day Trade Five Pillars / unknown-float qualification unchanged. Production verification **NOT VERIFIED** until Vercel deploy. |
 
 **Verification (not new implementation):** Batch **174** **CONDITIONAL**; Batch **175** persistence **PASS**, UI **NOT VERIFIED**; PR **#174** **CLOSED** unmerged.
 

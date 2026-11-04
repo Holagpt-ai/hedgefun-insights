@@ -21,6 +21,15 @@ export function emptyFloatRecord(
   return { ticker, float: null, as_of: null, source: "massive_float", status };
 }
 
+/** Provider measurement-effective date (Massive `effective_date`, then legacy fields). */
+export function massiveFloatMeasurementDate(row: Record<string, unknown>): string | null {
+  for (const key of ["effective_date", "as_of", "updated"] as const) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 export function mapMassiveFloat(ticker: string, payload: unknown): MassiveFloatRecord {
   const empty = emptyFloatRecord(ticker, "ok");
   if (!payload || typeof payload !== "object") return empty;
@@ -36,10 +45,7 @@ export function mapMassiveFloat(ticker: string, payload: unknown): MassiveFloatR
     finitePositiveShares(row.float) ??
     finitePositiveShares(row.free_float) ??
     finitePositiveShares(row.float_shares);
-  const asOf =
-    typeof row.as_of === "string" ? row.as_of
-    : typeof row.updated === "string" ? row.updated
-    : null;
+  const asOf = massiveFloatMeasurementDate(row);
   return { ticker, float, as_of: asOf, source: "massive_float", status: "ok" };
 }
 

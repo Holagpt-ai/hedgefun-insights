@@ -8,6 +8,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- **ISS-037 / screener free float (display)** (PR **#215**, base **`2edaabfc`**): verified free float via Radar float client; Massive `effective_date` mapping on Edge + client; cache TTL vs measurement date separated; honest “as of” UI; publication path does not call Polygon float. **Vercel + approved `market-data` Edge** after merge. Runbook `docs/release/batch-iss037-screener-float-enrich-v1.md`. **Not merged; not deployed.**
+
 - **Batch 190.13** Cron `{}` body normalization (PR pending, base **`fce9b95b`**): production pg_cron sends `{}`; normalize to `{ action: "cron" }` so Batch **190.12** reconciliation preflight runs. Edge-only deploy (`sync-screener-data`). Runbook `docs/release/batch190-13-cron-body-normalize-v1.md`. **Not merged; not deployed.**
 
 - **Batch 190.12** Stale finalizing recovery (PR **#213** → **`fce9b95b`** merged): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`; Edge cron/finalize post-publish reconciliation. Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Lovable migration apply + Edge deploy owner pending.**
