@@ -96,6 +96,7 @@ import {
   createContinueInvoker,
   handleStagedSyncStart,
   parseStagedSyncBody,
+  StagedSyncBodyParseError,
   type StagedChunkContext,
 } from "./sync-staged-handler.ts";
 
@@ -1010,7 +1011,15 @@ async function handleStagedSyncScreenerData(
   deps: SyncDeps,
   stagedMode: string,
 ): Promise<Response> {
-  const parsedBody = await parseStagedSyncBody(req);
+  let parsedBody;
+  try {
+    parsedBody = await parseStagedSyncBody(req);
+  } catch (e) {
+    if (e instanceof StagedSyncBodyParseError) {
+      return json({ error: e.reason }, 400);
+    }
+    throw e;
+  }
   const supabaseUrl = deps.env("SUPABASE_URL") ?? "";
   const serviceRole = deps.env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!supabaseUrl || !serviceRole) {
