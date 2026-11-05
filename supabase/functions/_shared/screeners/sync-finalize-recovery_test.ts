@@ -1,6 +1,9 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { parseContinueDispatchError } from "./sync-finalize-recovery.ts";
-import { prepareStagedFinalizeRetry } from "./sync-finalize-recovery.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { isUncertainContinueDispatchFailure } from "./sync-finalize-lease-release.ts";
+import {
+  parseContinueDispatchError,
+  prepareStagedFinalizeRetry,
+} from "./sync-finalize-recovery.ts";
 import { resolveSyncSessionKind } from "./session-sync-context.ts";
 import { isExtendedSyncSession } from "./session-sync-context.ts";
 import { isLiveSurveillanceSessionKind } from "./screener-session.ts";
@@ -93,6 +96,78 @@ Deno.test("recovery: releases finalize lease after definitive dispatch failure",
   const refreshed = await store.get(job.id);
   assertEquals(refreshed?.finalizeLeaseToken, null);
   assertEquals(refreshed?.finalizeLeaseExpiresMs, null);
+});
+
+Deno.test("recovery: uncertain continue dispatch timeout finishes publish without releasing lease", async () => {
+  const store = new MemorySyncStagingStore();
+  const nowMs = Date.parse("2026-11-05T22:10:00.000Z");
+  const sessionKind = resolveSyncSessionKind(nowMs);
+  const continueLastError = "continue_dispatch_failed: Signal timed out";
+  assert(isUncertainContinueDispatchFailure(continueLastError));
+  const job: StagedGenerationJob = {
+    id: crypto.randomUUID(),
+    status: "finalizing",
+    observation: {
+      nowMs,
+      sessionKind,
+      extendedSession: isExtendedSyncSession(sessionKind),
+      observationSessionFields: isLiveSurveillanceSessionKind(sessionKind),
+      syncedAt: new Date(nowMs).toISOString(),
+      syncRunId: crypto.randomUUID(),
+    },
+    allTickers: [],
+    gainers: [],
+    losers: [],
+    chunkSize: 2200,
+    nextChunkIndex: 7,
+    totalChunks: 7,
+    merged: emptyChunkArtifacts(),
+    leaseToken: null,
+    leaseExpiresMs: null,
+    createdAtMs: nowMs - 120_000,
+    updatedAtMs: nowMs,
+    nhlBaselineLoaded: false,
+    nhlBaselineSnapshot: null,
+    stateVersion: 9,
+    continueLastAtMs: nowMs,
+    continueLastError,
+    finalizeLeaseToken: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    finalizeLeaseExpiresMs: nowMs + SCREENER_SYNC_LEASE_MS,
+    publishRowsInserted: 86,
+    publishRpcRecordedAtMs: nowMs,
+    abortReason: null,
+    abortEvidence: null,
+  };
+  store.seedJob(job);
+
+  const feedReader = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          limit: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    }),
+  };
+
+  let completePublishCalls = 0;
+  const prep = await prepareStagedFinalizeRetry(
+    store,
+    feedReader,
+    job,
+    nowMs,
+    async (working) => {
+      completePublishCalls += 1;
+      assertEquals(working.publishRowsInserted, 86);
+      assertEquals(working.continueLastError, continueLastError);
+      return true;
+    },
+  );
+  assertEquals(completePublishCalls, 1);
+  assertEquals(prep.reconciledComplete, true);
+  assertEquals(prep.releasedStaleLease, false);
+  const after = await store.get(job.id);
+  assertEquals(after?.finalizeLeaseToken, "cccccccc-cccc-cccc-cccc-cccccccccccc");
 });
 
 Deno.test("recovery: does not release lease when publish rows already recorded", async () => {

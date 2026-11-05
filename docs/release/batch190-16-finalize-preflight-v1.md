@@ -14,7 +14,7 @@ November 5 production: recurring **HTTP 546** on staged scanner finalization wit
 - Finalize path: preflight reads for peek, baseline drift, recovery preflight, and error metadata; **one** full job via **`claimWork`** (claim RPC unchanged).
 - **`findResumableJob`**: preflight select instead of `*`.
 - Continue/finalize HTTP entry: preflight for drift + chunk NHL context (full job still loaded on claim/chunk).
-- **`prepareStagedFinalizeRetry`**: uncertain dispatch failures (timeout/abort) with **`publish_rows_inserted`** recorded attempt **`completePublish`** / reconcile — transport timeout is not treated as confirmed failure when DB already committed publish rows.
+- **`prepareStagedFinalizeRetry`**: when **`publish_rows_inserted`** is set on a **`finalizing`** job, **`completePublish`** / stranded reconcile runs before any definitive dispatch lease release — so uncertain continue-dispatch timeouts (transport) are not treated as hard publish failure when the RPC already recorded rows.
 
 ## Activation (owner)
 

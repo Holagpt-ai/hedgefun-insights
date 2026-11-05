@@ -1,6 +1,5 @@
 import {
   isDefinitiveContinueDispatchFailure,
-  isUncertainContinueDispatchFailure,
   releaseFinalizeLeaseCas,
 } from "./sync-finalize-lease-release.ts";
 import { reconcileStrandedPublishedGeneration } from "./sync-staging-post-publish-reconcile.ts";
@@ -92,23 +91,6 @@ export async function prepareStagedFinalizeRetry(
       out.reconciledComplete = await completePublish(afterRefresh);
       return out;
     }
-  }
-
-  if (
-    isUncertainContinueDispatchFailure(working.continueLastError) &&
-    working.status === "finalizing" &&
-    working.publishRowsInserted !== null &&
-    working.publishRpcRecordedAtMs !== null
-  ) {
-    out.reconciledComplete = await completePublish(working);
-    if (out.reconciledComplete) return out;
-    const reconciled = await reconcileStrandedPublishedGeneration(
-      store,
-      nowMs,
-      working,
-    );
-    out.reconciledComplete = reconciled.ok;
-    if (out.reconciledComplete) return out;
   }
 
   if (

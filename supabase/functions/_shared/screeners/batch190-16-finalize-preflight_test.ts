@@ -1,14 +1,9 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { prepareStagedFinalizeRetry } from "./sync-finalize-recovery.ts";
 import { resolveSyncSessionKind } from "./session-sync-context.ts";
 import { isExtendedSyncSession } from "./session-sync-context.ts";
 import { isLiveSurveillanceSessionKind } from "./screener-session.ts";
 import { MemorySyncStagingStore } from "./sync-staging-memory.ts";
-import {
-  emptyChunkArtifacts,
-  SCREENER_SYNC_LEASE_MS,
-  type StagedGenerationJob,
-} from "./sync-staging-types.ts";
+import { emptyChunkArtifacts } from "./sync-staging-types.ts";
 import {
   jobFromRow,
   jobInsertRowJsonRoundTrip,
@@ -125,64 +120,13 @@ Deno.test("Batch 190.16: memory getPreflight strips heavy fields", async () => {
   assertEquals(light!.merged.primaryAccum.dayTrade, 0);
 });
 
-Deno.test("Batch 190.16: uncertain dispatch timeout reconciles recorded publish rows", async () => {
-  const store = new MemorySyncStagingStore();
-  const nowMs = Date.parse("2026-11-05T22:10:00.000Z");
-  const sessionKind = resolveSyncSessionKind(nowMs);
-  const job: StagedGenerationJob = {
-    id: crypto.randomUUID(),
-    status: "finalizing",
-    observation: {
-      nowMs,
-      sessionKind,
-      extendedSession: isExtendedSyncSession(sessionKind),
-      observationSessionFields: isLiveSurveillanceSessionKind(sessionKind),
-      syncedAt: new Date(nowMs).toISOString(),
-      syncRunId: crypto.randomUUID(),
-    },
-    allTickers: [],
-    gainers: [],
-    losers: [],
-    chunkSize: 2200,
-    nextChunkIndex: 7,
-    totalChunks: 7,
-    merged: emptyChunkArtifacts(),
-    leaseToken: null,
-    leaseExpiresMs: null,
-    createdAtMs: nowMs - 120_000,
-    updatedAtMs: nowMs,
-    nhlBaselineLoaded: false,
-    nhlBaselineSnapshot: null,
-    stateVersion: 9,
-    continueLastAtMs: nowMs,
-    continueLastError: "The signal has been aborted",
-    finalizeLeaseToken: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-    finalizeLeaseExpiresMs: nowMs + SCREENER_SYNC_LEASE_MS,
-    publishRowsInserted: 86,
-    publishRpcRecordedAtMs: nowMs,
-    abortReason: null,
-    abortEvidence: null,
-  };
-  store.seedJob(job);
-  let completed = false;
-  const prep = await prepareStagedFinalizeRetry(
-    store,
-    { from: () => ({ select: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) }) },
-    job,
-    nowMs,
-    async () => {
-      completed = true;
-      return true;
-    },
-  );
-  assertEquals(prep.reconciledComplete, true);
-  assertEquals(completed, true);
-});
-
-Deno.test("Batch 190.16: payload benchmark (~13k universe)", () => {
+Deno.test("Batch 190.16: payload benchmark (~13k universe + NHL snapshot)", () => {
   const sample = runBatch19016PreflightPayloadBenchmark(REPRESENTATIVE_UNIVERSE_SIZE);
   console.log("[batch190-16-payload]", JSON.stringify(sample));
   assert(sample.fullRowBytes > sample.preflightRowBytes * 4);
+  assert(sample.nhlBaselineSnapshotBytes > 240_000);
+  assert(sample.nhlBaselineSnapshotBytes < 330_000);
+  assert(sample.preflightRowBytes > sample.nhlBaselineSnapshotBytes);
   assert(sample.fullJobParseMs >= 0);
   assert(sample.preflightParseMs >= 0);
 });
