@@ -6,7 +6,7 @@
 
 This register replaces the **active implementation queue** in `docs/release/next-approved-batches.md` for batches **190+**. Historical batches **171–189** remain in `docs/CHANGELOG.md` and named runbooks — **do not reissue**.
 
-**Continuity addendum (2026-11-03):** GitHub `main` is now `7e456ace0929238807b8d6186151b2094ca93284`. Reported November 1 Lovable deployment/integration source for `sync-screener-data` is `ccb4055b3f8b84c46fa38529844150c140638705`. Reported November 2 naturally scheduled premarket acceptance is PASS (seven consecutive successful publications, latest row counts 60/62/63, no new recorded `http_409` failures in that window). Batch 191 remains PARTIAL until regular-session and after-hours windows are verified.
+**Continuity addendum (2026-11-05):** GitHub `main` is **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217** merged). **Reported production activation:** `sync-screener-data` Edge **2026-11-04**; canonical SQL `supabase/migrations/20261104230000…` applied via Lovable Drizzle **ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** matching row (record only — do not backfill either ledger). First natural post-migration generation **85** rows / six tabs / **7/7** chunks. **ISS-034 OPEN**. **Batch 195** PR **#212** and **ISS-037** PR **#215** **merged** on `main`; production verification **NOT VERIFIED**. November 2 premarket PASS preserved. **Nov 5 screenshot observations** in `docs/ISSUE_REGISTER.md` — do not reopen completed code audits (171–189, 190.9–190.15 implementation).
 
 ## 1. Verified baseline — use these facts, not older summaries
 
@@ -42,9 +42,9 @@ This register replaces the **active implementation queue** in `docs/release/next
 
 #### Batch 190 — P0 CPU-safe screener execution and atomic publisher
 
-**Priority:** P0 · **Owner:** Cursor design/code/tests; Lovable Cloud only for separately approved deployment/migration.  
-**Status:** **IMPLEMENTED IN GIT (190.9–190.11 merged); acceptance and reliability evidence remains active.**  
-**Evidence:** ISS-034. PR #194's ~5× local speedup still exceeded Edge CPU during actual 17:30/17:35 runs; 108-row old generation served.
+**Priority:** P0 · **Owner:** Cursor design/code/tests; Lovable Cloud for approved deployment/migration.  
+**Status:** **CODE AND REPORTED DEPLOY COMPLETE through 190.15 (PR #217); PENDING ACCEPTANCE under Batch 191 / ISS-034.**  
+**Evidence:** ISS-034. Staged Architecture A merged **190.9–190.15**. **Reported activation (190.15):** slim RPC `control` payloads live; first post-migration publication **85** rows. Nov **4 HTTP 546** failures preserved. Repeated RTH/AH publication acceptance **NOT VERIFIED**.
 
 **Work:** Build a bounded, CPU-compliant execution plan, ideally separating expensive full-universe evaluation from the 2-second Edge request budget (chunked/idempotent staged jobs, an approved existing worker, or a measured alternative). Preserve one consistent provider-snapshot observation context, exact six-tab/global volume-first ranking and evaluation evidence, NHL baselines, session volume, diagnostics, and **single atomic final `replace_screener_results_generation_v1` publication**. Engineer job leases, idempotency, expiry, retry/recovery, concurrency, stale-generation prevention, partial-work isolation, 5-minute cron overlap behavior, metrics, and a rollback plan. **For new CPU architecture changes, prefer a verified PR #194 or D1 source recovery reference; do not default to the old pre-D1 `68092518` candidate, which reintroduces ISS-033 and also did not resolve CPU failure.** Do not simply trim the symbol universe or split selection in a way that changes global top-20 winners. Evaluate infrastructure/migration tradeoffs in the implementation proposal before changes.
 
@@ -177,7 +177,7 @@ Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, ho
 
 | Existing item | Disposition as of Oct 28 | New owner batch |
 | --- | --- | --- |
-| **ISS-034** CPU Time exceeded; stale screener publication | **Confirmed, P0 BLOCKED**, even after deployed PR #194 | **190** |
+| **ISS-034** CPU Time exceeded; stale screener publication | **Confirmed, P0 OPEN** — 190.15 reported activated; **Batch 191** RTH/AH acceptance pending | **191** (acceptance gate on **190**) |
 | **ISS-033** premarket `day.v=0` vs `min.av` | Code & Edge D1 deployed; true timed premarket acceptance **PENDING** | 191 |
 | **Batch 174** (old) scanner live ET matrix | **CONDITIONAL**; superseded PR #174 closed unmerged | 191 / 196 |
 | **ISS-024 / DATA-01 / DATA-02 / ISS-031** tab evidence, Gappers/Movers blank states, homepage vs scanner | Batch 185 code merged; persisted metadata confirmed in older 108-row generation; fresh production acceptance **PENDING** | 191 |
@@ -217,9 +217,9 @@ Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, ho
 
 Canonical GitHub docs updated by PR **#195** to reflect this register and Oct 28 deployment evidence. **Do not merge PR #195 automatically.** After merge, GitHub `main` becomes authoritative for the roadmap; forward-sync Lovable integration only when a later deployment is approved.
 
-## 7. Recommended decision at owner review
+## 7. Recommended decision at owner review (updated 2026-11-05)
 
-**Approve Batch 190 only** as the next architecture/implementation assignment. Make CPU-safe publication the explicit P0 gate. Keep other batches sequenced but **not automatically authorized**. Once 190 publishes reliably, run 191 market acceptance and 192 Inbox/UI checks; split work only where ownership does not collide.
+**Batch 190.15 code and reported deploy are complete.** Next P0 gate is **Batch 191** market-session acceptance (**ISS-034**) across **repeated** regular-session and after-hours windows — not a single post-migration publication. Then **Batch 195** authenticated issuer-trust walkthrough (**ISS-028**, code merged **#212**; including Nov 5 ACAD/RXRX report), **Batch 192** AM Inbox visual acceptance, and scoped follow-ups (**ISS-038**, **ISS-024**). **ISS-037** code merged (**#215**); production verification **NOT VERIFIED** — no new merge or deploy assumed. Do not authorize new Edge/migration/cron/Fly changes without an approved batch.
 
 **Guardrails:** no backend migrations/Edge deploy/cron/Fly changes without independent approval, no Lovable frontend publishing, no browser-fabricated market data, no AI Trader, broker, billing or live feed upgrade now. Live auth/UI claims require actual authenticated evidence.
 

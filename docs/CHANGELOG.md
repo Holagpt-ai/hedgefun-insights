@@ -1,8 +1,16 @@
 ﻿# Changelog
 
-## 2026-11-04 (Batch 190.15 — in review)
+## 2026-11-05 (Batch 190.15 documentation closeout)
 
-- **Batch 190.15 / slim staging RPC payloads** (PR pending, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers`). Claim stays full. Finalize baseline drift reads state identity only. Chunk top-20 Gainers/Losers rejected for duplicate-symbol parity. Migration `20261104230000` not applied. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **Not merged; not deployed.**
+- **Docs-only continuity** (PR **#218**): records reported **Batch 190.15** production activation (PR **#217** → **`3c810c4b`**), dual migration-ledger facts (Git `supabase/migrations/`, Lovable Drizzle **idx 68**, no `schema_migrations` row), Nov **5** screenshot observations, **ISS-034 OPEN**, PR **#212** / **#215** merged with verification outstanding. No application or deploy changes.
+
+## 2026-11-04 (Batch 190.15 — merged and reported activated)
+
+- **Batch 190.15 / slim staging RPC payloads** (PR **#217** → **`3c810c4b`**, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers` in staging; ~**8.60 MB** full RPC response reported in production). Claim stays full. Finalize baseline drift reads state identity only. **Reported activation:** Lovable Cloud **`sync-screener-data`** Edge **2026-11-04**; canonical SQL `supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql` applied via Lovable Drizzle **ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** matching version row (record only — do not backfill ledgers). Compact **`control`** ~**407 bytes**. First natural post-migration generation **85** rows, six tabs, **7/7** chunks. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **ISS-034 remains OPEN** pending **Batch 191** RTH/AH acceptance — one successful generation is not permanent CPU proof.
+
+- **Batch 195** Catalyst / Watchlist / Radar issuer-trust acceptance (PR **#212** → **`5d6399de`** merged): Radar recent-news headline gate tightening; runbook `docs/release/batch195-issuer-trust-acceptance-v1.md`. **ISS-028** not closed — authenticated prod **NOT VERIFIED**.
+
+- **ISS-037 / screener free float** (PR **#215** → **`3bd3ee68`** merged): verified free-float display path; runbook `docs/release/batch-iss037-screener-float-enrich-v1.md`. **Production verification NOT VERIFIED** — do not assume Vercel or Edge deploy.
 
 ## 2026-11-04 (Batch 190.14 — release-safety revision, in review)
 
@@ -16,13 +24,9 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **ISS-037 / screener free float (display)** (PR **#215**, base **`2edaabfc`**): verified free float via Radar float client; Massive `effective_date` mapping on Edge + client; cache TTL vs measurement date separated; honest “as of” UI; publication path does not call Polygon float. **Vercel + approved `market-data` Edge** after merge. Runbook `docs/release/batch-iss037-screener-float-enrich-v1.md`. **Not merged; not deployed.**
+- **Batch 190.13** Cron `{}` body normalization (PR **#214** → **`2edaabfc`** merged): production pg_cron `{}` normalized to `{ action: "cron" }`. Runbook `docs/release/batch190-13-cron-body-normalize-v1.md`. **Reported deployed** with Batch **190.12** — do not reapply.
 
-- **Batch 190.13** Cron `{}` body normalization (PR pending, base **`fce9b95b`**): production pg_cron sends `{}`; normalize to `{ action: "cron" }` so Batch **190.12** reconciliation preflight runs. Edge-only deploy (`sync-screener-data`). Runbook `docs/release/batch190-13-cron-body-normalize-v1.md`. **Not merged; not deployed.**
-
-- **Batch 190.12** Stale finalizing recovery (PR **#213** → **`fce9b95b`** merged): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`; Edge cron/finalize post-publish reconciliation. Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Lovable migration apply + Edge deploy owner pending.**
-
-- **Batch 195** Catalyst / Watchlist / Radar issuer-trust acceptance (PR pending, base **`0db6063f`**): Batch **181** regression **PASS**; tightens Radar recent-news headline gate (SpaceX-primary commentary on TSLA); runbook `docs/release/batch195-issuer-trust-acceptance-v1.md`. **ISS-028** not closed — authenticated prod surfaces **NOT VERIFIED**. **Not merged; not deployed.**
+- **Batch 190.12** Stale finalizing recovery (PR **#213** → **`fce9b95b`** merged): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`. Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Reported deployed** Lovable Cloud — do not reapply.
 
 - **Batch 196.2** Day Trade / scanner presentation parity (PR **#211** → **`0db6063f`** merged): status rail reports distinct momentum-qualified vs full Five Pillars (freshness-inclusive) counts; Unusual Volume row evidence names prior-session ≥4× vs time-adjusted RVOL ≥2× without mislabeling; focused Vitest regressions; **ISS-037** (screener free-float **NOT VERIFIED**).
 
