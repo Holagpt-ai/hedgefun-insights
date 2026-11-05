@@ -11223,6 +11223,12 @@ export type Database = {
         Args: { p_ratio: number }
         Returns: number
       }
+      screener_sync_job_control_v1: {
+        Args: {
+          j: Database["public"]["Tables"]["screener_sync_generation_jobs"]["Row"]
+        }
+        Returns: Json
+      }
       sec_edgar_sync_cron_should_invoke_v1: { Args: never; Returns: boolean }
       set_radar_v22_feed_status_v1: {
         Args: {
