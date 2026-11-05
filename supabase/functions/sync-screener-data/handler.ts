@@ -17,6 +17,9 @@ import {
 import {
   classifyFinalizeError,
   logFinalizeFailure,
+  logFinalizeStageEnter,
+  logFinalizeStageExit,
+  logFinalizeStageTimings,
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
@@ -35,6 +38,7 @@ import {
   type PolygonTicker,
   SCREENER_ROW_LIMIT,
   selectForTab,
+  selectGainersLosersFromUniverse,
   selectMainUniverseTabs,
 } from "../_shared/screeners/selection.ts";
 import {
@@ -253,6 +257,38 @@ function chunkContextFromJob(job: StagedGenerationJob): StagedChunkContext {
   };
 }
 
+async function loadNhlBaselineIdentity(sb: DbClient): Promise<{
+  baselineGenerationId: string;
+  status: NhlBaselineStatus;
+} | null> {
+  try {
+    const stateRes = await sb
+      .from("screener_52w_baseline_state")
+      .select("current_generation_id,status")
+      .eq("state_key", "current")
+      .limit(1);
+    if (stateRes.error || !stateRes.data || stateRes.data.length === 0) return null;
+    const row = stateRes.data[0];
+    const status = row.status;
+    if (
+      status !== "available" &&
+      status !== "initializing" &&
+      status !== "unavailable" &&
+      status !== "empty"
+    ) {
+      return null;
+    }
+    return {
+      baselineGenerationId: typeof row.current_generation_id === "string"
+        ? row.current_generation_id
+        : "",
+      status: status === "empty" ? "initializing" : status,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function validateJobBaselineDrift(
   job: StagedGenerationJob,
   sb: DbClient,
@@ -260,11 +296,12 @@ async function validateJobBaselineDrift(
 ): Promise<Response | null> {
   const snap = job.nhlBaselineSnapshot;
   if (!snap || !snap.baselineGenerationId) return null;
-  const live = await loadNhlBaseline(sb);
-  const check = assertFrozenBaselineStillValid(snap, {
-    baselineGenerationId: live.baselineGenerationId,
-    status: live.status,
-  });
+  const live = await loadNhlBaselineIdentity(sb);
+  if (!live) {
+    await store.failJob(job.id, "nhl_baseline_identity_unavailable", Date.now());
+    return json({ error: "nhl_baseline_identity_unavailable", generation_id: job.id }, 503);
+  }
+  const check = assertFrozenBaselineStillValid(snap, live);
   if (check.ok) return null;
   await store.failJob(job.id, check.reason, Date.now());
   return json({ error: check.reason, generation_id: job.id }, 409);
@@ -584,6 +621,20 @@ function providerAsOfBounds(
   return { min, max };
 }
 
+function createFinalizeStageTimer(initialStage: FinalizeStage) {
+  let stage = initialStage;
+  let clock = performance.now();
+  const timingsMs: Partial<Record<FinalizeStage, number>> = {};
+  return {
+    advance(next: FinalizeStage) {
+      timingsMs[stage] = (timingsMs[stage] ?? 0) + (performance.now() - clock);
+      stage = next;
+      clock = performance.now();
+    },
+    timingsMs,
+  };
+}
+
 async function finalizeStagedScreenerGeneration(
   generationId: string,
   deps: SyncDeps,
@@ -592,6 +643,7 @@ async function finalizeStagedScreenerGeneration(
 ): Promise<Response> {
   const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
   let stage: FinalizeStage = "load_job";
+  const finalizeTimer = createFinalizeStageTimer(stage);
   try {
   const peek = await store.get(generationId);
   if (!peek) {
@@ -609,10 +661,12 @@ async function finalizeStagedScreenerGeneration(
   if (peek.nextChunkIndex < peek.totalChunks) {
     return json({ error: "chunks_incomplete" }, 409);
   }
+  finalizeTimer.advance("baseline_drift");
   stage = "baseline_drift";
   const drift = await validateJobBaselineDrift(peek, sb, store);
   if (drift) return drift;
 
+  finalizeTimer.advance("preflight");
   stage = "preflight";
   const prep = await prepareStagedFinalizeRetry(
     store,
@@ -643,6 +697,7 @@ async function finalizeStagedScreenerGeneration(
     }
   }
 
+  finalizeTimer.advance("claim_finalize_lease");
   stage = "claim_finalize_lease";
   const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
   const claimed = await store.claimWork({
@@ -686,7 +741,13 @@ async function finalizeStagedScreenerGeneration(
     `[sync-screener-data] staged ${formatRadarRejectionLog(job.merged.radar)}`,
   );
 
+  finalizeTimer.advance("merge_selections");
   stage = "merge_selections";
+  logFinalizeStageEnter({
+    generationId: job.id,
+    syncRunId,
+    stage: "merge_selections",
+  });
   const mainTabSelections = finalizeMainUniverseSelections(
     job.merged.mainQualified,
     extendedTabOpts,
@@ -697,16 +758,30 @@ async function finalizeStagedScreenerGeneration(
   const unusualSelected = mainTabSelections.unusual_volume;
 
   const providerGainersLosers = [...job.gainers, ...job.losers];
-  const gainersLosersUniverse = providerGainersLosers.length > 0
-    ? providerGainersLosers
-    : job.allTickers;
-  const gainersLosersSelected = selectForTab(
-    "gainers_losers",
+  const gainersLosersFromFullSnapshot = providerGainersLosers.length === 0;
+  const gainersLosersUniverse = gainersLosersFromFullSnapshot
+    ? job.allTickers
+    : providerGainersLosers;
+  const gainersLosersPick = selectGainersLosersFromUniverse(
     gainersLosersUniverse,
     undefined,
     extendedTabOpts,
   );
+  const gainersLosersSelected = gainersLosersPick.selected;
+  const gainersLosersVolumeActiveCount =
+    gainersLosersFromFullSnapshot &&
+      (observation.extendedSession || observation.observationSessionFields)
+      ? job.merged.primaryAccum.volumeActive
+      : undefined;
+  logFinalizeStageExit({
+    generationId: job.id,
+    syncRunId,
+    stage: "merge_selections",
+    detail:
+      `gl_universe=${gainersLosersUniverse.length} gl_selected=${gainersLosersSelected.length}`,
+  });
 
+  finalizeTimer.advance("load_volume_baselines");
   stage = "load_volume_baselines";
   const volumeBaselines = await loadVolumeBaselines(sb);
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
@@ -739,11 +814,18 @@ async function finalizeStagedScreenerGeneration(
     unusualSelected,
     nhlTickers,
   );
+  finalizeTimer.advance("load_names");
   stage = "load_names";
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
+  finalizeTimer.advance("build_rows");
   stage = "build_rows";
+  logFinalizeStageEnter({
+    generationId: job.id,
+    syncRunId,
+    stage: "build_rows",
+  });
   const meta: GenerationMeta = {
     syncedAt,
     syncRunId,
@@ -793,7 +875,20 @@ async function finalizeStagedScreenerGeneration(
     volumeBaselines,
     easternTradingDateFromMs(nowMs),
   );
+  logFinalizeStageExit({
+    generationId: job.id,
+    syncRunId,
+    stage: "build_rows",
+    detail: `rows=${allRows.length}`,
+  });
 
+  finalizeTimer.advance("build_evidence");
+  stage = "build_evidence";
+  logFinalizeStageEnter({
+    generationId: job.id,
+    syncRunId,
+    stage: "build_evidence",
+  });
   const tabEvaluationEvidence = buildTabEvaluationEvidenceFromChunkAccums({
     universe: job.allTickers,
     gappersAccum: job.merged.gappersAccum,
@@ -806,6 +901,8 @@ async function finalizeStagedScreenerGeneration(
     volumeSpikeSelected,
     gainersLosersUniverse,
     gainersLosersSelected,
+    gainersLosersQualifiedCount: gainersLosersPick.qualifiedCount,
+    gainersLosersVolumeActiveCount,
     unusualSelected,
     nhlSelected,
     extendedSession: observation.extendedSession,
@@ -813,8 +910,19 @@ async function finalizeStagedScreenerGeneration(
     nowMs,
     sessionVolumeCache: extendedTabOpts.sessionVolumeCache,
   });
+  logFinalizeStageExit({
+    generationId: job.id,
+    syncRunId,
+    stage: "build_evidence",
+  });
 
+  finalizeTimer.advance("preserve_check");
   stage = "preserve_check";
+  logFinalizeStageEnter({
+    generationId: job.id,
+    syncRunId,
+    stage: "preserve_check",
+  });
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
@@ -835,6 +943,12 @@ async function finalizeStagedScreenerGeneration(
         candidateSyncRunId: syncRunId,
       }),
     );
+    logFinalizeStageExit({
+      generationId: job.id,
+      syncRunId,
+      stage: "preserve_check",
+      detail: "prior_retained",
+    });
     return json({
       ok: true,
       preserved: true,
@@ -845,6 +959,12 @@ async function finalizeStagedScreenerGeneration(
       generation_id: job.id,
     });
   }
+  logFinalizeStageExit({
+    generationId: job.id,
+    syncRunId,
+    stage: "preserve_check",
+    detail: "publish_candidate",
+  });
 
   let evidencePersistence: TabEvaluationEvidencePersistenceResult = {
     mode: "atomic_rpc",
@@ -853,7 +973,13 @@ async function finalizeStagedScreenerGeneration(
   let publishVersion = job.stateVersion;
 
   if (rowsInserted === null) {
+    finalizeTimer.advance("atomic_publish");
     stage = "atomic_publish";
+    logFinalizeStageEnter({
+      generationId: job.id,
+      syncRunId,
+      stage: "atomic_publish",
+    });
     const atomicPublish = await store.publishStagedGeneration({
       jobId: job.id,
       finalizeLeaseToken: finalizeLease,
@@ -870,7 +996,19 @@ async function finalizeStagedScreenerGeneration(
       rowsInserted = atomicPublish.rowsInserted;
       publishVersion = atomicPublish.job.stateVersion;
       evidencePersistence = { mode: "atomic_rpc" };
+      logFinalizeStageExit({
+        generationId: job.id,
+        syncRunId,
+        stage: "atomic_publish",
+        detail: `rows_inserted=${rowsInserted}`,
+      });
     } else if (atomicPublish.reason === "newer_generation_live") {
+      logFinalizeStageExit({
+        generationId: job.id,
+        syncRunId,
+        stage: "atomic_publish",
+        detail: "newer_generation_live",
+      });
       await store.abortJob(
         job.id,
         wallNowMs,
@@ -891,6 +1029,12 @@ async function finalizeStagedScreenerGeneration(
       const reason = atomicPublish.reason === "staging_rpc_missing"
         ? "staged_publish_rpc_unavailable"
         : atomicPublish.reason;
+      logFinalizeStageExit({
+        generationId: job.id,
+        syncRunId,
+        stage: "atomic_publish",
+        detail: reason,
+      });
       console.error(
         `[sync-screener-data] staged atomic_publish_failed reason=${reason}`,
       );
@@ -903,7 +1047,13 @@ async function finalizeStagedScreenerGeneration(
     return json({ error: "database_error" }, 500);
   }
 
+  finalizeTimer.advance("complete_publish");
   stage = "complete_publish";
+  logFinalizeStageEnter({
+    generationId: job.id,
+    syncRunId,
+    stage: "complete_publish",
+  });
   const completed = await store.completePublish({
     jobId: job.id,
     finalizeLeaseToken: finalizeLease,
@@ -911,6 +1061,12 @@ async function finalizeStagedScreenerGeneration(
     nowMs: wallNowMs,
   });
   if (!completed.ok) {
+    logFinalizeStageExit({
+      generationId: job.id,
+      syncRunId,
+      stage: "complete_publish",
+      detail: completed.reason,
+    });
     console.error(
       `[sync-screener-data] staged publish_complete_rejected reason=${completed.reason}`,
     );
@@ -924,13 +1080,21 @@ async function finalizeStagedScreenerGeneration(
     });
   }
 
+  logFinalizeStageExit({
+    generationId: job.id,
+    syncRunId,
+    stage: "complete_publish",
+    detail: "published",
+  });
+
+  const sessionDate = easternTradingDateFromMs(nowMs);
+  const dayTradeSymbols = dayTradeSelected.map((t) => String(t.ticker ?? ""));
   try {
-    const sessionDate = easternTradingDateFromMs(nowMs);
     await captureDayTradeQualificationFromSync({
       db: sb as unknown as QualificationDb,
       sessionDate,
       syncRunId,
-      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
+      dayTradeSymbols,
       allTickers: job.allTickers,
       volumeBaselines,
     });
@@ -938,7 +1102,13 @@ async function finalizeStagedScreenerGeneration(
     console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
   }
 
+  finalizeTimer.advance("response");
   stage = "response";
+  logFinalizeStageTimings({
+    generationId: job.id,
+    syncRunId,
+    timingsMs: finalizeTimer.timingsMs,
+  });
   const bounds = providerAsOfBounds(allRows);
   return json({
     ok: true,
@@ -1280,12 +1450,12 @@ export async function handleSyncScreenerData(
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
     : allTickers;
-  const gainersLosersSelected = selectForTab(
-    "gainers_losers",
+  const gainersLosersPick = selectGainersLosersFromUniverse(
     gainersLosersUniverse,
     undefined,
     extendedTabOpts,
   );
+  const gainersLosersSelected = gainersLosersPick.selected;
 
   const selectedAll = [
     ...dayTradeSelected,
@@ -1395,6 +1565,7 @@ export async function handleSyncScreenerData(
     volumeSpikeSelected,
     gainersLosersUniverse,
     gainersLosersSelected,
+    gainersLosersQualifiedCount: gainersLosersPick.qualifiedCount,
     unusualSelected,
     nhlBaselineStatus: nhlBaseline.status,
     nhlBaselines: nhlBaseline.quotes,
@@ -1499,13 +1670,14 @@ export async function handleSyncScreenerData(
 
   const bounds = providerAsOfBounds(allRows);
 
+  const sessionDate = easternTradingDateFromMs(nowMs);
+  const dayTradeSymbols = dayTradeSelected.map((t) => String(t.ticker ?? ""));
   try {
-    const sessionDate = easternTradingDateFromMs(nowMs);
     await captureDayTradeQualificationFromSync({
       db: sb as unknown as QualificationDb,
       sessionDate,
       syncRunId,
-      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
+      dayTradeSymbols,
       allTickers,
       volumeBaselines,
     });

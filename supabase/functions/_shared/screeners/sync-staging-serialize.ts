@@ -107,18 +107,84 @@ export type StagingJobRow = {
   updated_at: string;
 };
 
+export type StagingJobControl = {
+  id: string;
+  status: StagedGenerationStatus;
+  state_version: number;
+  next_chunk_index: number;
+  total_chunks: number;
+  chunk_size: number;
+  sync_run_id: string;
+  publish_rows_inserted: number | null;
+  publish_rpc_recorded_at: string | null;
+  finalize_lease_token: string | null;
+  finalize_lease_expires_at: string | null;
+  lease_token: string | null;
+  lease_expires_at: string | null;
+};
+
+/**
+ * Control payloads omit universe arrays. Callers may read lease and CAS fields only.
+ * Do not slice tickers or read session semantics from this job.
+ */
+export function jobFromControl(control: StagingJobControl): StagedGenerationJob {
+  const now = Date.parse("2026-01-01T00:00:00.000Z");
+  return {
+    id: control.id,
+    status: control.status,
+    observation: {
+      nowMs: now,
+      sessionKind: "closed",
+      extendedSession: false,
+      observationSessionFields: false,
+      syncedAt: "2026-01-01T00:00:00.000Z",
+      syncRunId: control.sync_run_id,
+    },
+    allTickers: [],
+    gainers: [],
+    losers: [],
+    chunkSize: control.chunk_size,
+    nextChunkIndex: control.next_chunk_index,
+    totalChunks: control.total_chunks,
+    merged: emptyChunkArtifacts(),
+    leaseToken: control.lease_token,
+    leaseExpiresMs: control.lease_expires_at
+      ? Date.parse(control.lease_expires_at)
+      : null,
+    createdAtMs: now,
+    updatedAtMs: now,
+    nhlBaselineLoaded: false,
+    nhlBaselineSnapshot: null,
+    stateVersion: control.state_version,
+    continueLastAtMs: null,
+    continueLastError: null,
+    finalizeLeaseToken: control.finalize_lease_token,
+    finalizeLeaseExpiresMs: control.finalize_lease_expires_at
+      ? Date.parse(control.finalize_lease_expires_at)
+      : null,
+    publishRowsInserted: control.publish_rows_inserted,
+    publishRpcRecordedAtMs: control.publish_rpc_recorded_at
+      ? Date.parse(control.publish_rpc_recorded_at)
+      : null,
+    abortReason: null,
+    abortEvidence: null,
+  };
+}
+
 export function jobFromRow(row: StagingJobRow): StagedGenerationJob {
   return {
     id: row.id,
     status: row.status,
     observation: row.observation,
-    allTickers: row.all_tickers,
-    gainers: row.gainers,
-    losers: row.losers,
+    allTickers: Array.isArray(row.all_tickers) ? row.all_tickers : [],
+    gainers: Array.isArray(row.gainers) ? row.gainers : [],
+    losers: Array.isArray(row.losers) ? row.losers : [],
     chunkSize: row.chunk_size,
     nextChunkIndex: row.next_chunk_index,
     totalChunks: row.total_chunks,
-    merged: deserializeMergedArtifacts(row.merged_artifacts),
+    merged: row.merged_artifacts == null
+      ? emptyChunkArtifacts()
+      : deserializeMergedArtifacts(row.merged_artifacts),
     leaseToken: row.lease_token,
     leaseExpiresMs: row.lease_expires_at
       ? Date.parse(row.lease_expires_at)
