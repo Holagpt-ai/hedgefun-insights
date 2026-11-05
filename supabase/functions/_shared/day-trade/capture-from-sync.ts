@@ -1,4 +1,7 @@
-import type { PolygonTicker } from "../screeners/selection.ts";
+import {
+  indexPolygonTickersBySymbol,
+  type PolygonTicker,
+} from "../screeners/selection.ts";
 import type { VolumeBaselineQuote } from "../screeners/volume-baseline.ts";
 import {
   advanceDayTradeQualificationLifecycle,
@@ -18,11 +21,7 @@ export async function captureDayTradeQualificationFromSync(input: {
   allTickers: readonly PolygonTicker[];
   volumeBaselines: ReadonlyMap<string, VolumeBaselineQuote>;
 }): Promise<void> {
-  const bySymbol = new Map<string, PolygonTicker>();
-  for (const ticker of input.allTickers) {
-    const sym = typeof ticker.ticker === "string" ? ticker.ticker.trim().toUpperCase() : "";
-    if (sym) bySymbol.set(sym, ticker);
-  }
+  const bySymbol = indexPolygonTickersBySymbol(input.allTickers);
 
   const metricsRows = [];
   const metricsPresent = new Set<string>();
@@ -56,7 +55,7 @@ export async function captureDayTradeQualificationFromSync(input: {
   metricsRows.push(
     ...metricsRowsForMonitoringRefresh({
       symbols: refreshSymbols,
-      allTickers: input.allTickers,
+      bySymbol,
     }),
   );
 

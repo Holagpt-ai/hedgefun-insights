@@ -28,16 +28,11 @@ export function selectMonitoringRefreshSymbols(
 
 export function metricsRowsForMonitoringRefresh(input: {
   symbols: readonly string[];
-  allTickers: readonly PolygonTicker[];
+  bySymbol: ReadonlyMap<string, PolygonTicker>;
 }): DayTradeMetricsRow[] {
-  const bySymbol = new Map<string, PolygonTicker>();
-  for (const ticker of input.allTickers) {
-    const sym = normalizeSymbol(ticker.ticker);
-    if (sym) bySymbol.set(sym, ticker);
-  }
   const rows: DayTradeMetricsRow[] = [];
   for (const symbol of input.symbols) {
-    const ticker = bySymbol.get(symbol.trim().toUpperCase());
+    const ticker = input.bySymbol.get(symbol.trim().toUpperCase());
     if (!ticker) continue;
     const mapped = mapPolygonToDayTradeMetrics({ ticker });
     if (mapped) rows.push(mapped);
