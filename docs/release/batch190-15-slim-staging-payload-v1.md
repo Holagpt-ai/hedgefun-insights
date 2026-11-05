@@ -2,7 +2,15 @@
 
 **Priority:** P0 (ISS-034)  
 **Merged:** PR **#217** → GitHub `main` **`3c810c4b`** (Batch 190.14 base **`1b7d86d6`**)  
-**Migration:** `20261104230000_screener_sync_slim_control_json_v1.sql` — **reported applied** Lovable Cloud **2026-11-04** (after Edge deploy). **Supabase-native ledger only** — no `drizzle/migrations/` mirror; rollback after apply requires a separate approved SQL migration, not Edge-only revert alone.
+**Migration:** `20261104230000_screener_sync_slim_control_json_v1.sql` — **reported applied** Lovable Cloud **2026-11-04** (after Edge deploy). See **Migration apply paths** below. Rollback after apply requires a separate approved SQL migration, not Edge-only revert alone.
+
+## Migration apply paths (Batch 190.15)
+
+| Path | Role |
+| --- | --- |
+| **`supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql`** | Canonical **GitHub `main`** source; local/CI tests apply via `screener-sync-pg-test-setup.mjs`. |
+| **Lovable-native Drizzle apply** | Production apply reported through Lovable Cloud; **ledger idx 68** recorded in the Lovable Drizzle journal (not present in git `drizzle/migrations/meta/_journal.json`). |
+| **`supabase_migrations.schema_migrations`** | **No** corresponding version row for `20261104230000` — **record only**; do **not** edit or backfill either migration ledger from documentation or Cursor. |
 
 ## Production evidence
 

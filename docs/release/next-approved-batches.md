@@ -37,7 +37,7 @@ Baseline: GitHub `main` **`3c810c4b`**. Product batch ids ≠ GitHub PR numbers.
 | **192** | P0 AM Inbox continuation acceptance (old **175/186**) |
 | **193** | Mobile workflow & Journal acceptance |
 | **194** | Earnings Edge activation & acceptance |
-| **195** | Catalyst/Watchlist issuer-trust acceptance |
+| **195** | Catalyst/Watchlist issuer-trust acceptance — **code merged** PR **#212**; prod walkthrough **NOT VERIFIED** |
 | **196** | Fly Radar / Five Pillars / continuation acceptance |
 | **197** | Desktop Radar historical/workflow cleanup |
 | **198** | Bounded market-data & ops reliability |

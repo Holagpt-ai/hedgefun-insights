@@ -1,4 +1,4 @@
-> **Current production snapshot (2026-11-05, Batch 190.15 screener activation):** GitHub `main` **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217** merged). **Reported Lovable Cloud:** **`sync-screener-data`** Edge deployed **2026-11-04**; migration **`20261104230000_screener_sync_slim_control_json_v1.sql`** applied. Observed RPC JSON: full job ~**8.60 MB**; **`control`** **407 bytes**. First natural post-migration publication reported **85** rows, six evaluated tabs, **7/7** chunks. Edge revision id **not recorded** in git. **ISS-034 OPEN** — repeated RTH/AH acceptance still required; Nov **4** **HTTP 546** / stranded **`finalizing`** evidence preserved. Fly **`stocksist-radar-v22-worker` v46** (Batch **196.1**, git **`797cc615`**) unchanged this batch. Prior snapshots follow.
+> **Current production snapshot (2026-11-05, Batch 190.15 screener activation):** GitHub `main` **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217** merged). **Reported Lovable Cloud:** **`sync-screener-data`** Edge **2026-11-04**; SQL **`supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql`** applied via Lovable Drizzle **ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** row for `20261104230000` (record only — do not backfill ledgers). Observed RPC JSON: full job ~**8.60 MB**; **`control`** **407 bytes**. First natural post-migration publication reported **85** rows, six tabs, **7/7** chunks. **ISS-034 OPEN**. Batch **195** (**#212**) and **ISS-037** (**#215**) merged on `main`; production UI/deploy verification **NOT VERIFIED**. Fly **v46** unchanged. Prior snapshots follow.
 
 > **Prior snapshot (2026-11-04, Batch 196.1 Fly worker):** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (PR **#209** merged). Fly `stocksist-radar-v22-worker` release **v46** complete. Image `registry.fly.io/stocksist-radar-v22-worker:deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`. Machine **`8e4192a73d09e8`**, `iad`, started. Post-deploy `/health` reached **`running`**; Polygon **subscribed**, `stale: false`. **ISS-036** live acceleration-value acceptance **NOT VERIFIED**. **ISS-034 OPEN**. Prior Batch 192 snapshot follows.
 
@@ -24,7 +24,10 @@
 | --- | --- |
 | GitHub `main` HEAD | **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217**) |
 | Batch **190.15** Edge (`sync-screener-data`) | **Reported deployed 2026-11-04** (revision id not stored in repo) |
-| Batch **190.15** migration | **`20261104230000_screener_sync_slim_control_json_v1.sql`** — **reported applied** Lovable Cloud |
+| Batch **190.15** migration (Git canonical) | **`supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql`** |
+| Batch **190.15** migration (Lovable apply) | **Drizzle ledger idx 68** — reported applied **2026-11-04** |
+| `supabase_migrations.schema_migrations` | **No** row for `20261104230000` — record only; do not backfill |
+| Batch **195** / **ISS-037** on `main` | PR **#212** **`5d6399de`**, PR **#215** **`3bd3ee68`** merged; prod verification **NOT VERIFIED** |
 | Reported RPC payload sizes (owner) | Full job ~**8.60 MB**; **`control`** **407 bytes** |
 | First post-migration natural generation | **85** rows; six tabs evaluated; **7/7** chunks — **single-run evidence only** |
 | Reported Nov 1 deployment/integration source (`sync-screener-data`) | **`ccb4055b3f8b84c46fa38529844150c140638705`** (prior baseline; superseded by 190.15 deploy) |
