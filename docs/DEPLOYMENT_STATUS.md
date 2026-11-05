@@ -1,4 +1,6 @@
-> **Current production snapshot (2026-11-04, Batch 196.1 Fly worker):** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (PR **#209** merged). Fly `stocksist-radar-v22-worker` release **v46** complete. Image `registry.fly.io/stocksist-radar-v22-worker:deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`. Machine **`8e4192a73d09e8`**, `iad`, started. Post-deploy `/health` reached **`running`**; Polygon **subscribed**, `stale: false`. Pre-deploy v45 `persist_failed` and 2026-11-03 OOM (exit 137) are prior conditions. **ISS-036** worker image is live; live acceleration-value acceptance **NOT VERIFIED**. **ISS-034 OPEN**. Prior Batch 192 snapshot follows.
+> **Current production snapshot (2026-11-05, Batch 190.15 screener activation):** GitHub `main` **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217** merged). **Reported Lovable Cloud:** **`sync-screener-data`** Edge deployed **2026-11-04**; migration **`20261104230000_screener_sync_slim_control_json_v1.sql`** applied. Observed RPC JSON: full job ~**8.60 MB**; **`control`** **407 bytes**. First natural post-migration publication reported **85** rows, six evaluated tabs, **7/7** chunks. Edge revision id **not recorded** in git. **ISS-034 OPEN** — repeated RTH/AH acceptance still required; Nov **4** **HTTP 546** / stranded **`finalizing`** evidence preserved. Fly **`stocksist-radar-v22-worker` v46** (Batch **196.1**, git **`797cc615`**) unchanged this batch. Prior snapshots follow.
+
+> **Prior snapshot (2026-11-04, Batch 196.1 Fly worker):** GitHub `main` **`797cc6157328c3561bcd2d2db2d3037d467393ab`** (PR **#209** merged). Fly `stocksist-radar-v22-worker` release **v46** complete. Image `registry.fly.io/stocksist-radar-v22-worker:deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`. Machine **`8e4192a73d09e8`**, `iad`, started. Post-deploy `/health` reached **`running`**; Polygon **subscribed**, `stale: false`. **ISS-036** live acceleration-value acceptance **NOT VERIFIED**. **ISS-034 OPEN**. Prior Batch 192 snapshot follows.
 
 > **Prior snapshot (2026-11-03, post Batch 192):** GitHub `main` **`f1f0121b6a4316aaecf62bdd425cb36c33deed24`** (Batch **192** PR **#208** merged). **Reported activation:** Vercel production (AM Inbox UI); Lovable Cloud **`generate-daily-brief`** Edge (brief evidence cutoff). Batch **191** premarket acceptance and Nov 1 scanner deploy evidence preserved below. **ISS-034 OPEN**; **ISS-025** visual acceptance **NOT VERIFIED**.
 
@@ -16,17 +18,18 @@
 
 **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## Current — GitHub and Lovable integration (2026-11-03)
+## Current — GitHub and Lovable integration (2026-11-05)
 
 | Field | Value |
 | --- | --- |
-| GitHub `main` HEAD | **`7e456ace0929238807b8d6186151b2094ca93284`** |
-| Reported Nov 1 deployment/integration source (`sync-screener-data`) | **`ccb4055b3f8b84c46fa38529844150c140638705`** |
-| November 2 premarket acceptance | **PASS** (reported, naturally scheduled 04:00-04:30 ET) |
-| Reported consecutive successful publications | **7** |
-| Last three reported publication row counts | **60, 62, 63** |
-| New recorded `http_409` failures in that acceptance window | **None reported** |
-| Batch 191 full-session status | **PARTIAL** (regular and after-hours windows still required) |
+| GitHub `main` HEAD | **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217**) |
+| Batch **190.15** Edge (`sync-screener-data`) | **Reported deployed 2026-11-04** (revision id not stored in repo) |
+| Batch **190.15** migration | **`20261104230000_screener_sync_slim_control_json_v1.sql`** — **reported applied** Lovable Cloud |
+| Reported RPC payload sizes (owner) | Full job ~**8.60 MB**; **`control`** **407 bytes** |
+| First post-migration natural generation | **85** rows; six tabs evaluated; **7/7** chunks — **single-run evidence only** |
+| Reported Nov 1 deployment/integration source (`sync-screener-data`) | **`ccb4055b3f8b84c46fa38529844150c140638705`** (prior baseline; superseded by 190.15 deploy) |
+| November 2 premarket acceptance | **PASS** (reported, 04:00-04:30 ET) |
+| Batch 191 full-session status | **PARTIAL** — **ISS-034 OPEN**; RTH and AH windows still required |
 
 ## Historical — GitHub and Lovable integration (2026-10-28)
 

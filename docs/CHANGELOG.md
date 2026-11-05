@@ -1,8 +1,12 @@
 ﻿# Changelog
 
-## 2026-11-04 (Batch 190.15 — in review)
+## 2026-11-05 (Batch 190.15 documentation closeout)
 
-- **Batch 190.15 / slim staging RPC payloads** (PR pending, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers`). Claim stays full. Finalize baseline drift reads state identity only. Chunk top-20 Gainers/Losers rejected for duplicate-symbol parity. Migration `20261104230000` not applied. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **Not merged; not deployed.**
+- **Docs-only continuity** (PR pending): records reported **Batch 190.15** production activation (PR **#217** → **`3c810c4b`**), Nov **5** authenticated screenshot observations without unverified backend causes, **ISS-034 OPEN**, and updated next-step sequence. No application or deploy changes.
+
+## 2026-11-04 (Batch 190.15 — merged and reported activated)
+
+- **Batch 190.15 / slim staging RPC payloads** (PR **#217** → **`3c810c4b`**, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers` in staging; ~**8.60 MB** full RPC response reported in production). Claim stays full. Finalize baseline drift reads state identity only. **Reported activation:** Lovable Cloud **`sync-screener-data`** Edge **2026-11-04**; migration **`20261104230000`** applied; compact **`control`** ~**407 bytes**. First natural post-migration generation **85** rows, six tabs, **7/7** chunks. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **ISS-034 remains OPEN** pending **Batch 191** RTH/AH acceptance — one successful generation is not permanent CPU proof.
 
 ## 2026-11-04 (Batch 190.14 — release-safety revision, in review)
 

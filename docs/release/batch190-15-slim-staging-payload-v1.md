@@ -1,8 +1,8 @@
 # Batch 190.15 — Slim staging RPC payloads
 
 **Priority:** P0 (ISS-034)  
-**Base:** GitHub `main` **`1b7d86d6`** (Batch 190.14 merged)  
-**Migration:** `20261104230000_screener_sync_slim_control_json_v1.sql` (not applied)
+**Merged:** PR **#217** → GitHub `main` **`3c810c4b`** (Batch 190.14 base **`1b7d86d6`**)  
+**Migration:** `20261104230000_screener_sync_slim_control_json_v1.sql` — **reported applied** Lovable Cloud **2026-11-04** (after Edge deploy). **Supabase-native ledger only** — no `drizzle/migrations/` mirror; rollback after apply requires a separate approved SQL migration, not Edge-only revert alone.
 
 ## Production evidence
 
@@ -36,12 +36,12 @@ Per-chunk top-20 is **not** parity-safe when the same symbol appears twice and t
 
 `batch190-15-slim-payload_test.ts` logs `[batch190-15-payload]`. Measured local JSON: full job response **2,424,349** bytes; control response **335** bytes. Those are JSON byte sizes, not Supabase billed CPU.
 
-## Activation (owner)
+## Activation (owner) — reported complete 2026-11-04
 
-1. Merge this PR.
-2. **Lovable Cloud** deploy Edge **`sync-screener-data` first** (dual-read). Do not apply the migration before that Edge revision is live.
-3. Then apply migration **`20261104230000`** only. Do not reapply Batch **190.12** or **190.13**.
-4. Confirm a staged run publishes and claim logs still include the universe, while publish/advance responses contain `control` and not `all_tickers`.
+1. ~~Merge this PR.~~ **Done** — PR **#217**.
+2. **Lovable Cloud** Edge **`sync-screener-data`** deployed **2026-11-04** (dual-read).
+3. Migration **`20261104230000`** applied through Lovable Cloud. Batch **190.12** / **190.13** not reapplied.
+4. **Reported verification:** first natural post-migration generation **85** rows, six tabs, **7/7** chunks; full RPC ~**8.60 MB** vs **`control`** **407 bytes**. **ISS-034 stays OPEN** until **Batch 191** repeated RTH/AH acceptance — do not treat one run as durable CPU headroom.
 
 ## Rollback
 

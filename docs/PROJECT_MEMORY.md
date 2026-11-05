@@ -2,19 +2,21 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-11-03 (post Batch 192)
+## Current operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
-**GitHub `main`:** `f1f0121b6a4316aaecf62bdd425cb36c33deed24` (Batch **192** PR **#208** merged atop Batch **191** continuity). Preserve Lovable-specific generated files and migrations.
+**GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.
+
+**Batch 190.15 (reported production activation):** PR **#217** merged. Lovable Cloud **`sync-screener-data`** Edge deployed **2026-11-04** (dual-read before SQL). Migration **`20261104230000_screener_sync_slim_control_json_v1.sql`** applied through Lovable Cloud. Reported RPC JSON sizes: full job ~**8.60 MB**; **`control`** **407 bytes**. First natural post-migration generation: **85** rows, six tabs evaluated, **7/7** chunks, publication reported for that run. **No Drizzle mirror** for this migration — production ledger is **`supabase/migrations/`** only; coordinated rollback requires a new approved SQL change if Edge is reverted after apply (see `docs/migration-drizzle-supabase-notes.md`).
 
 **Batch 192 (reported production activation):** Vercel frontend + Lovable Cloud **`generate-daily-brief`** Edge deploy recorded for AM Inbox / brief evidence-cutoff scope. **ISS-025** authenticated visual acceptance remains **NOT VERIFIED**.
 
-**Lovable Cloud `sync-screener-data`:** November 1 deployment/integration source reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance reported **PASS** with seven consecutive successful publications (04:00–04:30 ET), no new recorded `http_409` publication failures, and latest publication row counts of 60, 62, and 63. Treat these as acceptance evidence for the covered premarket window only.
+**Lovable Cloud `sync-screener-data` (historical acceptance):** November 1 deployment/integration source reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance reported **PASS** with seven consecutive successful publications (04:00–04:30 ET), no new recorded `http_409` publication failures, and latest publication row counts of 60, 62, and 63. Treat these as acceptance evidence for the covered premarket window only.
 
 **PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. November 2 premarket acceptance for that window is reported PASS.
 
-**ISS-034 P0** remains OPEN until Batch 191 regular-session and after-hours acceptance criteria are also verified. Do not claim full-session closure from premarket-only evidence.
+**ISS-034 P0** remains **OPEN** until Batch **191** regular-session and after-hours acceptance criteria are verified across **repeated** production windows. Do not claim permanent CPU reliability from a single post-**190.15** publication or from premarket-only evidence.
 
-**Nov 4 2026 publication deadlock (confirmed):** Production stranded `finalizing` job after successful atomic publish (`09346799…`, 65 rows). **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
+**Nov 4 2026 publication failures (confirmed, preserved):** `sync-screener-data` **v506** finalize **HTTP 546** after 7/7 chunks; stranded **`finalizing`** job / generation **`09346799…`**. **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
@@ -62,7 +64,7 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Master roadmap (2026-10-28)
 
 - **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
-- **Current continuity state:** Batches **190.9–190.11** are merged on `main`; November 1 deployment source and November 2 premarket acceptance are recorded. Batch **191** remains **PARTIAL** until regular-session and after-hours evidence is verified.
+- **Current continuity state:** Batches **190.9–190.15** are merged on `main`; Batch **190.15** Edge + migration activation is reported complete. November 2 premarket acceptance is recorded. Batch **191** remains **PARTIAL** until regular-session and after-hours evidence is verified (**ISS-034 OPEN**).
 - **Historical batches 171–189:** complete in git; open work is **acceptance/ops** under **191–198**, not reimplementation.
 - **Batch 174 / 175:** unfinished **verification** (batches **191–192**). PR **#174** closed without merge.
 
