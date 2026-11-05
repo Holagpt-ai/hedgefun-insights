@@ -57,7 +57,7 @@ export async function prepareStagedFinalizeRetry(
     reconciledComplete: false,
   };
 
-  const refreshed = await store.get(job.id);
+  const refreshed = await store.getPreflight(job.id);
   if (!refreshed || refreshed.status === "published") return out;
   const working = refreshed;
 
@@ -82,7 +82,7 @@ export async function prepareStagedFinalizeRetry(
     feedRunId === working.observation.syncRunId &&
     working.publishRowsInserted === null
   ) {
-    const afterRefresh = await store.get(job.id);
+    const afterRefresh = await store.getPreflight(job.id);
     if (
       afterRefresh &&
       afterRefresh.publishRowsInserted !== null &&
