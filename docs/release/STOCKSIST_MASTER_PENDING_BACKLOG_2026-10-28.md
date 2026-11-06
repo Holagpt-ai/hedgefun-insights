@@ -171,6 +171,13 @@ Operating mode OFF; no homepage promotion, no live/paper trading activation, no 
 
 #### Batch 209 — Optional community/content/market-alert distribution — PARKED / NOT APPROVED
 
+
+#### Batch 211 — Automatic Lovable Git forward-sync (review-only, not activated)
+
+- **Open / pending owner activation.** GitHub Actions controller verifies approved main ancestry, strict Lovable-overlay parity, and clean merge behavior; once separately authorized, performs only a normal non-force forward merge into `cursor/lovable-sync-from-main-20261024`. No production Edge, database, Fly, Vercel, cron or secrets changes.
+- **Source status:** GitHub main `88de3533` is already included in integration `3ec5f7cd`; no recovery merge currently required. See `docs/release/batch211-lovable-source-forward-sync-v1.md` and **ISS-040**.
+- **Activation:** workflow must remain check-only until PR review and separate owner authorization to set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; Lovable editor SHA and runtime deployment remain independently verified.
+
 #### Batch 210 — Unified Release Control V1 (git-only provenance + read-only verification)
 
 **Priority:** P1 · **Owner:** Cursor (manifests, scripts, CI) + owner (deployment attestations in Lovable / platform UIs).  
