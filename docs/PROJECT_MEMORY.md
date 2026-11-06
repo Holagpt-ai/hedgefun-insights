@@ -2,7 +2,14 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-11-05 (post Batch 190.15 activation)
+## Current source-sync checkpoint — November 6, 2026 (Batch 211 PR under review)
+
+- **GitHub main:** `88de3533da1a8fad64e0664cb810b322ee424719` (Batch 195.1 PR #222 merged). **Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `3ec5f7cd193ff49d03782781421fcbae3bd4678e`, verified to contain main; Lovable editor reported same integration commit. Later dated sections remain historical snapshots, not the current Git tip.
+- **Batch 211:** source-only forward-sync controller proposed in `.github/workflows/lovable-source-forward-sync.yml` and `scripts/lovable-sync/`. Read-only check is default. Automatic writes to the Lovable integration branch **MUST remain disabled** until owner explicitly approves activation of `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; no branch writes are authorized by the PR alone. No Edge, Fly, Vercel, migration or production job deployment is implied. Runbook: `docs/release/batch211-lovable-source-forward-sync-v1.md`.
+- **Production acceptance remains open:** ISS-028 (Catalyst frontend/backend rollout), ISS-034 and ISS-024 (RTH/AH scanner), ISS-036 (Radar numerical acceptance), ISS-039 (live binary provenance). Git source sync is NOT a production release attestation.
+
+
+## Historical operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
 **GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.
 
