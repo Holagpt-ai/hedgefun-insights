@@ -3,6 +3,11 @@
  * Batch 211 — safe main -> Lovable integration forward-sync.
  * Git-only. Never deploys anything. Never writes to main. No force push/rebase/reset.
  * Apply is separately gated by the workflow and an explicit environment opt-in.
+ *
+ * Test / disposable mode (STOCKSIST_LOVABLE_SYNC_TEST_MODE=true):
+ *   Set STOCKSIST_LOVABLE_SYNC_TEST_MAIN_BRANCH and STOCKSIST_LOVABLE_SYNC_TEST_INTEGRATION_BRANCH
+ *   to allowlisted refs under cursor/_batch211_e2e_* only. Apply is allowed without
+ *   STOCKSIST_LOVABLE_SYNC_ACTIVATED so CI can prove remote sync without touching production branches.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -12,6 +17,10 @@ import { pathToFileURL } from "node:url";
 
 export const MAIN_BRANCH = "main";
 export const INTEGRATION_BRANCH = "cursor/lovable-sync-from-main-20261024";
+
+/** Disposable E2E branches must use this prefix (single segment after cursor/). */
+export const TEST_BRANCH_PREFIX = "cursor/_batch211_e2e_";
+
 const MAX_ATTEMPTS = 3;
 
 const EXPLICIT_OVERLAY_PATHS = new Set([
@@ -25,6 +34,14 @@ export function isApprovedLovableOverlay(path) {
   return path.startsWith(".lovable/") ||
     path.startsWith("drizzle/migrations/") ||
     EXPLICIT_OVERLAY_PATHS.has(path);
+}
+
+export function isAllowlistedDisposableBranch(name) {
+  return typeof name === "string" &&
+    name.startsWith(TEST_BRANCH_PREFIX) &&
+    name.length > TEST_BRANCH_PREFIX.length &&
+    !name.includes("..") &&
+    !name.includes("\0");
 }
 
 function git(cwd, args) {
@@ -43,15 +60,15 @@ function getChangedPaths(repoDir, baseline, candidate) {
   });
   return raw.split("\0").filter(Boolean);
 }
-function fetchRefs(root) {
+function fetchRefs(root, mainBranch, integrationBranch) {
   git(root, [
     "fetch", "--no-tags", "origin",
-    "+refs/heads/main:refs/remotes/origin/main",
-    "+refs/heads/cursor/lovable-sync-from-main-20261024:refs/remotes/origin/cursor/lovable-sync-from-main-20261024",
+    "+refs/heads/" + mainBranch + ":refs/remotes/origin/" + mainBranch,
+    "+refs/heads/" + integrationBranch + ":refs/remotes/origin/" + integrationBranch,
   ]);
   return {
-    main: git(root, ["rev-parse", "refs/remotes/origin/main"]),
-    integration: git(root, ["rev-parse", "refs/remotes/origin/cursor/lovable-sync-from-main-20261024"]),
+    main: git(root, ["rev-parse", "refs/remotes/origin/" + mainBranch]),
+    integration: git(root, ["rev-parse", "refs/remotes/origin/" + integrationBranch]),
   };
 }
 function overlayCheck(root, mainSha, integrationSha) {
@@ -77,8 +94,28 @@ function writeReport(root, report) {
   writeFileSync(join(output, "status.md"), lines.join("\n") + "\n");
 }
 
-export function synchronize({ repoDir = process.cwd(), mode = "check", attempts = MAX_ATTEMPTS } = {}) {
+/**
+ * @param {object} [opts]
+ * @param {string} [opts.repoDir]
+ * @param {"check"|"apply"} [opts.mode]
+ * @param {number} [opts.attempts]
+ * @param {string} [opts.mainBranch]
+ * @param {string} [opts.integrationBranch]
+ */
+export function synchronize({
+  repoDir = process.cwd(),
+  mode = "check",
+  attempts = MAX_ATTEMPTS,
+  mainBranch = MAIN_BRANCH,
+  integrationBranch = INTEGRATION_BRANCH,
+} = {}) {
   if (!["check", "apply"].includes(mode)) throw new Error("Unsupported mode");
+  if (!isAllowlistedDisposableBranch(mainBranch) && mainBranch !== MAIN_BRANCH) {
+    throw new Error("mainBranch must be main or an allowlisted disposable test ref");
+  }
+  if (!isAllowlistedDisposableBranch(integrationBranch) && integrationBranch !== INTEGRATION_BRANCH) {
+    throw new Error("integrationBranch must be the production integration ref or an allowlisted disposable test ref");
+  }
   const root = resolve(repoDir);
   let report = { status: "UNKNOWN", mode, attempts: 0, main_sha: null,
     integration_sha_before: null, integration_sha_after: null, unexpected_paths: [],
@@ -86,7 +123,7 @@ export function synchronize({ repoDir = process.cwd(), mode = "check", attempts 
   try {
     for (let attempt = 1; attempt <= attempts; attempt++) {
       report.attempts = attempt;
-      const { main, integration } = fetchRefs(root);
+      const { main, integration } = fetchRefs(root, mainBranch, integrationBranch);
       report.main_sha = main;
       report.integration_sha_before = integration;
       report.integration_sha_after = integration;
@@ -139,14 +176,14 @@ export function synchronize({ repoDir = process.cwd(), mode = "check", attempts 
         report.message = "Clean forward merge available; integration branch unchanged";
         if (mode === "check") break;
         // Verify both remote heads again immediately before push to detect a Lovable bot race.
-        const latest = fetchRefs(root);
+        const latest = fetchRefs(root, mainBranch, integrationBranch);
         if (latest.main !== main || latest.integration !== integration) {
           report.message = "Remote advanced during merge; revalidating before retry";
           continue;
         }
         try {
           // Normal fast-forward push only. Never force, overwrite, or update main.
-          git(worktree, ["push", "origin", "HEAD:refs/heads/" + INTEGRATION_BRANCH]);
+          git(worktree, ["push", "origin", "HEAD:refs/heads/" + integrationBranch]);
           report.status = "SYNCED";
           report.integration_sha_after = candidate;
           report.message = "Forward merge pushed (normal fast-forward)";
@@ -174,17 +211,52 @@ export function synchronize({ repoDir = process.cwd(), mode = "check", attempts 
   return report;
 }
 
+function parseBranchArgs(argv) {
+  let mainBranch = MAIN_BRANCH;
+  let integrationBranch = INTEGRATION_BRANCH;
+  for (const arg of argv) {
+    if (arg.startsWith("--main-branch=")) mainBranch = arg.slice("--main-branch=".length);
+    if (arg.startsWith("--integration-branch=")) integrationBranch = arg.slice("--integration-branch=".length);
+  }
+  return { mainBranch, integrationBranch };
+}
+
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isCli) {
-  const raw = process.argv.find((arg) => arg.startsWith("--mode="));
-  const mode = raw?.slice("--mode=".length) || "check";
-  if (mode === "apply" && process.env.STOCKSIST_LOVABLE_SYNC_ACTIVATED !== "true") {
-    console.error("Sync apply BLOCKED: activation gate is not enabled");
-    process.exitCode = 1;
-  } else {
-    const report = synchronize({ mode });
+  const rawMode = process.argv.find((arg) => arg.startsWith("--mode="));
+  const mode = rawMode?.slice("--mode=".length) || "check";
+  const { mainBranch, integrationBranch } = parseBranchArgs(process.argv);
+  const testMode =
+    process.env.STOCKSIST_LOVABLE_SYNC_TEST_MODE === "true" &&
+    isAllowlistedDisposableBranch(mainBranch) &&
+    isAllowlistedDisposableBranch(integrationBranch);
+
+  if (mode === "apply") {
+    if (testMode) {
+      // Disposable refs only; never the real integration branch unless explicitly main (forbidden for apply).
+      if (mainBranch === MAIN_BRANCH || integrationBranch === INTEGRATION_BRANCH) {
+        console.error("Sync apply BLOCKED: test mode cannot target production main/integration refs");
+        process.exitCode = 1;
+      } else if (!isAllowlistedDisposableBranch(mainBranch) || !isAllowlistedDisposableBranch(integrationBranch)) {
+        console.error("Sync apply BLOCKED: test branches not allowlisted");
+        process.exitCode = 1;
+      }
+    } else if (process.env.STOCKSIST_LOVABLE_SYNC_ACTIVATED !== "true") {
+      console.error("Sync apply BLOCKED: activation gate is not enabled");
+      process.exitCode = 1;
+    }
+  }
+
+  if (!process.exitCode) {
+    const report = synchronize({ mode, mainBranch, integrationBranch });
     console.log(JSON.stringify(report, null, 2));
-    if (["CONFLICT", "UNKNOWN"].includes(report.status) || (mode === "apply" && report.status !== "SYNCED")) {
+    if (report.status === "UNKNOWN") {
+      process.exitCode = 1;
+    } else if (mode === "apply" && !testMode && report.status !== "SYNCED") {
+      process.exitCode = 1;
+    } else if (mode === "apply" && testMode && report.status !== "SYNCED" && report.status !== "CONFLICT") {
+      process.exitCode = 1;
+    } else if (mode === "check" && report.status === "CONFLICT") {
       process.exitCode = 1;
     }
   }

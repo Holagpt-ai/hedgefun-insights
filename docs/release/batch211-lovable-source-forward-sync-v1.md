@@ -27,7 +27,10 @@ forward merge while keeping production deployment independent.
 | `.github/workflows/lovable-source-forward-sync.yml` | Runs on `main` push, manual dispatch, and relevant PRs. Check job is always read-only; apply job has a separate activation gate. |
 | `scripts/lovable-sync/forward-sync.mjs` | Fetches both branch heads; creates disposable detached Git worktree; tests ordinary non-fast-forward merge, allowlisted overlay and ancestry; optionally pushes a normal fast-forward to integration. Emits status artifact. |
 | `scripts/lovable-sync/forward-sync.test.mjs` | Disposable local Git regression fixtures. No production or remote GitHub writes. |
+| `scripts/lovable-sync/batch211-github-e2e.mjs` | Optional GitHub E2E: allowlisted disposable refs `cursor/_batch211_e2e_main` and `cursor/_batch211_e2e_integration` only; deletes them after. Invoked by `.github/workflows/batch211-lovable-sync-e2e.yml` (manual `workflow_dispatch`). |
 | `.lovable-sync-verify/status.json` / `status.md` | Workflow artifacts (gitignored), source facts only. Never proves deployed Edge binary identity. |
+
+**Test-target mode (disposable refs only):** when `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true` and both `--main-branch=` and `--integration-branch=` are set to refs under `cursor/_batch211_e2e_*`, `forward-sync.mjs --mode=apply` may run without `STOCKSIST_LOVABLE_SYNC_ACTIVATED`. Apply is blocked if either branch is the real `main` or `cursor/lovable-sync-from-main-20261024`.
 
 Statuses:
 - **SYNCED:** GitHub integration is a descendant of currently fetched main, with only allowed Lovable overlay relative to main; or an approved normal push just made it so.
