@@ -2,7 +2,7 @@
 
 ## 2026-11-06 (Batch 211 — PR #223 security closeout, not activated)
 
-- **PR #223 (branch `cursor/batch211-lovable-forward-sync-v1`):** apply authorization is enforced inside exported `synchronize()` (production pair requires `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; disposable `cursor/_batch211_e2e_*` pair requires `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true`). `batch211-github-e2e.mjs` aborts if disposable refs already exist on `origin`, uses a second pair (`*_main_b` / `*_integration_b`) for idempotency so mid-run deletes are not required, deletes only refs this run created, and TEST_4/TEST_6 matrix lines label unit/static vs remote GitHub evidence. No activation variable change, no merge, no deploy.
+- **PR #223 (branch `cursor/batch211-lovable-forward-sync-v1`):** apply authorization is enforced inside exported `synchronize()` (production pair requires `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; disposable `cursor/_batch211_e2e_*` pair requires `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true`). `batch211-github-e2e.mjs` aborts if disposable refs already exist on `origin`, uses a second pair (`*_main_b` / `*_integration_b`) for idempotency so mid-run deletes are not required, deletes only refs this run created, and TEST_4/TEST_6 matrix lines label unit/static vs remote GitHub evidence (workflow text via `git show` from `origin/cursor/batch211-lovable-forward-sync-v1` when the checkout is a disposable main tip; override `STOCKSIST_BATCH211_WORKFLOW_REF`). No activation variable change, no merge, no deploy.
 
 ## 2026-11-06 (Batch 211 — source-sync controller PR, not activated)
 

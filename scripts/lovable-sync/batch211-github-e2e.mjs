@@ -10,7 +10,7 @@
  * Test files use `.lovable/` and `drizzle/migrations/` paths so merges stay inside the overlay allowlist.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -21,6 +21,13 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "../..");
+
+/**
+ * Disposable branch tips are built from `origin/main` and usually omit PR-only tree paths (`.github/workflows/`).
+ * For TEST_4/TEST_6, read workflow YAML from the Batch 211 integration branch unless overridden.
+ */
+const WORKFLOW_EVIDENCE_REF =
+  process.env.STOCKSIST_BATCH211_WORKFLOW_REF || "origin/cursor/batch211-lovable-forward-sync-v1";
 
 /** Pair A: TEST 1–4; Pair B: TEST 5 (idempotency) — never delete refs we did not create. */
 const BR_MAIN = E2E_MAIN_BRANCH;
@@ -41,6 +48,21 @@ function runGit(args) {
     stdio: ["ignore", "pipe", "pipe"],
     maxBuffer: 5_000_000,
   }).trim();
+}
+
+/** Workflow YAML: working tree, `HEAD`, or policy ref (`WORKFLOW_EVIDENCE_REF`). */
+function readRepoFileForEvidence(relPath) {
+  const abs = join(REPO_ROOT, relPath);
+  try {
+    if (existsSync(abs)) return readFileSync(abs, "utf8");
+  } catch { /* ignore */ }
+  const posix = relPath.replace(/\\/g, "/");
+  for (const ref of ["HEAD", WORKFLOW_EVIDENCE_REF]) {
+    try {
+      return runGit(["show", ref + ":" + posix]);
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 function writePath(rel, content) {
@@ -122,12 +144,18 @@ function record(id, pass, detail) {
 }
 
 function recordTest4UnitEvidence() {
-  const wfPath = join(REPO_ROOT, ".github/workflows/lovable-source-forward-sync.yml");
+  const raw = readRepoFileForEvidence(".github/workflows/lovable-source-forward-sync.yml");
   let lines = [];
+  if (!raw) {
+    record("TEST_4", false,
+      "evidence: unit/static — could not read .github/workflows/lovable-source-forward-sync.yml " +
+        `(working tree, HEAD, or ${WORKFLOW_EVIDENCE_REF}; set STOCKSIST_BATCH211_WORKFLOW_REF to override)`);
+    return;
+  }
   try {
-    lines = readFileSync(wfPath, "utf8").split("\n");
+    lines = raw.split("\n");
   } catch {
-    record("TEST_4", false, "evidence: unit/static — could not read lovable-source-forward-sync.yml");
+    record("TEST_4", false, "evidence: unit/static — invalid lovable-source-forward-sync.yml content");
     return;
   }
   const hits = lines
@@ -146,12 +174,11 @@ function recordTest4UnitEvidence() {
 }
 
 function recordTest6WorkflowEvidence() {
-  const wfPath = join(REPO_ROOT, ".github/workflows/batch211-lovable-sync-e2e.yml");
-  let text = "";
-  try {
-    text = readFileSync(wfPath, "utf8");
-  } catch {
-    record("TEST_6", false, "evidence: static — could not read batch211-lovable-sync-e2e.yml");
+  const text = readRepoFileForEvidence(".github/workflows/batch211-lovable-sync-e2e.yml");
+  if (!text) {
+    record("TEST_6", false,
+      "evidence: static — could not read .github/workflows/batch211-lovable-sync-e2e.yml " +
+        `(working tree, HEAD, or ${WORKFLOW_EVIDENCE_REF}; set STOCKSIST_BATCH211_WORKFLOW_REF to override)`);
     return;
   }
   const forbidden = ["supabase", "vercel", "fly.io", "cron", "sql"];
@@ -260,6 +287,12 @@ try {
   const intAfter3 = remoteSha(BR_INT);
   record("TEST_3", r3.status === "CONFLICT" && intAfter3 === intBefore3,
     `status=${r3.status} int_unchanged=${intAfter3 === intBefore3} msg=${r3.message}`);
+
+  if (WORKFLOW_EVIDENCE_REF.startsWith("origin/")) {
+    try {
+      runGit(["fetch", "--no-tags", "origin", WORKFLOW_EVIDENCE_REF.slice("origin/".length)]);
+    } catch { /* offline or ref already present */ }
+  }
 
   recordTest4UnitEvidence();
 
