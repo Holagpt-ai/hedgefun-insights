@@ -18,7 +18,15 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 **Nov 4 2026 publication failures (confirmed, preserved):** `sync-screener-data` **v506** finalize **HTTP 546** after 7/7 chunks; stranded **`finalizing`** job / generation **`09346799…`**. **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
 
-Deferred product/platform work is batched **203–209** in the master register (not active implementation).
+Deferred product/platform work is batched **203–209** in the master register (not active implementation). **Batch 210** (Unified Release Control V1) adds **git-only** immutable manifests and read-only verification — see `docs/release/batch210-unified-release-control-v1.md` and **ISS-039**; it does **not** replace Batch **191** acceptance or close **ISS-034**.
+
+### Batch 190.16 production checkpoint (2026-11-06, reported)
+
+Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516** and six consecutive successful natural premarket generations (narrow premarket window only). Git-recorded narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` → `historical_evidence.production_checkpoint_2026_11_06`. **ISS-034** remains **OPEN** until **Batch 191** regular-session and after-hours acceptance; the Batch 210 verifier keeps **runtime** as **UNKNOWN** without platform-attested digests (**ISS-039**).
+
+### Session recovery note (unrelated client file)
+
+During a prior session recovery, uncommitted work on `src/lib/screeners/screener-radar-intraday-overlay.ts` was **reverted** to match `main`. That change was **not** tied to Batch 210 / release-control scope in this thread. **Do not restore or modify** that file here without a separate review and task.
 
 ## Product
 

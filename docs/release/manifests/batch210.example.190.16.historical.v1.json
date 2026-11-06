@@ -1,0 +1,85 @@
+{
+  "schema_version": "1",
+  "batch_id": "210",
+  "manifest_id": "batch210.example.190.16.historical.v1",
+  "kind": "release_intent",
+  "title": "Historical example: Batch 190.16 finalize preflight (ISS-034) — Git source only",
+  "summary": "Immutable release intent documenting approved GitHub main, Lovable integration tip, and deterministic source hashes at the Batch 190.16 merge. Runtime Edge identity is not independently verified here — use append-only attestations and treat as UNKNOWN without platform API or digest (**ISS-039**).",
+  "recorded_at": "2026-11-06T14:00:00.000Z",
+  "github": {
+    "main": {
+      "approved_sha": "e03ad6ad8f5726be6c0c446a5dfddb5d8db31924"
+    },
+    "lovable_integration": {
+      "branch": "cursor/lovable-sync-from-main-20261024",
+      "commit_sha": "c35d63caeca894e8fde3c663635fd33b241f0346"
+    }
+  },
+  "components": [
+    {
+      "id": "sync_screener_data_edge",
+      "class": "supabase_edge",
+      "name": "sync-screener-data",
+      "applicability": "APPLICABLE",
+      "source": {
+        "closure": {
+          "algorithm": "repo_edge_import_closure_v1",
+          "entry": "sync-screener-data/index.ts",
+          "expected_sha256": "f9845326a351ffcb4fae3ac7c1f6a06143241e4dab87cc86dcfec02402a32864"
+        }
+      },
+      "deployment_target": {
+        "platform": "lovable_cloud_supabase_edge",
+        "project_id": "zcjptaolpumhtlwhlemq",
+        "function_name": "sync-screener-data"
+      }
+    },
+    {
+      "id": "scanner_stream_worker_fly",
+      "class": "fly_worker",
+      "name": "stocksist-radar-v22-worker (scanner-stream-worker)",
+      "applicability": "NOT_APPLICABLE",
+      "not_applicable_reason": "Batch 190.16 changed only Supabase Edge sync-screener-data and shared screeners; Fly worker source was not part of this release.",
+      "deployment_target": {
+        "platform": "fly_io"
+      }
+    },
+    {
+      "id": "vercel_stocksist_spa",
+      "class": "vercel_frontend",
+      "name": "stocksist.com Vercel SPA",
+      "applicability": "NOT_APPLICABLE",
+      "not_applicable_reason": "Batch 190.16 did not change Vercel deployment surfaces required for this Edge rollout.",
+      "deployment_target": {
+        "canonical_origin": "https://stocksist.com"
+      }
+    }
+  ],
+  "rollback": {
+    "primary_git_sha": "3c810c4bafa36bf547d2235451a7643d9e1f7cbe",
+    "batch_reference": "Batch 190.15 — slim staging RPC control payloads (PR #217)",
+    "constraints": [
+      "After Batch 190.15 migration apply, coordinated Edge rollback may require an approved SQL change if reverting to a pre-slim-RPC build — see batch190-15-slim-staging-payload-v1.md",
+      "Do not reapply Batch 190.12 / 190.13 / 190.15 SQL when rolling Edge only"
+    ]
+  },
+  "compatibility": [
+    "Requires SCREENER_SYNC_STAGED staged sync path and prior Batch 190.15 RPC response shapes (slim control JSON) already applied in production per owner report."
+  ],
+  "approvals": [
+    {
+      "role": "maintainer",
+      "description": "Batch 190.16 merged to GitHub main via PR #219",
+      "reference": "Holagpt-ai/hedgefun-insights PR #219"
+    }
+  ],
+  "historical_evidence": {
+    "production_checkpoint_2026_11_06": {
+      "note": "Owner-reported Lovable Cloud activation: `sync-screener-data` Edge function **version 516** (2026-11-06). Not independently reproduced in git-only verification.",
+      "premarket_publications_observed": {
+        "window_note": "Six consecutive successful natural premarket generations observed (reported; not a substitute for Batch 191 RTH/AH acceptance).",
+        "acceptance_gate_iss034": "OPEN — Batch 191 repeated regular-session and after-hours acceptance still required per ISS-034"
+      }
+    }
+  }
+}

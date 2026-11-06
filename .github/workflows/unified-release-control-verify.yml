@@ -1,0 +1,42 @@
+# Unified Release Control V1 — read-only verification (manual only).
+# No production credentials. Outputs JSON + Markdown under .urc-verify/ (gitignored).
+
+name: Unified Release Control (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_path:
+        description: "Path under docs/release/manifests/ (e.g. batch210.example.190.16.historical.v1.json)"
+        required: true
+        default: "docs/release/manifests/batch210.example.190.16.historical.v1.json"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies (locked; no install scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Verify release manifest (git-only; path via URC_MANIFEST_PATH — no shell interpolation of input)
+        env:
+          URC_MANIFEST_PATH: ${{ github.event.inputs.manifest_path }}
+        run: node scripts/release-control/ci-verify.mjs
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: urc-verify-report
+          path: .urc-verify/
