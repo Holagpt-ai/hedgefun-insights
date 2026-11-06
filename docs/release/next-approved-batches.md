@@ -1,5 +1,8 @@
 # Next approved product batches
 
+**November 6 source-sync workstream (Batch 211, proposed/not activated):** GitHub `main` `88de3533`, Lovable integration/editor `3ec5f7cd`. GitHub Actions forward-sync controller is being reviewed as a scoped PR. The workflow is **read-only by default** and must not write to Lovable integration until separate owner activation; no Edge/SQL/Fly/Vercel deploy implied. **ISS-040 OPEN.** Do not let this defer Batch 191 RTH/AH scanner acceptance, Batch 195.1 backend activation or Batch 196 numerical checks.
+
+
 **Historical register:** batches **171–189** (code-complete in git; open items are **acceptance/ops**, not reimplementation).
 
 **Active queue (2026-11-05):** batches **190–209** in **`docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`**. **Batch 190.15** merged and **reported activated**; immediate P0 is **Batch 191** acceptance (**ISS-034 OPEN**), not new 190 implementation.
