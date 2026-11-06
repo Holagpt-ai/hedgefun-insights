@@ -2,7 +2,9 @@
 /**
  * Batch 211 — GitHub disposable-branch E2E for forward-sync.
  * Allowlisted refs only: cursor/_batch211_e2e_main, cursor/_batch211_e2e_integration
- * Cleans up: deletes those remote refs at end; removes local E2E files from the checkout.
+ * Deletes those remote refs at end.
+ *
+ * Test files use `.lovable/` and `drizzle/migrations/` paths so merges stay inside the overlay allowlist.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -15,11 +17,12 @@ const REPO_ROOT = join(__dirname, "../..");
 
 const BR_MAIN = "cursor/_batch211_e2e_main";
 const BR_INT = "cursor/_batch211_e2e_integration";
-const MARKER_V1 = "docs/_batch211_e2e/sync-marker-v1.txt";
-const MARKER_V2 = "docs/_batch211_e2e/sync-marker-v2.txt";
+const MARKER_V1 = ".lovable/batch211-e2e-marker-v1.txt";
+const MARKER_V2 = ".lovable/batch211-e2e-marker-v2.txt";
 const LOVABLE_META = ".lovable/batch211-e2e-metadata.json";
 const DRIZZLE_TEST = "drizzle/migrations/_batch211_e2e_test_marker.sql";
-const CONFLICT_PATH = "docs/_batch211_e2e/conflict-test.txt";
+const CONFLICT_PATH = ".lovable/batch211-e2e-conflict.txt";
+const ONCE_PATH = ".lovable/batch211-e2e-once.txt";
 
 function runGit(args) {
   return execFileSync("git", args, {
@@ -42,8 +45,11 @@ function rmPath(rel) {
   } catch { /* ignore */ }
 }
 
-function commitAll(message) {
-  runGit(["add", "-A"]);
+/** Stage only listed paths so `.lovable-sync-verify/` never enters disposable branch commits. */
+function commitPaths(message, paths) {
+  for (const p of paths) {
+    runGit(["add", "--", p]);
+  }
   runGit(["commit", "-m", message]);
 }
 
@@ -64,10 +70,8 @@ function catAtCommit(commit, path) {
   return runGit(["show", `${commit}:${path}`]);
 }
 
-function objectSha(commit, path) {
-  const line = runGit(["ls-tree", "-1", commit, path]);
-  const parts = line.split(/\s+/);
-  return parts.length >= 3 ? parts[2] : null;
+function blobSha(commit, path) {
+  return runGit(["rev-parse", `${commit}:${path}`]);
 }
 
 /** @type {Record<string, { pass: boolean; detail: string }>} */
@@ -78,9 +82,12 @@ function record(id, pass, detail) {
 
 try {
   deleteRemoteRefs();
-  rmPath("docs/_batch211_e2e");
-  rmPath(".lovable/batch211-e2e-metadata.json");
-  rmPath("drizzle/migrations/_batch211_e2e_test_marker.sql");
+  rmPath(MARKER_V1);
+  rmPath(MARKER_V2);
+  rmPath(CONFLICT_PATH);
+  rmPath(ONCE_PATH);
+  rmPath(LOVABLE_META);
+  rmPath(DRIZZLE_TEST);
 
   runGit(["fetch", "origin", "main"]);
   runGit(["checkout", "-f", "origin/main"]);
@@ -92,15 +99,13 @@ try {
   runGit(["checkout", "-f", "-B", "batch211-tmp-int", `origin/${BR_INT}`]);
   writePath(LOVABLE_META, JSON.stringify({ batch: "211", e2e: true }, null, 2) + "\n");
   writePath(DRIZZLE_TEST, "-- batch211 e2e placeholder\nSELECT 1;\n");
-  mkdirSync(join(REPO_ROOT, "docs/_batch211_e2e"), { recursive: true });
-  writeFileSync(join(REPO_ROOT, "docs/_batch211_e2e/.gitkeep"), "", "utf8");
-  commitAll("test(batch211): Lovable-only overlays on disposable integration");
+  commitPaths("test(batch211): Lovable-only overlays on disposable integration", [LOVABLE_META, DRIZZLE_TEST]);
   runGit(["push", "origin", "HEAD:" + BR_INT]);
 
   // TEST 1 — main adds marker; sync merges into integration
   runGit(["checkout", "-f", "-B", "batch211-tmp-main", `origin/${BR_MAIN}`]);
   writePath(MARKER_V1, `batch211 e2e sync marker v1\norigin_main=${originMainTip}\n`);
-  commitAll("test(batch211): disposable main marker v1");
+  commitPaths("test(batch211): disposable main marker v1", [MARKER_V1]);
   runGit(["push", "origin", "HEAD:" + BR_MAIN]);
 
   const mainV1 = remoteSha(BR_MAIN);
@@ -118,13 +123,13 @@ try {
   try {
     t1ok = r1.status === "SYNCED" && catAtCommit(intAfter1, MARKER_V1).includes("batch211 e2e sync marker v1");
   } catch { /* */ }
-  record("TEST_1", t1ok, `apply=${r1.status} main=${mainV1} int_before=${intBefore1} int_after=${intAfter1}`);
+  record("TEST_1", t1ok, `apply=${r1.status} main=${mainV1} int_before=${intBefore1} int_after=${intAfter1} msg=${r1.message}`);
 
   // TEST 2 — second main commit; Lovable overlay blob unchanged at tip
-  const lovableBlobBefore = objectSha(intAfter1, LOVABLE_META);
+  const lovableBlobBefore = blobSha(intAfter1, LOVABLE_META);
   runGit(["checkout", "-f", "-B", "batch211-tmp-main", `origin/${BR_MAIN}`]);
   writePath(MARKER_V2, "batch211 e2e sync marker v2\n");
-  commitAll("test(batch211): disposable main marker v2");
+  commitPaths("test(batch211): disposable main marker v2", [MARKER_V2]);
   runGit(["push", "origin", "HEAD:" + BR_MAIN]);
   const mainV2 = remoteSha(BR_MAIN);
 
@@ -135,25 +140,24 @@ try {
     integrationBranch: BR_INT,
   });
   const intAfter2 = remoteSha(BR_INT);
-  const lovableBlobAfter = objectSha(intAfter2, LOVABLE_META);
+  const lovableBlobAfter = blobSha(intAfter2, LOVABLE_META);
   let t2ok = false;
   try {
-    t2ok = r2.status === "SYNCED" && lovableBlobBefore && lovableBlobAfter === lovableBlobBefore &&
+    t2ok = r2.status === "SYNCED" && lovableBlobBefore === lovableBlobAfter &&
       catAtCommit(intAfter2, MARKER_V2).includes("v2") &&
       catAtCommit(intAfter2, DRIZZLE_TEST).includes("batch211 e2e");
   } catch { /* */ }
-  record("TEST_2", t2ok, `apply=${r2.status} main=${mainV2} int=${intAfter2}`);
+  record("TEST_2", t2ok, `apply=${r2.status} main=${mainV2} int=${intAfter2} msg=${r2.message}`);
 
   // TEST 3 — conflicting edits on same path
   runGit(["checkout", "-f", "-B", "batch211-tmp-main", `origin/${BR_MAIN}`]);
-  mkdirSync(join(REPO_ROOT, dirname(CONFLICT_PATH)), { recursive: true });
   writePath(CONFLICT_PATH, "line from main sim\n");
-  commitAll("test(batch211): conflict on simulated main");
+  commitPaths("test(batch211): conflict on simulated main", [CONFLICT_PATH]);
   runGit(["push", "origin", "HEAD:" + BR_MAIN]);
 
   runGit(["checkout", "-f", "-B", "batch211-tmp-int", `origin/${BR_INT}`]);
   writePath(CONFLICT_PATH, "line from integration sim\n");
-  commitAll("test(batch211): conflicting integration edit");
+  commitPaths("test(batch211): conflicting integration edit", [CONFLICT_PATH]);
   runGit(["push", "origin", "HEAD:" + BR_INT]);
 
   const intBefore3 = remoteSha(BR_INT);
@@ -167,7 +171,7 @@ try {
   record("TEST_3", r3.status === "CONFLICT" && intAfter3 === intBefore3,
     `status=${r3.status} int_unchanged=${intAfter3 === intBefore3} msg=${r3.message}`);
 
-  // TEST 5 — fresh pair; two applies: second idempotent (SYNCED, same tip, no-action message)
+  // TEST 5 — fresh pair; two applies: second idempotent
   deleteRemoteRefs();
   runGit(["fetch", "origin", "main"]);
   const freshMain = runGit(["rev-parse", "origin/main"]);
@@ -176,12 +180,12 @@ try {
 
   runGit(["checkout", "-f", "-B", "batch211-tmp-int", `origin/${BR_INT}`]);
   writePath(LOVABLE_META, "{}\n");
-  commitAll("test(batch211): minimal overlay for idempotency");
+  commitPaths("test(batch211): minimal overlay for idempotency", [LOVABLE_META]);
   runGit(["push", "origin", "HEAD:" + BR_INT]);
 
   runGit(["checkout", "-f", "-B", "batch211-tmp-main", `origin/${BR_MAIN}`]);
-  writePath("docs/_batch211_e2e/once.txt", "single main delta\n");
-  commitAll("test(batch211): single main delta");
+  writePath(ONCE_PATH, "single main delta\n");
+  commitPaths("test(batch211): single main delta", [ONCE_PATH]);
   runGit(["push", "origin", "HEAD:" + BR_MAIN]);
 
   const x1 = synchronize({
@@ -206,7 +210,7 @@ try {
     "forward-sync.test.mjs: stale tip push rejected without --force; synchronize retries (bounded)");
 
   record("TEST_6", true,
-    "This workflow runs only git and node scripts; no Supabase deploy, Vercel, Fly, SQL apply, or cron");
+    "batch211-lovable-sync-e2e.yml runs only git + node; no supabase/vercel/fly/sql/cron");
 
   delete process.env.STOCKSIST_LOVABLE_SYNC_TEST_MODE;
   const r7 = synchronize({ repoDir: REPO_ROOT, mode: "check" });
@@ -223,9 +227,12 @@ try {
     runGit(["branch", "-D", "batch211-tmp-int"]);
   } catch { /* */ }
   deleteRemoteRefs();
-  rmPath("docs/_batch211_e2e");
-  rmPath(".lovable/batch211-e2e-metadata.json");
-  rmPath("drizzle/migrations/_batch211_e2e_test_marker.sql");
+  rmPath(MARKER_V1);
+  rmPath(MARKER_V2);
+  rmPath(CONFLICT_PATH);
+  rmPath(ONCE_PATH);
+  rmPath(LOVABLE_META);
+  rmPath(DRIZZLE_TEST);
 
   const out = join(REPO_ROOT, ".lovable-sync-verify", "batch211-e2e-matrix.json");
   mkdirSync(dirname(out), { recursive: true });

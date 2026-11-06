@@ -32,6 +32,8 @@ forward merge while keeping production deployment independent.
 
 **Test-target mode (disposable refs only):** when `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true` and both `--main-branch=` and `--integration-branch=` are set to refs under `cursor/_batch211_e2e_*`, `forward-sync.mjs --mode=apply` may run without `STOCKSIST_LOVABLE_SYNC_ACTIVATED`. Apply is blocked if either branch is the real `main` or `cursor/lovable-sync-from-main-20261024`.
 
+**E2E markers** live under `.lovable/` / `drizzle/migrations/` so the merged tree matches the overlay allowlist. Disposable commits stage only those paths so local `.lovable-sync-verify/` output is never pushed (that directory is gitignored).
+
 Statuses:
 - **SYNCED:** GitHub integration is a descendant of currently fetched main, with only allowed Lovable overlay relative to main; or an approved normal push just made it so.
 - **BEHIND:** a clean merge is available but the check-only job has not pushed it.
