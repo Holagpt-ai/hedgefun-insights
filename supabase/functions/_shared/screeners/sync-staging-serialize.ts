@@ -78,6 +78,10 @@ export function deserializeMergedArtifacts(raw: unknown): StagedChunkArtifacts {
   return base;
 }
 
+/** Columns for finalize/continue preflight — omits universe and merged artifact payloads. */
+export const STAGING_JOB_PREFLIGHT_SELECT =
+  "id,sync_run_id,status,observation,chunk_size,next_chunk_index,total_chunks,state_version,nhl_baseline_loaded,nhl_baseline_snapshot,lease_token,lease_expires_at,finalize_lease_token,finalize_lease_expires_at,publish_rows_inserted,publish_rpc_recorded_at,continue_last_at,continue_last_error,abort_reason,abort_evidence,created_at,updated_at";
+
 export type StagingJobRow = {
   id: string;
   sync_run_id: string;
@@ -168,6 +172,17 @@ export function jobFromControl(control: StagingJobControl): StagedGenerationJob 
       : null,
     abortReason: null,
     abortEvidence: null,
+  };
+}
+
+/** In-memory / partial-row view without heavy staging payloads. */
+export function jobToPreflightView(job: StagedGenerationJob): StagedGenerationJob {
+  return {
+    ...job,
+    allTickers: [],
+    gainers: [],
+    losers: [],
+    merged: emptyChunkArtifacts(),
   };
 }
 

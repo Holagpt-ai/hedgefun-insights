@@ -15,6 +15,7 @@ export const ALL_STAGING_SYNC_RPCS = [
   "record_screener_sync_publish_rpc_v1(uuid,uuid,integer,uuid,integer,timestamptz)",
   "expire_screener_sync_stale_jobs_v1(timestamptz,interval)",
   "publish_screener_sync_staged_generation_v1(uuid,uuid,integer,jsonb,uuid,timestamptz,text,jsonb,timestamptz)",
+  "reconcile_screener_sync_staged_publish_v1(uuid,integer,timestamptz)",
 ] as const;
 
 export async function hasExecute(

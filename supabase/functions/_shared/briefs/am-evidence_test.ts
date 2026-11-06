@@ -13,6 +13,7 @@ import {
   selectDirectCatalysts,
   selectBeforeOpenEarningsEvidence,
   selectContinuationCarryovers,
+  isPublishedWithinEvidenceCutoff,
   selectRankedHeadlines,
   validateIndexRows,
   type AmEvidenceBundle,
@@ -249,6 +250,56 @@ function cat(overrides: Partial<AttributedCatalystRow>): AttributedCatalystRow {
   };
 }
 
+Deno.test("11b. direct catalyst requires verifiable published_at within evidence cutoff", () => {
+  const asOfMs = Date.parse("2026-08-28T13:00:00.000Z");
+  const missingPublished = selectDirectCatalysts(
+    [cat({ id: "no-ts", published_at: null })],
+    asOfMs,
+  );
+  assertEquals(missingPublished.length, 0);
+  const invalidPublished = selectDirectCatalysts(
+    [cat({ id: "bad-ts", published_at: "not-a-date" })],
+    asOfMs,
+  );
+  assertEquals(invalidPublished.length, 0);
+  const futurePublished = selectDirectCatalysts(
+    [cat({ id: "future", published_at: "2026-08-28T14:00:00.000Z" })],
+    asOfMs,
+  );
+  assertEquals(futurePublished.length, 0);
+  const earningsCal = selectBeforeOpenEarningsEvidence(
+    [
+      cat({
+        id: "earn",
+        provider: "earnings_calendar",
+        event_type: "earnings",
+        time_of_day: "before_open",
+        published_at: null,
+        updated_at: "2026-08-28T06:00:00.000Z",
+        title: "AAPL reports before the open",
+        symbol: "AAPL",
+      }),
+    ],
+    "2026-08-28",
+  );
+  assertEquals(earningsCal.length, 1);
+  assertEquals(
+    selectDirectCatalysts(
+      [
+        cat({
+          id: "earn-news",
+          provider: "earnings_calendar",
+          event_type: "earnings",
+          time_of_day: "before_open",
+          published_at: "2026-08-28T08:00:00.000Z",
+        }),
+      ],
+      asOfMs,
+    ).length,
+    0,
+  );
+});
+
 Deno.test("11. legal/commentary catalyst does not enter direct-catalyst evidence", () => {
   const rows = [
     cat({
@@ -411,6 +462,51 @@ Deno.test("selectBeforeOpenEarningsEvidence keeps only confirmed today before_op
   ];
   const selected = selectBeforeOpenEarningsEvidence(rows, "2026-08-28");
   assertEquals(selected.map((r) => r.id), ["bo"]);
+});
+
+Deno.test("headlines after evidence cutoff are excluded from AM bundle", () => {
+  const raw: RawHeadline[] = [
+    {
+      id: "early",
+      headline: "Fed signals patience on interest rates as Treasury yields fall",
+      source: "Wire",
+      url: "https://example.com/fed",
+      published_at: "2026-08-28T07:50:00.000Z",
+    },
+    {
+      id: "late",
+      headline: "Treasury yields jump after surprise inflation print",
+      source: "Wire",
+      url: "https://example.com/cpi",
+      published_at: "2026-08-28T12:30:00.000Z",
+    },
+  ];
+  const ranked = rankHeadlines(raw, 12);
+  const cutoffMs = Date.parse("2026-08-28T08:30:00.000Z");
+  assert(isPublishedWithinEvidenceCutoff("2026-08-28T07:50:00.000Z", cutoffMs));
+  assertEquals(isPublishedWithinEvidenceCutoff("2026-08-28T12:30:00.000Z", cutoffMs), false);
+  const selected = selectRankedHeadlines(ranked, cutoffMs);
+  assertEquals(selected.some((h) => h.id === "late"), false);
+  assertEquals(selected[0]?.id, "early");
+});
+
+Deno.test("continuation carryovers strip internal RVOL capture labels", () => {
+  const rows = selectContinuationCarryovers([
+    {
+      symbol: "NVDA",
+      source_session_date: "2026-09-23",
+      source_category: "power_hour",
+      evidence_labels: [
+        "__RVOL_KIND:time_adjusted",
+        "__RVOL_BASELINE:1200000",
+        "__RVOL_SAMPLES:20",
+        "VOLUME EXPLOSION",
+      ],
+    },
+  ]);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0]?.evidence_labels, ["VOLUME EXPLOSION"]);
+  assertEquals(rows[0]?.primary_reason, "VOLUME EXPLOSION");
 });
 
 Deno.test("headline ranking prefers macro over isolated company PR", () => {

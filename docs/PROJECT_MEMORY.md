@@ -2,15 +2,21 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-10-31 after Batch 190.8 Gate 4 and regression
+## Current operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
-**GitHub `main`:** `56816bd54778541fff3ec5fb076f03cf5e73dd75` (PR **#202** continuity docs atop Batch **190.8** scanner **`b720106771950b7ed90c81d53f3ce2f196e35c49`** / PR **#201**). **Batch 190.9** weekend-session correction is PR **#203** (not merged or deployed). **Lovable integration/editor:** `f8e2fda698c473519d4ddb40f06f04ad6f13c4d6`; source aligned. Preserve Lovable-specific generated files and migrations.
+**GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.
 
-**Lovable Cloud `sync-screener-data`:** Batch 190.8 PR #201 merged into GitHub main b720106771950b7ed90c81d53f3ce2f196e35c49; Lovable forward-sync f8e2fda698c473519d4ddb40f06f04ad6f13c4d6. Owner authorized Git-snapshot-only rollback exception (exact previous Edge revision unavailable). Lovable Cloud reported one successful sync-screener-data-only Edge deployment 2026-10-30 23:54:35–23:54:46 UTC, submitted source SHA-256 7bf8c45d9c26ff021693624f21f878e90c3193d4f16dbb92fd59123ae39c32d6; deployed revision ID unavailable. Rollback source: last approved Batch 190.7 Lovable integration commit 2691424bbfa89b4da9a3ca9a832c007606b5a582, requiring a new source deploy to restore (not exact binary). Read-only 23:55:40 UTC: cron 25 still active */5; old 23:45 job still finalizing with build_rows:internal_error, 23:55 cron DO not a new publish; current six-tab feed unchanged at 20:10:02 UTC / 108 rows / one run / zero duplicate symbols or missing provider timestamps. The 23:55 UTC read is the pre-acceptance snapshot. **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications). Last success **03:20:02 UTC**, 110 rows, six tabs. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failures and **54** `prior_generation_retained` aborts. ISS-034 remains P0 OPEN. Weekend correction is PR **#203** and is not deployed. Do not start Batch **191**. No migrations/cron/secrets/frontend/other Edge touched.
+**Batch 190.15 (reported production activation):** PR **#217** merged. Lovable Cloud **`sync-screener-data`** Edge deployed **2026-11-04** (dual-read before SQL). SQL source on GitHub: **`supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql`**. Lovable Cloud reported apply via **Lovable-native Drizzle** (**ledger idx 68**). **`supabase_migrations.schema_migrations`** has **no** row for `20261104230000` — record only; **do not edit or backfill either ledger** from docs. Reported RPC JSON sizes: full job ~**8.60 MB**; **`control`** **407 bytes**. First natural post-migration generation: **85** rows, six tabs evaluated, **7/7** chunks, publication reported for that run. Coordinated rollback requires a new approved SQL change if Edge is reverted after apply (see `docs/migration-drizzle-supabase-notes.md`).
 
-**PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. Timed premarket acceptance **pending**.
+**Batch 192 (reported production activation):** Vercel frontend + Lovable Cloud **`generate-daily-brief`** Edge deploy recorded for AM Inbox / brief evidence-cutoff scope. **ISS-025** authenticated visual acceptance remains **NOT VERIFIED**.
 
-**ISS-034 P0** remains OPEN. The Day Trade Radar observation-session mismatch was corrected in Batch 190.8 and that Edge build **passed Gate 4 at 2026-10-31 01:08 UTC**. That acceptance stands. The later Saturday `http_409` regression is a separate unresolved defect: null-calendar `resolveSessionSchedule` classified Saturday and Sunday as open before the weekend guard, and invalid matching weekend exception rows could also fall through to the open fallback. Batch **190.9** closes both paths in git only and does not change publish CAS. Do not close ISS-034. Do not start Batch **191** until PR **#203** is reviewed and a new production acceptance is established.
+**Lovable Cloud `sync-screener-data` (historical acceptance):** November 1 deployment/integration source reported as `ccb4055b3f8b84c46fa38529844150c140638705`. November 2 naturally scheduled premarket acceptance reported **PASS** with seven consecutive successful publications (04:00–04:30 ET), no new recorded `http_409` publication failures, and latest publication row counts of 60, 62, and 63. Treat these as acceptance evidence for the covered premarket window only.
+
+**PR #193 D1:** merged `4f7c10db`; deployed fingerprint `23980c312052a4cb5de5be12e3a32b178e1d1fa8104c39f384e02f13845e6f03`. November 2 premarket acceptance for that window is reported PASS.
+
+**ISS-034 P0** remains **OPEN** until Batch **191** regular-session and after-hours acceptance criteria are verified across **repeated** production windows. Do not claim permanent CPU reliability from a single post-**190.15** publication or from premarket-only evidence.
+
+**Nov 4 2026 publication failures (confirmed, preserved):** `sync-screener-data` **v506** finalize **HTTP 546** after 7/7 chunks; stranded **`finalizing`** job / generation **`09346799…`**. **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
 
 Deferred product/platform work is batched **203–209** in the master register (not active implementation).
 
@@ -20,6 +26,18 @@ Deferred product/platform work is batched **203–209** in the master register (
 - Repository and several internal ids still say Hedgefun (`hedgefun-insights`, MCP server id `hedgefun-mcp`). Those ids are not the public brand.
 - Legacy hostname redirects are declared in `vercel.json`. Do not advertise that host as a canonical origin.
 - Lovable preview hosts are not production. `src/integrations/supabase/previewAuthStorage.ts` may list them for preview auth only.
+
+## Screener sync — Edge CPU is a hard constraint
+
+Lovable Cloud runs Supabase Edge Functions; **`sync-screener-data` billed CPU (~2s per invocation) is a hard budget**, not a tuning target. Staged sync (Batch 190) exists because a single monolithic pass at ~13k symbols exceeded that limit before atomic publish (**ISS-034**, HTTP **546**).
+
+**Order of operations:**
+
+1. **Optimize on Edge first** — remove duplicate full-universe scans, reuse chunk accumulators, split finalize stages with enter/exit logs, keep atomic publish + lease/idempotency on Edge (Batch **190.14** and follow-on Edge-only batches).
+2. **Prove in production** — stage logs and successful `published` generations; local wall-clock benchmarks are regression hints only, not proof of Edge CPU headroom.
+3. **Fly offload only if Edge still cannot reliably finalize** — move **CPU-heavy, pure computation** (selection merge, G/L rank on full snapshot, row/evidence assembly) to **`stocksist-radar-v22-worker`**, which already ships shared `selection.ts` and is not Edge-bound. **Do not migrate Supabase off Lovable**, change Fly machines/scaling, or deploy worker/bridge/Edge changes without an **approved batch**. Edge remains orchestrator: cron/chunks, lease CAS, **`publish_screener_sync_staged_generation_v1`**, and Postgres truth. Worker writes prepared artifacts via existing **`radar-worker-bridge`** pattern (`RADAR_WORKER_SECRET`), not `SUPABASE_SERVICE_ROLE_KEY` on Fly.
+
+Batch 190 explicitly chose Architecture A (Edge staging) over Fly; that choice stands until production proves finalize still exceeds Edge CPU after 190.14-class fixes.
 
 ## Platform ownership
 
@@ -39,14 +57,14 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 ## Source of truth
 
 - GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
-- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024` @ **`2691424b`** (Batch 190.7, before Batch 190.8 review). After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
+- **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024`. After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
 - **Archived recovery branch:** `cursor/chat-single-pass-v1`. Source of analyst commits below; large divergence is historical — not current Lovable sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Recovery used archived-branch versions.
 
 ## Master roadmap (2026-10-28)
 
 - **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).
-- **Current approved Git-only work:** Batch **190.9** weekend session correction, PR **#203**. Batch **190.8** is merged. No production deployment authorization. Batch **191** is blocked.
+- **Current continuity state:** Batches **190.9–190.15** are merged on `main`; Batch **190.15** Edge + migration activation is reported complete. November 2 premarket acceptance is recorded. Batch **191** remains **PARTIAL** until regular-session and after-hours evidence is verified (**ISS-034 OPEN**).
 - **Historical batches 171–189:** complete in git; open work is **acceptance/ops** under **191–198**, not reimplementation.
 - **Batch 174 / 175:** unfinished **verification** (batches **191–192**). PR **#174** closed without merge.
 

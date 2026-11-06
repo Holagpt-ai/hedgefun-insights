@@ -101,11 +101,7 @@ export default function AMInbox() {
     lateSessionQuery.data?.asOfSessionDate === amSessionDate
       ? lateSessionQuery.data
       : undefined;
-  const lateSessionLoading =
-    !!amSessionDate &&
-    lateSessionQuery.isLoading &&
-    lateSessionQuery.fetchStatus !== "idle" &&
-    lateSessionQuery.data === undefined;
+  const lateSessionLoading = !!amSessionDate && lateSessionQuery.isPending && !lateSessionView;
   const lateSessionInitialError =
     lateSessionQuery.isError && lateSessionView === undefined;
   const lateSessionRefreshWarning =

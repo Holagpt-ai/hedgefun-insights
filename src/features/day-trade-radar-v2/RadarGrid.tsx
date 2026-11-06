@@ -21,6 +21,7 @@ import {
   formatScreenerVolumeVelocity,
 } from "@/lib/screeners/screener-metric-display";
 import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-display";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 import {
   formatFreshness,
   formatHodDistance,
@@ -65,6 +66,7 @@ import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -82,6 +84,7 @@ interface RadarGridProps {
 
 function NewsCatalystCell({
   symbol,
+  companyName,
   catalystPending,
   catalystUnavailable,
   newsStatus,
@@ -90,6 +93,7 @@ function NewsCatalystCell({
   platform,
 }: {
   symbol: string;
+  companyName: string | null;
   catalystPending: boolean;
   catalystUnavailable: boolean;
   newsStatus: RadarNewsSymbolStatus;
@@ -99,6 +103,7 @@ function NewsCatalystCell({
 }) {
   const display = resolveRadarNewsCellStateWithPlatform({
     symbol,
+    companyName,
     platform,
     catalyst,
     recent,
@@ -482,13 +487,17 @@ export function RadarGrid({
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
                         <div>
-                          {floatState.isPending && floatShares === null
-                            ? "…"
-                            : formatRadarContextVolume(floatShares)}
+                          <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+                            Free Float
+                          </ScannerFieldHelp>{" "}
+                          {formatScreenerVerifiedFreeFloat(floatShares, {
+                            pending: floatState.isPending && floatShares === null,
+                            measurementAsOf: floatState.getMeasurementAsOf(sym),
+                          })}
                         </div>
                         <div className="text-[10px] font-normal leading-tight text-muted-foreground">
                           <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-                            Short
+                            Short Float
                           </ScannerFieldHelp>{" "}
                           <span title={shortFloat.title}>{shortFloat.display}</span>
                           {" · "}
@@ -512,6 +521,7 @@ export function RadarGrid({
                         {accessible ? (
                           <NewsCatalystCell
                             symbol={sym}
+                            companyName={radarRowCompanyName(row)}
                             catalystPending={catalystCheckPending && !catalystMap?.get(sym)}
                             catalystUnavailable={!!catalystError && !catalystMap?.get(sym)}
                             newsStatus={newsState.getStatus(sym)}

@@ -1,4 +1,5 @@
 import type { SecondBar } from "./types.ts";
+import { wallClockWindowMinutes } from "../../../../src/lib/radar/intraday-participation.ts";
 
 const WINDOW_60S = 60_000;
 const BUCKET_60S = 60_000;
@@ -8,6 +9,32 @@ const PRECEDING_BUCKETS = 4;
  * Event-time rolling window. Missing seconds contribute 0 volume.
  * Does not fabricate OHLC for absent seconds.
  */
+/** Volume in window plus verified elapsed coverage (missing seconds are not treated as zero history). */
+export function rollingWindowVolumeCoverage(
+  bars: ReadonlyMap<number, SecondBar>,
+  eventNowMs: number,
+  windowMs: number,
+  field: "volume" | "dollarVolume" = "volume",
+): { total: number; coveredMs: number; lateCorrection: boolean } | null {
+  if (!(windowMs > 0) || !Number.isFinite(eventNowMs)) return null;
+  const from = eventNowMs - windowMs;
+  let total = 0;
+  let lateCorrection = false;
+  let sawBar = false;
+  for (const bar of bars.values()) {
+    if (bar.startMs >= from && bar.startMs < eventNowMs) {
+      sawBar = true;
+      total += bar[field];
+      if (bar.lateCorrected) lateCorrection = true;
+    }
+  }
+  if (!sawBar) return null;
+  const coveredMinutes = wallClockWindowMinutes(from, eventNowMs, windowMs / 60_000);
+  if (!(coveredMinutes >= 1)) return null;
+  const coveredMs = coveredMinutes * 60_000;
+  return { total, coveredMs, lateCorrection };
+}
+
 export function rollingVolume(
   bars: ReadonlyMap<number, SecondBar>,
   eventNowMs: number,

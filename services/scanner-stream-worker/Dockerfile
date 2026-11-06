@@ -4,6 +4,9 @@ WORKDIR /repo
 COPY services/scanner-stream-worker ./services/scanner-stream-worker
 COPY supabase/functions/_shared/markets ./supabase/functions/_shared/markets
 COPY supabase/functions/_shared/screeners/selection.ts ./supabase/functions/_shared/screeners/selection.ts
+COPY supabase/functions/_shared/screeners/session-volume.ts ./supabase/functions/_shared/screeners/session-volume.ts
+COPY supabase/functions/_shared/screeners/session-sync-context.ts ./supabase/functions/_shared/screeners/session-sync-context.ts
+COPY supabase/functions/_shared/screeners/screener-session.ts ./supabase/functions/_shared/screeners/screener-session.ts
 COPY supabase/functions/_shared/screeners/baseline-exclusion-publish.ts ./supabase/functions/_shared/screeners/baseline-exclusion-publish.ts
 COPY supabase/functions/_shared/screeners/baseline-corporate-action.ts ./supabase/functions/_shared/screeners/baseline-corporate-action.ts
 COPY supabase/functions/_shared/radar-v22 ./supabase/functions/_shared/radar-v22

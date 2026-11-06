@@ -6,6 +6,7 @@ import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
+import { formatScreenerVerifiedFreeFloat } from "@/lib/market-data/screener-free-float-display";
 import {
   formatRadarContextVolume,
   formatRadarMultiplier,
@@ -35,6 +36,7 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { radarRowCompanyName } from "./radar-row-company-name";
 import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { formatScreenerDollarVolume } from "@/lib/screeners/screener-metric-display";
 import {
@@ -85,6 +87,7 @@ export function RadarMobileCard({
   const turnover = computeFloatTurnover(row.volume, floatShares);
   const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
+    companyName: radarRowCompanyName(row),
     platform: platformBySymbol.get(symKey),
     catalyst: entry,
     recent: newsState.getHeadline(sym),
@@ -240,10 +243,16 @@ export function RadarMobileCard({
         </ScannerFieldHelp>{" "}
         <HistoryCell context={row.historicalContext} row={row} />
         {" · "}
-        Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
+        <ScannerFieldHelp fieldId="float" className="text-muted-foreground">
+          Free Float
+        </ScannerFieldHelp>{" "}
+        {formatScreenerVerifiedFreeFloat(floatShares, {
+          measurementAsOf: floatState.getMeasurementAsOf(sym),
+        })}{" "}
+        · Turnover {formatFloatTurnover(turnover)}
         {" · "}
         <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
-          Short
+          Short Float
         </ScannerFieldHelp>{" "}
         <span className="text-foreground" title={shortFloat.title}>
           {shortFloat.display}

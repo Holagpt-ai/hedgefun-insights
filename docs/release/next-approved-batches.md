@@ -2,9 +2,9 @@
 
 **Historical register:** batches **171–189** (code-complete in git; open items are **acceptance/ops**, not reimplementation).
 
-**Active queue (2026-10-28):** batches **190–209** in **`docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`**. Only **Batch 190** is recommended for immediate owner-approved implementation scope.
+**Active queue (2026-11-05):** batches **190–209** in **`docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`**. **Batch 190.15** merged and **reported activated**; immediate P0 is **Batch 191** acceptance (**ISS-034 OPEN**), not new 190 implementation.
 
-Baseline: GitHub `main` **`1398d16a`**. Product batch ids ≠ GitHub PR numbers.
+Baseline: GitHub `main` **`3c810c4b`**. Product batch ids ≠ GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
@@ -32,12 +32,12 @@ Baseline: GitHub `main` **`1398d16a`**. Product batch ids ≠ GitHub PR numbers.
 
 | Batch | Name |
 | --- | --- |
-| **190** | P0 CPU-safe screener execution and atomic publisher (**ISS-034**) |
+| **190** | P0 CPU-safe screener execution and atomic publisher — **190.15 merged/deploy reported**; **ISS-034** acceptance → **191** |
 | **191** | P0 market-session scanner acceptance (old **174**) |
 | **192** | P0 AM Inbox continuation acceptance (old **175/186**) |
 | **193** | Mobile workflow & Journal acceptance |
 | **194** | Earnings Edge activation & acceptance |
-| **195** | Catalyst/Watchlist issuer-trust acceptance |
+| **195** | Catalyst/Watchlist issuer-trust acceptance — **code merged** PR **#212**; prod walkthrough **NOT VERIFIED** |
 | **196** | Fly Radar / Five Pillars / continuation acceptance |
 | **197** | Desktop Radar historical/workflow cleanup |
 | **198** | Bounded market-data & ops reliability |

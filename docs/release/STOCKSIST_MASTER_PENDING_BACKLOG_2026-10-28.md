@@ -6,6 +6,8 @@
 
 This register replaces the **active implementation queue** in `docs/release/next-approved-batches.md` for batches **190+**. Historical batches **171–189** remain in `docs/CHANGELOG.md` and named runbooks — **do not reissue**.
 
+**Continuity addendum (2026-11-05):** GitHub `main` is **`3c810c4bafa36bf547d2235451a7643d9e1f7cbe`** (Batch **190.15** PR **#217** merged). **Reported production activation:** `sync-screener-data` Edge **2026-11-04**; canonical SQL `supabase/migrations/20261104230000…` applied via Lovable Drizzle **ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** matching row (record only — do not backfill either ledger). First natural post-migration generation **85** rows / six tabs / **7/7** chunks. **ISS-034 OPEN**. **Batch 195** PR **#212** and **ISS-037** PR **#215** **merged** on `main`; production verification **NOT VERIFIED**. November 2 premarket PASS preserved. **Nov 5 screenshot observations** in `docs/ISSUE_REGISTER.md` — do not reopen completed code audits (171–189, 190.9–190.15 implementation).
+
 ## 1. Verified baseline — use these facts, not older summaries
 
 | Surface | Latest confirmed evidence | Implication |
@@ -32,7 +34,7 @@ This register replaces the **active implementation queue** in `docs/release/next
 - **Tool ownership:** Cursor designs/codes/tests/Git; Lovable handles managed Supabase operations and authenticated UI checks; Vercel deploys frontend via GitHub; never publish production frontend through Lovable.
 - **No automatic operations:** do not merge a PR, deploy Edge Functions/Fly, apply migrations, change cron/secrets, or change production without explicit batch-specific approval.
 - **Canonical continuity:** before substantial work read `docs/PROJECT_MEMORY.md`, `docs/SESSION_HANDOFF.md`, `docs/ISSUE_REGISTER.md`; consult `ARCHITECTURE.md`, `DEPLOYMENT_STATUS.md` and task runbooks. Completed implementation belongs in `CHANGELOG`; only unfinished work belongs in active issue register.
-- **Statuses below:** `ACTIVE P0`, `PENDING ACCEPTANCE`, `CONDITIONAL`, `DEFERRED`, `PARKED`. Master batch numbers are **not** GitHub PR numbers. **Batch 190** is the first authorized implementation candidate after PR **#195** merge; other batches remain sequenced but not automatically authorized.
+- **Statuses below:** `ACTIVE P0`, `PENDING ACCEPTANCE`, `CONDITIONAL`, `DEFERRED`, `PARKED`. Master batch numbers are **not** GitHub PR numbers. **Batch 190 implementation is merged**; remaining work is acceptance and bounded follow-up sequencing.
 
 ## 3. Master batch execution order
 
@@ -40,9 +42,9 @@ This register replaces the **active implementation queue** in `docs/release/next
 
 #### Batch 190 — P0 CPU-safe screener execution and atomic publisher
 
-**Priority:** P0 · **Owner:** Cursor design/code/tests; Lovable Cloud only for separately approved deployment/migration.  
-**Status:** **FIRST ACTIVE IMPLEMENTATION CANDIDATE — requires owner scope approval before coding.**  
-**Evidence:** ISS-034. PR #194's ~5× local speedup still exceeded Edge CPU during actual 17:30/17:35 runs; 108-row old generation served.
+**Priority:** P0 · **Owner:** Cursor design/code/tests; Lovable Cloud for approved deployment/migration.  
+**Status:** **CODE AND REPORTED DEPLOY COMPLETE through 190.15 (PR #217); PENDING ACCEPTANCE under Batch 191 / ISS-034.**  
+**Evidence:** ISS-034. Staged Architecture A merged **190.9–190.15**. **Reported activation (190.15):** slim RPC `control` payloads live; first post-migration publication **85** rows. Nov **4 HTTP 546** failures preserved. Repeated RTH/AH publication acceptance **NOT VERIFIED**.
 
 **Work:** Build a bounded, CPU-compliant execution plan, ideally separating expensive full-universe evaluation from the 2-second Edge request budget (chunked/idempotent staged jobs, an approved existing worker, or a measured alternative). Preserve one consistent provider-snapshot observation context, exact six-tab/global volume-first ranking and evaluation evidence, NHL baselines, session volume, diagnostics, and **single atomic final `replace_screener_results_generation_v1` publication**. Engineer job leases, idempotency, expiry, retry/recovery, concurrency, stale-generation prevention, partial-work isolation, 5-minute cron overlap behavior, metrics, and a rollback plan. **For new CPU architecture changes, prefer a verified PR #194 or D1 source recovery reference; do not default to the old pre-D1 `68092518` candidate, which reintroduces ISS-033 and also did not resolve CPU failure.** Do not simply trim the symbol universe or split selection in a way that changes global top-20 winners. Evaluate infrastructure/migration tradeoffs in the implementation proposal before changes.
 
@@ -50,11 +52,24 @@ This register replaces the **active implementation queue** in `docs/release/next
 
 #### Batch 191 — P0 market-session scanner acceptance (completes old Batch 174; ISS-033 / ISS-024 / ISS-031)
 
-**Owner:** Lovable read-only live evidence + owner authenticated screenshots; Cursor narrowly corrects only reproduced defects. **Blocked by Batch 190 publisher acceptance.**
+**Owner:** Lovable read-only live evidence + owner authenticated screenshots; Cursor narrowly corrects only reproduced defects.
 
 **Work:** Timed premarket (04:00–09:30 ET, especially 08:00–09:15), regular (09:30–16:00 ET), late/after-hours (15:00–20:00 ET) evidence. Verify D1 `min.av` when `day.v=0`, observation timestamps at 09:30/16:00 handoffs, Gappers/gainers/losers, Volume Spikes/Unusual Volume, NHL baselines, Morning Opportunity/Five Pillars, 5-minute RVOL availability disclosures, Float Turnover, delayed-provider freshness, live vs persisted generations and no stale trigger/cooling mislabel. Distinguish homepage snapshot movers from authenticated scanner data. Check quiet-feed watchdog state at session change and honest unavailable/zero-match states; compare provider evidence and tab-evaluation metadata. Confirm actual Fly/Radar source identity only when needed for a specific acceptance row.
 
 **Acceptance gate:** signed live ET matrix; true success for each claimed pass and explicit NOT VERIFIED for missing windows. Original October 26 Batch 174 remains conditional until this closes.
+
+### Priority sequence — screenshot findings (reported, Nov 2026)
+
+Use this order for the next narrow work after remaining Batch 191 windows:
+
+1. **Batch 196** — numerical integrity, volume provenance, Five Pillars.
+2. **Batch 192** — AM Inbox carryovers, raw metadata, AI Brief timestamp integrity.
+3. **Batch 195** — catalyst and issuer attribution.
+4. **Batch 197** — historical context and 52-week baseline checks.
+5. **Batch 194** — earnings data consistency.
+6. Remaining PM Inbox, Watchlist, Journal, Action Center, mobile acceptance, and launch readiness items.
+
+Treat screenshot observations as reported evidence until independently confirmed; avoid duplicate issue entries.
 
 #### Batch 192 — P0 AM Inbox continuation visible acceptance (completes old Batches 175 and 186; ISS-025)
 
@@ -150,7 +165,7 @@ Previously deferred Batch 6: newsletter/account/billing foundation; payment prov
 
 Separate authorization and architecture, legal/compliance, provider risk and credential controls. No broker integration now.
 
-#### Batch 208 — AI Trader shadow/paper/product lifecycle — LAST-STAGE DEFERRED
+#### Batch 208 — AI Trader — **POST-LAUNCH PAUSED** (not active pre-launch backlog)
 
 Operating mode OFF; no homepage promotion, no live/paper trading activation, no performance redesign until owner explicitly reopens after core product work.
 
@@ -162,7 +177,7 @@ Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, ho
 
 | Existing item | Disposition as of Oct 28 | New owner batch |
 | --- | --- | --- |
-| **ISS-034** CPU Time exceeded; stale screener publication | **Confirmed, P0 BLOCKED**, even after deployed PR #194 | **190** |
+| **ISS-034** CPU Time exceeded; stale screener publication | **Confirmed, P0 OPEN** — 190.15 reported activated; **Batch 191** RTH/AH acceptance pending | **191** (acceptance gate on **190**) |
 | **ISS-033** premarket `day.v=0` vs `min.av` | Code & Edge D1 deployed; true timed premarket acceptance **PENDING** | 191 |
 | **Batch 174** (old) scanner live ET matrix | **CONDITIONAL**; superseded PR #174 closed unmerged | 191 / 196 |
 | **ISS-024 / DATA-01 / DATA-02 / ISS-031** tab evidence, Gappers/Movers blank states, homepage vs scanner | Batch 185 code merged; persisted metadata confirmed in older 108-row generation; fresh production acceptance **PENDING** | 191 |
@@ -202,9 +217,9 @@ Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, ho
 
 Canonical GitHub docs updated by PR **#195** to reflect this register and Oct 28 deployment evidence. **Do not merge PR #195 automatically.** After merge, GitHub `main` becomes authoritative for the roadmap; forward-sync Lovable integration only when a later deployment is approved.
 
-## 7. Recommended decision at owner review
+## 7. Recommended decision at owner review (updated 2026-11-05)
 
-**Approve Batch 190 only** as the next architecture/implementation assignment. Make CPU-safe publication the explicit P0 gate. Keep other batches sequenced but **not automatically authorized**. Once 190 publishes reliably, run 191 market acceptance and 192 Inbox/UI checks; split work only where ownership does not collide.
+**Batch 190.15 code and reported deploy are complete.** Next P0 gate is **Batch 191** market-session acceptance (**ISS-034**) across **repeated** regular-session and after-hours windows — not a single post-migration publication. Then **Batch 195** authenticated issuer-trust walkthrough (**ISS-028**, code merged **#212**; including Nov 5 ACAD/RXRX report), **Batch 192** AM Inbox visual acceptance, and scoped follow-ups (**ISS-038**, **ISS-024**). **ISS-037** code merged (**#215**); production verification **NOT VERIFIED** — no new merge or deploy assumed. Do not authorize new Edge/migration/cron/Fly changes without an approved batch.
 
 **Guardrails:** no backend migrations/Edge deploy/cron/Fly changes without independent approval, no Lovable frontend publishing, no browser-fabricated market data, no AI Trader, broker, billing or live feed upgrade now. Live auth/UI claims require actual authenticated evidence.
 

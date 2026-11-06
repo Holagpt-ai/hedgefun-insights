@@ -1,5 +1,21 @@
 ﻿# Changelog
 
+## 2026-11-05 (Batch 190.15 documentation closeout)
+
+- **Docs-only continuity** (PR **#218**): records reported **Batch 190.15** production activation (PR **#217** → **`3c810c4b`**), dual migration-ledger facts (Git `supabase/migrations/`, Lovable Drizzle **idx 68**, no `schema_migrations` row), Nov **5** screenshot observations, **ISS-034 OPEN**, PR **#212** / **#215** merged with verification outstanding. No application or deploy changes.
+
+## 2026-11-04 (Batch 190.15 — merged and reported activated)
+
+- **Batch 190.15 / slim staging RPC payloads** (PR **#217** → **`3c810c4b`**, base **`1b7d86d6`**): advance, atomic publish, and publish-record return `control` instead of the full job JSON (~2.35 MB `all_tickers` in staging; ~**8.60 MB** full RPC response reported in production). Claim stays full. Finalize baseline drift reads state identity only. **Reported activation:** Lovable Cloud **`sync-screener-data`** Edge **2026-11-04**; canonical SQL `supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql` applied via Lovable Drizzle **ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** matching version row (record only — do not backfill ledgers). Compact **`control`** ~**407 bytes**. First natural post-migration generation **85** rows, six tabs, **7/7** chunks. Runbook `docs/release/batch190-15-slim-staging-payload-v1.md`. **ISS-034 remains OPEN** pending **Batch 191** RTH/AH acceptance — one successful generation is not permanent CPU proof.
+
+- **Batch 195** Catalyst / Watchlist / Radar issuer-trust acceptance (PR **#212** → **`5d6399de`** merged): Radar recent-news headline gate tightening; runbook `docs/release/batch195-issuer-trust-acceptance-v1.md`. **ISS-028** not closed — authenticated prod **NOT VERIFIED**.
+
+- **ISS-037 / screener free float** (PR **#215** → **`3bd3ee68`** merged): verified free-float display path; runbook `docs/release/batch-iss037-screener-float-enrich-v1.md`. **Production verification NOT VERIFIED** — do not assume Vercel or Edge deploy.
+
+## 2026-11-04 (Batch 190.14 — release-safety revision, in review)
+
+- **Batch 190.14 / CPU-safe staged finalize** (PR **#216**, base **`3bd3ee68`**): Nov **4** production **HTTP 546** on finalize before publish (`sync-screener-data` v506). Release-safety pass: G/L qualify fast-path + chunk `volumeActive` for extended evidence; `build_evidence` stage; finalize stage **enter/exit** logs; **await** day-trade qualification capture after `completePublish`. Final corrections: session fixtures 07:35 / 12:45 / 16:20 ET asserted with `resolveSyncSessionKind`; RPC timing serializes representative rows and evidence; rollback source is git **`3bd3ee68`** (not a promised Edge revision id). Lovable Edge CPU constraint and post-launch Fly contingency recorded in `docs/PROJECT_MEMORY.md`. **190.12 SQL and 190.13 cron normalization already deployed — do not reapply.** Runbook `docs/release/batch190-14-cpu-safe-finalize-v1.md`. Merged as **`1b7d86d6`**. Edge deploy of that revision is separate from Batch 190.15.
+
 Application history below is a map of `main`, not a claim that each merge was deployed. Deploy facts belong in `docs/DEPLOYMENT_STATUS.md`.
 
 ## Documentation-only continuity reconciliation (2026-10-27)
@@ -8,9 +24,21 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- **Batch 190.11** Staged publish RPC diagnostics (PR **#206**, branch `cursor/iss-034-publish-error-surface-19c6`): Edge `formatStagedPublishRpcTransportFailure` sanitizes PostgREST `code` / `message` / `details` into bounded `failJob` reasons; **no SQL migration** (preserves publish RPC transaction rollback). Stacks on Batch **190.10**. **Git-only; NOT deployed.** **ISS-034 P0 OPEN.**
+- **Batch 190.13** Cron `{}` body normalization (PR **#214** → **`2edaabfc`** merged): production pg_cron `{}` normalized to `{ action: "cron" }`. Runbook `docs/release/batch190-13-cron-body-normalize-v1.md`. **Reported deployed** with Batch **190.12** — do not reapply.
 
-- **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204** → **`ed4fbd8d`**): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20; continuation error overwrite fix. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Merged to `main`; Lovable Edge NOT deployed.** **ISS-034 P0 OPEN.**
+- **Batch 190.12** Stale finalizing recovery (PR **#213** → **`fce9b95b`** merged): migration `20261104120000` + `reconcile_screener_sync_staged_publish_v1`. Runbook `docs/release/batch190-12-stale-finalizing-recovery-v1.md`. **Reported deployed** Lovable Cloud — do not reapply.
+
+- **Batch 196.2** Day Trade / scanner presentation parity (PR **#211** → **`0db6063f`** merged): status rail reports distinct momentum-qualified vs full Five Pillars (freshness-inclusive) counts; Unusual Volume row evidence names prior-session ≥4× vs time-adjusted RVOL ≥2× without mislabeling; focused Vitest regressions; **ISS-037** (screener free-float **NOT VERIFIED**).
+
+- **Batch 196.1** Scanner numerical integrity & volume provenance (PR **#209** → **`797cc615`** merged). Fly `stocksist-radar-v22-worker` **v46** deployed 2026-11-04 (`deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`, digest `sha256:9f29e7cd2c13b6acb306b153e3468f86edf348794e492c5e4d7dad17abfbee47`). Rollback image remains v45 `deployment-01M5CRQST4MR22JBA8AJK972H2`. Runbook `docs/release/batch196-1-scanner-numerical-integrity-v1.md`. Live acceleration-value acceptance **NOT VERIFIED**. **ISS-034** unchanged.
+
+- **Batch 192** AM Inbox metadata + AI Brief evidence cutoff (PR **#208** → **`f1f0121b`** merged): strip internal `__RVOL_*` labels from continuation UI; bound AM headline/direct-catalyst evidence to `source_checked_at` (missing or invalid `published_at` fail closed for direct catalysts; before-open earnings unchanged); tighten initial late-session loading gate. Cached AM brief rows are served unchanged until material regeneration — no production data reset. Runbook `docs/release/batch192-am-inbox-ai-brief-integrity-v1.md`. **Vercel production and Lovable Cloud `generate-daily-brief` Edge deploy reported complete** for Batch 192 scope. **ISS-025** visual acceptance still **NOT VERIFIED**.
+
+- **Batch 191** Scanner release acceptance + continuity synchronization (docs-only, PR **#207** → **`a5df10d8`**): continuity docs and master backlog synchronized to GitHub `main` `7e456ace`, reported Nov 1 deployment/integration source `ccb4055b3f8b84c46fa38529844150c140638705`, and Nov 2 naturally scheduled premarket PASS evidence (seven consecutive successful publications; latest row counts 60/62/63; no new recorded `http_409` in that window). **ISS-034 remains OPEN** pending regular-session and after-hours acceptance.
+
+- **Batch 190.11** Staged publish RPC diagnostics (PR **#206**, branch `cursor/iss-034-publish-error-surface-19c6`): Edge `formatStagedPublishRpcTransportFailure` sanitizes PostgREST `code` / `message` / `details` into bounded `failJob` reasons; **no SQL migration** (preserves publish RPC transaction rollback). Stacks on Batch **190.10**. **Merged on `main`; November 1 `sync-screener-data` deployment is reported complete** (deployment source `ccb4055b3f8b84c46fa38529844150c140638705`). **ISS-034 P0 OPEN.**
+
+- **Batch 190.10** Scanner publication integrity + HTTP 409 root-cause preservation (PR **#204** → **`ed4fbd8d`**): Day Trade Radar publish-eligible volume/ratio filter before volume-first top-20; continuation error overwrite fix. Runbook `docs/release/batch190-10-scanner-publish-integrity-v1.md`. **Merged to `main`; included in the reported November 1 `sync-screener-data` deployment source** (`ccb4055b3f8b84c46fa38529844150c140638705`). **ISS-034 P0 OPEN.**
 
 - **Batch 190.7** Staged finalization exception recovery (PR **#200**): allowlisted finalize diagnostics, atomic CAS lease release RPC **`20261030220000`**, uncertain `http_*` dispatch preserves leases, reconciliation for recorded publish rows. Documents 2026-10-30 ~20:15 UTC incident; root throw not reproduced. **190.6** applied/deployed Lovable; **190.7** migration/Edge deployed, Gate 4 FAILED at `build_rows`. **ISS-034** OPEN.
 - **Batch 190.6** Staged finalization abort diagnostics (PR pending): migration `20261030210000_screener_sync_abort_diagnostics_v1.sql`; persist `prior_generation_retained` / `newer_generation_live` on staged abort without changing scanner or publish decisions. Gate C observations documented; historical aborts remain NULL. **ISS-034** unchanged.

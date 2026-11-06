@@ -5,7 +5,10 @@ import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
 import type { RadarRepeatMoverProfileFreshnessState } from "@/lib/radar/radar-repeat-movers-types";
 import type { SecurityId } from "@/types/security-identity";
-import { parseRvolCaptureFromEvidenceLabels } from "@/lib/am-inbox/rvol-capture-evidence";
+import {
+  parseRvolCaptureFromEvidenceLabels,
+  stripInternalRvolCaptureLabels,
+} from "@/lib/am-inbox/rvol-capture-evidence";
 
 /**
  * Production handoff rows persist `rvol` without metric kind/baseline columns.
@@ -58,7 +61,11 @@ export function mapPersistedLateSessionRow(
     sourceCategory: row.source_category,
     amSessionDate,
   });
-  const rvolMeta = parseRvolCaptureFromEvidenceLabels(row.evidence_labels ?? []);
+  const rawEvidenceLabels = row.evidence_labels ?? [];
+  const rvolMeta = parseRvolCaptureFromEvidenceLabels(rawEvidenceLabels);
+  const evidenceLabels = stripInternalRvolCaptureLabels(
+    rawEvidenceLabels,
+  ) as readonly RepeatMoverEvidenceLabel[];
   return {
     securityId: (row.security_id as SecurityId | null) ?? null,
     symbol: row.symbol.trim().toUpperCase(),
@@ -78,7 +85,7 @@ export function mapPersistedLateSessionRow(
     catalystPresent: row.catalyst_present,
     floatTurnover: readNumber(row.float_turnover),
     historicalContextAvailable: row.historical_context_available,
-    evidenceLabels: row.evidence_labels ?? [],
+    evidenceLabels,
     sampleSizeQuality: row.sample_size_quality,
     comparableEpisodeCount: row.comparable_episode_count ?? 0,
     mostRecentComparableDate: row.most_recent_comparable_date,

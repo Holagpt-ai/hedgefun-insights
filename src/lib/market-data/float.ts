@@ -42,6 +42,16 @@ function asOfFrom(value: unknown): string | null {
   return null;
 }
 
+/** Provider measurement-effective date (Massive `effective_date`, then legacy fields). */
+function measurementDateFromFields(row: Record<string, unknown>): string | null {
+  return (
+    asOfFrom(row.effective_date) ??
+    asOfFrom(row.as_of) ??
+    asOfFrom(row.updated) ??
+    asOfFrom(row.asOf)
+  );
+}
+
 function emptyFloat(ticker: string, status: RadarFloatStatus = "unavailable"): RadarFloatRecord {
   return { ticker, float: null, asOf: null, source: "massive_float", status };
 }
@@ -61,10 +71,16 @@ export function mapFloatPayload(ticker: string, payload: unknown): RadarFloatRec
   const root = payload as Record<string, unknown>;
   if (root.source === "massive_float") {
     const status = envelopeStatus(root.status);
+    const float =
+      status === "unavailable"
+        ? null
+        : finitePositiveShares(root.float) ??
+          finitePositiveShares(root.free_float) ??
+          finitePositiveShares(root.float_shares);
     return {
       ticker: typeof root.ticker === "string" ? root.ticker : ticker,
-      float: status === "unavailable" ? null : finitePositiveShares(root.float),
-      asOf: asOfFrom(root.as_of),
+      float,
+      asOf: measurementDateFromFields(root),
       source: "massive_float",
       status,
     };
@@ -89,10 +105,58 @@ export function mapFloatPayload(ticker: string, payload: unknown): RadarFloatRec
   return {
     ticker: typeof row.ticker === "string" ? row.ticker : ticker,
     float,
-    asOf: asOfFrom(row.as_of) ?? asOfFrom(row.updated) ?? asOfFrom(row.asOf),
+    asOf: measurementDateFromFields(row),
     source: "massive_float",
     status: "ok",
   };
+}
+
+/** Parse provider measurement date (date-only or ISO). Never use market quote as-of. */
+export function parseFloatMeasurementMs(asOf: string | null | undefined): number | null {
+  if (typeof asOf !== "string" || !asOf.trim()) return null;
+  const ms = Date.parse(asOf.trim());
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** @deprecated Use {@link parseFloatMeasurementMs}. */
+export const parseFloatObservationMs = parseFloatMeasurementMs;
+
+/** Reject future measurement dates (date-only values use UTC midnight). */
+export const FLOAT_MEASUREMENT_FUTURE_SLACK_MS = 24 * 60 * 60 * 1000;
+
+export function isFloatMeasurementDateUsable(
+  record: RadarFloatRecord,
+  nowMs: number = Date.now(),
+): boolean {
+  const ms = parseFloatMeasurementMs(record.asOf);
+  if (ms === null) return false;
+  if (ms > nowMs + FLOAT_MEASUREMENT_FUTURE_SLACK_MS) return false;
+  return true;
+}
+
+export function verifiedFloatRecordForDisplay(
+  record: RadarFloatRecord,
+  nowMs: number = Date.now(),
+): RadarFloatRecord {
+  if (record.status === "unavailable" || record.float === null) {
+    return record.status === "unavailable"
+      ? record
+      : { ...record, float: null, status: "unavailable" };
+  }
+  if (!isFloatMeasurementDateUsable(record, nowMs)) {
+    return { ...record, float: null, status: "unavailable" };
+  }
+  return record;
+}
+
+export function verifiedFreeFloatFromRecord(
+  record: RadarFloatRecord | null | undefined,
+  nowMs: number = Date.now(),
+): number | null {
+  if (!record) return null;
+  const display = verifiedFloatRecordForDisplay(record, nowMs);
+  if (display.status === "unavailable" || display.float === null) return null;
+  return display.float;
 }
 
 function readCachedFloat(ticker: string, nowMs: number = Date.now()): RadarFloatRecord | null {
@@ -102,7 +166,7 @@ function readCachedFloat(ticker: string, nowMs: number = Date.now()): RadarFloat
     floatMemory.delete(ticker);
     return null;
   }
-  return hit.record;
+  return verifiedFloatRecordForDisplay(hit.record, nowMs);
 }
 
 function throwTransientFloat(): never {
@@ -122,10 +186,12 @@ export async function getFloatForSymbol(symbol: string): Promise<RadarFloatRecor
   const request = (async () => {
     try {
       const payload = await floatGate.run(() => getFloat(ticker));
+      const nowMs = Date.now();
       const mapped = mapFloatPayload(ticker, payload);
-      if (mapped.status === "unavailable") throwTransientFloat();
-      floatMemory.set(ticker, { record: mapped, ts: Date.now() });
-      return mapped;
+      const verified = verifiedFloatRecordForDisplay(mapped, nowMs);
+      if (verified.status === "unavailable" && mapped.float === null) throwTransientFloat();
+      floatMemory.set(ticker, { record: verified, ts: nowMs });
+      return verified;
     } catch (error) {
       if (error instanceof Error && error.message === FLOAT_UNAVAILABLE_MESSAGE) throw error;
       throwTransientFloat();

@@ -482,6 +482,54 @@ Deno.test("handler: happy path volume-first + single replacement RPC", async () 
   }
 });
 
+Deno.test("handler: publication never calls Polygon float endpoint", async () => {
+  const fetchUrls: string[] = [];
+  const mutations: Mutation[] = [];
+  const snap = [mk("A", 1_000_000, 50_000), mk("B", 8_000_000, 1_500_000)];
+  const deps = depsWith(
+    mutations,
+    trackFetch([], async (url) => {
+      fetchUrls.push(url);
+      if (url.includes("/stocks/v") && url.includes("/float")) {
+        throw new Error("float endpoint must not block publication");
+      }
+      return marketFetch(snap)(url);
+    }),
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchUrls.some((u) => u.includes("/float")), false);
+});
+
+Deno.test("handler: publication succeeds when float API would 429", async () => {
+  const mutations: Mutation[] = [];
+  const snap = [mk("A", 1_000_000, 50_000)];
+  let floatCalls = 0;
+  const deps = depsWith(mutations, async (url) => {
+    const href = String(url);
+    if (href.includes("/float")) {
+      floatCalls++;
+      return new Response("rate limited", { status: 429 });
+    }
+    return marketFetch(snap)(url);
+  });
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  assertEquals(floatCalls, 0);
+});
+
 Deno.test(
   "handler: selected row without valid timestamp fails before DB",
   async () => {

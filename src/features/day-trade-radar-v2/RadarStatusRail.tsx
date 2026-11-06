@@ -81,6 +81,8 @@ interface RadarStatusRailProps {
   /** Ranked Top-10 desk count (≤ qualifyingCount). */
   topOpportunityCount?: number;
   qualifiedMonitoringCount?: number;
+  momentumQualifiedCount?: number;
+  fivePillarsPassedCount?: number;
   funnel?: ScannerFunnelStats;
   syncedAt: string | null;
   providerAsOfMax: string | null;
@@ -98,6 +100,8 @@ export function RadarStatusRail({
   qualifyingCount,
   topOpportunityCount = 0,
   qualifiedMonitoringCount = 0,
+  momentumQualifiedCount,
+  fivePillarsPassedCount,
   funnel,
   syncedAt,
   providerAsOfMax,
@@ -115,6 +119,8 @@ export function RadarStatusRail({
           candidateUniverseCount: qualifyingCount,
           topOpportunityCount,
           qualifiedMonitoringCount,
+          momentumQualifiedCount,
+          fivePillarsPassedCount,
           funnel,
         })
       : null;

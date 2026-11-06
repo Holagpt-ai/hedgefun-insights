@@ -17,6 +17,7 @@ import {
   jobFromRow,
   jobToInsertRow,
   serializeMergedArtifacts,
+  STAGING_JOB_PREFLIGHT_SELECT,
   type StagingJobControl,
   type StagingJobRow,
 } from "./sync-staging-serialize.ts";
@@ -152,7 +153,7 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     for (const status of ["chunking", "finalizing"] as const) {
       const res = await this.sb
         .from(TABLE)
-        .select("*")
+        .select(STAGING_JOB_PREFLIGHT_SELECT)
         .eq("status", status)
         .limit(16);
       if (res.error || !res.data) continue;
@@ -268,6 +269,16 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     const res = await this.sb
       .from(TABLE)
       .select("*")
+      .eq("id", id)
+      .limit(1);
+    if (res.error || !res.data || res.data.length === 0) return null;
+    return jobFromRow(res.data[0] as StagingJobRow);
+  }
+
+  async getPreflight(id: string): Promise<StagedGenerationJob | null> {
+    const res = await this.sb
+      .from(TABLE)
+      .select(STAGING_JOB_PREFLIGHT_SELECT)
       .eq("id", id)
       .limit(1);
     if (res.error || !res.data || res.data.length === 0) return null;

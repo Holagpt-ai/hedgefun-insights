@@ -92,7 +92,7 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "rvol_5m", label: "5m RVOL", fieldId: "rvol_5m", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "vol_velocity", label: "Vol Velocity", fieldId: "vol_velocity", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "acceleration_5m", label: "Acceleration", fieldId: "acceleration_5m", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "float", label: "Float", fieldId: "float", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "float", label: "Free Float", fieldId: "float", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "float_turnover", label: "Float Turnover", fieldId: "float_turnover", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "hod_distance", label: "HOD Distance", fieldId: "hod_distance", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: false, required: false, align: "right", optional: true },

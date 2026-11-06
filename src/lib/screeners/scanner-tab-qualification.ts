@@ -87,6 +87,38 @@ export function qualifiesRadarUnusualVolume(row: RadarTabCandidate): boolean {
   );
 }
 
+/** Presentation-only: which Unusual Volume gate matched (same order as qualification). */
+export type UnusualVolumeQualificationSignal =
+  | "prior_session_ratio"
+  | "time_adjusted_rvol"
+  | "none";
+
+export function resolveUnusualVolumeQualificationSignal(
+  row: RadarTabCandidate,
+): {
+  signal: UnusualVolumeQualificationSignal;
+  priorRatio: number | null;
+  timeAdjustedRvol: number | null;
+} {
+  if (!hasPositiveSessionVolume(row)) {
+    return { signal: "none", priorRatio: null, timeAdjustedRvol: null };
+  }
+  const priorRatio = radarVolumeVersusPriorSession(row);
+  const timeAdjustedRvol = isFiniteNumber(row.time_adjusted_rvol)
+    ? (row.time_adjusted_rvol as number)
+    : null;
+  if (priorRatio !== null && priorRatio >= UNUSUAL_VOLUME_PRIOR_RATIO) {
+    return { signal: "prior_session_ratio", priorRatio, timeAdjustedRvol };
+  }
+  if (
+    timeAdjustedRvol !== null &&
+    timeAdjustedRvol >= UNUSUAL_VOLUME_TIME_ADJUSTED_RVOL
+  ) {
+    return { signal: "time_adjusted_rvol", priorRatio, timeAdjustedRvol };
+  }
+  return { signal: "none", priorRatio, timeAdjustedRvol };
+}
+
 /** Gainers/Losers: session MOVE vs previous regular close — not 15s/60s. */
 export function qualifiesRadarGainersLosers(row: RadarTabCandidate): boolean {
   const move = radarSessionMovePercent(row);

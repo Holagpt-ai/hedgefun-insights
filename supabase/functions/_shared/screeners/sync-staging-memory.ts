@@ -10,6 +10,7 @@ import {
   reconcilePublishInMemory,
   type InMemoryFeedReconcileSnapshot,
 } from "./sync-staging-cas.ts";
+import { jobToPreflightView } from "./sync-staging-serialize.ts";
 import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
@@ -48,6 +49,8 @@ export interface SyncStagingStore {
     { ok: true; job: StagedGenerationJob } | { ok: false; reason: string }
   >;
   get(id: string): Promise<StagedGenerationJob | null>;
+  /** Metadata + NHL snapshot only; no universe arrays or merged chunk artifacts. */
+  getPreflight(id: string): Promise<StagedGenerationJob | null>;
   findResumableJob(nowMs: number): Promise<StagedGenerationJob | null>;
   claimWork(params: {
     jobId: string;
@@ -282,6 +285,11 @@ export class MemorySyncStagingStore implements SyncStagingStore {
   async get(id: string): Promise<StagedGenerationJob | null> {
     const job = this.jobs.get(id);
     return job ? cloneJob(job) : null;
+  }
+
+  async getPreflight(id: string): Promise<StagedGenerationJob | null> {
+    const job = this.jobs.get(id);
+    return job ? jobToPreflightView(cloneJob(job)) : null;
   }
 
   async claimWork(params: {

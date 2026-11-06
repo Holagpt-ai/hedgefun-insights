@@ -645,7 +645,7 @@ async function finalizeStagedScreenerGeneration(
   let stage: FinalizeStage = "load_job";
   const finalizeTimer = createFinalizeStageTimer(stage);
   try {
-  const peek = await store.get(generationId);
+  const peek = await store.getPreflight(generationId);
   if (!peek) {
     return json({ error: "generation_not_found" }, 404);
   }
@@ -685,7 +685,7 @@ async function finalizeStagedScreenerGeneration(
     },
   );
   if (prep.reconciledComplete) {
-    const reconciled = await store.get(generationId);
+    const reconciled = await store.getPreflight(generationId);
     if (reconciled?.status === "published") {
       return json({
         ok: true,
@@ -1135,7 +1135,7 @@ async function finalizeStagedScreenerGeneration(
     const classification = classifyFinalizeError(e, stage);
     let syncRunId: string | undefined;
     try {
-      const failedJob = await store.get(generationId);
+      const failedJob = await store.getPreflight(generationId);
       syncRunId = failedJob?.observation.syncRunId;
       logFinalizeFailure({
         generationId,
@@ -1221,7 +1221,7 @@ async function handleStagedSyncScreenerData(
   };
 
   if (parsedBody.action === "continue" || parsedBody.action === "finalize") {
-    const job = await store.get(parsedBody.generation_id);
+    const job = await store.getPreflight(parsedBody.generation_id);
     if (!job) {
       return json({ error: "generation_not_found" }, 404);
     }

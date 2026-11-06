@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { buildAmInboxLateSessionViewFromContexts } from "@/lib/am-inbox/am-inbox-late-session-view";
 import { buildLateSessionContinuationContext } from "@/lib/am-inbox/build-late-session-continuation-context";
+import type { RepeatMoverEvidenceLabel } from "@/config/repeat-mover.config";
 import { mapPersistedLateSessionRow, type PersistedLateSessionHandoffRow } from "@/lib/am-inbox/late-session-handoff-persistence";
 import { resetLateSessionHandoffStoreForTests } from "@/lib/am-inbox/late-session-handoff-storage";
 import { compareCandidatesVolumeFirst, type RadarV2CandidateRow } from "@/lib/screeners/radar-v2-adapter";
@@ -48,6 +49,25 @@ describe("Late-session server persistence V1", () => {
     expect(ctx.rvol).toBeNull();
     expect(ctx.catalystPresent).toBeNull();
     expect(ctx.historicalContextAvailable).toBe(false);
+  });
+
+  it("strips internal RVOL capture labels from user-facing evidence while preserving metric kind", () => {
+    const ctx = mapPersistedLateSessionRow(
+      persistedRow({
+        rvol: 2.5,
+        evidence_labels: [
+          "__RVOL_KIND:time_adjusted",
+          "__RVOL_BASELINE:500000",
+          "__RVOL_SAMPLES:20",
+          "VOLUME EXPLOSION",
+        ] as unknown as RepeatMoverEvidenceLabel[],
+      }),
+      "2026-09-22",
+    );
+    expect(ctx.rvolMetricKind).toBe("time_adjusted");
+    expect(ctx.rvolBaselineVolume).toBe(500_000);
+    expect(ctx.rvolBaselineSampleSize).toBe(20);
+    expect(ctx.evidenceLabels).toEqual(["VOLUME EXPLOSION"]);
   });
 
   it("builds AM view from server contexts without sessionStorage seed", () => {

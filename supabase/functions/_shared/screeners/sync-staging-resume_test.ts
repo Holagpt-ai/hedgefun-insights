@@ -59,6 +59,18 @@ Deno.test("resume: finalizing after http_500 dispatch error is resumable", () =>
   assertEquals(stagedJobNeedsResume(job, nowMs), true);
 });
 
+Deno.test("resume: finalizing with publish record beyond TTL and expired finalize lease", () => {
+  const nowMs = Date.parse("2026-11-04T16:00:00.000Z");
+  const job = baseJob({
+    createdAtMs: Date.parse("2026-11-02T10:15:00.000Z"),
+    finalizeLeaseExpiresMs: Date.parse("2026-11-02T10:52:26.000Z"),
+    publishRowsInserted: 65,
+    publishRpcRecordedAtMs: Date.parse("2026-11-02T10:40:01.704Z"),
+    continueLastError: null,
+  });
+  assertEquals(stagedJobNeedsResume(job, nowMs), true);
+});
+
 Deno.test("resume: chunking with expired chunk lease is resumable", () => {
   const nowMs = Date.parse("2026-10-30T20:16:00.000Z");
   const job = baseJob({

@@ -6,6 +6,16 @@ import {
   type MassiveFloatRecord,
 } from "./float.ts";
 
+Deno.test("maps Massive free_float with effective_date (documented contract)", () => {
+  const mapped = mapMassiveFloat("TEST", {
+    results: [{ ticker: "TEST", free_float: 3_700_000, effective_date: "2026-09-23" }],
+  });
+  assertEquals(mapped.float, 3_700_000);
+  assertEquals(mapped.as_of, "2026-09-23");
+  assertEquals(mapped.source, "massive_float");
+  assertEquals(mapped.status, "ok");
+});
+
 Deno.test("maps verified Massive float and ignores outstanding shares", () => {
   const mapped = mapMassiveFloat("AAPL", {
     status: "OK",
@@ -22,10 +32,23 @@ Deno.test("maps verified Massive float and ignores outstanding shares", () => {
   assertEquals(mapped.status, "ok");
 });
 
+Deno.test("prefers effective_date over as_of when both are present", () => {
+  const mapped = mapMassiveFloat("AAA", {
+    results: {
+      ticker: "AAA",
+      free_float: 1_000_000,
+      effective_date: "2026-09-23",
+      as_of: "2026-09-01",
+    },
+  });
+  assertEquals(mapped.as_of, "2026-09-23");
+});
+
 Deno.test("missing or non-positive float stays unavailable", () => {
   assertEquals(mapMassiveFloat("AAA", { results: { outstanding_shares: 1_000_000 } }).float, null);
   assertEquals(mapMassiveFloat("AAA", { results: { float: 0 } }).float, null);
   assertEquals(mapMassiveFloat("AAA", null).float, null);
+  assertEquals(mapMassiveFloat("AAA", { results: [] }).float, null);
 });
 
 Deno.test("successful Float is cacheable", () => {
@@ -64,9 +87,10 @@ Deno.test("429 and 500 are not long-cached and a later success can recover", () 
   }
 
   const recovered = resolveFloatProviderResult("AAA", { ok: true, status: 200 }, {
-    results: { ticker: "AAA", float: 2_400_000 },
+    results: { ticker: "AAA", free_float: 2_400_000, effective_date: "2026-09-23" },
   });
   rememberFloatIfCacheable(cache, "AAA", recovered);
   assertEquals(recovered.cache, true);
   assertEquals(cache.get("AAA")?.float, 2_400_000);
+  assertEquals(cache.get("AAA")?.as_of, "2026-09-23");
 });

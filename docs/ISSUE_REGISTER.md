@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Baseline:** `origin/main` **`56816bd5`** (2026-10-31); PR **#202** merged (continuity docs). Batch 190.8 PR #201 merged and Edge-deployed; Batch 190.9 weekend correction is PR **#203** (rebased, not merged or deployed). Gate 4 passed 01:08 UTC, then regressed. Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
+**Baseline:** `origin/main` **`3c810c4b`** (2026-11-05). Batch **190.15** merged (PR **#217**); reported Edge **2026-11-04** + SQL **`supabase/migrations/20261104230000…`** via Lovable Drizzle **ledger idx 68** (`schema_migrations` **no** matching row — record only). Batch **195** merged (PR **#212** → **`5d6399de`**); **ISS-037** merged (PR **#215** → **`3bd3ee68`**) — production verification **NOT VERIFIED** for either. Batch **196.2** (**#211**); **196.1** Fly v46 (**#209**/**#210**). Batch **192** (**#208**); Batch **191** docs (**#207**). Nov 2 premarket PASS (60/62/63). Master backlog: `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md`.
 
 Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md` — disposition in master backlog §4; do not reassign all ten wholesale.
 
@@ -10,17 +10,20 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Scanner finalization after session transition; stale six-tab publication | **CONFIRMED OPEN.** Batch 190.8 PR #201 merged, Lovable integration synced, single `sync-screener-data` Edge deployment reported successful 23:54:35–23:54:46 UTC. Submitted fingerprint `7bf8c45d…c32d6`; platform revision ID unavailable, Git snapshot `2691424b…` is approved rollback exception. 23:55 UTC: predeploy 23:45 job still finalizing `build_rows:internal_error` (not a new-build failure), cron running but feed remains 20:10:02 UTC/108 rows; six tabs intact. **Gate 4 passed 2026-10-31 01:08 UTC** (three consecutive six-tab publications; that acceptance stands). Last success **03:20:02 UTC**, 110 rows. From **03:25 UTC** to about **21:35 UTC**: **164** `http_409` failures (7/7 chunks, no publication markers) and **54** `prior_generation_retained` aborts. Null-calendar `resolveSessionSchedule` classified Saturday as open before the weekend guard (`pre-market` at 08:00 UTC, `after-hours` at 21:30 UTC); invalid matching weekend exception rows could also open the fallback. **190.9** corrects both paths in git only and does not change publish CAS. The 23:55 UTC pending check above is the pre-pass snapshot. **DO NOT CLOSE.** Do not start Batch **191** until PR **#203** is merged, deployed, and re-accepted. |
-| ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). Processing evidence supports D1; **timed premarket acceptance PENDING** (**Batch 191**). |
-| ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged; fresh post-#194 publication **blocked by ISS-034** → **Batch 191**. |
-| ISS-025 | P0 | AM Inbox continuation loading | Batch **186** merged; RPC **PASS**; UI **NOT VERIFIED** → **Batch 192**. |
+| **ISS-034** | **P0** | Scanner acceptance not complete across all market sessions | **CONFIRMED OPEN.** **Batch 190.15** merged (**#217**) and **reported activated** (Edge **2026-11-04**; Git SQL **`supabase/migrations/20261104230000…`**; Lovable Drizzle **idx 68**; **`schema_migrations`** row **absent**). First natural post-migration generation reported **PASS** (85 rows, six tabs, 7/7 chunks) — **does not close ISS-034**. Nov **4** **HTTP 546** / stranded **`finalizing`** **`09346799…`** preserved. Pending **Batch 191** RTH/AH acceptance. **190.12** / **190.13** already deployed — do not reapply. |
+| ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). November 2 premarket acceptance window reported **PASS**. Keep broader Batch 191 matrix open until regular and after-hours checks are verified. |
+| ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **185** merged. Premarket publication evidence reported PASS on Nov 2; regular-session and after-hours tab-evidence acceptance remains **NOT VERIFIED** under **Batch 191**. **Nov 5 reported:** Gappers and New Highs/Lows UI looked **stale** while other screener tabs showed **delayed refreshing** data — backend cause **not verified** from screenshots alone. |
+| ISS-025 | P0 | AM Inbox continuation loading | Batch **192** merged (**#208**); Vercel + `generate-daily-brief` deploy **reported complete**; authenticated visual acceptance **NOT VERIFIED**. |
+| ISS-036 | P1 | Extreme / unreliable volume acceleration display | Batch **196.1** merged (`797cc615`) and Fly **v46** deployed 2026-11-04. Worker `/health` **running**, Polygon subscribed. Live acceleration-value acceptance **NOT VERIFIED** (no sampled rows this window). |
 | ISS-032 | P2 | Journal terminal-error loading | Fixed on `main` (Batch **188**) → **Batch 193** acceptance. |
 | ISS-026 | P1 | Earnings ranking / Edge | Batch **187** merged; Edge activation **UNVERIFIED** → **Batch 194**. |
 | ISS-027 | P1 | Risk / AI Brief mobile layout | Fixed on `main` (Batch **188**) → **Batch 193**. |
-| ISS-028 | P1 | TSLA/SpaceX direct catalyst in UI | Batch **181** in git; prod **NOT RE-VERIFIED** → **Batch 195**. |
+| ISS-028 | P1 | TSLA/SpaceX direct catalyst in UI | Batch **195** merged (**#212** → **`5d6399de`**): Batch **181** paths **PASS** in source/tests; Radar recent-news SpaceX-primary slip **fixed in git**. Authenticated Catalyst/Watchlist/Action Center/Radar prod **NOT VERIFIED** — **cannot close**. **Nov 5 reported:** Catalyst UI showed **ACAD** alongside an **RXRX**-specific headline — **Batch 195** acceptance; root cause **not verified** here. |
 | ISS-029 | P2 | Homepage AI Trader / countdown | **Fixed** (Batch **189**). |
 | ISS-030 | P2 | Carryover mobile cards | Fixed on `main` (Batch **188**) → **Batch 193**. |
-| ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. |
+| ISS-031 | P1 | Homepage movers vs Radar tabs | Explained — different universes. **Nov 5 reported:** homepage pricing copy read as **real-time** while delayed-feed disclosures apply elsewhere — see **ISS-038**. |
+| **ISS-038** | P2 | Homepage delayed-data copy vs real-time wording | **REPORTED (Nov 5 screenshots).** Marketing/session copy on the homepage appears to conflict with the product’s **delayed** market-feed disclosure. No backend cause asserted; copy/UX acceptance under **Batch 189** follow-up or **Batch 202** launch matrix. |
+| **ISS-037** | P2 | Screener free-float missing or unreliable | **Fix merged** (PR **#215** → **`3bd3ee68`**): frontend `useRadarFloatForSymbols` on scanner/radar visible rows; Massive `effective_date` / `as_of` mapping; publication path does not call Polygon float. **Production verification NOT VERIFIED** — do not assume Vercel or `market-data` Edge deploy without attestation. |
 
 **Verification (not new implementation):** Batch **174** **CONDITIONAL**; Batch **175** persistence **PASS**, UI **NOT VERIFIED**; PR **#174** **CLOSED** unmerged.
 
@@ -45,13 +48,16 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-005 | Batch 34 status | Not refreshed. |
 | ISS-006 | Catalyst distribution | Deferred — **Batch 203**. |
 | ISS-007 | AI Analyst streaming | Deferred — **Batch 204**. |
+| ISS-037 | Screener free-float reliability | See active triage; **NOT VERIFIED** — investigation deferred post–Batch **196.2**. |
+| — | Day Trade Radar qualification counts (Nov 5) | **Reported:** displayed qualification counts require database reconciliation; no inconsistency confirmed — **Batch 196** acceptance. |
+| — | Watchlist Analysis pending (Nov 5) | **Reported:** **17** symbols rendered with many **Analysis pending** states — log correlation deferred (**ISS-007** / batch **204** unless reproduced with backend evidence). |
 
 ## Deferred (product / platform)
 
 | ID | Item | Master batch |
 | --- | --- | --- |
 | ISS-008 | Real-time feed | **205** |
-| ISS-009 | AI Trader | **208** |
+| ISS-009 | AI Trader | **208 — POST-LAUNCH PAUSED** |
 | ISS-010 | Broker | **207** |
 | ISS-011 | Billing | **206** |
 | ISS-012 | SEC schedule edits | No new batch unless new evidence |

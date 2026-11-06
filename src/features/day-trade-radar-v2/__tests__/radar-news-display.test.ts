@@ -112,6 +112,23 @@ describe("Radar news / catalyst hierarchy", () => {
     ).toBe("unavailable");
   });
 
+  it("does not show SpaceX-primary commentary as TSLA recent news", () => {
+    const display = resolveRadarNewsDisplay(
+      "TSLA",
+      undefined,
+      {
+        ticker: "TSLA",
+        title: "Up Nearly 30% in August, Is SpaceX Stock Still a Buy?",
+        publishedAt: "2026-09-16T19:42:00.000Z",
+        url: "https://example.com/spcx-buy",
+        source: "The Motley Fool",
+        provider: "finnhub",
+      },
+      now,
+    );
+    expect(display.level).toBe("none");
+  });
+
   it("still shows recent news when the catalyst query failed", () => {
     const display = resolveRadarNewsCellState({
       symbol: "AAA",

@@ -71,6 +71,10 @@ export function formatScreenerVolumeAccelerationPct(
   return `${sign}${n.toFixed(0)}%`;
 }
 
+/** Tooltip when acceleration is unavailable due to insufficient window coverage. */
+export const SCREENER_VOLUME_ACCEL_UNAVAILABLE_HINT =
+  "Acceleration requires verified coverage in both 5-minute windows; partial or missing history shows as unavailable.";
+
 export function formatScreenerMetric(
   value: string | number | null | undefined,
   format: string,
