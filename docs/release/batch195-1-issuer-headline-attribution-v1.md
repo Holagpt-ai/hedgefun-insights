@@ -1,6 +1,6 @@
 # Batch 195.1 — Issuer headline attribution
 
-**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. Polygon source-badge correction `dad9afac`. No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
+**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. Polygon source-badge correction `dad9afac`. Trust-safety follow-up (wire without issuer attribution; detail panel earnings facts) — see latest head SHA on the branch. No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
 
 ## What the preview showed
 
@@ -18,6 +18,7 @@
 3. `classifyCatalystPrecedence` no longer lets a non-issuer earnings headline outrank that symbol's calendar row.
 4. `catalystDisplayLabelFromEvent` is what `CatalystEventRow` and `CatalystDetailPanel` render. That label, not a second feed, produced the uppercase PRESS RELEASE badge.
 5. `catalystSourceBadge` is the separate source chip on `CatalystEventCard`. For `provider="polygon"` it now uses the same wire-versus-editorial rule as the category label. GlobeNewswire, Business Wire, and the other verified wire names are **PRESS RELEASE** / **Press Release** only for a direct issuer row. Motley Fool, Zacks, and the other editorial publishers stay **NEWS** / **News**. A related or unverified association stays **Unverified association** (or the sector context label) and its source chip stays **NEWS**.
+6. **Trust-safety:** For generic news providers (`polygon`, `news`, `news_pr`, `NEWS_PR`), a wire-style **source_name** alone does not imply Press Release when `attribution_class` and `ticker_specific` are both unknown. Direct issuer rows with stored attribution still map wire items to Press Release. Authoritative **company IR** remains Press Release without relying on headline attribution. `CatalystDetailPanel` omits the Market Facts block (EPS, surprise) when `isRelatedIssuerAssociation` is true, while headline and Source line stay visible.
 
 ## Where this runs
 

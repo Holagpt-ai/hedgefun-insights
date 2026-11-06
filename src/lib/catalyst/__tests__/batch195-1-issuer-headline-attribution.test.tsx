@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { CatalystDetailPanel } from "@/components/catalyst/CatalystDetailPanel";
 import { CatalystEventRow } from "@/components/catalyst/CatalystEventRow";
 import { attributeStory, attributeSymbol } from "@/lib/catalyst/attribution";
 import { hydrateCatalystEventVerification } from "@/lib/catalyst/catalyst-event-verification";
@@ -9,7 +10,7 @@ import {
   isHighSignalCatalystEvent,
 } from "@/lib/catalyst/catalyst-discovery-priority";
 import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
-import { catalystSourceBadge } from "@/lib/catalyst/presentation";
+import { catalystSourceBadge, isIssuerWireRelease } from "@/lib/catalyst/presentation";
 import { CatalystEventCard } from "@/components/catalyst/CatalystEventCard";
 import type { CatalystHistoricalSummary } from "@/lib/catalyst/catalyst-historical-facts";
 import type { CatalystEvent } from "@/types/catalyst";
@@ -196,7 +197,8 @@ describe("Batch 195.1 issuer headline attribution", () => {
     };
     expect(catalystDisplayLabelFromEvent(wire)).toBe("Press Release");
     expect(catalystSourceBadge("polygon", "Business Wire", wire)).toBe("PRESS RELEASE");
-    expect(catalystSourceBadge("news_pr", "Business Wire")).toBe("PRESS RELEASE");
+    expect(catalystSourceBadge("news_pr", "Business Wire")).toBe("NEWS");
+    expect(catalystSourceBadge("news_pr", "Business Wire", wire)).toBe("PRESS RELEASE");
   });
 
   it("keeps Polygon Motley Fool and Zacks on NEWS", () => {
@@ -274,6 +276,76 @@ describe("Batch 195.1 issuer headline attribution", () => {
     expect(screen.queryByText("Press Release")).toBeNull();
     expect(screen.queryByText("PRESS RELEASE")).toBeNull();
     expect(screen.queryByText("BEAT")).toBeNull();
+    unmount();
+  });
+
+  it("does not treat a wire as Press Release when issuer attribution is unknown", () => {
+    expect(isIssuerWireRelease({ provider: "polygon", source_name: "GlobeNewswire" })).toBe(false);
+    expect(
+      catalystDisplayLabelFromEvent({
+        event_type: "company_news",
+        provider: "polygon",
+        source_name: "GlobeNewswire",
+        title: "Example Corp announces results",
+      }),
+    ).toBe("News");
+    expect(catalystSourceBadge("polygon", "GlobeNewswire")).toBe("NEWS");
+  });
+
+  it("still classifies company IR without stored attribution as a press release source", () => {
+    expect(
+      isIssuerWireRelease({ provider: "company_ir", source_name: "The Motley Fool" }),
+    ).toBe(true);
+    expect(
+      catalystDisplayLabelFromEvent({
+        event_type: "company_news",
+        provider: "company_ir",
+        source_name: "GlobeNewswire",
+        title: "Example IR update",
+      }),
+    ).toBe("Press Release");
+  });
+
+  it("hides Market Facts in the detail panel for a related or unverified issuer association", () => {
+    const title = "Viatris reports third-quarter earnings; Acadia Pharmaceuticals also traded";
+    const hydrated = hydrateCatalystEventVerification(
+      event({
+        id: "acad-detail",
+        title,
+        event_type: "earnings",
+        provider: "polygon",
+        source_name: "GlobeNewswire",
+        related_symbols: ["VTRS"],
+        facts: {
+          attribution_class: "direct",
+          ticker_specific: true,
+          surprise_percent: 4.2,
+          actual_eps: 1.2,
+          estimate_eps: 1.1,
+        },
+      }),
+    );
+    expect(hydrated.ticker_specific).toBe(false);
+
+    const { unmount } = render(
+      <MemoryRouter>
+        <CatalystDetailPanel
+          event={hydrated}
+          summary={emptySummary}
+          historyLoading={false}
+          open
+          onOpenChange={() => {}}
+          nowMs={NOW}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("catalyst-detail-panel")).toBeInTheDocument();
+    expect(screen.getByText(title)).toBeInTheDocument();
+    expect(screen.getByText(/Source:/)).toHaveTextContent("GlobeNewswire");
+    expect(screen.queryByText("Market Facts")).toBeNull();
+    expect(screen.queryByText("Estimate EPS")).toBeNull();
+    expect(screen.queryByText("Actual EPS")).toBeNull();
+    expect(screen.queryByText("Surprise")).toBeNull();
     unmount();
   });
 

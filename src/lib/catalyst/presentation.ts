@@ -56,8 +56,10 @@ export function isRelatedIssuerAssociation(input: {
 /**
  * Issuer wire release. Editorial publishers stay news. A related or unverified
  * association never qualifies, even when the publisher is a wire service.
- * When attribution is absent, a verified wire name still qualifies so the source
- * badge and the event-category label use the same wire-versus-editorial split.
+ * For non-authoritative providers, an unknown issuer relationship must not
+ * default to Press Release solely because the publisher looks like a wire.
+ * Authoritative issuer rows (company IR and similar) still classify without
+ * stored attribution fields.
  */
 export function isIssuerWireRelease(input: {
   provider?: string | null;
@@ -67,8 +69,9 @@ export function isIssuerWireRelease(input: {
 }): boolean {
   if (isRelatedIssuerAssociation(input)) return false;
   if (!isPressReleaseSource(input)) return false;
+  if (isAuthoritativeIssuerProvider(input.provider)) return true;
   const attributionKnown = input.attribution_class != null || input.ticker_specific != null;
-  if (!attributionKnown) return true;
+  if (!attributionKnown) return false;
   return isDirectIssuerCatalyst(input);
 }
 
