@@ -7,7 +7,7 @@ export const GENERIC_IDENTITY_TOKENS = new Set([
   "financial", "international", "limited", "ltd", "plc", "the", "and", "for",
   "co", "lp", "nv", "sa", "llp", "trust", "partners", "capital", "services",
   "global", "national", "america", "american", "industries", "systems",
-  "technologies", "technology", "therapeutics", "pharmaceutical", "pharma",
+  "technologies", "technology", "therapeutics", "pharmaceutical", "pharmaceuticals", "pharma",
   "announces", "announce", "report", "reports", "results", "conference", "call",
   "quarterly", "annual", "host", "will", "scheduled", "release", "operating",
 ]);

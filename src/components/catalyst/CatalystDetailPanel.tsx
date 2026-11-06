@@ -18,6 +18,7 @@ import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenan
 import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
 import { isSecEdgarCatalystRow } from "@/lib/catalyst/sec-edgar-events";
 import { formatEpsValue, formatSurprisePct } from "@/lib/catalyst/parsers";
+import { isRelatedIssuerAssociation } from "@/lib/catalyst/presentation";
 import type { CatalystEvent } from "@/types/catalyst";
 import { cn } from "@/lib/utils";
 
@@ -48,26 +49,25 @@ export function CatalystDetailPanel({
   nowMs,
 }: CatalystDetailPanelProps) {
   if (!event) return null;
-  const category = catalystDisplayCategoryFromEvent({
+  const displayInput = {
     event_type: event.event_type,
     provider: event.provider,
     title: event.title,
     description: event.description,
     facts: event.facts,
-  });
-  const categoryLabel = catalystDisplayLabelFromEvent({
-    event_type: event.event_type,
-    provider: event.provider,
-    title: event.title,
-    description: event.description,
-    facts: event.facts,
-  });
+    source_name: event.source_name,
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
+  };
+  const category = catalystDisplayCategoryFromEvent(displayInput);
+  const categoryLabel = catalystDisplayLabelFromEvent(displayInput);
   const freshness = catalystFreshness(event.published_at, nowMs);
   const facts = event.facts ?? {};
   const estimate = formatEpsValue(facts.estimate_eps);
   const actual = formatEpsValue(facts.actual_eps);
   const surprise = formatSurprisePct(facts.surprise_percent);
   const hasMarketFacts = Boolean(estimate || actual || surprise);
+  const relatedAssociation = isRelatedIssuerAssociation(event);
   const isSec = isSecEdgarCatalystRow(event.provider);
   const traderRead = isSec ? buildCatalystTraderRead(event) : [];
 
@@ -132,20 +132,22 @@ export function CatalystDetailPanel({
             </Button>
           ) : null}
 
-          <section className="space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Market Facts
-            </div>
-            {hasMarketFacts ? (
-              <div className="grid grid-cols-3 gap-2">
-                {estimate && <Fact label="Estimate EPS" value={estimate} />}
-                {actual && <Fact label="Actual EPS" value={actual} />}
-                {surprise && <Fact label="Surprise" value={surprise} />}
+          {!relatedAssociation && (
+            <section className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Market Facts
               </div>
-            ) : (
-              <p className="text-[12px] text-muted-foreground">Market data unavailable</p>
-            )}
-          </section>
+              {hasMarketFacts ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {estimate && <Fact label="Estimate EPS" value={estimate} />}
+                  {actual && <Fact label="Actual EPS" value={actual} />}
+                  {surprise && <Fact label="Surprise" value={surprise} />}
+                </div>
+              ) : (
+                <p className="text-[12px] text-muted-foreground">Market data unavailable</p>
+              )}
+            </section>
+          )}
 
           <CatalystHistoricalBehavior summary={summary} loading={historyLoading} />
 

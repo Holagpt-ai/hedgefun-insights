@@ -42,6 +42,9 @@ export function catalystFeedCategoryForDiscovery(event: CatalystEvent): Catalyst
     title: event.title,
     description: event.description,
     facts: event.facts,
+    source_name: event.source_name,
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
   });
 }
 

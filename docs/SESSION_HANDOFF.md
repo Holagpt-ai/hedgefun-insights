@@ -1,10 +1,12 @@
 # Session handoff — current 2026-11-06 ET
 
-**Batch 191.1 (in flight):** Gappers evidence — **`split_scale_suppressed_count`** so **`impliesSplitScale`** gap suppression is not counted as **unresolved** inputs (fixes erroneous **`prior_generation_retained`** / publication gap when 7/7 chunks completed). Runbook `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** stay **OPEN**.
+**Batch 195.1 (PR #222, not merged; badge `dad9afac`; trust-safety `4f699897`):** Catalyst issuer-headline attribution, plus the Polygon source-badge correction on the same branch. An ACAD row no longer takes an RXRX/Viatris earnings headline from a shared word such as "pharmaceuticals", and a related headline is not labeled as that symbol's earnings or press release. `provider="polygon"` now uses one wire-versus-editorial rule for both `catalystSourceBadge` and the event-category label: GlobeNewswire and Business Wire are Press Release only for a direct issuer row; Motley Fool, Zacks, and other editorial publishers stay News. Unknown issuer attribution on non-authoritative providers does not default to Press Release from the wire name alone; company IR stays authoritative. `CatalystDetailPanel` hides EPS and surprise Market Facts for related or unverified issuer associations. The frontend correction is the Vercel bundle. Backend activation is a later Lovable Cloud deploy of the Edge Functions listed in the runbook; this PR does not deploy them. No production row rewrite, migration, cron, Fly, or Vercel operation. Runbook `docs/release/batch195-1-issuer-headline-attribution-v1.md`. **ISS-028** stays **OPEN** until authenticated production is checked.
+
+**Batch 191.1 (merged):** PR **#221** → `67e3418a`. Gappers evidence — **`split_scale_suppressed_count`** so **`impliesSplitScale`** gap suppression is not counted as **unresolved** inputs. Runbook `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** stay **OPEN**.
 
 **Batch 210 / PR #220 (branch):** `cursor/batch210-unified-release-control-v1` — CI verify workflow now runs **`npm ci --ignore-scripts`** after **`actions/setup-node@v4`** (Node **24**) so release-control scripts have locked deps on clean runners.
 
-**Code:** GitHub `main` **`3c810c4b`** (Batch **190.15** merged, PR **#217**).
+**Code:** GitHub `main` **`67e3418a`** (Batch **191.1** PR **#221** on top of Batch **190.15** / **`3c810c4b`**).
 
 **Batch 190.16 production checkpoint (2026-11-06, reported):** Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516**; six consecutive natural premarket generations (narrow window). Git narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` (`historical_evidence.production_checkpoint_2026_11_06`). **ISS-034 OPEN** — **Batch 191** RTH/AH still required. **ISS-039** remains the release-provenance tracking issue; git-only verification does not prove live Edge binary equivalence.
 
@@ -31,12 +33,13 @@
 - **Batch 196.1:** Fly **`stocksist-radar-v22-worker` v46** from **`797cc615`**; **ISS-036** live value acceptance **NOT VERIFIED**.
 
 **Next approved sequence:**
-1. **Batch 191** — timed regular-session and after-hours scanner acceptance (**ISS-034** gate).
-2. **Batch 195** — authenticated Catalyst/Watchlist/Radar issuer-trust walkthrough (**ISS-028**, including Nov 5 ACAD/RXRX observation).
-3. **Batch 192** — AM Inbox authenticated visual acceptance (**ISS-025**).
-4. **Batch 193** — mobile/Journal acceptance.
-5. **ISS-037** — production verification after PR **#215** merge (**NOT VERIFIED**; no new merge requested).
-6. Narrow follow-ups from Nov 5 reports: **ISS-038** homepage delayed-data copy; **ISS-024** tab freshness parity (Gappers/NHL vs other tabs); Day Trade displayed qualification counts (**Batch 196** reconciliation).
+1. Review and merge **Batch 195.1** only after review. Do not deploy Edge or rewrite catalyst rows from this PR.
+2. **Batch 191** — timed regular-session and after-hours scanner acceptance (**ISS-034** gate).
+3. **Batch 195** — authenticated Catalyst/Watchlist/Radar issuer-trust walkthrough (**ISS-028**, including the ACAD/Viatris and SpaceX press-release cases).
+4. **Batch 192** — AM Inbox authenticated visual acceptance (**ISS-025**).
+5. **Batch 193** — mobile/Journal acceptance.
+6. **ISS-037** — production verification after PR **#215** merge (**NOT VERIFIED**; no new merge requested).
+7. Narrow follow-ups from Nov 5 reports: **ISS-038** homepage delayed-data copy; **ISS-024** tab freshness parity (Gappers/NHL vs other tabs); Day Trade displayed qualification counts (**Batch 196** reconciliation).
 
 **Deferred:** AI Trader (**POST-LAUNCH PAUSED**), brokers, billing, real-time-feed upgrades (**ISS-008** / batch **205**).
 
