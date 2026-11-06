@@ -21,6 +21,10 @@ export const INTEGRATION_BRANCH = "cursor/lovable-sync-from-main-20261024";
 /** Disposable E2E branches must use this prefix (single segment after cursor/). */
 export const TEST_BRANCH_PREFIX = "cursor/_batch211_e2e_";
 
+/** GitHub disposable rehearsal refs (same names as batch211-github-e2e.mjs). */
+export const E2E_MAIN_BRANCH = "cursor/_batch211_e2e_main";
+export const E2E_INTEGRATION_BRANCH = "cursor/_batch211_e2e_integration";
+
 const MAX_ATTEMPTS = 3;
 
 const EXPLICIT_OVERLAY_PATHS = new Set([
@@ -42,6 +46,40 @@ export function isAllowlistedDisposableBranch(name) {
     name.length > TEST_BRANCH_PREFIX.length &&
     !name.includes("..") &&
     !name.includes("\0");
+}
+
+/**
+ * Apply authorization (enforced inside synchronize).
+ * - Production: only refs/main + refs/integration and STOCKSIST_LOVABLE_SYNC_ACTIVATED === "true".
+ * - Disposable rehearsal: both refs allowlisted under TEST_BRANCH_PREFIX and STOCKSIST_LOVABLE_SYNC_TEST_MODE === "true".
+ */
+export function authorizeApply(mainBranch, integrationBranch) {
+  const prodPair = mainBranch === MAIN_BRANCH && integrationBranch === INTEGRATION_BRANCH;
+  const disposablePair =
+    isAllowlistedDisposableBranch(mainBranch) &&
+    isAllowlistedDisposableBranch(integrationBranch);
+  if (prodPair) {
+    if (process.env.STOCKSIST_LOVABLE_SYNC_ACTIVATED === "true") {
+      return { ok: true, kind: "production" };
+    }
+    return {
+      ok: false,
+      message: "Apply blocked: production integration sync requires STOCKSIST_LOVABLE_SYNC_ACTIVATED=true",
+    };
+  }
+  if (disposablePair) {
+    if (process.env.STOCKSIST_LOVABLE_SYNC_TEST_MODE === "true") {
+      return { ok: true, kind: "test" };
+    }
+    return {
+      ok: false,
+      message: "Apply blocked: disposable ref writes require STOCKSIST_LOVABLE_SYNC_TEST_MODE=true",
+    };
+  }
+  return {
+    ok: false,
+    message: "Apply blocked: use main + production integration branch, or a fully allowlisted disposable pair",
+  };
 }
 
 function git(cwd, args) {
@@ -115,6 +153,24 @@ export function synchronize({
   }
   if (!isAllowlistedDisposableBranch(integrationBranch) && integrationBranch !== INTEGRATION_BRANCH) {
     throw new Error("integrationBranch must be the production integration ref or an allowlisted disposable test ref");
+  }
+  if (mode === "apply") {
+    const auth = authorizeApply(mainBranch, integrationBranch);
+    if (!auth.ok) {
+      const root = resolve(repoDir);
+      const report = {
+        status: "UNKNOWN",
+        mode,
+        attempts: 0,
+        main_sha: null,
+        integration_sha_before: null,
+        integration_sha_after: null,
+        unexpected_paths: [],
+        message: auth.message,
+      };
+      writeReport(root, report);
+      return report;
+    }
   }
   const root = resolve(repoDir);
   let report = { status: "UNKNOWN", mode, attempts: 0, main_sha: null,
@@ -230,22 +286,6 @@ if (isCli) {
     process.env.STOCKSIST_LOVABLE_SYNC_TEST_MODE === "true" &&
     isAllowlistedDisposableBranch(mainBranch) &&
     isAllowlistedDisposableBranch(integrationBranch);
-
-  if (mode === "apply") {
-    if (testMode) {
-      // Disposable refs only; never the real integration branch unless explicitly main (forbidden for apply).
-      if (mainBranch === MAIN_BRANCH || integrationBranch === INTEGRATION_BRANCH) {
-        console.error("Sync apply BLOCKED: test mode cannot target production main/integration refs");
-        process.exitCode = 1;
-      } else if (!isAllowlistedDisposableBranch(mainBranch) || !isAllowlistedDisposableBranch(integrationBranch)) {
-        console.error("Sync apply BLOCKED: test branches not allowlisted");
-        process.exitCode = 1;
-      }
-    } else if (process.env.STOCKSIST_LOVABLE_SYNC_ACTIVATED !== "true") {
-      console.error("Sync apply BLOCKED: activation gate is not enabled");
-      process.exitCode = 1;
-    }
-  }
 
   if (!process.exitCode) {
     const report = synchronize({ mode, mainBranch, integrationBranch });

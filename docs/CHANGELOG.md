@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-06 (Batch 211 — PR #223 security closeout, not activated)
+
+- **PR #223 (branch `cursor/batch211-lovable-forward-sync-v1`):** apply authorization is enforced inside exported `synchronize()` (production pair requires `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; disposable `cursor/_batch211_e2e_*` pair requires `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true`). `batch211-github-e2e.mjs` aborts if disposable refs already exist on `origin`, uses a second pair (`*_main_b` / `*_integration_b`) for idempotency so mid-run deletes are not required, deletes only refs this run created, and TEST_4/TEST_6 matrix lines label unit/static vs remote GitHub evidence. No activation variable change, no merge, no deploy.
+
 ## 2026-11-06 (Batch 211 — source-sync controller PR, not activated)
 
 - **Proposed, not merged/activated:** `.github/workflows/lovable-source-forward-sync.yml` and `scripts/lovable-sync/` add a read-only default GitHub `main` → Lovable integration-branch health check, gated ordinary fast-forward source merge after **separate owner activation**, known-overlay preservation, fail-closed conflict/drift handling, bounded races, and disposable Git fixtures. Output artifacts under `.lovable-sync-verify/`. No production backend, deployment, SQL, cron, Vercel or Fly changes. Runbook `docs/release/batch211-lovable-source-forward-sync-v1.md`; tracking **ISS-040**. Current main `88de3533` includes merged PR #222; integration `3ec5f7cd` contains it. Git sync alone does not close ISS-028/ISS-039.

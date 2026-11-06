@@ -26,11 +26,11 @@ forward merge while keeping production deployment independent.
 | --- | --- |
 | `.github/workflows/lovable-source-forward-sync.yml` | Runs on `main` push, manual dispatch, and relevant PRs. Check job is always read-only; apply job has a separate activation gate. |
 | `scripts/lovable-sync/forward-sync.mjs` | Fetches both branch heads; creates disposable detached Git worktree; tests ordinary non-fast-forward merge, allowlisted overlay and ancestry; optionally pushes a normal fast-forward to integration. Emits status artifact. |
-| `scripts/lovable-sync/forward-sync.test.mjs` | Disposable local Git regression fixtures. No production or remote GitHub writes. |
-| `scripts/lovable-sync/batch211-github-e2e.mjs` | Optional GitHub E2E: allowlisted disposable refs `cursor/_batch211_e2e_main` and `cursor/_batch211_e2e_integration` only; deletes them after. Invoked by `.github/workflows/batch211-lovable-sync-e2e.yml` (manual `workflow_dispatch`). |
+| `scripts/lovable-sync/forward-sync.test.mjs` | Disposable local Git regression fixtures (allowlisted branch names + `STOCKSIST_LOVABLE_SYNC_TEST_MODE` for apply). No production or remote GitHub writes. |
+| `scripts/lovable-sync/batch211-github-e2e.mjs` | Optional GitHub E2E: allowlisted disposable refs only — pair A (`cursor/_batch211_e2e_main`, `cursor/_batch211_e2e_integration`) for TEST 1–4, pair B (`cursor/_batch211_e2e_main_b`, `cursor/_batch211_e2e_integration_b`) for TEST 5. Aborts if any of those refs already exist on `origin`; deletes only refs this run created. Invoked by `.github/workflows/batch211-lovable-sync-e2e.yml` (manual `workflow_dispatch`). |
 | `.lovable-sync-verify/status.json` / `status.md` | Workflow artifacts (gitignored), source facts only. Never proves deployed Edge binary identity. |
 
-**Test-target mode (disposable refs only):** when `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true` and both `--main-branch=` and `--integration-branch=` are set to refs under `cursor/_batch211_e2e_*`, `forward-sync.mjs --mode=apply` may run without `STOCKSIST_LOVABLE_SYNC_ACTIVATED`. Apply is blocked if either branch is the real `main` or `cursor/lovable-sync-from-main-20261024`.
+**Test-target mode (disposable refs only):** when `STOCKSIST_LOVABLE_SYNC_TEST_MODE=true` and both branch arguments are allowlisted under `cursor/_batch211_e2e_*`, apply may push without `STOCKSIST_LOVABLE_SYNC_ACTIVATED`. The exported `synchronize()` enforces the same rules (production pair requires activation; disposable pair requires test mode). Apply is blocked if either branch is the real `main` or `cursor/lovable-sync-from-main-20261024` while claiming test mode.
 
 **E2E markers** live under `.lovable/` / `drizzle/migrations/` so the merged tree matches the overlay allowlist. Disposable commits stage only those paths so local `.lovable-sync-verify/` output is never pushed (that directory is gitignored).
 

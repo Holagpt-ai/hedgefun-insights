@@ -1,5 +1,5 @@
 # Batch 211 — disposable-ref forward-sync E2E (manual only). No production branch writes.
-# Uses cursor/_batch211_e2e_main and cursor/_batch211_e2e_integration; deleted at end.
+# Uses allowlisted cursor/_batch211_e2e_* pairs; aborts if refs already exist; deletes only refs this run created.
 name: Batch 211 Lovable Sync E2E (disposable refs)
 
 on:
@@ -26,7 +26,7 @@ jobs:
           node-version: "24"
       - name: Local regression tests (no remote)
         run: node --test scripts/lovable-sync/forward-sync.test.mjs
-      - name: Disposable-branch GitHub E2E (deletes test refs after)
+      - name: Disposable-branch GitHub E2E (deletes only refs created this run)
         env:
           STOCKSIST_LOVABLE_SYNC_TEST_MODE: "true"
         run: node scripts/lovable-sync/batch211-github-e2e.mjs
