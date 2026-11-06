@@ -188,3 +188,27 @@ Deno.test("17. no symbol-specific hardcoding in precedence rules", () => {
   assertEquals(classifyCatalystPrecedence(arbitrary).tier, "primary");
   assertEquals(classifyCatalystPrecedence(other).tier, "secondary");
 });
+
+Deno.test("18. related earnings headline does not outrank the issuer calendar row", () => {
+  const issuer = base({
+    title: "ACADIA Pharmaceuticals earnings",
+    event_type: "earnings",
+    provider: "earnings_calendar",
+    attribution_class: "direct",
+    ticker_specific: true,
+  });
+  const related = base({
+    title: "Recursion Pharmaceuticals reports third-quarter earnings",
+    event_type: "earnings",
+    provider: "polygon",
+    attribution_class: "unverified",
+    ticker_specific: false,
+  });
+  assertEquals(classifyCatalystPrecedence(issuer).tier, "primary");
+  assertEquals(classifyCatalystPrecedence(related).tier, "secondary");
+  assertEquals(classifyCatalystPrecedence(related).classRank, 0);
+  assertEquals(
+    compareCatalystPrecedence(issuer, related, { owned: new Set(), etDate: "2026-09-18" }) < 0,
+    true,
+  );
+});

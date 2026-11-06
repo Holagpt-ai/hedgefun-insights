@@ -358,6 +358,9 @@ export function ScreenerTable({
       title: entry.event.title,
       description: entry.event.description,
       facts: entry.event.facts,
+      source_name: entry.event.source_name,
+      attribution_class: entry.event.attribution_class,
+      ticker_specific: entry.event.ticker_specific,
     });
     const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
     const href = catalystSymbolHref(sym) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`;

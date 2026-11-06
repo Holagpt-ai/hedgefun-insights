@@ -19,7 +19,13 @@ import {
   formatSurprisePct,
   timeOfDayLabel,
 } from "@/lib/catalyst/parsers";
-import { catalystSourceBadge } from "@/lib/catalyst/presentation";
+import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
+import {
+  catalystSourceBadge,
+  isRelatedIssuerAssociation,
+  RELATED_ISSUER_HEADLINE_LABEL,
+  RELATED_SECTOR_HEADLINE_LABEL,
+} from "@/lib/catalyst/presentation";
 import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
 import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
 import {
@@ -134,8 +140,26 @@ export function CatalystEventCard({
   const todLabel = event.time_of_day ? timeOfDayLabel(event.time_of_day) : null;
   const publishedLabel = formatPublished(event.published_at);
   const showTitle = event.event_type !== "earnings" && event.title;
-  const earningsResult = earningsResultBadge(event);
-  const sourceBadge = catalystSourceBadge(event.provider);
+  const relatedAssociation = isRelatedIssuerAssociation(event);
+  const categoryLabel = catalystDisplayLabelFromEvent({
+    event_type: event.event_type,
+    provider: event.provider,
+    title: event.title,
+    description: event.description,
+    facts: event.facts,
+    source_name: event.source_name,
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
+  });
+  const typeLabel =
+    categoryLabel === RELATED_ISSUER_HEADLINE_LABEL || categoryLabel === RELATED_SECTOR_HEADLINE_LABEL
+      ? categoryLabel
+      : EVENT_TYPE_LABEL[event.event_type];
+  const earningsResult = relatedAssociation ? null : earningsResultBadge(event);
+  const sourceBadge = catalystSourceBadge(event.provider, event.source_name, {
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
+  });
   const traderRead = buildCatalystTraderRead(event);
   const longDescription = event.description && event.description.length > 220;
   const isSec = isSecEdgarCatalystRow(event.provider);
@@ -158,7 +182,7 @@ export function CatalystEventCard({
               </span>
             )}
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
-              {EVENT_TYPE_LABEL[event.event_type]}
+              {typeLabel}
             </Badge>
             {sourceBadge && (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -267,7 +291,7 @@ export function CatalystEventCard({
         )}
       </div>
 
-      {event.event_type === "earnings" && <EarningsFacts facts={event.facts ?? {}} />}
+      {event.event_type === "earnings" && !relatedAssociation && <EarningsFacts facts={event.facts ?? {}} />}
 
       {event.related_symbols.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
