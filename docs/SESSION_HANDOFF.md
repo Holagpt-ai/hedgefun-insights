@@ -38,6 +38,8 @@
 
 See `docs/CHANGELOG.md`, `docs/DEPLOYMENT_STATUS.md`, and `docs/release/` runbooks for Batch 190–191 history, Gate 4 pass/regression, and ISS-034 criteria.
 
+**Batch 210 (when merged):** Unified Release Control V1 — manifests under `docs/release/manifests/`, runbook `docs/release/batch210-unified-release-control-v1.md`, **ISS-039** (git provenance vs live platform identity).
+
 # Session handoff (archive)
 
 See `docs/CHANGELOG.md` and `docs/release/` runbooks.

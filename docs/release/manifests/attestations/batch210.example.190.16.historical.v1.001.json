@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "kind": "deployment_attestation",
+  "manifest_id": "batch210.example.190.16.historical.v1",
+  "sequence": 1,
+  "component_id": "sync_screener_data_edge",
+  "recorded_at": "2026-11-06T15:00:00.000Z",
+  "observer": "manual_import",
+  "evidence_notes": "Owner-reported Supabase Edge function version for sync-screener-data after Batch 190.16 activation path. This does not prove binary equivalence to git; use UNKNOWN in automated verification for runtime identity unless platform exports a reproducible digest.",
+  "observed": {
+    "platform": "lovable_cloud_supabase_edge",
+    "function_name": "sync-screener-data",
+    "edge_function_version": 516,
+    "image_digest": null,
+    "deployed_at": null
+  },
+  "approval_reference": "Owner-operated Lovable Cloud deploy (not verified in CI)"
+}

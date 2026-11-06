@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stocksist.com/schemas/deployment-attestation-v1.json",
+  "title": "Stocksist Unified Release Control — deployment attestation (v1, append-only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "manifest_id",
+    "sequence",
+    "component_id",
+    "recorded_at",
+    "observer",
+    "observed"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "kind": { "const": "deployment_attestation" },
+    "manifest_id": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "component_id": { "type": "string", "minLength": 1 },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "observer": {
+      "type": "string",
+      "enum": ["owner", "lovable_cloud", "cursor_ci", "manual_import"]
+    },
+    "observed": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Opaque platform facts (version, digest, deployment id). Never rewrite earlier attestations."
+    },
+    "evidence_notes": { "type": "string" },
+    "approval_reference": { "type": "string" }
+  }
+}

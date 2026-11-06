@@ -171,6 +171,12 @@ Operating mode OFF; no homepage promotion, no live/paper trading activation, no 
 
 #### Batch 209 — Optional community/content/market-alert distribution — PARKED / NOT APPROVED
 
+#### Batch 210 — Unified Release Control V1 (git-only provenance + read-only verification)
+
+**Priority:** P1 · **Owner:** Cursor (manifests, scripts, CI) + owner (deployment attestations in Lovable / platform UIs).  
+**Work:** Immutable **release intent** JSON under `docs/release/manifests/`, append-only **attestation** files, deterministic Edge **import-closure** SHA-256 and optional Fly **path-prefix** hashes, manual **`workflow_dispatch`** verification workflow. **Does not** replace Batch **191** market-session acceptance or close **ISS-034**.  
+**Gate:** Owner can reproduce MATCH/DRIFT/UNKNOWN/NOT_APPLICABLE reports locally and from CI artifacts; production runtime identity remains UNKNOWN unless platform exports digests (documented limitation).
+
 Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, homepage AI-informed significant price-movement alerts and promotion concepts are ideas, **not verified active engineering batches**. Re-scope and approve separately; avoid claimed real-time/AI attribution without data evidence.
 
 ## 4. Pending acceptance and issue crosswalk — nothing silently closed
@@ -178,6 +184,7 @@ Stocksist TV/YouTube (separate content-launch blueprint), community/waitlist, ho
 | Existing item | Disposition as of Oct 28 | New owner batch |
 | --- | --- | --- |
 | **ISS-034** CPU Time exceeded; stale screener publication | **Confirmed, P0 OPEN** — 190.15 reported activated; **Batch 191** RTH/AH acceptance pending | **191** (acceptance gate on **190**) |
+| **ISS-039** git provenance vs live deployment identity | Batch **210** adds manifests + read-only verification — **MATCH** on git only; platform digests **UNKNOWN** without owner attestations | **210** (attestations + optional future API batches) |
 | **ISS-033** premarket `day.v=0` vs `min.av` | Code & Edge D1 deployed; true timed premarket acceptance **PENDING** | 191 |
 | **Batch 174** (old) scanner live ET matrix | **CONDITIONAL**; superseded PR #174 closed unmerged | 191 / 196 |
 | **ISS-024 / DATA-01 / DATA-02 / ISS-031** tab evidence, Gappers/Movers blank states, homepage vs scanner | Batch 185 code merged; persisted metadata confirmed in older 108-row generation; fresh production acceptance **PENDING** | 191 |

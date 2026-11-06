@@ -1,0 +1,32 @@
+# Unified Release Control V1 — read-only verification (manual only).
+# No production credentials. Outputs JSON + Markdown under .urc-verify/ (gitignored).
+
+name: Unified Release Control (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_path:
+        description: "Path to release_intent JSON under docs/release/manifests/"
+        required: true
+        default: "docs/release/manifests/batch210.example-190.16-historical-v1.json"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run schema + hash tests
+        run: node --test scripts/release-control/release-control.test.mjs
+
+      - name: Verify manifest (git ancestry + source hashes)
+        run: node scripts/release-control/verify-release.mjs "${{ github.event.inputs.manifest_path }}"
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: urc-verify-report
+          path: .urc-verify/

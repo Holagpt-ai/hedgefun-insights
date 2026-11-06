@@ -18,6 +18,8 @@
 
 **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
+**Batch 210:** Immutable **release intent** JSON + append-only **attestations** (`docs/release/manifests/`) record approved git Shas and optional owner-reported platform versions; **read-only** verification is `scripts/release-control/verify-release.mjs` + workflow `.github/workflows/unified-release-control-verify.yml`. **MATCH** on source hashes **does not** prove live Edge/Vercel/Fly binaries — **ISS-039**.
+
 ## Current — GitHub and Lovable integration (2026-11-05)
 
 | Field | Value |

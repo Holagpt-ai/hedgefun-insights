@@ -28,3 +28,6 @@ dist-ssr
 .shadow-review/
 supabase/.branches/
 supabase/.temp/
+
+# Unified Release Control — local verification outputs (workflow_dispatch / local)
+.urc-verify/

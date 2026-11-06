@@ -18,7 +18,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 **Nov 4 2026 publication failures (confirmed, preserved):** `sync-screener-data` **v506** finalize **HTTP 546** after 7/7 chunks; stranded **`finalizing`** job / generation **`09346799…`**. **Batch 190.12** SQL and **Batch 190.13** cron `{}` normalization are **already deployed** on Lovable Cloud. Do not reapply either. Never hand-edit the production job row.
 
-Deferred product/platform work is batched **203–209** in the master register (not active implementation).
+Deferred product/platform work is batched **203–209** in the master register (not active implementation). **Batch 210** (Unified Release Control V1) adds **git-only** immutable manifests and read-only verification — see `docs/release/batch210-unified-release-control-v1.md` and **ISS-039**; it does **not** replace Batch **191** acceptance or close **ISS-034**.
 
 ## Product
 

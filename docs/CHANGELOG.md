@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-06 (Batch 210 — Unified Release Control V1, git-only)
+
+- **Unified Release Control V1** (Batch **210**): JSON Schemas for **release_intent** and append-only **deployment_attestation**; example historical manifest for **Batch 190.16** (`e03ad6ad…` / integration `c35d63ca…`); deterministic Edge import-closure SHA-256 hasher; manual `workflow_dispatch` workflow **Unified Release Control (read-only)**; Node tests `npm run test:release-control`. Runbook `docs/release/batch210-unified-release-control-v1.md`. **ISS-039** tracks gap between git provenance and live platform digests. **Does not** merge or deploy production.
+
 ## 2026-11-05 (Batch 190.15 documentation closeout)
 
 - **Docs-only continuity** (PR **#218**): records reported **Batch 190.15** production activation (PR **#217** → **`3c810c4b`**), dual migration-ledger facts (Git `supabase/migrations/`, Lovable Drizzle **idx 68**, no `schema_migrations` row), Nov **5** screenshot observations, **ISS-034 OPEN**, PR **#212** / **#215** merged with verification outstanding. No application or deploy changes.

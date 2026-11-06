@@ -2,6 +2,8 @@
 
 Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`. The Supabase project (`zcjptaolpumhtlwhlemq`) is **managed in Lovable Cloud**; GitHub `main` holds the authoritative backend source.
 
+**Unified Release Control (Batch 210):** Immutable **release intent** manifests and append-only **deployment attestation** JSON live under `docs/release/manifests/`; read-only verification scripts live under `scripts/release-control/` with a manual GitHub Actions workflow. Git closure hashes prove **repository** content at a commit, not the live Edge/Vercel/Fly runtime unless separately attested (**ISS-039**).
+
 ```text
 Browser (Vercel SPA — stocksist.com)
   -> Supabase Auth (Lovable Cloud / project zcjptaolpumhtlwhlemq)
