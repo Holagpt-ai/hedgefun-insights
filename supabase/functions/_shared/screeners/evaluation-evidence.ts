@@ -7,7 +7,9 @@
  * - at least one volume-active symbol must exist;
  * - every volume-active symbol must be either gap-calculable or
  *   structurally no-prior-session (when baseline coverage evidence is complete);
- * - unresolved gap inputs fail closed.
+ * - unresolved gap inputs fail closed;
+ * - split/CA `impliesSplitScale` suppression is **not** counted as unresolved
+ *   (see `split_scale_suppressed_count`).
  * Partial calculability across the active snapshot does not establish coverage.
  *
  * NHL fail-closed coverage contract:
@@ -33,6 +35,7 @@ import {
   currentSessionReferencePrice,
   dayHighLow,
   gapPercent,
+  gapSuppressedOnlyBySplitScaleGuard,
   hasValidSessionOpen,
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
@@ -59,6 +62,8 @@ export interface GappersTabEvidence {
   volume_positive_count: number;
   gap_calculable_count: number;
   no_prior_session_count: number;
+  /** Gap null only because regular vs reference triggered `impliesSplitScale`. */
+  split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
   qualified_count: number;
   selected_count: number;
@@ -236,25 +241,30 @@ export function evaluateGappersEvidence(
   let volume_positive_count = 0;
   let gap_calculable_count = 0;
   let no_prior_session_count = 0;
+  let split_scale_suppressed_count = 0;
   let unresolved_gap_input_count = 0;
   let qualified_count = 0;
+
+  const tabGapOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+  };
 
   for (const t of universe) {
     const volumeActive = sessionQualificationVolume(t, volumeCtx) !== null;
     if (!volumeActive) continue;
     volume_positive_count += 1;
-    if (gapPercentForTabContext(t, {
-      extendedSession,
-      observationSessionFields,
-      nowMs,
-    }) !== null) {
+    if (gapPercentForTabContext(t, tabGapOpts) !== null) {
       gap_calculable_count += 1;
     } else if (isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)) {
       no_prior_session_count += 1;
+    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
+      split_scale_suppressed_count += 1;
     } else {
       unresolved_gap_input_count += 1;
     }
-    if (qualifiesGappers(t, { extendedSession, observationSessionFields, nowMs })) {
+    if (qualifiesGappers(t, tabGapOpts)) {
       qualified_count += 1;
     }
   }
@@ -265,6 +275,7 @@ export function evaluateGappersEvidence(
     volume_positive_count,
     gap_calculable_count,
     no_prior_session_count,
+    split_scale_suppressed_count,
     unresolved_gap_input_count,
     qualified_count,
     selected_count,
@@ -287,7 +298,8 @@ export function evaluateGappersEvidence(
   }
 
   const accountingComplete = unresolved_gap_input_count === 0 &&
-    gap_calculable_count + no_prior_session_count === volume_positive_count;
+    gap_calculable_count + no_prior_session_count + split_scale_suppressed_count ===
+      volume_positive_count;
 
   if (gap_calculable_count === 0) {
     return {

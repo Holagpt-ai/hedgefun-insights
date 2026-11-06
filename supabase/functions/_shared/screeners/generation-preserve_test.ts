@@ -10,6 +10,7 @@ Deno.test("preserve: gappers evaluated → prerequisite_unavailable retains prio
       volume_positive_count: 50,
       gap_calculable_count: 40,
       no_prior_session_count: 10,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 0,
       qualified_count: 2,
       selected_count: 2,
@@ -22,6 +23,7 @@ Deno.test("preserve: gappers evaluated → prerequisite_unavailable retains prio
       volume_positive_count: 50,
       gap_calculable_count: 0,
       no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 50,
       qualified_count: 0,
       selected_count: 0,
@@ -83,6 +85,44 @@ Deno.test("preserve: nhl evaluated → not_evaluated retains prior generation", 
   );
 });
 
+Deno.test("preserve: gappers evaluated → evaluated does not retain (split-scale accounting fix)", () => {
+  const prior: TabEvaluationEvidenceMap = {
+    gappers: {
+      status: "evaluated",
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 40,
+      no_prior_session_count: 10,
+      split_scale_suppressed_count: 0,
+      unresolved_gap_input_count: 0,
+      qualified_count: 2,
+      selected_count: 2,
+    },
+  };
+  const next: TabEvaluationEvidenceMap = {
+    gappers: {
+      status: "evaluated",
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 35,
+      no_prior_session_count: 5,
+      split_scale_suppressed_count: 10,
+      unresolved_gap_input_count: 0,
+      qualified_count: 2,
+      selected_count: 2,
+    },
+  };
+  assertEquals(
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence: prior,
+      nextEvidence: next,
+      nowMs: Date.parse("2026-09-17T14:00:00.000Z"),
+      priorSyncedAt: "2026-09-17T13:55:00.000Z",
+    }),
+    false,
+  );
+});
+
 Deno.test("preserve: validated zero after evaluated does not retain", () => {
   const prior: TabEvaluationEvidenceMap = {
     volume_spikes: {
@@ -119,6 +159,7 @@ Deno.test("preserve: Saturday 04:00 ET clock can retain a degraded Friday feed",
       volume_positive_count: 50,
       gap_calculable_count: 40,
       no_prior_session_count: 10,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 0,
       qualified_count: 2,
       selected_count: 2,
@@ -131,6 +172,7 @@ Deno.test("preserve: Saturday 04:00 ET clock can retain a degraded Friday feed",
       volume_positive_count: 50,
       gap_calculable_count: 0,
       no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 50,
       qualified_count: 0,
       selected_count: 0,
@@ -156,6 +198,7 @@ Deno.test("preserve: prior snapshot from previous surveillance date is not retai
       volume_positive_count: 50,
       gap_calculable_count: 40,
       no_prior_session_count: 10,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 0,
       qualified_count: 2,
       selected_count: 2,
@@ -168,6 +211,7 @@ Deno.test("preserve: prior snapshot from previous surveillance date is not retai
       volume_positive_count: 50,
       gap_calculable_count: 0,
       no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 50,
       qualified_count: 0,
       selected_count: 0,

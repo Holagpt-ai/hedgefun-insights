@@ -1,5 +1,7 @@
 # Session handoff — current 2026-11-06 ET
 
+**Batch 191.1 (in flight):** Gappers evidence — **`split_scale_suppressed_count`** so **`impliesSplitScale`** gap suppression is not counted as **unresolved** inputs (fixes erroneous **`prior_generation_retained`** / publication gap when 7/7 chunks completed). Runbook `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** stay **OPEN**.
+
 **Batch 210 / PR #220 (branch):** `cursor/batch210-unified-release-control-v1` — CI verify workflow now runs **`npm ci --ignore-scripts`** after **`actions/setup-node@v4`** (Node **24**) so release-control scripts have locked deps on clean runners.
 
 **Code:** GitHub `main` **`3c810c4b`** (Batch **190.15** merged, PR **#217**).

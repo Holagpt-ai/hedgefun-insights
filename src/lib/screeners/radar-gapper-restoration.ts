@@ -68,6 +68,7 @@ export function restoreExtendedSessionGappers(input: {
     volume_positive_count: actionable.length,
     gap_calculable_count: calculable.length,
     no_prior_session_count: 0,
+    split_scale_suppressed_count: 0,
     unresolved_gap_input_count: unresolved,
     qualified_count: qualified.length,
     selected_count: qualified.length,
