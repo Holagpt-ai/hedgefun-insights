@@ -366,6 +366,8 @@
         "npm:@types/react@^18.3.23",
         "npm:@vercel/functions@3.10.3",
         "npm:@vitejs/plugin-react-swc@^3.11.0",
+        "npm:ajv-formats@^3.0.1",
+        "npm:ajv@^8.17.1",
         "npm:autoprefixer@^10.4.21",
         "npm:class-variance-authority@~0.7.1",
         "npm:clsx@^2.1.1",

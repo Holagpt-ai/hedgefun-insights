@@ -23,6 +23,8 @@ export interface GappersTabEvidence {
   volume_positive_count: number;
   gap_calculable_count: number;
   no_prior_session_count?: number;
+  /** Gap null only because regular vs reference hit `impliesSplitScale` (edge evidence). */
+  split_scale_suppressed_count?: number;
   unresolved_gap_input_count?: number;
   qualified_count: number;
   selected_count: number;
@@ -151,6 +153,12 @@ function parseGappersTabEvidence(raw: unknown): GappersTabEvidence | null {
     return null;
   }
   if (
+    obj.split_scale_suppressed_count !== undefined &&
+    !isNonNegativeInt(obj.split_scale_suppressed_count)
+  ) {
+    return null;
+  }
+  if (
     obj.unresolved_gap_input_count !== undefined &&
     !isNonNegativeInt(obj.unresolved_gap_input_count)
   ) {
@@ -162,6 +170,7 @@ function parseGappersTabEvidence(raw: unknown): GappersTabEvidence | null {
     volume_positive_count,
     gap_calculable_count: obj.gap_calculable_count,
     no_prior_session_count: obj.no_prior_session_count as number | undefined,
+    split_scale_suppressed_count: obj.split_scale_suppressed_count as number | undefined,
     unresolved_gap_input_count: obj.unresolved_gap_input_count as number | undefined,
     qualified_count: obj.qualified_count,
     selected_count: obj.selected_count,
@@ -285,12 +294,14 @@ export function gappersEvidenceSupportsZeroMatch(
   if (!evidence || evidence.status !== "evaluated") return false;
   if (!isNonNegativeInt(evidence.no_prior_session_count)) return false;
   if (!isNonNegativeInt(evidence.unresolved_gap_input_count)) return false;
+  const split = evidence.split_scale_suppressed_count ?? 0;
+  if (!isNonNegativeInt(split)) return false;
   return (
     evidence.universe_count > 0 &&
     evidence.volume_positive_count > 0 &&
     evidence.gap_calculable_count > 0 &&
     evidence.unresolved_gap_input_count === 0 &&
-    evidence.gap_calculable_count + evidence.no_prior_session_count ===
+    evidence.gap_calculable_count + evidence.no_prior_session_count + split ===
       evidence.volume_positive_count &&
     evidence.qualified_count === 0 &&
     evidence.selected_count === 0

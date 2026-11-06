@@ -1,6 +1,14 @@
-# Session handoff — current 2026-11-05 ET
+# Session handoff — current 2026-11-06 ET
+
+**Batch 191.1 (in flight):** Gappers evidence — **`split_scale_suppressed_count`** so **`impliesSplitScale`** gap suppression is not counted as **unresolved** inputs (fixes erroneous **`prior_generation_retained`** / publication gap when 7/7 chunks completed). Runbook `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** stay **OPEN**.
+
+**Batch 210 / PR #220 (branch):** `cursor/batch210-unified-release-control-v1` — CI verify workflow now runs **`npm ci --ignore-scripts`** after **`actions/setup-node@v4`** (Node **24**) so release-control scripts have locked deps on clean runners.
 
 **Code:** GitHub `main` **`3c810c4b`** (Batch **190.15** merged, PR **#217**).
+
+**Batch 190.16 production checkpoint (2026-11-06, reported):** Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516**; six consecutive natural premarket generations (narrow window). Git narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` (`historical_evidence.production_checkpoint_2026_11_06`). **ISS-034 OPEN** — **Batch 191** RTH/AH still required. **ISS-039** remains the release-provenance tracking issue; git-only verification does not prove live Edge binary equivalence.
+
+**Session recovery (unrelated):** Uncommitted edits to `src/lib/screeners/screener-radar-intraday-overlay.ts` were reverted during recovery to match `main`; not part of Batch 210. **No restore** without separate review.
 
 **Production activation (Batch 190.15 — reported complete):** Lovable Cloud Edge **`sync-screener-data`** deployed **2026-11-04** (before migration apply). Canonical SQL: **`supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql`**. Lovable reported apply via **Drizzle ledger idx 68**; **`supabase_migrations.schema_migrations`** has **no** matching row — do not backfill either ledger. Observed RPC payload sizes: full-job response ~**8.60 MB**; slim **`control`** response **407 bytes**. First natural post-migration generation: **85** persisted rows, **six** evaluated tabs, **7/7** chunks completed, publication reported **PASS** for that run only.
 
@@ -37,6 +45,8 @@
 **Historical continuity snapshots (preserved):**
 
 See `docs/CHANGELOG.md`, `docs/DEPLOYMENT_STATUS.md`, and `docs/release/` runbooks for Batch 190–191 history, Gate 4 pass/regression, and ISS-034 criteria.
+
+**Batch 210 (when merged):** Unified Release Control V1 — manifests under `docs/release/manifests/`, runbook `docs/release/batch210-unified-release-control-v1.md`, **ISS-039** (git provenance vs live platform identity).
 
 # Session handoff (archive)
 

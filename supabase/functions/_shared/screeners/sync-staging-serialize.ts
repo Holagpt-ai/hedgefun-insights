@@ -40,9 +40,17 @@ export function deserializeMergedArtifacts(raw: unknown): StagedChunkArtifacts {
     };
   }
   if (o.gappersAccum && typeof o.gappersAccum === "object") {
+    const g = o.gappersAccum as Record<string, unknown>;
+    const rawSplit = g.split_scale_suppressed_count;
+    const split =
+      typeof rawSplit === "number" &&
+        Number.isFinite(rawSplit) && rawSplit >= 0
+        ? Math.floor(rawSplit)
+        : 0;
     base.gappersAccum = {
       ...base.gappersAccum,
-      ...(o.gappersAccum as typeof base.gappersAccum),
+      ...(g as typeof base.gappersAccum),
+      split_scale_suppressed_count: split,
     };
   }
   if (o.primaryAccum && typeof o.primaryAccum === "object") {

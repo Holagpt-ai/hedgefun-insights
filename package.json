@@ -17,6 +17,7 @@
     "integrity": "node scripts/integrity/check.mjs",
     "ops:monday-scanner-acceptance": "node scripts/ops/monday-scanner-acceptance-readonly.mjs",
     "test:integrity": "node --test scripts/integrity/check.test.mjs",
+    "test:release-control": "node --test scripts/release-control/release-control.test.mjs",
     "radar:am-shadow": "vite-node --config vitest.config.ts src/lib/radar-am-shadow/run-live.ts"
   },
   "dependencies": {
@@ -91,6 +92,8 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",

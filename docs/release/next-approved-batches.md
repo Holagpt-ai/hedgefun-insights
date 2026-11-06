@@ -43,6 +43,7 @@ Baseline: GitHub `main` **`3c810c4b`**. Product batch ids ≠ GitHub PR numbers.
 | **198** | Bounded market-data & ops reliability |
 | **199–200** | Penny Continuation spec / implementation (conditional) |
 | **201–202** | Historical intelligence refinements / launch stabilization |
+| **210** | Unified Release Control V1 — git-only manifests & read-only verification (does not replace **191** / **ISS-034**) |
 | **203** | Catalyst distribution activation (**ISS-006**) — **DEFERRED** |
 | **204** | AI Analyst & `chat` Edge (**ISS-007/015**) — **DEFERRED** |
 | **205** | Real-time feed — **DEFERRED** |
