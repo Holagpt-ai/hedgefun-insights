@@ -31,3 +31,5 @@ supabase/.temp/
 
 # Unified Release Control — local verification outputs (workflow_dispatch / local)
 .urc-verify/
+# Batch 211 — source-only sync status reports
+.lovable-sync-verify/
