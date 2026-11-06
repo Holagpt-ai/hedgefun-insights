@@ -22,6 +22,19 @@
 
 **Batch 210:** Immutable **release intent** JSON + append-only **attestations** (`docs/release/manifests/`) record approved git Shas and optional owner-reported platform versions; **read-only** verification is `scripts/release-control/verify-release.mjs` + workflow `.github/workflows/unified-release-control-verify.yml`. **MATCH** on source hashes **does not** prove live Edge/Vercel/Fly binaries — **ISS-039**.
 
+## Batch 211 — GitHub ↔ Lovable source sync (verified baseline)
+
+Controller: `.github/workflows/lovable-source-forward-sync.yml` + `scripts/lovable-sync/`. **Read-only** by default; apply requires `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` (owner-controlled). **Per-run** SHAs and status live in GitHub Actions artifacts (`lovable-source-sync-check`), not in this file every sync.
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` HEAD (batch baseline) | **`88de3533da1a8fad64e0664cb810b322ee424719`** |
+| Git integration branch | **`cursor/lovable-sync-from-main-20261024`** |
+| Remote integration tip (batch baseline) | **`3ec5f7cd193ff49d03782781421fcbae3bd4678e`** |
+| At baseline, `main` ancestor of integration | **Yes** (integration contained `main`; see runbook) |
+| Lovable editor / project active SHA | **Verify independently** when available — not recorded here |
+| Automatic forward-sync to integration | **NOT VERIFIED end-to-end** until owner activation and observed apply — **ISS-040 OPEN** |
+
 ## Current — GitHub and Lovable integration (2026-11-05)
 
 | Field | Value |

@@ -84,6 +84,27 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 - **Archived recovery branch:** `cursor/chat-single-pass-v1`. Source of analyst commits below; large divergence is historical — not current Lovable sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Recovery used archived-branch versions.
 
+## GitHub ↔ Lovable Source Synchronization
+
+- **Authoritative source:** GitHub `main` is the authoritative application history. Lovable does not replace `main`; the integration branch carries Lovable-native overlays on top of forwarded `main` commits.
+- **Integration branch:** `cursor/lovable-sync-from-main-20261024`. Preserve Lovable-only paths there; never merge that branch wholesale into `main` as a substitute for review.
+- **Batch 211 controller:** `.github/workflows/lovable-source-forward-sync.yml` plus `scripts/lovable-sync/forward-sync.mjs`. Default runs are **read-only** (`check`). **Apply** (push to integration) requires repository variable `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` and owner-approved configuration; PR runs never apply.
+- **Trigger and conflict protection:** When activated, pushes to `main` can run check then apply. The controller fetches fresh tips, validates overlay allowlists and ancestry, merges only in a disposable worktree, and **never** force-pushes, rebases, or resets protected refs. **CONFLICT** or **UNKNOWN** ends the run without overwriting the integration branch. Bounded retries handle normal concurrent push rejection only.
+- **Separation from deploy:** Source sync does **not** deploy Vercel, Fly, Lovable Edge Functions, or apply SQL. Those stay separate owner-approved batches and Lovable Cloud operations.
+- **Recovery, disable, rollback:** Remove or set `STOCKSIST_LOVABLE_SYNC_ACTIVATED` to non-`true` to keep all runs check-only. On conflicts or bad merges, fix on a reviewed branch and fast-forward only after human verification — see `docs/release/batch211-lovable-source-forward-sync-v1.md`. Do not “recover” with `--force` on integration or `main`.
+- **Lovable editor SHA:** Remote Git integration tip **≠** guaranteed Lovable editor loaded commit. Independently verify the Lovable project’s reported active SHA or supported Git re-check after a sync.
+
+**Monitoring (ongoing):**
+
+- Compare **`origin/main`** and **remote integration** tip SHAs; record last **SYNCED** / successful apply from workflow artifacts.
+- Capture **Lovable editor / project active SHA** when the product exposes it; treat absence as unknown for editor parity.
+- Track **last successful synchronization** (artifact timestamp + integration `integration_sha_after` from `status.json`).
+- **Failed runs** (FAILED job, or `status` not SYNCED on apply): alert owners; **CONFLICT** / **UNKNOWN** require human triage — no silent ignore.
+- **Escalation:** CONFLICT or UNKNOWN means automatic forward-merge stopped; do not bypass with force-push or unapproved shortcuts.
+- **No silent failures** and **no automatic force-push recovery** — ever.
+
+**Issue tracking:** **ISS-040** stays **OPEN** until real **GitHub `main` → Lovable integration** automatic synchronization is **verified** in production (not merely merged). Latest human-verified numbers belong in `docs/DEPLOYMENT_STATUS.md`; **per-run** evidence stays in **GitHub Actions artifacts**, not a new doc commit on every sync.
+
 ## Master roadmap (2026-10-28)
 
 - **Active register:** `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` (batches **190–209**).

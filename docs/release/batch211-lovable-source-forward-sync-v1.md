@@ -72,6 +72,17 @@ Statuses:
 6. When activated, approved pushes to `main` perform check then gated apply automatically. Any CONFLICT/UNKNOWN aborts. If new manual Lovable edits are present, preserve them and inspect before resolving.
 7. Optionally use Batch 210 source-provenance manifests to record intended main/integration SHAs. **Do not** label Lovable Edge runtime MATCH from this evidence.
 
+## Acceptance criteria (Batch 211)
+
+Production **automatic** GitHub `main` → Lovable integration forward sync is accepted only when **all** of the following hold:
+
+1. **Git parity:** Remote integration contains current `origin/main` (SYNCED or equivalent) with only allowlisted overlay drift; **CONFLICT** / **UNKNOWN** never papered over.
+2. **Monitoring:** Operators compare **`main` vs integration** SHAs routinely; record **last successful sync** from workflow artifacts. When the Lovable product reports a **project/editor active SHA**, compare it to the Git integration tip — they can differ until refreshed.
+3. **Failures:** Failed workflow runs and non-SYNCED apply outcomes are **visible** (CI alerts / owner process); **CONFLICT** and **UNKNOWN** escalate to human review — **no silent failures**.
+4. **Recovery posture:** No automatic **force-push** to integration or `main`; disablement and manual recovery follow this runbook and `docs/PROJECT_MEMORY.md` § GitHub ↔ Lovable Source Synchronization.
+5. **Deploy boundary:** Acceptance does **not** claim Vercel, Fly, Edge, or SQL deploy — those stay separate verification.
+6. **ISS-040:** Remains **OPEN** until the above is demonstrated for **real** automatic synchronization post-activation; then closed with artifact-backed evidence, not doc-only claims.
+
 ## Emergency disable / recovery
 
 - Disable repository variable by removing it or setting it to `false`. The next runs remain check-only; no rollback or live backend change needed.
@@ -81,4 +92,4 @@ Statuses:
 
 ## Out-of-scope / deferred
 
-A Lovable API bridge, personal Supabase CLI token, production Edge binary fingerprint collector, automatic database migration, automatic Edge deployment and Fly release are **not** introduced. Keep ISS-039 for live-binary provenance, ISS-034/ISS-024 for scanner market-session acceptance, and ISS-028 for Catalyst production acceptance. No closed issues are reopened by this source-only batch.
+A Lovable API bridge, personal Supabase CLI token, production Edge binary fingerprint collector, automatic database migration, automatic Edge deployment and Fly release are **not** introduced. Keep ISS-039 for live-binary provenance, ISS-034/ISS-024 for scanner market-session acceptance, ISS-028 for Catalyst production acceptance, and **ISS-040** open until automatic source sync is verified end-to-end. No closed issues are reopened by this source-only batch.
