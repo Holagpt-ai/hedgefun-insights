@@ -380,7 +380,6 @@ function shouldExcludeHomepageMover(input) {
 import { getEtParts, tradingSessionDateForInstant } from "npm:@/lib/market-calendar";
 import { dailyAggregateBarDate } from "npm:@/lib/etf/snapshot-volume";
 import { polygonSnapshotFieldToMs } from "npm:@/lib/market-data/polygon-snapshot-timestamps";
-import { resolveMarketSessionAt } from "npm:@/lib/market-session";
 import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "npm:@/lib/price-utils";
 function isPlainObject2(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
@@ -468,17 +467,6 @@ function resolvePolygonMoverSourceEvidence(session, raw, nowMs, displayed) {
     sessionDateUnverified: true,
     observationTimeUnavailable: true
   };
-}
-function expectedSessionKindForMoverSession(session) {
-  if (session === "premarket") return "pre-market";
-  if (session === "afterhours") return "after-hours";
-  return null;
-}
-function observationMatchesRequestedMoverSession(session, observationMs) {
-  const expected = expectedSessionKindForMoverSession(session);
-  if (expected === null) return true;
-  if (observationMs === null || !Number.isFinite(observationMs)) return true;
-  return resolveMarketSessionAt(observationMs) === expected;
 }
 function observationMsFromIso(iso) {
   if (!iso) return null;
@@ -782,13 +770,6 @@ function polygonSnapshotVolume(day, min) {
   if (raw === null || raw === 0) return null;
   return raw;
 }
-function polygonExtendedSessionVolume(min) {
-  for (const raw of [min.av, min.v]) {
-    const value = finiteOrNull(raw);
-    if (value !== null && value > 0) return value;
-  }
-  return null;
-}
 function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
   if (!isPlainObject3(raw)) {
     return fail2({ symbol: null }, null, "malformed_symbol");
@@ -824,19 +805,6 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
   );
   const sessionDate = sourceEvidence.sessionDate;
   const providerAsOfForValidation = sourceEvidence.providerAsOfMs !== null ? new Date(sourceEvidence.providerAsOfMs).toISOString() : null;
-  if (session !== "regular" && !observationMatchesRequestedMoverSession(
-    session,
-    sourceEvidence.providerAsOfMs
-  )) {
-    return fail2({
-      symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
-      name: raw.name,
-      session,
-      sessionDate,
-      source: SOURCE_POLYGON,
-      providerAsOf: providerAsOfForValidation
-    }, normalizeSymbol(extracted?.symbol ?? raw.ticker ?? raw.symbol), "session_mismatch");
-  }
   if (session === "regular" && dayClose !== null && dayClose > 0 && current === dayClose && providerPct !== null && prevClose !== null && prevClose > 0) {
     const dayPct = canonicalChangePercent(dayClose, prevClose);
     const extPrice = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null);
@@ -865,7 +833,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: session === "regular" ? polygonSnapshotVolume(day, min) : polygonExtendedSessionVolume(min),
+    volume: polygonSnapshotVolume(day, min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,
