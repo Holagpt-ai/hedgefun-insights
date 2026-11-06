@@ -38,6 +38,7 @@ Fly stocksist-ai-trader-shadow-worker
 - Catalyst UI: `src/pages/dashboard/Catalyst.tsx` and `src/lib/catalyst/`.
 - AI Analyst UI: `src/pages/dashboard/AIAnalyst.tsx`. Chat execution is the `chat` Edge Function.
 - Journal UI: `src/journal/` mounted at `/dashboard/journal`.
+- Operations Control Center (Batch 212): `/admin/operations`, `src/pages/admin/AdminOperationsPage.tsx`, read-only adapters and classifiers in `src/lib/ops/`. Reads `screener_feed_state`, `radar_v22_feed_state` (existing SELECT grants), public GitHub REST, and bundled Batch 210 attestations; no writes. Service-role-only job rows and Edge logs show as Unknown.
 - MCP tool source: `src/lib/mcp/`. The deployed handler is the generated file `supabase/functions/mcp/index.ts`.
 
 ## Backend
