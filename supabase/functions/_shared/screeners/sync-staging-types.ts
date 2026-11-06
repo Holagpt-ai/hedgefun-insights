@@ -102,6 +102,7 @@ export function emptyChunkArtifacts(): StagedChunkArtifacts {
       volume_positive_count: 0,
       gap_calculable_count: 0,
       no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 0,
       qualified_count: 0,
     },

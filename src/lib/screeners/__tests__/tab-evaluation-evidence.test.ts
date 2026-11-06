@@ -123,6 +123,23 @@ describe("zero-match support helpers", () => {
         volume_positive_count: 480,
         gap_calculable_count: 470,
         no_prior_session_count: 10,
+        split_scale_suppressed_count: 0,
+        unresolved_gap_input_count: 0,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("gappers: split_scale_suppressed_count participates in full accounting", () => {
+    expect(
+      gappersEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        universe_count: 500,
+        volume_positive_count: 480,
+        gap_calculable_count: 468,
+        no_prior_session_count: 10,
+        split_scale_suppressed_count: 2,
         unresolved_gap_input_count: 0,
         qualified_count: 0,
         selected_count: 0,

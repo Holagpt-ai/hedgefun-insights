@@ -16,7 +16,16 @@ import {
   selectNewHighsLows,
   type NhlBaselineQuote,
 } from "./new-highs-lows.ts";
-import type { PolygonTicker } from "./selection.ts";
+import {
+  gapSuppressedOnlyBySplitScaleGuard,
+  type PolygonTicker,
+} from "./selection.ts";
+import {
+  accumulateGappersEvidenceChunk,
+  createEmptyGappersEvidenceAccum,
+  finalizeGappersEvidenceFromAccum,
+} from "./evaluation-evidence-chunk.ts";
+import { deserializeMergedArtifacts } from "./sync-staging-serialize.ts";
 
 const ZERO_PREV = { o: 0, h: 0, l: 0, c: 0, v: 0 };
 
@@ -637,6 +646,7 @@ Deno.test("gappers: normal valid prior close/open is calculable", () => {
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.gap_calculable_count, 1);
   assertEquals(evidence.no_prior_session_count, 0);
+  assertEquals(evidence.split_scale_suppressed_count, 0);
   assertEquals(evidence.unresolved_gap_input_count, 0);
 });
 
@@ -856,4 +866,122 @@ Deno.test("gappers: Gap >=5% qualification unchanged", () => {
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.qualified_count, 1);
   assertEquals(evidence.selected_count, 1);
+});
+
+const SPLIT_SCALE_FIXTURE_NOW_MS = Date.parse("2026-11-06T15:00:00.000Z");
+
+/** Sub-penny reference vs regular close → near-integer ratio (production SLND.WS class). */
+function slndWsLike(nowMs: number): PolygonTicker {
+  return {
+    ticker: "SLND.WS",
+    updated: nowMs * 1_000_000,
+    day: { o: 0.02, c: 1.02, h: 1.05, l: 0.02, v: 2_000_000 },
+    prevDay: { c: 19.62, v: 1_000_000 },
+    lastTrade: { p: 0.02, t: nowMs * 1_000_000 },
+    min: { av: 2_000_000, v: 1_000, t: nowMs },
+  };
+}
+
+/** Preferred-like stub: ~20:1 regular vs reference. */
+function nmzRLike(nowMs: number): PolygonTicker {
+  return {
+    ticker: "NMZr",
+    updated: nowMs * 1_000_000,
+    day: { o: 0.05, c: 0.51, h: 0.52, l: 0.05, v: 1_500_000 },
+    prevDay: { c: 10, v: 500_000 },
+    lastTrade: { p: 0.05, t: nowMs * 1_000_000 },
+    min: { av: 1_500_000, v: 800, t: nowMs },
+  };
+}
+
+/** Another near-integer scale pattern (production CINGW class). */
+function cingwLike(nowMs: number): PolygonTicker {
+  return {
+    ticker: "CINGW",
+    updated: nowMs * 1_000_000,
+    day: { o: 0.02, c: 0.42, h: 0.45, l: 0.02, v: 1_800_000 },
+    prevDay: { c: 8.2, v: 400_000 },
+    lastTrade: { p: 0.02, t: nowMs * 1_000_000 },
+    min: { av: 1_800_000, v: 900, t: nowMs },
+  };
+}
+
+Deno.test("gappers: split-scale guard identifies SLND.WS-like suppression", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  const t = slndWsLike(nowMs);
+  assertEquals(gapSuppressedOnlyBySplitScaleGuard(t, { extendedSession: false }), true);
+  const ev = evaluateGappersEvidence([t], [], coverage([], []), false, nowMs);
+  assertEquals(ev.split_scale_suppressed_count, 1);
+  assertEquals(ev.unresolved_gap_input_count, 0);
+});
+
+Deno.test("gappers: NMZr and CINGW patterns classify as split-scale suppressed", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  for (const sym of [nmzRLike(nowMs), cingwLike(nowMs)]) {
+    assertEquals(
+      gapSuppressedOnlyBySplitScaleGuard(sym, { extendedSession: false }),
+      true,
+    );
+  }
+});
+
+Deno.test("gappers: missing prior close is not split-scale suppressed", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  const t: PolygonTicker = {
+    ticker: "MISS",
+    updated: nowMs * 1_000_000,
+    day: { o: 1, c: 10, v: 1_000_000 },
+    min: { av: 500_000, v: 100, t: nowMs },
+    prevDay: { v: 1 },
+  };
+  assertEquals(gapSuppressedOnlyBySplitScaleGuard(t, { extendedSession: false }), false);
+});
+
+Deno.test("gappers: evaluated when only unresolved-free volume actives are split-scale", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  const ok = ticker("OK", {
+    day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+    prevDay: { c: 10, v: 1 },
+  });
+  const universe = [ok, slndWsLike(nowMs), nmzRLike(nowMs)];
+  const ev = evaluateGappersEvidence(universe, [], coverage([], []), false, nowMs);
+  assertEquals(ev.status, "evaluated");
+  assertEquals(ev.volume_positive_count, 3);
+  assertEquals(ev.gap_calculable_count, 1);
+  assertEquals(ev.split_scale_suppressed_count, 2);
+  assertEquals(ev.unresolved_gap_input_count, 0);
+});
+
+Deno.test("gappers: chunk accumulator matches direct evaluation evidence", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  const ok = ticker("OK", {
+    day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+    prevDay: { c: 10, v: 1 },
+  });
+  const universe = [ok, slndWsLike(nowMs)];
+  const hist = coverage([], []);
+  const opts = { extendedSession: false, observationSessionFields: false, nowMs };
+  const direct = evaluateGappersEvidence(universe, [], hist, false, nowMs);
+  const acc = createEmptyGappersEvidenceAccum();
+  accumulateGappersEvidenceChunk(acc, universe, hist, false, nowMs, false, undefined);
+  const fromChunk = finalizeGappersEvidenceFromAccum(acc, universe.length, 0);
+  assertEquals(fromChunk.volume_positive_count, direct.volume_positive_count);
+  assertEquals(fromChunk.gap_calculable_count, direct.gap_calculable_count);
+  assertEquals(fromChunk.split_scale_suppressed_count, direct.split_scale_suppressed_count);
+  assertEquals(fromChunk.no_prior_session_count, direct.no_prior_session_count);
+  assertEquals(fromChunk.unresolved_gap_input_count, direct.unresolved_gap_input_count);
+  assertEquals(fromChunk.status, direct.status);
+});
+
+Deno.test("staging: deserialize fills missing split_scale_suppressed_count with 0", () => {
+  const merged = deserializeMergedArtifacts({
+    gappersAccum: {
+      volume_positive_count: 3,
+      gap_calculable_count: 1,
+      no_prior_session_count: 0,
+      unresolved_gap_input_count: 0,
+      qualified_count: 0,
+    },
+  });
+  assertEquals(merged.gappersAccum.split_scale_suppressed_count, 0);
 });

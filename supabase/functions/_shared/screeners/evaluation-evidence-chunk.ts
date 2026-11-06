@@ -25,6 +25,7 @@ import {
   currentSessionReferencePrice,
   dayHighLow,
   gapPercentForTabContext,
+  gapSuppressedOnlyBySplitScaleGuard,
   normalizeSymbol,
   qualifiesDayTradeRadar,
   qualifiesGappers,
@@ -42,6 +43,7 @@ export type GappersEvidenceAccum = {
   volume_positive_count: number;
   gap_calculable_count: number;
   no_prior_session_count: number;
+  split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
   qualified_count: number;
 };
@@ -51,6 +53,7 @@ export function createEmptyGappersEvidenceAccum(): GappersEvidenceAccum {
     volume_positive_count: 0,
     gap_calculable_count: 0,
     no_prior_session_count: 0,
+    split_scale_suppressed_count: 0,
     unresolved_gap_input_count: 0,
     qualified_count: 0,
   };
@@ -64,6 +67,8 @@ export function mergeGappersEvidenceAccums(
     volume_positive_count: a.volume_positive_count + b.volume_positive_count,
     gap_calculable_count: a.gap_calculable_count + b.gap_calculable_count,
     no_prior_session_count: a.no_prior_session_count + b.no_prior_session_count,
+    split_scale_suppressed_count: a.split_scale_suppressed_count +
+      b.split_scale_suppressed_count,
     unresolved_gap_input_count: a.unresolved_gap_input_count +
       b.unresolved_gap_input_count,
     qualified_count: a.qualified_count + b.qualified_count,
@@ -85,31 +90,26 @@ export function accumulateGappersEvidenceChunk(
     nowMs,
     cache,
   };
+  const tabGapOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+  };
   for (const t of universe) {
     if (sessionQualificationVolume(t, volumeCtx) === null) continue;
     acc.volume_positive_count += 1;
-    if (
-      gapPercentForTabContext(t, {
-        extendedSession,
-        observationSessionFields,
-        nowMs,
-      }) !== null
-    ) {
+    if (gapPercentForTabContext(t, tabGapOpts) !== null) {
       acc.gap_calculable_count += 1;
     } else if (
       isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)
     ) {
       acc.no_prior_session_count += 1;
+    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
+      acc.split_scale_suppressed_count += 1;
     } else {
       acc.unresolved_gap_input_count += 1;
     }
-    if (
-      qualifiesGappers(t, {
-        extendedSession,
-        observationSessionFields,
-        nowMs,
-      })
-    ) {
+    if (qualifiesGappers(t, tabGapOpts)) {
       acc.qualified_count += 1;
     }
   }
@@ -125,6 +125,7 @@ export function finalizeGappersEvidenceFromAccum(
     volume_positive_count: acc.volume_positive_count,
     gap_calculable_count: acc.gap_calculable_count,
     no_prior_session_count: acc.no_prior_session_count,
+    split_scale_suppressed_count: acc.split_scale_suppressed_count,
     unresolved_gap_input_count: acc.unresolved_gap_input_count,
     qualified_count: acc.qualified_count,
     selected_count,
@@ -144,7 +145,8 @@ export function finalizeGappersEvidenceFromAccum(
     };
   }
   const accountingComplete = acc.unresolved_gap_input_count === 0 &&
-    acc.gap_calculable_count + acc.no_prior_session_count ===
+    acc.gap_calculable_count + acc.no_prior_session_count +
+        acc.split_scale_suppressed_count ===
       acc.volume_positive_count;
   if (acc.gap_calculable_count === 0) {
     return {

@@ -322,6 +322,30 @@ export function impliesSplitScale(a: number, b: number): boolean {
   return Math.abs(ratio - rounded) / rounded <= 0.03;
 }
 
+/**
+ * True only when `gapPercent` / `gapPercentForTabContext` returns null **because**
+ * `regularClose` and the gap reference price trigger `impliesSplitScale` (split / CA
+ * mismatch guard). Does **not** classify missing prior close, missing opens, or other
+ * invalid inputs as split-scale suppression.
+ */
+export function gapSuppressedOnlyBySplitScaleGuard(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): boolean {
+  const extendedSession = extendedQuoteSemanticsForTicker(t, opts);
+  if (extendedSession === null) return false;
+  const reference = extendedSession
+    ? extendedSessionLastPrice(t)
+    : currentSessionOpen(t, false);
+  const prevClose = previousRegularClose(t);
+  if (reference === null || !(reference > 0) || prevClose === null || !(prevClose > 0)) {
+    return false;
+  }
+  const regular = regularClose(t);
+  if (regular === null || !(regular > 0)) return false;
+  return impliesSplitScale(regular, reference);
+}
+
 export function gapPercent(
   t: PolygonTicker,
   extendedSession = false,

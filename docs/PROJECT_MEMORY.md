@@ -24,6 +24,12 @@ Deferred product/platform work is batched **203–209** in the master register (
 
 Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516** and six consecutive successful natural premarket generations (narrow premarket window only). Git-recorded narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` → `historical_evidence.production_checkpoint_2026_11_06`. **ISS-034** remains **OPEN** until **Batch 191** regular-session and after-hours acceptance; the Batch 210 verifier keeps **runtime** as **UNKNOWN** without platform-attested digests (**ISS-039**).
 
+### Batch 191.1 — Gappers split-scale evidence (2026-11-06, git)
+
+**Confirmed:** Some regular-session runs completed **7/7** staged chunks but skipped publication because Gappers tab evidence degraded to **`prerequisite_unavailable`** (`gap_input_coverage_incomplete`) when the **only** remaining “unresolved” volume-active symbols were **intentionally** ungapped under the existing **`impliesSplitScale`** guard (sub-penny / CA mismatch). That path must not count as missing prior-close inputs.
+
+**Fix:** New counter **`split_scale_suppressed_count`** + helper **`gapSuppressedOnlyBySplitScaleGuard`** — see `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** remain **OPEN** until Batch **191** session acceptance.
+
 ### Session recovery note (unrelated client file)
 
 During a prior session recovery, uncommitted work on `src/lib/screeners/screener-radar-intraday-overlay.ts` was **reverted** to match `main`. That change was **not** tied to Batch 210 / release-control scope in this thread. **Do not restore or modify** that file here without a separate review and task.
