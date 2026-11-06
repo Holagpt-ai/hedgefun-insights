@@ -1,0 +1,90 @@
+# Batch 211 — Git-only forward sync to the existing Lovable integration branch.
+# Default: read-only status and regression tests. NO production deployment.
+# Write gate: repository variable STOCKSIST_LOVABLE_SYNC_ACTIVATED must be "true"
+# AND this workflow must run on main (push or approved manual dispatch).
+name: Lovable Source Forward Sync (gated)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/lovable-source-forward-sync.yml"
+      - "scripts/lovable-sync/**"
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Read-only check by default; apply requires separate repository activation."
+        required: true
+        type: choice
+        options: [check, apply]
+        default: check
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stocksist-lovable-forward-sync
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Read-only integration health + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Local Git safety regression tests (no remote writes)
+        run: node --test scripts/lovable-sync/forward-sync.test.mjs
+      - name: Assess current GitHub main -> Lovable integration (read-only)
+        run: node scripts/lovable-sync/forward-sync.mjs --mode=check
+      - name: Upload read-only source sync report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lovable-source-sync-check
+          path: .lovable-sync-verify/
+          if-no-files-found: ignore
+
+  apply:
+    name: Approved fast-forward integration sync (never production deploy)
+    needs: check
+    # No writes until owner sets the explicit repository activation variable.
+    # Pull requests can NEVER execute this job; manual "check" cannot either.
+    if: >-
+      ${{
+        vars.STOCKSIST_LOVABLE_SYNC_ACTIVATED == 'true' &&
+        (github.event_name == 'push' ||
+         (github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main' &&
+          inputs.operation == 'apply'))
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Fast-forward Lovable integration with bounded conflict/race checks
+        env:
+          STOCKSIST_LOVABLE_SYNC_ACTIVATED: ${{ vars.STOCKSIST_LOVABLE_SYNC_ACTIVATED }}
+        run: node scripts/lovable-sync/forward-sync.mjs --mode=apply
+      - name: Upload integration sync report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lovable-source-sync-apply
+          path: .lovable-sync-verify/
+          if-no-files-found: ignore
