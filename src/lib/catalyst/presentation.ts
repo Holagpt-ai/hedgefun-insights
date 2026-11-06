@@ -42,16 +42,61 @@ export function isDirectIssuerCatalyst(input: {
   return isAuthoritativeIssuerProvider(input.provider);
 }
 
+/** Related or unverified association. Authoritative issuer providers are never this class. */
+export function isRelatedIssuerAssociation(input: {
+  provider?: string | null;
+  attribution_class?: CatalystEvent["attribution_class"];
+  ticker_specific?: boolean | null;
+}): boolean {
+  if (isAuthoritativeIssuerProvider(input.provider)) return false;
+  if (input.attribution_class === "sector_related") return true;
+  return input.attribution_class === "unverified" || input.ticker_specific === false;
+}
+
+/**
+ * Issuer wire release. Editorial publishers stay news. A related or unverified
+ * association never qualifies, even when the publisher is a wire service.
+ * When attribution is absent, a verified wire name still qualifies so the source
+ * badge and the event-category label use the same wire-versus-editorial split.
+ */
+export function isIssuerWireRelease(input: {
+  provider?: string | null;
+  source_name?: string | null;
+  attribution_class?: CatalystEvent["attribution_class"];
+  ticker_specific?: boolean | null;
+}): boolean {
+  if (isRelatedIssuerAssociation(input)) return false;
+  if (!isPressReleaseSource(input)) return false;
+  const attributionKnown = input.attribution_class != null || input.ticker_specific != null;
+  if (!attributionKnown) return true;
+  return isDirectIssuerCatalyst(input);
+}
+
 export function catalystSourceBadge(
   provider: string,
   sourceName?: string | null,
+  attribution?: {
+    attribution_class?: CatalystEvent["attribution_class"];
+    ticker_specific?: boolean | null;
+  } | null,
 ): "EARNINGS DATA" | "NEWS" | "SEC FILING" | "COMPANY IR" | "PRESS RELEASE" | null {
   if (provider === "earnings_calendar") return "EARNINGS DATA";
-  if (provider === "polygon") return "NEWS";
   if (provider === "sec_edgar") return "SEC FILING";
   if (provider === "company_ir" || provider === "COMPANY_IR") return "COMPANY IR";
-  if (provider === "news" || provider === "news_pr" || provider === "NEWS_PR") {
-    return isPressReleaseSource({ provider, source_name: sourceName }) ? "PRESS RELEASE" : "NEWS";
+  if (
+    provider === "polygon" ||
+    provider === "news" ||
+    provider === "news_pr" ||
+    provider === "NEWS_PR"
+  ) {
+    return isIssuerWireRelease({
+      provider,
+      source_name: sourceName,
+      attribution_class: attribution?.attribution_class,
+      ticker_specific: attribution?.ticker_specific,
+    })
+      ? "PRESS RELEASE"
+      : "NEWS";
   }
   return null;
 }

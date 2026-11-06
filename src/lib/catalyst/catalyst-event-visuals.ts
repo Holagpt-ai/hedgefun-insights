@@ -10,7 +10,7 @@ import type { CatalystTaxonomyV2 } from "@/lib/catalyst/intelligence-v2";
 import {
   isAuthoritativeIssuerProvider,
   isDirectIssuerCatalyst,
-  isPressReleaseSource,
+  isIssuerWireRelease,
   RELATED_ISSUER_HEADLINE_LABEL,
   RELATED_SECTOR_HEADLINE_LABEL,
 } from "@/lib/catalyst/presentation";
@@ -154,7 +154,7 @@ export function catalystDisplayLabelFromEvent(input: CatalystDisplayEventInput):
   if (related) return related;
   const category = catalystDisplayCategoryFromEvent(input);
   if (category === "PRESS_RELEASE") {
-    return isPressReleaseSource(input) && isDirectIssuerCatalyst(input) ? "Press Release" : "News";
+    return isIssuerWireRelease(input) ? "Press Release" : "News";
   }
   return CATALYST_CATEGORY_LABEL[category];
 }

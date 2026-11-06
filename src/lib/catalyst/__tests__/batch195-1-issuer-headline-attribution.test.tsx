@@ -10,6 +10,7 @@ import {
 } from "@/lib/catalyst/catalyst-discovery-priority";
 import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
 import { catalystSourceBadge } from "@/lib/catalyst/presentation";
+import { CatalystEventCard } from "@/components/catalyst/CatalystEventCard";
 import type { CatalystHistoricalSummary } from "@/lib/catalyst/catalyst-historical-facts";
 import type { CatalystEvent } from "@/types/catalyst";
 
@@ -171,8 +172,35 @@ describe("Batch 195.1 issuer headline attribution", () => {
     expect(isHighSignalCatalystEvent(related)).toBe(false);
   });
 
-  it("labels Motley Fool news as News and a wire release as Press Release", () => {
-    const editorial = {
+  it("labels Polygon GlobeNewswire as Press Release on the badge and the category", () => {
+    const wire = {
+      event_type: "company_news" as const,
+      provider: "polygon",
+      source_name: "GlobeNewswire",
+      title: "Apple unveils a new product update",
+      attribution_class: "direct" as const,
+      ticker_specific: true,
+    };
+    expect(catalystDisplayLabelFromEvent(wire)).toBe("Press Release");
+    expect(catalystSourceBadge("polygon", "GlobeNewswire", wire)).toBe("PRESS RELEASE");
+  });
+
+  it("labels Polygon Business Wire as Press Release on the badge and the category", () => {
+    const wire = {
+      event_type: "company_news" as const,
+      provider: "polygon",
+      source_name: "Business Wire",
+      title: "Apple announces a supply agreement",
+      attribution_class: "direct" as const,
+      ticker_specific: true,
+    };
+    expect(catalystDisplayLabelFromEvent(wire)).toBe("Press Release");
+    expect(catalystSourceBadge("polygon", "Business Wire", wire)).toBe("PRESS RELEASE");
+    expect(catalystSourceBadge("news_pr", "Business Wire")).toBe("PRESS RELEASE");
+  });
+
+  it("keeps Polygon Motley Fool and Zacks on NEWS", () => {
+    const motley = {
       event_type: "company_news" as const,
       provider: "polygon",
       source_name: "The Motley Fool",
@@ -180,21 +208,73 @@ describe("Batch 195.1 issuer headline attribution", () => {
       attribution_class: "direct" as const,
       ticker_specific: true,
     };
-    expect(catalystDisplayLabelFromEvent(editorial)).toBe("News");
+    expect(catalystDisplayLabelFromEvent(motley)).toBe("News");
+    expect(catalystSourceBadge("polygon", "The Motley Fool", motley)).toBe("NEWS");
     expect(catalystSourceBadge("news", "The Motley Fool")).toBe("NEWS");
     expect(catalystSourceBadge("news_pr", "The Motley Fool")).toBe("NEWS");
 
-    expect(
-      catalystDisplayLabelFromEvent({
-        event_type: "company_news",
+    const zacks = {
+      event_type: "company_news" as const,
+      provider: "polygon",
+      source_name: "Zacks",
+      title: "Zacks: Apple shares move after the open",
+      attribution_class: "direct" as const,
+      ticker_specific: true,
+    };
+    expect(catalystDisplayLabelFromEvent(zacks)).toBe("News");
+    expect(catalystSourceBadge("polygon", "Zacks", zacks)).toBe("NEWS");
+  });
+
+  it("does not label a related-company earnings headline as that symbol's earnings or press release", () => {
+    const title = "Viatris reports third-quarter earnings; Acadia Pharmaceuticals also traded";
+    const hydrated = hydrateCatalystEventVerification(
+      event({
+        id: "acad-vtrs-wire",
+        symbol: "ACAD",
+        company_name: "ACADIA Pharmaceuticals Inc.",
+        title,
+        event_type: "earnings",
         provider: "polygon",
         source_name: "GlobeNewswire",
-        title: "Apple unveils a new product update",
-        attribution_class: "direct",
-        ticker_specific: true,
+        related_symbols: ["VTRS"],
+        facts: {
+          attribution_class: "direct",
+          ticker_specific: true,
+          surprise_percent: 4.2,
+          actual_eps: 1.2,
+          estimate_eps: 1.1,
+        },
       }),
-    ).toBe("Press Release");
-    expect(catalystSourceBadge("news_pr", "Business Wire")).toBe("PRESS RELEASE");
+    );
+    expect(hydrated.ticker_specific).toBe(false);
+    expect(catalystDisplayLabelFromEvent(hydrated)).toBe("Unverified association");
+    expect(catalystDisplayLabelFromEvent(hydrated)).not.toBe("Earnings");
+    expect(catalystDisplayLabelFromEvent(hydrated)).not.toBe("Press Release");
+    expect(
+      catalystSourceBadge(hydrated.provider, hydrated.source_name, {
+        attribution_class: hydrated.attribution_class,
+        ticker_specific: hydrated.ticker_specific,
+      }),
+    ).toBe("NEWS");
+
+    const { unmount } = render(
+      <MemoryRouter>
+        <CatalystEventCard
+          event={hydrated}
+          isSaved={false}
+          isReviewed={false}
+          onToggleSaved={() => {}}
+          onToggleReviewed={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Unverified association")).toBeInTheDocument();
+    expect(screen.getByText("NEWS")).toBeInTheDocument();
+    expect(screen.queryByText("Earnings")).toBeNull();
+    expect(screen.queryByText("Press Release")).toBeNull();
+    expect(screen.queryByText("PRESS RELEASE")).toBeNull();
+    expect(screen.queryByText("BEAT")).toBeNull();
+    unmount();
   });
 
   it("renders SpaceX Motley Fool rows for GOOGM, GOOGN, and SPCX without a press-release label", () => {
