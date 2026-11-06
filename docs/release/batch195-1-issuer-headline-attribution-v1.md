@@ -1,6 +1,6 @@
 # Batch 195.1 — Issuer headline attribution
 
-**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. The Polygon badge correction is a later commit on the same branch. No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
+**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. Polygon source-badge correction `dad9afac`. No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
 
 ## What the preview showed
 
