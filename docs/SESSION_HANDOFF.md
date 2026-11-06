@@ -1,5 +1,7 @@
 # Session handoff — current 2026-11-06 ET
 
+**Batch 210 / PR #220 (branch):** `cursor/batch210-unified-release-control-v1` — CI verify workflow now runs **`npm ci --ignore-scripts`** after **`actions/setup-node@v4`** (Node **24**) so release-control scripts have locked deps on clean runners.
+
 **Code:** GitHub `main` **`3c810c4b`** (Batch **190.15** merged, PR **#217**).
 
 **Batch 190.16 production checkpoint (2026-11-06, reported):** Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516**; six consecutive natural premarket generations (narrow window). Git narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` (`historical_evidence.production_checkpoint_2026_11_06`). **ISS-034 OPEN** — **Batch 191** RTH/AH still required. **ISS-039** remains the release-provenance tracking issue; git-only verification does not prove live Edge binary equivalence.
