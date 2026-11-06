@@ -1,5 +1,10 @@
 import crypto from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const REPO_ROOT = path.resolve(__dirname, "../..");
 
 /**
  * Normalize text for cross-platform deterministic hashing in CI.
@@ -27,6 +32,8 @@ export function gitShowBuffer(gitRef, posixPath) {
   try {
     return execFileSync("git", ["show", `${gitRef}:${posixPath}`], {
       maxBuffer: 64 * 1024 * 1024,
+      cwd: REPO_ROOT,
+      stdio: ["pipe", "pipe", "pipe"],
     });
   } catch {
     return null;

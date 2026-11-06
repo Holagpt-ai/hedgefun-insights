@@ -2,7 +2,7 @@
 
 Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`. The Supabase project (`zcjptaolpumhtlwhlemq`) is **managed in Lovable Cloud**; GitHub `main` holds the authoritative backend source.
 
-**Unified Release Control (Batch 210):** Immutable **release intent** manifests and append-only **deployment attestation** JSON live under `docs/release/manifests/`; read-only verification scripts live under `scripts/release-control/` with a manual GitHub Actions workflow. Git closure hashes prove **repository** content at a commit, not the live Edge/Vercel/Fly runtime unless separately attested (**ISS-039**).
+**Unified Release Control (Batch 210):** Immutable **release intent** manifests and append-only **deployment attestation** JSON live under `docs/release/manifests/` (validated against `schema-v1.json` / `schema-attestation-v1.json` via `scripts/release-control/validate-release-manifest.mjs`); integrity rules and duplicate-sequence checks are in `scripts/release-control/manifest-integrity-check.mjs`. Read-only verification: `scripts/release-control/verify-release.mjs` (writes `.urc-verify/`), invoked by `scripts/release-control/ci-verify.mjs` when **`URC_MANIFEST_PATH`** points at an allowed `docs/release/manifests/*.json` path (GitHub Actions workflow passes this via `env`, not shell-interpolated inputs; `permissions: contents: read`). Edge closure hashing walks **git blobs** at pinned SHAs only. Git evidence proves **repository** content at a commit, not the live Edge/Vercel/Fly runtime unless separately attested (**ISS-039**); manual attestations keep runtime **UNKNOWN**.
 
 ```text
 Browser (Vercel SPA — stocksist.com)

@@ -7,9 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       manifest_path:
-        description: "Path to release_intent JSON under docs/release/manifests/"
+        description: "Path under docs/release/manifests/ (e.g. batch210.example.190.16.historical.v1.json)"
         required: true
-        default: "docs/release/manifests/batch210.example-190.16-historical-v1.json"
+        default: "docs/release/manifests/batch210.example.190.16.historical.v1.json"
+
+permissions:
+  contents: read
 
 jobs:
   verify:
@@ -19,11 +22,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run schema + hash tests
-        run: node --test scripts/release-control/release-control.test.mjs
-
-      - name: Verify manifest (git ancestry + source hashes)
-        run: node scripts/release-control/verify-release.mjs "${{ github.event.inputs.manifest_path }}"
+      - name: Verify release manifest (git-only; path via URC_MANIFEST_PATH — no shell interpolation of input)
+        env:
+          URC_MANIFEST_PATH: ${{ github.event.inputs.manifest_path }}
+        run: node scripts/release-control/ci-verify.mjs
 
       - name: Upload verification report
         uses: actions/upload-artifact@v4

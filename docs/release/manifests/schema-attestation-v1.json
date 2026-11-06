@@ -28,7 +28,7 @@
     "observed": {
       "type": "object",
       "additionalProperties": true,
-      "description": "Opaque platform facts (version, digest, deployment id). Never rewrite earlier attestations."
+      "description": "Opaque platform facts. Manual version numbers alone do not imply verified runtime. Optional independent_evidence may be used in future API-backed attestations."
     },
     "evidence_notes": { "type": "string" },
     "approval_reference": { "type": "string" }

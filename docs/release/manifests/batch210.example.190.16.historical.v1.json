@@ -4,7 +4,7 @@
   "manifest_id": "batch210.example.190.16.historical.v1",
   "kind": "release_intent",
   "title": "Historical example: Batch 190.16 finalize preflight (ISS-034) — Git source only",
-  "summary": "Immutable release intent documenting approved GitHub main, Lovable integration tip, and deterministic source hashes at the Batch 190.16 merge. Deployment runtime identity is not fully attested here (see append-only attestations).",
+  "summary": "Immutable release intent documenting approved GitHub main, Lovable integration tip, and deterministic source hashes at the Batch 190.16 merge. Runtime Edge identity is not independently verified here — use append-only attestations and treat as UNKNOWN without platform API or digest (**ISS-039**).",
   "recorded_at": "2026-11-06T14:00:00.000Z",
   "github": {
     "main": {
@@ -32,10 +32,6 @@
         "platform": "lovable_cloud_supabase_edge",
         "project_id": "zcjptaolpumhtlwhlemq",
         "function_name": "sync-screener-data"
-      },
-      "deployment_expectation": {
-        "reported_edge_version": 516,
-        "reported_deployed_date_utc": "2026-11-06"
       }
     },
     {
@@ -78,9 +74,12 @@
     }
   ],
   "historical_evidence": {
-    "premarket_publications_observed": {
-      "window_note": "Six consecutive successful natural premarket generations observed (reported; not a substitute for Batch 191 RTH/AH acceptance).",
-      "acceptance_gate_iss034": "OPEN — Batch 191 repeated regular-session and after-hours acceptance still required per ISS-034"
+    "production_checkpoint_2026_11_06": {
+      "note": "Owner-reported Lovable Cloud activation: `sync-screener-data` Edge function **version 516** (2026-11-06). Not independently reproduced in git-only verification.",
+      "premarket_publications_observed": {
+        "window_note": "Six consecutive successful natural premarket generations observed (reported; not a substitute for Batch 191 RTH/AH acceptance).",
+        "acceptance_gate_iss034": "OPEN — Batch 191 repeated regular-session and after-hours acceptance still required per ISS-034"
+      }
     }
   }
 }

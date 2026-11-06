@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Read-only verification report (git only). No production API calls.
- * Status: MATCH | DRIFT | UNKNOWN | NOT_APPLICABLE
+ * Source status: MATCH | DRIFT | UNKNOWN | NOT_APPLICABLE
+ * Runtime status: always UNKNOWN unless observed carries independent_evidence (future)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -10,9 +11,9 @@ import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import { edgeImportClosureSha256Sync } from "./closure-hash.mjs";
 import { validateReleaseIntent } from "./validate-release-manifest.mjs";
+import { REPO_ROOT } from "./hashes.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../..");
+const repoRoot = REPO_ROOT;
 
 function isAncestor(ancestor, descendant) {
   try {
@@ -52,7 +53,7 @@ function treePrefixHashSync(gitRef, prefix) {
   return { fileCount: files.length, sha256: agg };
 }
 
-function verifyComponent(manifest, c) {
+function verifySourceComponent(manifest, c) {
   if (c.applicability === "NOT_APPLICABLE") {
     return {
       component_id: c.id,
@@ -172,27 +173,40 @@ function loadAttestations(manifestId) {
     .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
 }
 
-function compareAttestationToExpectation(component, att) {
-  if (!component.deployment_expectation || !att?.observed) {
-    return { status: "UNKNOWN", detail: "no deployment_expectation or attestation observed block" };
-  }
-  const exp = component.deployment_expectation;
-  const obs = att.observed;
-  if (exp.reported_edge_version != null && obs.edge_function_version != null) {
-    if (Number(exp.reported_edge_version) === Number(obs.edge_function_version)) {
-      return {
-        status: "MATCH",
-        detail: "attestation edge_function_version matches manifest deployment_expectation",
-      };
-    }
+/**
+ * Runtime: manual numbers agree → still UNKNOWN (not independent platform evidence).
+ */
+export function runtimeCheck(applicableComponent, att) {
+  if (applicableComponent.applicability !== "APPLICABLE") {
     return {
-      status: "DRIFT",
-      detail: "edge_function_version mismatch between manifest expectation and attestation",
+      component_id: applicableComponent.id,
+      status: "NOT_APPLICABLE",
+      detail: "no runtime verification for NOT_APPLICABLE component",
+    };
+  }
+  if (!att) {
+    return {
+      component_id: applicableComponent.id,
+      status: "UNKNOWN",
+      detail: "no append-only attestation file for this component",
+    };
+  }
+  const obs = att.observed;
+  if (obs?.independent_evidence === true) {
+    return {
+      component_id: applicableComponent.id,
+      status: "UNKNOWN",
+      detail:
+        "independent_evidence flag reserved for future API-backed attestations — not implemented in V1",
+      attestation_file: att.file,
     };
   }
   return {
+    component_id: applicableComponent.id,
     status: "UNKNOWN",
-    detail: "no comparable numeric fields between manifest and attestation",
+    detail:
+      "manual attestation only (no platform API / digest in V1); repeating expected vs observed does not prove live deployment",
+    attestation_file: att.file,
   };
 }
 
@@ -216,27 +230,18 @@ function main() {
   const intSha = manifest.github.lovable_integration.commit_sha;
   const integrationContainsMain = isAncestor(mainSha, intSha);
 
-  const components = (manifest.components || []).map((c) => verifyComponent(manifest, c));
+  const source_components = (manifest.components || []).map((c) => verifySourceComponent(manifest, c));
 
   const attestations = loadAttestations(manifest.manifest_id);
-  const deployment_checks = [];
+  const runtime_components = [];
   for (const c of manifest.components || []) {
-    if (c.applicability !== "APPLICABLE") continue;
-    const relevant = attestations.filter((a) => a.component_id === c.id);
-    if (relevant.length === 0) {
-      deployment_checks.push({
-        component_id: c.id,
-        status: "UNKNOWN",
-        detail: "no append-only attestation file for this component",
-      });
+    if (c.applicability !== "APPLICABLE") {
+      runtime_components.push(runtimeCheck(c, null));
       continue;
     }
-    const last = relevant[relevant.length - 1];
-    deployment_checks.push({
-      component_id: c.id,
-      ...compareAttestationToExpectation(c, last),
-      attestation_file: last.file,
-    });
+    const relevant = attestations.filter((a) => a.component_id === c.id);
+    const last = relevant.length ? relevant[relevant.length - 1] : null;
+    runtime_components.push(runtimeCheck(c, last));
   }
 
   const report = {
@@ -249,8 +254,13 @@ function main() {
       integration_contains_main_merge: integrationContainsMain,
     },
     manifest_validation: val,
-    components,
-    deployment_identity_checks: deployment_checks,
+    source_verification: {
+      components: source_components,
+    },
+    runtime_verification: {
+      components: runtime_components,
+      note: "Runtime MATCH/DRIFT requires independent platform evidence (API, signed export, reproducible digest). V1 stays UNKNOWN for manual attestations.",
+    },
     deployment_attestations_loaded: attestations.map((a) => ({
       file: a.file,
       sequence: a.sequence,
@@ -278,15 +288,15 @@ function main() {
   lines.push("");
   lines.push(`| Component (source) | Status | Detail |`);
   lines.push(`| --- | --- | --- |`);
-  for (const row of components) {
+  for (const row of source_components) {
     lines.push(
       `| \`${row.component_id}\` | **${row.status}** | ${String(row.detail).replace(/\|/g, "\\|")} |`,
     );
   }
   lines.push("");
-  lines.push(`| Deployment evidence (attestation file) | Status | Detail |`);
+  lines.push(`| Component (runtime) | Status | Detail |`);
   lines.push(`| --- | --- | --- |`);
-  for (const row of deployment_checks) {
+  for (const row of runtime_components) {
     lines.push(
       `| \`${row.component_id}\` | **${row.status}** | ${String(row.detail).replace(/\|/g, "\\|")} |`,
     );

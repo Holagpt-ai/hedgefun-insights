@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
 import { sha256HexGitObject } from "./hashes.mjs";
-import { closurePosixPaths } from "./edge-closure.mjs";
+import { closurePosixPathsFromGit } from "./edge-closure.mjs";
 
 /**
  * Aggregate hash: sha256 of sorted lines `path:relative_file_hash`.
  */
 export function edgeImportClosureSha256Sync(gitRef, entryRel) {
-  const files = closurePosixPaths(entryRel);
+  const files = closurePosixPathsFromGit(gitRef, entryRel);
   const lines = [];
   for (const f of files) {
     const h = sha256HexGitObject(gitRef, `supabase/functions/${f}`);

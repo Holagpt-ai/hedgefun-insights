@@ -135,11 +135,6 @@
         "deployment_target": {
           "type": "object",
           "additionalProperties": true
-        },
-        "deployment_expectation": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Expected deployment identity when attested outside git (optional)."
         }
       },
       "allOf": [
@@ -148,7 +143,12 @@
             "properties": { "applicability": { "const": "NOT_APPLICABLE" } },
             "required": ["applicability"]
           },
-          "then": { "required": ["not_applicable_reason"] }
+          "then": {
+            "required": ["not_applicable_reason"],
+            "properties": {
+              "not_applicable_reason": { "type": "string", "minLength": 1 }
+            }
+          }
         }
       ]
     }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { REPO_ROOT } from "./hashes.mjs";
 
 function normalizeTextBuf(buf) {
   let s = buf.toString("utf8");
@@ -16,21 +17,18 @@ if (!gitRef || !prefix) {
 
 const out = execFileSync("git", ["ls-tree", "-r", "--name-only", gitRef, prefix], {
   encoding: "utf8",
+  cwd: REPO_ROOT,
 });
 const files = out.trim().split("\n").filter(Boolean).sort();
 const lines = [];
 for (const f of files) {
   const raw = execFileSync("git", ["show", `${gitRef}:${f}`], {
     maxBuffer: 128 * 1024 * 1024,
+    cwd: REPO_ROOT,
   });
-  const h = crypto
-    .createHash("sha256")
-    .update(normalizeTextBuf(raw), "utf8")
-    .digest("hex");
+  const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  const h = crypto.createHash("sha256").update(normalizeTextBuf(buf), "utf8").digest("hex");
   lines.push(`${f}:${h}`);
 }
-const agg = crypto
-  .createHash("sha256")
-  .update(lines.join("\n") + "\n", "utf8")
-  .digest("hex");
+const agg = crypto.createHash("sha256").update(lines.join("\n") + "\n", "utf8").digest("hex");
 console.log(JSON.stringify({ fileCount: files.length, pathPrefix: prefix, sha256: agg }));

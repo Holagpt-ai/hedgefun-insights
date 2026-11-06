@@ -2,7 +2,9 @@
 
 ## 2026-11-06 (Batch 210 — Unified Release Control V1, git-only)
 
-- **Unified Release Control V1** (Batch **210**): JSON Schemas for **release_intent** and append-only **deployment_attestation**; example historical manifest for **Batch 190.16** (`e03ad6ad…` / integration `c35d63ca…`); deterministic Edge import-closure SHA-256 hasher; manual `workflow_dispatch` workflow **Unified Release Control (read-only)**; Node tests `npm run test:release-control`. Runbook `docs/release/batch210-unified-release-control-v1.md`. **ISS-039** tracks gap between git provenance and live platform digests. **Does not** merge or deploy production.
+- **Unified Release Control V1** (Batch **210**): JSON Schemas for **release_intent** and append-only **deployment_attestation** (validated with **Ajv** in `scripts/release-control/validate-release-manifest.mjs`); example historical manifest for **Batch 190.16** — **Nov 6 reported** owner checkpoint (**`sync-screener-data`** Edge **v516**, six consecutive natural premarket runs) under `historical_evidence.production_checkpoint_2026_11_06` (`batch210.example.190.16.historical.v1.json`); deterministic Edge import-closure SHA-256 from **git objects only**; `workflow_dispatch` workflow passes **`URC_MANIFEST_PATH`** via `env` with **`permissions: contents: read`** (no shell interpolation of workflow inputs); `ci-verify.mjs` path allowlist; runtime verification stays **UNKNOWN** for manual attestations; append-only integrity check (`git rev-list --count` per file). Node tests `npm run test:release-control`. Runbook `docs/release/batch210-unified-release-control-v1.md`. **ISS-039** tracks gap between git provenance and live platform digests. **ISS-034 OPEN** / **Batch 191** unchanged. **Does not** merge or deploy production.
+
+- **Session recovery note:** uncommitted `src/lib/screeners/screener-radar-intraday-overlay.ts` changes were **reverted** to match `main` — **unrelated** to Batch 210; do not restore without separate review.
 
 ## 2026-11-05 (Batch 190.15 documentation closeout)
 
