@@ -1,6 +1,6 @@
 # Batch 195.1 — Issuer headline attribution
 
-**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. Polygon source-badge correction `dad9afac`. Trust-safety follow-up (wire without issuer attribution; detail panel earnings facts) — see latest head SHA on the branch. No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
+**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, not merged. Opening-subject fix `a12ee112`. Polygon source-badge correction `dad9afac`. Trust-safety correction `4f699897` (wire without issuer attribution; detail panel omits EPS/surprise for related associations). No migrations, no production `catalyst_events` edits, no Edge deploy, no Vercel deploy, no feed-provider change.
 
 ## What the preview showed
 
