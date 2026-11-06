@@ -66,6 +66,9 @@ export function resolveRadarNewsDisplay(
       title: catalyst.event.title,
       description: catalyst.event.description,
       facts: catalyst.event.facts,
+      source_name: catalyst.event.source_name,
+      attribution_class: catalyst.event.attribution_class,
+      ticker_specific: catalyst.event.ticker_specific,
     });
     const title = catalyst.event.title?.trim() || category;
     const publishedAt = catalyst.event.published_at ?? null;

@@ -135,7 +135,7 @@ export function CatalystEventCard({
   const publishedLabel = formatPublished(event.published_at);
   const showTitle = event.event_type !== "earnings" && event.title;
   const earningsResult = earningsResultBadge(event);
-  const sourceBadge = catalystSourceBadge(event.provider);
+  const sourceBadge = catalystSourceBadge(event.provider, event.source_name);
   const traderRead = buildCatalystTraderRead(event);
   const longDescription = event.description && event.description.length > 220;
   const isSec = isSecEdgarCatalystRow(event.provider);

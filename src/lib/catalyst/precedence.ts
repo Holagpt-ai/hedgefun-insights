@@ -206,9 +206,31 @@ function applyAttributionAuthority(
   };
 }
 
+function relatedHeadlineIsNotIssuerEvent(row: CatalystPrecedenceInput): boolean {
+  if (
+    row.provider === EARNINGS_CALENDAR_PROVIDER ||
+    row.provider === "sec_edgar" ||
+    row.provider === "company_ir" ||
+    row.provider === "COMPANY_IR"
+  ) {
+    return false;
+  }
+  if (row.ticker_specific === false) return true;
+  if (row.attribution_class === "unverified" || row.attribution_class === "sector_related") return true;
+  return false;
+}
+
 export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): CatalystPrecedenceResult {
   const text = catalystText(row);
   const marketAttention = looksLikeMarketAttention(row.title, row.event_type);
+  if (relatedHeadlineIsNotIssuerEvent(row)) {
+    return {
+      tier: "secondary",
+      primaryClass: null,
+      classRank: 0,
+      isMarketAttention: marketAttention,
+    };
+  }
   const explicit = detectPrimaryEventClass(text);
 
   if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {

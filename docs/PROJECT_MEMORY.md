@@ -26,6 +26,8 @@ Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516** and s
 
 ### Batch 191.1 — Gappers split-scale evidence (2026-11-06, git)
 
+**Merged:** PR **#221** → `67e3418a` on `main`.
+
 **Confirmed:** Some regular-session runs completed **7/7** staged chunks but skipped publication because Gappers tab evidence degraded to **`prerequisite_unavailable`** (`gap_input_coverage_incomplete`) when the **only** remaining “unresolved” volume-active symbols were **intentionally** ungapped under the existing **`impliesSplitScale`** guard (sub-penny / CA mismatch). That path must not count as missing prior-close inputs.
 
 **Fix:** New counter **`split_scale_suppressed_count`** + helper **`gapSuppressedOnlyBySplitScaleGuard`** — see `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **ISS-024** / **ISS-034** remain **OPEN** until Batch **191** session acceptance.
@@ -129,9 +131,9 @@ Product and platform items below remain deferred; master batches **203–209** o
 - Catalyst source enablement / distribution activation (**ISS-006**, batch **203** — `docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
 - AI Analyst / `chat` Edge regression cleanup (**ISS-007**, **ISS-015**, batch **204**)
 
-## Catalyst attribution (client, Batch 181)
+## Catalyst attribution (client, Batch 181, Batch 195.1)
 
-Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. Cross-surface copy uses `catalyst-attribution-presentation.ts`; do not imply price causation without evidence.
+Persisted `attribution_class` on stored rows is not trusted over live headline evidence for generic news providers. SEC / earnings calendar / company IR rows keep authoritative persisted classes. A related headline stays on `related_symbols` and in the attribution result, and must not be labeled as the row symbol's own earnings or press release. Editorial news (Motley Fool and other publishers) is News. Press Release is only a direct issuer wire or company IR item. Cross-surface copy uses `catalyst-attribution-presentation.ts` and `presentation.ts`; do not imply price causation without evidence. Do not rewrite production `catalyst_events` rows from this rule — hydration applies it on read.
 
 ## Five Pillars presentation (client, Batch 182)
 

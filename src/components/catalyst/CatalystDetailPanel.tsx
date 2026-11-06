@@ -48,20 +48,18 @@ export function CatalystDetailPanel({
   nowMs,
 }: CatalystDetailPanelProps) {
   if (!event) return null;
-  const category = catalystDisplayCategoryFromEvent({
+  const displayInput = {
     event_type: event.event_type,
     provider: event.provider,
     title: event.title,
     description: event.description,
     facts: event.facts,
-  });
-  const categoryLabel = catalystDisplayLabelFromEvent({
-    event_type: event.event_type,
-    provider: event.provider,
-    title: event.title,
-    description: event.description,
-    facts: event.facts,
-  });
+    source_name: event.source_name,
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
+  };
+  const category = catalystDisplayCategoryFromEvent(displayInput);
+  const categoryLabel = catalystDisplayLabelFromEvent(displayInput);
   const freshness = catalystFreshness(event.published_at, nowMs);
   const facts = event.facts ?? {};
   const estimate = formatEpsValue(facts.estimate_eps);

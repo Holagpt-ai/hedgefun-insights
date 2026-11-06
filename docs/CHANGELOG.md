@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-06 (Batch 195.1 — issuer headline attribution)
+
+- **Catalyst cards:** a headline is a direct issuer event only when that company or ticker is the opening subject. Later mentions, including ACAD versus Recursion/Viatris earnings and ORCL versus Arm, stay related-symbol evidence and are not ranked or labeled as that symbol's earnings. Generic tokens such as "pharmaceuticals" and "holdings" no longer match by themselves. Motley Fool and other editorial `company_news` display as **News**. **Press Release** remains for a direct issuer wire or company IR item, so SpaceX Motley Fool copy is not **PRESS RELEASE** on GOOGM, GOOGN, or SPCX. Client and Deno attribution/precedence mirrors updated. No migration, production row edit, feed change, or Edge deploy. Runbook `docs/release/batch195-1-issuer-headline-attribution-v1.md`. **ISS-028** stays **OPEN**.
+
 ## 2026-11-06 (Batch 191.1 — Gappers split-scale evidence)
 
 - **Gappers tab evaluation:** **`split_scale_suppressed_count`** accounts for symbols whose gap is **null only** because **`impliesSplitScale(regular, reference)`** fired — no longer inflates **`unresolved_gap_input_count`** or blocks **`evaluated`** when that is the sole remaining class. Helper **`gapSuppressedOnlyBySplitScaleGuard`** in shared `selection.ts`. Staged **`gappersAccum`** + **`deserializeMergedArtifacts`** compatibility (defaults missing counter to 0). Client parser / validated-zero helper updated. Runbook `docs/release/batch191-1-gappers-split-scale-evidence-v1.md`. **Deploy:** **`sync-screener-data`** Edge after merge (**Lovable Cloud**). **ISS-024** / **ISS-034** remain **OPEN**.

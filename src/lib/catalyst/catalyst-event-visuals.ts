@@ -7,6 +7,13 @@ import type { EpisodeTemporalRelationship } from "@/config/episode-event-linkage
 import type { CatalystEventType } from "@/types/catalyst";
 import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
 import type { CatalystTaxonomyV2 } from "@/lib/catalyst/intelligence-v2";
+import {
+  isAuthoritativeIssuerProvider,
+  isDirectIssuerCatalyst,
+  isPressReleaseSource,
+  RELATED_ISSUER_HEADLINE_LABEL,
+  RELATED_SECTOR_HEADLINE_LABEL,
+} from "@/lib/catalyst/presentation";
 
 export const CATALYST_DISPLAY_CATEGORIES = [
   "EARNINGS",
@@ -109,31 +116,46 @@ function taxonomyToDisplayCategory(tax: CatalystTaxonomyV2): CatalystDisplayCate
   }
 }
 
-/** SEC rows use form/items taxonomy; others use legacy event_type mapping. */
-export function catalystDisplayCategoryFromEvent(input: {
+export interface CatalystDisplayEventInput {
   event_type: CatalystEventType;
   provider?: string | null;
   title?: string;
   description?: string | null;
   facts?: Record<string, unknown> | null;
-}): CatalystDisplayCategory {
+  source_name?: string | null;
+  attribution_class?: "direct" | "provider_associated" | "sector_related" | "unverified" | null;
+  ticker_specific?: boolean | null;
+}
+
+function relatedHeadlineLabel(input: CatalystDisplayEventInput): string | null {
+  if (isAuthoritativeIssuerProvider(input.provider)) return null;
+  if (isDirectIssuerCatalyst(input)) return null;
+  if (input.attribution_class === "sector_related") return RELATED_SECTOR_HEADLINE_LABEL;
+  if (input.attribution_class === "unverified" || input.ticker_specific === false) {
+    return RELATED_ISSUER_HEADLINE_LABEL;
+  }
+  return null;
+}
+
+/** SEC rows use form/items taxonomy; others use legacy event_type mapping. */
+export function catalystDisplayCategoryFromEvent(input: CatalystDisplayEventInput): CatalystDisplayCategory {
   if (input.provider === "sec_edgar" && input.event_type === "sec_filing_news") {
     return taxonomyToDisplayCategory(
       classifySecFilingTaxonomy(input.title ?? "", input.description, input.facts),
     );
   }
+  if (relatedHeadlineLabel(input)) return "OTHER_VERIFIED_EVENT";
   return liveEventCategory(input.event_type);
 }
 
 /** Display label for scanner, radar, and Catalyst tab rows (SEC taxonomy-aware). */
-export function catalystDisplayLabelFromEvent(input: {
-  event_type: CatalystEventType;
-  provider?: string | null;
-  title?: string;
-  description?: string | null;
-  facts?: Record<string, unknown> | null;
-}): string {
+export function catalystDisplayLabelFromEvent(input: CatalystDisplayEventInput): string {
+  const related = relatedHeadlineLabel(input);
+  if (related) return related;
   const category = catalystDisplayCategoryFromEvent(input);
+  if (category === "PRESS_RELEASE") {
+    return isPressReleaseSource(input) && isDirectIssuerCatalyst(input) ? "Press Release" : "News";
+  }
   return CATALYST_CATEGORY_LABEL[category];
 }
 

@@ -41,16 +41,32 @@ export function canonicalUrl(raw: unknown): string | null {
 
 const LEGAL_SUFFIXES = /\b(incorporated|corporation|company|companies|holdings?|group|limited|ltd|llc|inc|corp|plc|co|nv|sa|ag)\b/gi;
 
+/** Shared industry words that must not, alone, make a company the headline subject. */
+const GENERIC_IDENTITY_TOKENS = new Set([
+  "company", "companies", "group", "holdings", "holding", "usa", "llc", "inc",
+  "incorporated", "corporation", "corp", "financial", "international", "limited",
+  "ltd", "plc", "the", "and", "for", "co", "lp", "nv", "sa", "ag", "llp", "trust",
+  "partners", "capital", "services", "global", "national", "america", "american",
+  "industries", "industry", "systems", "technologies", "technology", "therapeutics",
+  "therapeutic", "pharmaceutical", "pharmaceuticals", "pharma", "labs", "laboratories",
+  "class", "common", "ordinary", "shares", "share", "stock", "stocks", "series",
+]);
+
+const LEADING_SKIP = /^(why|how|what|when|where|who|is|are|was|were|the|a|an|this|that|these|those|forget|here|motley|fool|after|before|company|shares|stock|stocks|investors?|analysts?|report|source|update|breaking|exclusive|markets?|today)$/i;
+
+const SUBJECT_END = /^(reports?|reported|announces?|announced|beats?|misses?|posts?|unveils?|says?|wins?|signs?|could|surge|surged|jump|jumps|jumped|falls?|fell|raises?|cuts?)$/i;
+
 export function companyNameTokens(companyName: string | null | undefined): string[] {
   if (!companyName || typeof companyName !== "string") return [];
   const stripped = companyName.replace(LEGAL_SUFFIXES, " ").replace(/[.,()]/g, " ").replace(/\s+/g, " ").trim();
   if (!stripped) return [];
-  const tokens = stripped.split(" ").filter((t) => t.length >= 4);
+  const distinctive = stripped
+    .split(" ")
+    .filter((token) => token.length >= 3 && !GENERIC_IDENTITY_TOKENS.has(token.toLowerCase()));
   const out = new Set<string>();
-  if (stripped.length >= 4) out.add(stripped.toLowerCase());
-  for (const t of tokens) out.add(t.toLowerCase());
-  // First two tokens as a phrase ("nuscale power", "micron technology").
-  if (tokens.length >= 2) out.add(`${tokens[0]} ${tokens[1]}`.toLowerCase());
+  if (distinctive.length > 0 && stripped.length >= 4) out.add(stripped.toLowerCase());
+  for (const token of distinctive) out.add(token.toLowerCase());
+  if (distinctive.length >= 2) out.add(`${distinctive[0]} ${distinctive[1]}`.toLowerCase());
   return [...out];
 }
 
@@ -76,21 +92,38 @@ export function titleMentionsCompany(title: string, companyName: string | null |
   if (tokens.length === 0) return false;
   const hay = title.toLowerCase();
   for (const token of tokens.sort((a, b) => b.length - a.length)) {
-    if (token.length < 4) continue;
+    if (token.length < 3) continue;
     const re = new RegExp(`\\b${escapeRe(token)}\\b`, "i");
     if (re.test(hay)) return true;
   }
   return false;
 }
 
-const GENERIC_LEAD =
-  /^(company|shares|stock|stocks|investors?|analysts?|report|source|update|breaking|exclusive|markets?|today|why|how|what|after|before|the)\b/i;
+/** Opening noun phrase: the issuer subject, before the verb and before later mentions. */
+export function openingSubjectText(title: string): string {
+  const words = title.trim().split(/\s+/);
+  const kept: string[] = [];
+  for (const word of words) {
+    const clean = word.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9.&'-]+$/g, "");
+    if (!clean) continue;
+    if (kept.length === 0 && (LEADING_SKIP.test(clean) || GENERIC_IDENTITY_TOKENS.has(clean.toLowerCase()))) {
+      continue;
+    }
+    if (kept.length > 0 && SUBJECT_END.test(clean)) break;
+    if (kept.length === 0 && SUBJECT_END.test(clean)) continue;
+    kept.push(clean);
+    if (kept.length >= 8) break;
+  }
+  return kept.join(" ");
+}
 
 function leadingEntity(title: string): string | null {
-  const m = title.trim().match(/^([A-Z][A-Za-z0-9.&'-]{3,}(?:\s+[A-Z][A-Za-z0-9.&'-]{3,})?)/);
-  if (!m) return null;
-  if (GENERIC_LEAD.test(m[1])) return null;
-  return m[1];
+  const proper = openingSubjectText(title)
+    .split(/\s+/)
+    .filter((word) => /^[A-Z]/.test(word) && !GENERIC_IDENTITY_TOKENS.has(word.toLowerCase()) && !LEADING_SKIP.test(word));
+  if (proper.length === 0) return null;
+  if (proper.length >= 2) return `${proper[0]} ${proper[1]}`;
+  return proper[0];
 }
 
 const SECTOR_PATTERNS: RegExp[] = [
@@ -205,23 +238,38 @@ export function attributeSymbol(input: AttributionInput): AttributionResult {
 
   const associated =
     input.providerAssociatesSymbol === true || providers.includes(symbol);
+  const opening = openingSubjectText(title);
+  const inOpeningTicker = titleMentionsTicker(opening, symbol);
+  const inOpeningName = titleMentionsCompany(opening, input.companyName ?? null);
+  const subjectSelf = inOpeningTicker || inOpeningName;
   const inTitleTicker = titleMentionsTicker(title, symbol);
   const inTitleName = titleMentionsCompany(title, input.companyName ?? null);
   const strongSelf = inTitleTicker || inTitleName;
+  const mentionedLater = strongSelf && !subjectSelf;
 
   const competing = providers.filter((t) => t !== symbol);
   const sector = looksLikeSectorOrRoundup(title, providers.length);
 
-  if (strongSelf && !sector) {
+  // A later name is related-symbol evidence. It is not that issuer's own event.
+  if (mentionedLater && !sector) {
+    return {
+      class: associated ? "provider_associated" : "unverified",
+      reason: "related_mention_not_issuer",
+      symbol,
+      ticker_specific: false,
+    };
+  }
+
+  if (subjectSelf && !sector) {
     return {
       class: "direct",
-      reason: inTitleTicker ? "title_ticker_primary" : "title_entity_primary",
+      reason: inOpeningTicker ? "title_ticker_primary" : "title_entity_primary",
       symbol,
       ticker_specific: true,
     };
   }
 
-  if (strongSelf && sector && providers.length <= 2) {
+  if (subjectSelf && sector && providers.length <= 2) {
     return {
       class: "direct",
       reason: "title_entity_in_narrow_group",
