@@ -1,6 +1,6 @@
 # Batch 195.1 — Issuer headline attribution
 
-**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, head `a12ee112`, not merged. No migrations, no production `catalyst_events` edits, no Edge deploy, no feed-provider change.
+**Base:** GitHub `main` `67e3418a` (Batch 191.1, PR #221). **PR:** #222, fix `a12ee112`, not merged. No migrations, no production `catalyst_events` edits, no Edge deploy, no feed-provider change.
 
 ## What the preview showed
 
