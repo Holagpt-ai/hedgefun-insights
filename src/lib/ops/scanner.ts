@@ -316,6 +316,9 @@ export interface GenerationJobOpsRecord {
   continue_last_at: string | null;
   continue_last_error: string | null;
   abort_reason: string | null;
+  /** Batch 213: tab-level projection of abort_evidence (no candidate ids). */
+  abort_tabs?: Array<{ tab: string; priorStatus: string | null; candidateStatus: string | null; triggeredPreservation: boolean }> | null;
+  abort_prior_synced_at?: string | null;
   publish_rows_inserted: number | null;
   publish_rpc_recorded_at: string | null;
   created_at: string;
@@ -399,10 +402,14 @@ export function classifyGenerationJob(job: GenerationJobOpsRecord, nowMs: number
         );
     case "aborted":
       if (job.abort_reason === "prior_generation_retained") {
+        const triggered = (job.abort_tabs ?? []).filter((t) => t.triggeredPreservation);
+        const tabText = triggered.length
+          ? ` Triggered by: ${triggered.map((t) => `${t.tab} (${t.priorStatus ?? "?"} → ${t.candidateStatus ?? "?"})`).join(", ")}.`
+          : "";
         return make(
           "prior_generation_retained",
           "degraded",
-          `${chunkText} completed; candidate not published — prior generation retained by the degradation guard.`,
+          `${chunkText} completed; candidate not published — prior generation retained by the degradation guard.${tabText}`,
         );
       }
       if (job.abort_reason === "newer_generation_live") {

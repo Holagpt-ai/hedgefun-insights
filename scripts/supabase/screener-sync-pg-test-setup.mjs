@@ -78,4 +78,15 @@ runSql("20261104230000_screener_sync_slim_control_json_v1.sql", join(
   migrationsDir,
   "20261104230000_screener_sync_slim_control_json_v1.sql",
 ));
+// Batch 213: exception calendar + auth/role stubs + Supabase default grants,
+// then the admin-only diagnostics read RPC.
+runSql("20260813180000_equities_session_calendar.sql", join(
+  migrationsDir,
+  "20260813180000_equities_session_calendar.sql",
+));
+runSql("02-batch213-auth-roles", join(bootstrapDir, "02-batch213-auth-roles-and-default-grants.sql"));
+runSql("20261106200000_ops_scanner_diagnostics_read_v1.sql", join(
+  migrationsDir,
+  "20261106200000_ops_scanner_diagnostics_read_v1.sql",
+));
 console.log("\nBootstrap complete.");

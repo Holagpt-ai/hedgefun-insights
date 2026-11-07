@@ -17,7 +17,8 @@ import {
   type SourceSyncObservation,
   type WorkflowRunSummary,
 } from "@/lib/ops/release";
-import { FEED_STATE_OPS_SELECT, type FeedStateOpsRow, type GenerationJobOpsRecord } from "@/lib/ops/scanner";
+import { FEED_STATE_OPS_SELECT, type FeedStateOpsRow } from "@/lib/ops/scanner";
+import { parseOpsDiagnostics, type OpsDiagnostics } from "@/lib/ops/diagnostics";
 import { RADAR_FEED_OPS_SELECT, type RadarFeedOpsRow } from "@/lib/ops/worker";
 
 export type UnavailableReason =
@@ -80,17 +81,45 @@ export async function readRadarFeedState(): Promise<SourceResult<RadarFeedOpsRow
   }
 }
 
+/** Only RPC this module may call: admin-gated, read-only (Batch 213). */
+export const OPS_DIAGNOSTICS_RPC = "get_ops_scanner_diagnostics_v1";
+export const OPS_DIAGNOSTICS_JOB_LIMIT = 10;
+
+type RpcClient = {
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{
+    data: unknown;
+    error: { code?: string; message?: string } | null;
+  }>;
+};
+
 /**
- * `screener_sync_generation_jobs` is GRANTed to service_role only
- * (supabase/migrations/20261028200000_screener_sync_generation_staging_v1.sql).
- * There is no admin read RPC, and V1 adds no migration, so this source is
- * explicitly unavailable rather than silently empty.
+ * `screener_sync_generation_jobs` and `market_session_calendar` stay
+ * service-role only. Batch 213 adds `get_ops_scanner_diagnostics_v1`, which
+ * checks `has_role(auth.uid(), 'admin')` inside the database and returns a
+ * bounded, redacted projection. Until Lovable Cloud applies that migration
+ * the RPC is missing and this source reports "not configured".
  */
-export async function readGenerationJobs(): Promise<SourceResult<GenerationJobOpsRecord[]>> {
-  return unavailable(
-    "no_read_path",
-    "screener_sync_generation_jobs is service-role only; an admin-only read RPC requires a separate approved migration.",
-  );
+export async function readScannerDiagnostics(
+  client: RpcClient = supabase as unknown as RpcClient,
+): Promise<SourceResult<OpsDiagnostics>> {
+  try {
+    const { data, error } = await client.rpc(OPS_DIAGNOSTICS_RPC, { p_job_limit: OPS_DIAGNOSTICS_JOB_LIMIT });
+    if (error) {
+      // PGRST202 (PostgREST: function not in schema cache) / 42883 (undefined function).
+      if (error.code === "PGRST202" || error.code === "42883") {
+        return unavailable(
+          "not_configured",
+          "get_ops_scanner_diagnostics_v1 is not applied yet (Batch 213 migration awaits Lovable Cloud approval).",
+        );
+      }
+      return unavailable(classifySupabaseError(error), error.message);
+    }
+    const parsed = parseOpsDiagnostics(data);
+    if (!parsed) return unavailable("invalid_response", "Diagnostics payload did not match schema_version 1.");
+    return { state: "ok", data: parsed, fetchedAt: now() };
+  } catch (err) {
+    return unavailable("network_error", err instanceof Error ? err.message : err);
+  }
 }
 
 /** Edge Function logs live in Lovable Cloud; no browser-accessible read path. */

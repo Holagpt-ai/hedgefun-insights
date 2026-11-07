@@ -4,6 +4,7 @@
  */
 
 import type { SessionContext } from "@/lib/ops/freshness";
+import { resolveSessionContextWithCalendar, type OpsDiagnostics } from "@/lib/ops/diagnostics";
 import {
   classifyAttestedRuntime,
   classifyFrontendBuild,
@@ -19,7 +20,6 @@ import {
   buildPublicationOpsView,
   classifyGenerationJob,
   type FeedStateOpsRow,
-  type GenerationJobOpsRecord,
   type GenerationJobOpsView,
   type PublicationOpsView,
 } from "@/lib/ops/scanner";
@@ -28,10 +28,11 @@ import { computeOverallHealth, worstStatus, type OpsComponentSummary, type OpsSt
 import { buildWorkerOpsView, type RadarFeedOpsRow, type WorkerOpsView } from "@/lib/ops/worker";
 
 export interface OpsSnapshotInputs {
-  context: SessionContext;
+  nowMs: number;
   feedState: SourceResult<FeedStateOpsRow>;
   radarFeed: SourceResult<RadarFeedOpsRow>;
-  jobs: SourceResult<GenerationJobOpsRecord[]>;
+  /** Batch 213 admin RPC: generation jobs + exception calendar. */
+  diagnostics: SourceResult<OpsDiagnostics>;
   edgeLogs: SourceResult<never>;
   sourceSync: SourceResult<SourceSyncObservation>;
   attestations: AttestationRecord[];
@@ -39,7 +40,8 @@ export interface OpsSnapshotInputs {
 }
 
 export interface OpsSnapshot {
-  context: SessionContext;
+  context: SessionContext & { holidayName: string | null; marketStatus: "open" | "closed" | "early_close" };
+  diagnostics: OpsDiagnostics | null;
   overall: OverallHealth;
   components: OpsComponentSummary[];
   publication: PublicationOpsView | null;
@@ -62,16 +64,32 @@ function statusForMissing(r: SourceResult<unknown>): OpsStatus {
 }
 
 export function buildOpsSnapshot(inputs: OpsSnapshotInputs): OpsSnapshot {
-  const { context } = inputs;
+  const diagnostics = inputs.diagnostics.state === "ok" ? inputs.diagnostics.data : null;
+  const context = resolveSessionContextWithCalendar(inputs.nowMs, diagnostics?.calendar ?? null);
   const components: OpsComponentSummary[] = [];
+  const jobs = diagnostics ? diagnostics.jobs.map((j) => classifyGenerationJob(j, context.nowMs)) : null;
+  // Newest job that reached a terminal outcome (published / retained / failed).
+  const latestTerminal = jobs?.find((j) => j.outcome !== "chunking" && j.outcome !== "finalizing" && j.outcome !== "chunking_stalled") ?? null;
 
   // A. Scanner publication health -------------------------------------------
   const publication = inputs.feedState.state === "ok" ? buildPublicationOpsView(inputs.feedState.data, context) : null;
+  let scannerStatus: OpsStatus = publication?.status ?? statusForMissing(inputs.feedState);
+  let scannerExplanation = publication?.explanation ?? unavailableText(inputs.feedState);
+  if (
+    publication &&
+    latestTerminal &&
+    (latestTerminal.status === "degraded" || latestTerminal.status === "failing") &&
+    (scannerStatus === "healthy" || scannerStatus === "unknown")
+  ) {
+    // The live feed may still look fresh, but the newest generation did not publish.
+    scannerStatus = "degraded";
+    scannerExplanation = `Newest generation did not publish: ${latestTerminal.explanation} Serving the prior generation.`;
+  }
   components.push({
     id: "scanner",
     title: "Scanner publication",
-    status: publication?.status ?? statusForMissing(inputs.feedState),
-    explanation: publication?.explanation ?? unavailableText(inputs.feedState),
+    status: scannerStatus,
+    explanation: scannerExplanation,
     lastObservedAt: publication?.publishedAt ?? null,
     source: { label: "screener_feed_state", detail: "state_key = current (atomic published generation)" },
     userImpact: true,
@@ -108,20 +126,37 @@ export function buildOpsSnapshot(inputs: OpsSnapshotInputs): OpsSnapshot {
   });
 
   // Edge runtime failures ---------------------------------------------------
-  const jobs =
-    inputs.jobs.state === "ok" ? inputs.jobs.data.map((j) => classifyGenerationJob(j, context.nowMs)) : null;
   const latestFailure = jobs?.find((j) => j.failure !== null) ?? null;
+  let edgeStatus: OpsStatus = statusForMissing(inputs.diagnostics);
+  let edgeExplanation = `${unavailableText(inputs.diagnostics)} ${unavailableText(inputs.edgeLogs)}`.trim();
+  if (jobs && diagnostics) {
+    const stranded = diagnostics.strandedFinalizingCount;
+    const latest = jobs[0] ?? null;
+    if (stranded > 0) {
+      edgeStatus = "failing";
+      edgeExplanation = `${stranded} job(s) stranded in finalizing with an expired lease.`;
+    } else if (!latest) {
+      edgeStatus = "unknown";
+      edgeExplanation = "No generation jobs recorded.";
+    } else {
+      edgeStatus = latest.status;
+      edgeExplanation = `Latest generation: ${latest.explanation}`;
+    }
+    if (latestFailure) {
+      edgeExplanation += ` Most recent recorded failure (${latestFailure.syncRunId.slice(0, 8)}): ${latestFailure.failure!.label}.`;
+    }
+    edgeExplanation += " Edge logs remain in Lovable Cloud.";
+  }
   components.push({
     id: "edge",
-    title: "Edge runtime failures",
-    status: jobs ? worstStatus(jobs.slice(0, 3).map((j) => j.status)) : "unknown",
-    explanation: jobs
-      ? latestFailure
-        ? `Latest recorded failure: ${latestFailure.failure!.label}.`
-        : "No runtime failure recorded on recent generation jobs."
-      : `${unavailableText(inputs.jobs)} ${unavailableText(inputs.edgeLogs)}`.trim(),
+    title: "Generation pipeline / Edge runtime",
+    status: edgeStatus,
+    explanation: edgeExplanation,
     lastObservedAt: jobs?.[0]?.updatedAt ?? null,
-    source: { label: "screener_sync_generation_jobs / Lovable Cloud Edge logs" },
+    source: {
+      label: "get_ops_scanner_diagnostics_v1",
+      detail: "admin-only redacted projection of screener_sync_generation_jobs",
+    },
     userImpact: false,
   });
 
@@ -169,6 +204,7 @@ export function buildOpsSnapshot(inputs: OpsSnapshotInputs): OpsSnapshot {
 
   return {
     context,
+    diagnostics,
     overall: computeOverallHealth(components),
     components,
     publication,
