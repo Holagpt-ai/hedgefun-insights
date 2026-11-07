@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-06 (Batch 213 — secure scanner diagnostics RPC, PR #225)
+
+- **Landed on branch (stacked on #224, not merged):** the admin-only, read-only RPC `get_ops_scanner_diagnostics_v1` (migration `supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql`, **not applied**), wired into `/admin/operations` through `src/lib/ops/diagnostics.ts` and `readScannerDiagnostics`. A Deno Postgres integration test was added to the CI job `Screener Deno regressions`, with simulated Supabase default grants. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/225, code head `ed69dae3`. **Deployment state checked:** none. **Open:** first real-database run is CI on #225; Lovable Cloud apply needs separate approval. Runbook `docs/release/batch213-secure-scanner-diagnostics-v1.md`.
+
 ## 2026-11-06 (Batch 212 — Operations Control Center V1, PR #224)
 
 - **Landed on branch (not merged):** `/admin/operations` is a read-only, admin-guarded page. Typed source adapters live in `src/lib/ops/sources.ts` and never throw. Pure classifiers cover status roll-up, session-aware freshness, the scanner tab matrix, job outcomes, CPU vs ordinary runtime failures, the worker checkpoint, source parity vs runtime identity, and redaction. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/224, code head `836bc07c`. **Deployment state checked:** none (local checks only). **Open:** job, lease, and Edge log visibility needs an approved admin read RPC (proposed Batch 213). ISS-041 recorded. Pre-existing MCP bundle drift on `main` noted. Runbook `docs/release/batch212-operations-control-center-v1.md`.
