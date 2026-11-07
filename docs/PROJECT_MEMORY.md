@@ -18,6 +18,11 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 - **Batch 213** supplies that RPC: `get_ops_scanner_diagnostics_v1`. It is `SECURITY DEFINER`, uses `search_path=''`, checks `has_role(auth.uid(),'admin')` inside the function, grants EXECUTE to `authenticated` only, and returns a redacted, bounded projection (at most 20 jobs and a ±2-week exception calendar). It never returns ticker universes or payload columns. Migration `20261106200000` is **not applied** until the owner approves it in Lovable Cloud (`docs/release/batch213-secure-scanner-diagnostics-v1.md`).
 - Only explicit CPU-limit wording counts as confirmed CPU exhaustion; HTTP 546 is an Edge resource limit; generic 500s and wall-clock timeouts are not CPU evidence.
 
+### Admin access (Batch 214)
+
+- `AdminGuard` fails closed and makes the cause visible. No session goes to `/login?next=…`. A signed-in non-admin sees Access Denied with their email and user id. A `has_role` error shows "Could not verify" with retry. Only `has_role` → `true` renders admin pages.
+- The `admin` role lives only in `public.user_roles`, and client writes to it are blocked by RLS. No migration grants it. Grant it per user through Lovable Cloud with owner approval, never as a git migration (that would commit user ids). Procedure: `docs/release/batch214-admin-access-states-v1.md`.
+
 ## Historical operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
 **GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.
