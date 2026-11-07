@@ -42,6 +42,32 @@
 - Bootstrap: `supabase/tests/screener-sync-pg/02-batch213-auth-roles-and-default-grants.sql` stubs `auth.uid()` and copies `app_role`, `user_roles`, and `has_role`. It also **simulates Supabase default EXECUTE grants**, so the migration's explicit revokes are actually tested.
 - Vitest: `src/lib/ops/__tests__/batch213-diagnostics.test.ts` covers parser boundaries, holiday and early-close sessions, snapshot classification, the adapter with a mocked PostgREST client, and the static migration contract. The Batch 212 tests were updated for the new input shape.
 
+## Verification status (2026-11-06)
+
+| Check | Result | Where |
+| --- | --- | --- |
+| `npm run typecheck`, `npm run build`, `npm run test:integrity`, `npm run integrity` | PASS | Local (no Docker) |
+| Vitest `src/lib/ops`, `src/pages/admin` (83 tests) | PASS | Local |
+| Full `npx vitest run` | 26 files fail, all also failing on `origin/main` `f2a3cdae`; none new | Local |
+| `deno check` of the Postgres test | PASS | Local |
+| **Postgres integration** `batch213-ops-diagnostics-postgres_test.ts` (8 tests) | **BLOCKED locally**: Docker Desktop crashed (Windows socket-access error on `sailor-ingest.sock`). Docker was not reset and its data was not deleted. | Local |
+| Same 8 Postgres tests | **PASS** (job: 268 passed, 0 failed) | GitHub Actions `Screener Deno regressions` run `42317438845` on `7061c2ea`. This was a throwaway `postgres:16-alpine` service on the runner, not production. |
+| Production apply / ACL / walkthrough | **NOT RUN**: needs separate approval | Lovable Cloud |
+
+The CI database is a bootstrap stand-in. `auth.uid()`, `app_role`, `user_roles`, and `has_role` are copies from `supabase/tests/screener-sync-pg/02-…sql`, not the real Supabase auth schema. Production behavior must still be checked with the post-apply steps below.
+
+## Migration dependencies
+
+`20261106200000_ops_scanner_diagnostics_read_v1.sql` requires these objects to exist in production:
+
+- `public.app_role` enum and `public.has_role(uuid, public.app_role)`: `20260522174654_391b7364…`
+- `public.screener_sync_generation_jobs` with `publish_rows_inserted` / `publish_rpc_recorded_at` (`20261028220000`) and `abort_reason` / `abort_evidence` (`20261030210000`): base table `20261028200000`
+- `public.market_session_calendar`: `20260813180000` (Lovable duplicate `20260814154207`)
+- Supabase `auth.uid()`
+- The roles `anon`, `authenticated`, `service_role`
+
+The UI half depends on Batch 212 (PR #224). Without the migration the UI shows **Not configured**, and nothing breaks.
+
 ## Approval steps (owner)
 
 1. Review and merge **PR #224** (Batch 212).
