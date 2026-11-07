@@ -9,6 +9,14 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 - **Production acceptance remains open:** ISS-028 (Catalyst frontend/backend rollout), ISS-034 and ISS-024 (RTH/AH scanner), ISS-036 (Radar numerical acceptance), ISS-039 (live binary provenance). Git source sync is NOT a production release attestation.
 
 
+## Operations Control Center (Batch 212, read-only)
+
+- `/admin/operations` observes; it never repairs, replays, deploys, restarts, or activates. Runbook `docs/release/batch212-operations-control-center-v1.md`.
+- Missing evidence is **Unknown**, never green. Overall health is driven by scanner publication, provider freshness and the Fly worker first; source sync and provenance are reported separately.
+- Source parity (integration contains main) is not runtime identity. Owner-reported versions (e.g. Edge v516) stay Unknown without a platform digest (**ISS-039**).
+- Generation job rows, leases and Edge logs are service-role / Lovable Cloud only, so V1 shows them as Unknown. Exposing them needs a separately approved admin-only read RPC; do not add direct table grants.
+- Only explicit CPU-limit wording counts as confirmed CPU exhaustion; HTTP 546 is an Edge resource limit; generic 500s and wall-clock timeouts are not CPU evidence.
+
 ## Historical operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
 **GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.

@@ -70,7 +70,9 @@ Journal children under `/dashboard/journal`: `onboarding`, `calendar`, `daily-re
 | --- | --- |
 | `/account`, `/account/billing` | Account and billing |
 | `/admin` | Admin home |
-| `/admin/users`, `/admin/subscriptions`, `/admin/analytics`, `/admin/news`, `/admin/market`, `/admin/seo`, `/admin/alerts`, `/admin/settings` | Admin sections |
+| `/admin/users`, `/admin/subscriptions`, `/admin/analytics`, `/admin/news`, `/admin/market`, `/admin/operations`, `/admin/seo`, `/admin/alerts`, `/admin/settings` | Admin sections |
+
+`/admin/operations` is the read-only Operations Control Center (Batch 212, `docs/release/batch212-operations-control-center-v1.md`).
 
 Unknown paths render `NotFound`.
 

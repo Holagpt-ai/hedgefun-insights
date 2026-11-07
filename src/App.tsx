@@ -9,6 +9,7 @@ import {
   LazyAdminDashboard,
   LazyAdminMarket,
   LazyAdminNews,
+  LazyAdminOperations,
   LazyAdminSeo,
   LazyAdminSettings,
   LazyAdminSubscriptions,
@@ -292,6 +293,7 @@ const App = () => (
                   <Route path="/admin/analytics" element={<LazyAdminAnalytics />} />
                   <Route path="/admin/news" element={<LazyAdminNews />} />
                   <Route path="/admin/market" element={<LazyAdminMarket />} />
+                  <Route path="/admin/operations" element={<LazyAdminOperations />} />
                   <Route path="/admin/seo" element={<LazyAdminSeo />} />
                   <Route path="/admin/alerts" element={<LazyAdminAlerts />} />
                   <Route path="/admin/settings" element={<LazyAdminSettings />} />

@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-06 (Batch 212 — Operations Control Center V1, PR #224)
+
+- **Landed on branch (not merged):** `/admin/operations` is a read-only, admin-guarded page. Typed source adapters live in `src/lib/ops/sources.ts` and never throw. Pure classifiers cover status roll-up, session-aware freshness, the scanner tab matrix, job outcomes, CPU vs ordinary runtime failures, the worker checkpoint, source parity vs runtime identity, and redaction. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/224, code head `836bc07c`. **Deployment state checked:** none (local checks only). **Open:** job, lease, and Edge log visibility needs an approved admin read RPC (proposed Batch 213). ISS-041 recorded. Pre-existing MCP bundle drift on `main` noted. Runbook `docs/release/batch212-operations-control-center-v1.md`.
+
 ## 2026-11-06 (Batch 211 — continuity + monitoring docs, PR #223)
 
 - **Docs only (no activation / no deploy):** `docs/PROJECT_MEMORY.md` adds **GitHub ↔ Lovable Source Synchronization** (controller, separation from Vercel/Fly/Edge/SQL, recovery, editor SHA independence, monitoring expectations). `docs/DEPLOYMENT_STATUS.md` adds Batch **211** verified-baseline table; per-run history via **GitHub Actions artifacts**. `docs/release/batch211-lovable-source-forward-sync-v1.md` adds **Acceptance criteria**. `docs/ISSUE_REGISTER.md` and `docs/SESSION_HANDOFF.md` align **ISS-040** (open until automatic source sync verified end-to-end).

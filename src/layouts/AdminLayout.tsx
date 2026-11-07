@@ -2,7 +2,7 @@ import { Outlet, useLocation, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, CreditCard, BarChart2, Newspaper,
   TrendingUp, Bot, Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, Home, User,
+  LogOut, Home, User, Activity,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,7 @@ const navItems = [
   { icon: BarChart2, label: "Analytics", path: "/admin/analytics" },
   { icon: Newspaper, label: "News Feed", path: "/admin/news" },
   { icon: TrendingUp, label: "Market Data", path: "/admin/market" },
+  { icon: Activity, label: "Operations", path: "/admin/operations" },
   { icon: Bot, label: "Agentic SEO", path: "/admin/seo" },
   { icon: Bell, label: "Alerts", path: "/admin/alerts" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
