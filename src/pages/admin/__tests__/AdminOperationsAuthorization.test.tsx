@@ -72,7 +72,10 @@ describe("Operations Control Center authorization", () => {
     ].map((f) => readFileSync(path.resolve(__dirname, f), "utf8"));
     for (const src of files) {
       expect(src).not.toMatch(/\.(insert|update|upsert|delete)\(/);
-      expect(src).not.toMatch(/functions\.invoke|\.rpc\(/);
+      expect(src).not.toMatch(/functions\.invoke/);
+      // The only RPC allowed is the admin-gated, read-only diagnostics read (Batch 213).
+      const rpcArgs = [...src.matchAll(/\.rpc\(\s*([^,)]+)/g)].map((m) => m[1].trim());
+      for (const arg of rpcArgs) expect(arg).toBe("OPS_DIAGNOSTICS_RPC");
       expect(src).not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)/i);
       expect(src).not.toMatch(/SERVICE_ROLE_KEY|import\.meta\.env\.(?!VITE_VERCEL_GIT_COMMIT_SHA)/);
     }

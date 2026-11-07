@@ -40,8 +40,11 @@ function OverallSummary({ s }: { s: OpsSnapshot }) {
         <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>{overall.headline}</p>
       </div>
       <p className="mt-2 text-xs" style={{ color: "#64748b" }}>
-        Session: <strong>{SESSION_LABEL[context.session]}</strong> (ET clock, weekday schedule
-        {context.calendarVerified ? "" : "; holiday calendar not readable from this session"}). Dashboard observed{" "}
+        Session: <strong>{SESSION_LABEL[context.session]}</strong>
+        {context.holidayName ? <> — <strong>{context.holidayName}</strong> ({context.marketStatus.replace("_", " ")})</> : null} (ET clock;{" "}
+        {context.calendarVerified
+          ? "exception calendar verified via admin diagnostics"
+          : "holiday calendar unverified — weekday schedule assumed"}). Dashboard observed{" "}
         <Timestamp iso={new Date(context.nowMs).toISOString()} nowMs={context.nowMs} />. Overall health is driven by
         scanner, provider and worker evidence first; provenance and source sync are reported separately.
       </p>
@@ -73,7 +76,8 @@ function ScannerPanel({ s }: { s: OpsSnapshot }) {
   const p = s.publication;
   const now = s.context.nowMs;
   const feedProblem = unavailableLine(s.inputs.feedState);
-  const jobsProblem = unavailableLine(s.inputs.jobs);
+  const jobsProblem = unavailableLine(s.inputs.diagnostics);
+  const diag = s.diagnostics;
   return (
     <Panel
       title="Scanner and data pipeline"
@@ -132,7 +136,12 @@ function ScannerPanel({ s }: { s: OpsSnapshot }) {
         <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#64748b" }}>
           Generation jobs, chunks, finalize, leases
         </h3>
-        {s.jobs ? (
+        {s.jobs && diag ? (
+          <div className="space-y-2">
+          <p className="text-[11px]" style={{ color: "#64748b" }}>
+            Newest {s.jobs.length} of at most {diag.jobLimit} jobs, read <Timestamp iso={diag.observedAt} nowMs={now} />.
+            Stranded in finalizing (all jobs): <strong>{diag.strandedFinalizingCount}</strong>.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-xs">
               <thead>
@@ -157,12 +166,14 @@ function ScannerPanel({ s }: { s: OpsSnapshot }) {
               </tbody>
             </table>
           </div>
+          <SourceRef source={{ label: "get_ops_scanner_diagnostics_v1", detail: "admin-only, redacted, bounded (Batch 213)" }} />
+          </div>
         ) : (
           <Notice>
             <strong>Not observable from this session.</strong> {jobsProblem} Current/most recent generation state, chunk
             completion, finalize outcome, lease expiry, prior-generation retention and the last runtime failure are
             therefore <strong>Unknown</strong> here. A stale publication time above is the only browser-visible symptom of
-            a stranded, failed or retained generation. Check Lovable Cloud for job rows and Edge logs.
+            a stranded, failed or retained generation. The admin diagnostics RPC (Batch 213) supplies these once Lovable Cloud applies its migration.
           </Notice>
         )}
       </div>

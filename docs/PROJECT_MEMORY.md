@@ -15,6 +15,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 - Missing evidence is **Unknown**, never green. Overall health is driven by scanner publication, provider freshness and the Fly worker first; source sync and provenance are reported separately.
 - Source parity (integration contains main) is not runtime identity. Owner-reported versions (e.g. Edge v516) stay Unknown without a platform digest (**ISS-039**).
 - Generation job rows, leases and Edge logs are service-role / Lovable Cloud only, so V1 shows them as Unknown. Exposing them needs a separately approved admin-only read RPC; do not add direct table grants.
+- **Batch 213** supplies that RPC: `get_ops_scanner_diagnostics_v1`. It is `SECURITY DEFINER`, uses `search_path=''`, checks `has_role(auth.uid(),'admin')` inside the function, grants EXECUTE to `authenticated` only, and returns a redacted, bounded projection (at most 20 jobs and a ±2-week exception calendar). It never returns ticker universes or payload columns. Migration `20261106200000` is **not applied** until the owner approves it in Lovable Cloud (`docs/release/batch213-secure-scanner-diagnostics-v1.md`).
 - Only explicit CPU-limit wording counts as confirmed CPU exhaustion; HTTP 546 is an Edge resource limit; generic 500s and wall-clock timeouts are not CPU evidence.
 
 ## Historical operating baseline — 2026-11-05 (post Batch 190.15 activation)

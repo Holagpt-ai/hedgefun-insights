@@ -46,6 +46,7 @@ Radar and historical jobs call `radar-worker-bridge` with `RADAR_WORKER_SECRET`.
 | AI Analyst | `src/pages/dashboard/AIAnalyst.tsx`, `src/lib/ai-analyst/`, `supabase/functions/chat/` |
 | Journal | `src/journal/` |
 | Homepage | `src/pages/Index.tsx` |
+| Operations Control Center | `src/lib/ops/`, `src/pages/admin/AdminOperationsPage.tsx`. Reads `screener_feed_state`, `radar_v22_feed_state`, and the admin-only RPC `get_ops_scanner_diagnostics_v1` (Batch 213 migration `20261106200000`, not applied until Lovable Cloud approval). |
 | Public mover tabs | `src/lib/markets/movers-integrity.ts`, `src/pages/markets/PremarketPage.tsx` |
 
 ## Chat catalyst contract

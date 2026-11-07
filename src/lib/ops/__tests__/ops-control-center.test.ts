@@ -417,10 +417,10 @@ describe("unavailable integrations and partial failures", () => {
 
   it("snapshot survives partial failure and keeps scanner evidence", () => {
     const inputs: OpsSnapshotInputs = {
-      context: ctx(RTH_NOW),
+      nowMs: RTH_NOW,
       feedState: { state: "ok", data: feedRow(), fetchedAt: iso(RTH_NOW) },
       radarFeed: unavailable(),
-      jobs: unavailable(),
+      diagnostics: unavailable(),
       edgeLogs: unavailable(),
       sourceSync: unavailable(),
       attestations: [],
@@ -436,10 +436,10 @@ describe("unavailable integrations and partial failures", () => {
 
   it("all sources unavailable is unknown, not healthy", () => {
     const s = buildOpsSnapshot({
-      context: ctx(RTH_NOW),
+      nowMs: RTH_NOW,
       feedState: unavailable(),
       radarFeed: unavailable(),
-      jobs: unavailable(),
+      diagnostics: unavailable(),
       edgeLogs: unavailable(),
       sourceSync: unavailable(),
       attestations: [],

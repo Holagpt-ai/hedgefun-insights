@@ -10,6 +10,8 @@ on:
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
+      - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20260813180000_equities_session_calendar.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
   push:
@@ -22,6 +24,8 @@ on:
       - "scripts/supabase/screener-sync-pg-test-setup.mjs"
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
+      - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20260813180000_equities_session_calendar.sql"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
 
@@ -107,6 +111,7 @@ jobs:
           supabase/functions/_shared/screeners/sync-staging-supabase-publish-error_test.ts
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile_test.ts
           supabase/functions/_shared/screeners/batch190-12-stale-finalizing-reconcile-postgres_test.ts
+          supabase/functions/_shared/screeners/batch213-ops-diagnostics-postgres_test.ts
           supabase/functions/_shared/screeners/batch190-14-finalize-cpu_test.ts
           supabase/functions/_shared/screeners/batch190-16-finalize-preflight_test.ts
           supabase/functions/_shared/screeners/batch190-15-slim-payload_test.ts

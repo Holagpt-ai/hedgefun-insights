@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { resolveSessionContext } from "@/lib/ops/freshness";
 import { buildOpsSnapshot, type OpsSnapshot } from "@/lib/ops/snapshot";
 import {
   frontendBuildSha,
   loadAttestations,
   readEdgeRuntimeLogs,
-  readGenerationJobs,
   readRadarFeedState,
+  readScannerDiagnostics,
   readScreenerFeedState,
   readSourceSync,
 } from "@/lib/ops/sources";
@@ -35,7 +34,13 @@ export function useOperationsSnapshot(): {
     refetchInterval: DB_REFRESH_MS,
     staleTime: DB_REFRESH_MS / 2,
   });
-  const jobs = useQuery({ queryKey: ["ops", "generation_jobs"], queryFn: readGenerationJobs, staleTime: Infinity });
+  // Batch 213 admin RPC: bounded (≤10 jobs + ±2-week calendar window), 60 s.
+  const diagnostics = useQuery({
+    queryKey: ["ops", "scanner_diagnostics"],
+    queryFn: () => readScannerDiagnostics(),
+    refetchInterval: DB_REFRESH_MS,
+    staleTime: DB_REFRESH_MS / 2,
+  });
   const edgeLogs = useQuery({ queryKey: ["ops", "edge_logs"], queryFn: readEdgeRuntimeLogs, staleTime: Infinity });
   const sync = useQuery({
     queryKey: ["ops", "source_sync"],
@@ -56,27 +61,28 @@ export function useOperationsSnapshot(): {
   const buildSha = useMemo(() => frontendBuildSha(), []);
 
   const snapshot = useMemo(() => {
-    if (!feed.data || !radar.data || !jobs.data || !edgeLogs.data || !sync.data) return null;
+    if (!feed.data || !radar.data || !diagnostics.data || !edgeLogs.data || !sync.data) return null;
     return buildOpsSnapshot({
-      context: resolveSessionContext(nowMs),
+      nowMs,
       feedState: feed.data,
       radarFeed: radar.data,
-      jobs: jobs.data,
+      diagnostics: diagnostics.data,
       edgeLogs: edgeLogs.data,
       sourceSync: sync.data,
       attestations,
       frontendBuildSha: buildSha,
     });
-  }, [feed.data, radar.data, jobs.data, edgeLogs.data, sync.data, attestations, buildSha, nowMs]);
+  }, [feed.data, radar.data, diagnostics.data, edgeLogs.data, sync.data, attestations, buildSha, nowMs]);
 
   return {
     snapshot,
     loading: snapshot === null,
-    refreshing: feed.isFetching || radar.isFetching || sync.isFetching,
+    refreshing: feed.isFetching || radar.isFetching || diagnostics.isFetching || sync.isFetching,
     refetch: () => {
       setNowMs(Date.now());
       void feed.refetch();
       void radar.refetch();
+      void diagnostics.refetch();
     },
   };
 }
