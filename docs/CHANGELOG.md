@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-07 (Batch 214 — admin access states, PR #226)
+
+- **Landed on branch (not merged):** `AdminGuard` now distinguishes four cases and fails closed in each: no session goes to `/login?next=`; a non-admin sees Access Denied (email and user id); an RPC error shows "Could not verify" with retry; only `true` grants admin. Production bundle verified to include `/admin/operations`. The owner's role is **not verified**. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/226, code head `b9844bf1`. **Deployment state checked:** public production assets only. **Open:** owner role check and grant via Lovable Cloud (`docs/release/batch214-admin-access-states-v1.md`), ISS-042.
+
 ## 2026-11-06 (Batch 213 — secure scanner diagnostics RPC, PR #225)
 
 - **Landed on branch (stacked on #224, not merged):** the admin-only, read-only RPC `get_ops_scanner_diagnostics_v1` (migration `supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql`, **not applied**), wired into `/admin/operations` through `src/lib/ops/diagnostics.ts` and `readScannerDiagnostics`. A Deno Postgres integration test was added to the CI job `Screener Deno regressions`, with simulated Supabase default grants. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/225, code head `ed69dae3`. **Deployment state checked:** none. **Open:** first real-database run is CI on #225; Lovable Cloud apply needs separate approval. Runbook `docs/release/batch213-secure-scanner-diagnostics-v1.md`.
