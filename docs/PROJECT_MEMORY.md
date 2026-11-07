@@ -18,6 +18,12 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 - **Batch 213** supplies that RPC: `get_ops_scanner_diagnostics_v1`. It is `SECURITY DEFINER`, uses `search_path=''`, checks `has_role(auth.uid(),'admin')` inside the function, grants EXECUTE to `authenticated` only, and returns a redacted, bounded projection (at most 20 jobs and a ±2-week exception calendar). It never returns ticker universes or payload columns. Migration `20261106200000` is **not applied** until the owner approves it in Lovable Cloud (`docs/release/batch213-secure-scanner-diagnostics-v1.md`).
 - Only explicit CPU-limit wording counts as confirmed CPU exhaustion; HTTP 546 is an Edge resource limit; generic 500s and wall-clock timeouts are not CPU evidence.
 
+### Unified equity session control (Batch 215)
+
+- One unified equities scanner. `_shared/markets/equity-session-control.ts` is the schedule contract. The staged `cron` action skips **new** generations when the session is not scan-eligible: weekend, calendar holiday, weekday nights, and the maintenance pause. Cleanup, reconcile, resume, `continue`, and `finalize` always run. Do not disable cron job 25 to save closed-session work.
+- 23×5 overnight (Sun–Thu 21:00–04:00 ET, belonging to the next trading day) is built in but **off**. It needs an exchange effective date, provider confirmation, and owner authorization env flags, **plus** an overnight pipeline batch that flips `OVERNIGHT_SCANNER_PIPELINE_READY`. The calendar date alone never activates it. CME futures hours never drive the equities scanner.
+- An unreadable exception calendar fails open on weekdays (scan), so a missing calendar can never silence a trading day.
+
 ### Admin access (Batch 214)
 
 - `AdminGuard` fails closed and makes the cause visible. No session goes to `/login?next=…`. A signed-in non-admin sees Access Denied with their email and user id. A `has_role` error shows "Could not verify" with retry. Only `has_role` → `true` renders admin pages.
