@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-07 (Batch 215 — unified scanner session control, PR #227)
+
+- **Landed on branch (not merged):** the staged `sync-screener-data` cron no longer starts new generations on weekends, calendar holidays, or weekday nights. Cleanup, reconcile, and in-flight resume are preserved, and `continue`/`finalize` are never gated. The new `_shared/markets/equity-session-control.ts` models the 23×5 schedule (overnight Sun–Thu 21:00–04:00 for the next trading day, the maintenance pause, the weekend) behind disabled-by-default env flags and an overnight-pipeline guard. Futures hours are not used. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/227, code head `01a8d7e3`. **Deployment state checked:** none. **Open:** Lovable Cloud deploy and weekend observation (ISS-043); 23×5 activation prerequisites per the runbook `docs/release/batch215-unified-scanner-session-control-v1.md`.
+
 ## 2026-11-07 (Batch 214 — admin access states, PR #226)
 
 - **Landed on branch (not merged):** `AdminGuard` now distinguishes four cases and fails closed in each: no session goes to `/login?next=`; a non-admin sees Access Denied (email and user id); an RPC error shows "Could not verify" with retry; only `true` grants admin. Production bundle verified to include `/admin/operations`. The owner's role is **not verified**. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/226, code head `b9844bf1`. **Deployment state checked:** public production assets only. **Open:** owner role check and grant via Lovable Cloud (`docs/release/batch214-admin-access-states-v1.md`), ISS-042.
