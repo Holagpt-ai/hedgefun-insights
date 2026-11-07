@@ -30,6 +30,11 @@ import {
   isExtendedSyncSession,
   resolveSyncSessionKind,
 } from "../_shared/screeners/session-sync-context.ts";
+import {
+  loadEquityCalendarExceptions,
+  read23x5Activation,
+  resolveEquitySession,
+} from "../_shared/markets/equity-session-control.ts";
 import { isLiveSurveillanceSessionKind } from "../_shared/screeners/screener-session.ts";
 import {
   allHaveProviderAsOf,
@@ -1248,6 +1253,36 @@ async function handleStagedSyncScreenerData(
       null,
       chunkContextFromJob(resume),
     );
+  }
+
+  // Batch 215: session gate for NEW generations only. Expired-job cleanup,
+  // stranded-publish reconcile and in-flight resume above always run, so a
+  // generation that crosses into a closed session still finishes and the
+  // prior published generation is never touched.
+  if (parsedBody.action === "cron") {
+    const exceptions = await loadEquityCalendarExceptions(sb);
+    const session = resolveEquitySession({
+      nowMs,
+      exceptions,
+      activation: read23x5Activation(deps.env),
+    });
+    if (session && !session.scanEligible) {
+      console.log(
+        `[sync-screener-data] cron_session_skip phase=${session.phase} reason=${session.skipReason} ` +
+          `et_date=${session.etDate} calendar=${exceptions === null ? "unavailable" : session.calendarSource}`,
+      );
+      return json({
+        ok: true,
+        skipped: true,
+        reason: "session_closed",
+        phase: session.phase,
+        skip_reason: session.skipReason,
+        et_date: session.etDate,
+        trade_date: session.tradeDate,
+        holiday_name: session.holidayName,
+        calendar: exceptions === null ? "unavailable" : session.calendarSource,
+      });
+    }
   }
 
   const nhlBaseline = await loadNhlBaseline(sb);
