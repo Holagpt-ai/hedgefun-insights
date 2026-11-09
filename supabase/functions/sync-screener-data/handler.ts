@@ -649,7 +649,25 @@ async function finalizeStagedScreenerGeneration(
   const wallNowMs = (deps.nowMs ?? (() => Date.now()))();
   let stage: FinalizeStage = "load_job";
   const finalizeTimer = createFinalizeStageTimer(stage);
+  const markBoundary = async (next: FinalizeStage, syncRunId?: string) => {
+    logFinalizeStageEnter({
+      generationId,
+      stage: next,
+      syncRunId,
+      action: "finalize",
+    });
+    try {
+      await store.noteFinalizeStage({
+        jobId: generationId,
+        stage: next,
+        nowMs: wallNowMs,
+      });
+    } catch {
+      /* diagnostic only — never change publish outcome */
+    }
+  };
   try {
+  await markBoundary("load_job");
   const peek = await store.getPreflight(generationId);
   if (!peek) {
     return json({ error: "generation_not_found" }, 404);
@@ -704,6 +722,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("claim_finalize_lease");
   stage = "claim_finalize_lease";
+  await markBoundary("claim_finalize_lease");
   const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
   const claimed = await store.claimWork({
     jobId: generationId,
@@ -748,11 +767,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("merge_selections");
   stage = "merge_selections";
-  logFinalizeStageEnter({
-    generationId: job.id,
-    syncRunId,
-    stage: "merge_selections",
-  });
+  await markBoundary("merge_selections", syncRunId);
   const mainTabSelections = finalizeMainUniverseSelections(
     job.merged.mainQualified,
     extendedTabOpts,
@@ -788,6 +803,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("load_volume_baselines");
   stage = "load_volume_baselines";
+  await markBoundary("load_volume_baselines", syncRunId);
   const volumeBaselines = await loadVolumeBaselines(sb);
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
   const nhlSelected = nhlBaseline.status === "available"
@@ -826,11 +842,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("build_rows");
   stage = "build_rows";
-  logFinalizeStageEnter({
-    generationId: job.id,
-    syncRunId,
-    stage: "build_rows",
-  });
+  await markBoundary("build_rows", syncRunId);
   const meta: GenerationMeta = {
     syncedAt,
     syncRunId,
@@ -889,11 +901,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("build_evidence");
   stage = "build_evidence";
-  logFinalizeStageEnter({
-    generationId: job.id,
-    syncRunId,
-    stage: "build_evidence",
-  });
+  await markBoundary("build_evidence", syncRunId);
   const tabEvaluationEvidence = buildTabEvaluationEvidenceFromChunkAccums({
     universe: job.allTickers,
     gappersAccum: job.merged.gappersAccum,
@@ -923,11 +931,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("preserve_check");
   stage = "preserve_check";
-  logFinalizeStageEnter({
-    generationId: job.id,
-    syncRunId,
-    stage: "preserve_check",
-  });
+  await markBoundary("preserve_check", syncRunId);
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
@@ -980,11 +984,7 @@ async function finalizeStagedScreenerGeneration(
   if (rowsInserted === null) {
     finalizeTimer.advance("atomic_publish");
     stage = "atomic_publish";
-    logFinalizeStageEnter({
-      generationId: job.id,
-      syncRunId,
-      stage: "atomic_publish",
-    });
+    await markBoundary("atomic_publish", syncRunId);
     const atomicPublish = await store.publishStagedGeneration({
       jobId: job.id,
       finalizeLeaseToken: finalizeLease,
@@ -1054,11 +1054,7 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("complete_publish");
   stage = "complete_publish";
-  logFinalizeStageEnter({
-    generationId: job.id,
-    syncRunId,
-    stage: "complete_publish",
-  });
+  await markBoundary("complete_publish", syncRunId);
   const completed = await store.completePublish({
     jobId: job.id,
     finalizeLeaseToken: finalizeLease,

@@ -23,6 +23,11 @@ import {
 } from "./sync-staging-serialize.ts";
 import { formatStagedPublishRpcTransportFailure } from "./sync-publish-rpc-error.ts";
 import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
+import {
+  formatFinalizeStageMarker,
+  isFinalizeStageMarker,
+  mergePlatformKillWithFinalizeStage,
+} from "./sync-finalize-diagnostics.ts";
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 
 export type StagingTableClient = {
@@ -609,15 +614,62 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       updated_at: nowIso,
     }).eq("id", params.jobId);
 
-    const continueLastError = params.ok
+    let continueLastError = params.ok
       ? null
       : (params.error ?? "continue_failed");
+    if (!params.ok && continueLastError) {
+      try {
+        const prior = await this.sb
+          .from(TABLE)
+          .select("continue_last_error")
+          .eq("id", params.jobId)
+          .limit(1);
+        const row = prior.data?.[0] as { continue_last_error?: string | null } | undefined;
+        continueLastError = mergePlatformKillWithFinalizeStage(
+          continueLastError,
+          row?.continue_last_error ?? null,
+        );
+      } catch {
+        /* keep the dispatch status if the marker read fails */
+      }
+    }
     await this.sb.from(TABLE).update({
       continue_last_error: continueLastError,
       updated_at: nowIso,
     })
       .eq("id", params.jobId)
       .in("status", [...CONTINUATION_ERROR_STATUSES]);
+  }
+
+  async noteFinalizeStage(params: {
+    jobId: string;
+    stage: import("./sync-finalize-diagnostics.ts").FinalizeStage;
+    nowMs: number;
+  }): Promise<void> {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const marker = formatFinalizeStageMarker(params.stage);
+    try {
+      const prior = await this.sb
+        .from(TABLE)
+        .select("continue_last_error,status")
+        .eq("id", params.jobId)
+        .limit(1);
+      const row = prior.data?.[0] as {
+        continue_last_error?: string | null;
+        status?: string;
+      } | undefined;
+      if (!row) return;
+      if (row.status !== "chunking" && row.status !== "finalizing") return;
+      if (row.continue_last_error && !isFinalizeStageMarker(row.continue_last_error)) return;
+      await this.sb.from(TABLE).update({
+        continue_last_error: marker,
+        updated_at: nowIso,
+      })
+        .eq("id", params.jobId)
+        .in("status", [...CONTINUATION_ERROR_STATUSES]);
+    } catch {
+      /* diagnostic only */
+    }
   }
 }
 

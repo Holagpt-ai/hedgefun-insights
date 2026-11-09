@@ -55,14 +55,41 @@ export function classifyFinalizeError(
   };
 }
 
+const FINALIZE_STAGE_MARKER_RE = /^finalize_stage:[a-z0-9_]{1,40}$/;
+
+/** Bounded job marker written before a finalize stage. Survives an isolate kill. */
+export function formatFinalizeStageMarker(stage: FinalizeStage): string {
+  return `finalize_stage:${stage}`;
+}
+
+export function isFinalizeStageMarker(value: string | null | undefined): boolean {
+  return typeof value === "string" && FINALIZE_STAGE_MARKER_RE.test(value);
+}
+
+/**
+ * Parent continue dispatch records `http_546` after the child isolate is killed.
+ * Keep the last stage marker so the resource-limit row still names the boundary.
+ */
+export function mergePlatformKillWithFinalizeStage(
+  dispatchError: string,
+  existing: string | null | undefined,
+): string {
+  if (!dispatchError.startsWith("http_")) return dispatchError;
+  if (!isFinalizeStageMarker(existing)) return dispatchError;
+  const merged = `${dispatchError}:${existing}`;
+  return merged.length <= 80 ? merged : dispatchError;
+}
+
 export function logFinalizeStageEnter(input: {
   generationId: string;
   stage: FinalizeStage;
   syncRunId?: string;
+  action?: string;
 }): void {
   try {
     console.log(
       `[sync-screener-data] staged_finalize_stage_enter generation_id=${input.generationId}` +
+        (input.action ? ` action=${input.action}` : "") +
         (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
         ` stage=${input.stage}`,
     );
