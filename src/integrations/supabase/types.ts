@@ -10793,6 +10793,10 @@ export type Database = {
           security_id: string
         }[]
       }
+      get_ops_scanner_diagnostics_v1: {
+        Args: { p_job_limit?: number }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -11025,6 +11029,10 @@ export type Database = {
       merge_screener_52w_low: {
         Args: { p_bar_low: number; p_existing_low: number }
         Returns: number
+      }
+      ops_diagnostics_redact_v1: {
+        Args: { p_max: number; p_text: string }
+        Returns: string
       }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
       publish_screener_sync_staged_generation_v1: {
