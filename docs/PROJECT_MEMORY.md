@@ -2,6 +2,11 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## November 9, 2026 post-Batch 217 source-sync conflict (current)
+
+- **Batch 217:** PR #230 squash-merged into GitHub `main` at `79260fbb10673f96ace21bae491c8953c42fe3c4` (AM Inbox symbol-aware Screeners handoff). Vercel PR check passed; authenticated production AM Inbox acceptance remains open (**ISS-025**).
+- **GitHub → Lovable source sync:** owner activated `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`, and push-run `42717914109` triggered automatically but correctly failed closed with `CONFLICT` / `unexpected_paths: [src/integrations/supabase/previewAuthStorage.ts]` on Nov 9. Integration/editor `b54b328ae9745ebad67a888806f19d0013c7f1b1` remain **one main commit behind**. The unapproved path is a generated Lovable preview-auth source change (broader UUID syntax + `live--UUID-thr_*` host parsing); do not add an authentication file to the blanket overlay allowlist, reset the Lovable branch, or force-push. A narrowly scoped review PR backports the exact Lovable version to GitHub main and preserves its behavior. **ISS-040 OPEN until clean subsequent apply plus editor parity is observed.** Source sync never deploys Edge or SQL.
+
 ## Verified live checkpoint — November 9, 2026 evening (supersedes afternoon labels below)
 
 - **GitHub main:** `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable one-time apply **passed** in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner enabled `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic forward-sync. **ISS-040 remains open solely for unattended post-merge monitoring/acceptance**, not activation or source parity; Edge deploy remains separately gated.
