@@ -1,5 +1,8 @@
 # Stocksist — Master pending work register and batch roadmap
 
+> **November 9, 2026 live override (read-only):** GitHub main `c7cf47ee` has merged **Batches 210–215** (#220–#227); all those code implementation PRs are complete. **Only their unverified activation/acceptance remains in backlog.** Lovable integration/editor `3ec5f7cd` remains 5 main commits behind and 84 Lovable commits ahead, source-sync apply skipped (**ISS-040**). Batch 213 diagnostics RPC exists in production with verified ACL and empty search_path; ledger provenance and admin UI acceptance remain outstanding, not reimplementation. **P0 ISS-034** has fresh November 9 `http_546` on a 7/7 finalization plus recovery after a 09:05 aborted job; Friday Nov 6 RTH 47 published / 26 aborted and AH 48 published. **P1 ISS-043:** Nov 7/8 each 288 weekend aborted jobs; Batch 215 new closed-session cron guard merged but Edge deploy not attested. Prior roadmap sections retain October historical evidence. The November 29 launch is at risk unless scanner, session gate and core workflow acceptance finish; 23×5 overnight pipeline/provider verification are not complete. AI Trader, broker, billing, major real-time feed upgrades and optional features remain deferred. Do not duplicate completed batches 171–189 or 190.9–190.15.
+
+
 **Approved:** October 28, 2026 (ET) — Master Continuity Sync V4 (PR **#195**).  
 **Scope:** Stocksist.com / `Holagpt-ai/hedgefun-insights` only. Reconciles October 27 handoff, October 28 production evidence, GitHub `main`, runbooks, and read-only Lovable Cloud observations.  
 **Canonical link:** `docs/PROJECT_MEMORY.md`, `docs/SESSION_HANDOFF.md`, `docs/ISSUE_REGISTER.md`.
