@@ -4,7 +4,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 ## Verified live checkpoint — November 9, 2026 evening (supersedes afternoon labels below)
 
-- **GitHub main:** `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). **One-time** GitHub → Lovable source sync previously succeeded (`fee9ab51`). Activation remains **false**. Permanent automatic synchronization is **not** active (**ISS-040 OPEN**).
+- **GitHub main:** `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable one-time apply **passed** in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner enabled `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic forward-sync. **ISS-040 remains open solely for unattended post-merge monitoring/acceptance**, not activation or source parity; Edge deploy remains separately gated.
 - **Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment **completed**. Closed-session observation for **ISS-043** and finalize-stage production correlation for **ISS-034** remain open. HTTP 546 root cause remains **NOT YET VERIFIED**.
 - **AM Inbox (ISS-025):** Nov 9 RPC returned **3,776** active rows / **1,525** symbols / ~**4.1 MB**. Batch **217** measures client processing (~**424 ms**) and adds missing symbol-aware Screeners handoffs. Authenticated UI acceptance **NOT VERIFIED**.
 
