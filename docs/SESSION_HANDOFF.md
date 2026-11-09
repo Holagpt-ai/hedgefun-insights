@@ -1,5 +1,7 @@
 # Session handoff — Batch 217, November 9, 2026 ET
 
+**Post-merge checkpoint (current):** PR #230 merged to `main=79260fbb` after Vercel success; AM Inbox authenticated visual acceptance **ISS-025 OPEN**. Auto source-sync push run `42717914109` failed closed (`CONFLICT`) on unexpected Lovable generated `src/integrations/supabase/previewAuthStorage.ts`, so Lovable integration/editor `b54b328a` remain one main commit behind. Do not disable safeguards, force-push or manually resync. Targeted GitHub main PR from `fix/lovable-preview-auth-source-parity-20261109` copies the exact Lovable generated file into canonical main; owner review required before merge. When merged, observe the next automatic sync and verify editor SHA + main ancestry. No Edge deployment or production SQL involved.
+
 **Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable apply succeeded in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic source forward-sync. Unattended future-push acceptance is still pending under ISS-040; this never implies Edge or SQL deployment.
 
 **Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment completed. Closed-session skip observation for ISS-043 and production finalize-stage marker correlation for ISS-034 remain open.
