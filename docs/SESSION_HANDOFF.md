@@ -1,6 +1,6 @@
 # Session handoff — Batch 217, November 9, 2026 ET
 
-**Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). One-time GitHub → Lovable sync previously succeeded (`fee9ab51`); activation remains **false**. Automatic sync is not active.
+**Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable apply succeeded in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic source forward-sync. Unattended future-push acceptance is still pending under ISS-040; this never implies Edge or SQL deployment.
 
 **Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment completed. Closed-session skip observation for ISS-043 and production finalize-stage marker correlation for ISS-034 remain open.
 
