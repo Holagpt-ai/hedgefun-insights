@@ -2,7 +2,46 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Current operating baseline — 2026-11-05 (post Batch 190.15 activation)
+## Verified live checkpoint — November 9, 2026 (read-only; supersedes older “current” labels)
+
+- **GitHub main:** `c7cf47eea30a70b86a6edae03b572268d2202b15` (Batch 215, PR #227, merged Nov 7). Batches 210–215 / PRs #220–#227 are merged, including #223 (source-sync controller), #224 (Operations UI), #225 (diagnostics RPC source), #226 (admin guard), #227 (closed-session/23×5-ready session control). Older “PR not merged” paragraphs below are dated historical records, not current Git status.
+- **Source-sync not complete:** integration branch `cursor/lovable-sync-from-main-20261024` and Lovable project active SHA both `a751f7d5854114fab651f0fbd29214c3da5bff0d`. GitHub compare `main...integration`: integration **behind by 5** main commits, **ahead by 86** Lovable-overlay commits. Latest Batch 211 push workflow run `42378183167` checked successfully; apply job **SKIPPED**. **ISS-040 OPEN.** Do not bypass guarded workflow, reset, rebase, force-push, or auto-merge the overlay back into main. Owner-approved activation of `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` must be separately controlled and disabled after a one-shot acceptance unless ongoing automation is separately approved.
+- **Scanner live evidence, November 9 ~09:38 ET:** premarket produced **61 published generations** (04:00–09:00 ET). The 09:05 job completed 7/7 chunks but entered finalize and was later **aborted**; fresh 09:20 and 09:25 jobs published **94 rows**. The 09:30 job completed 7/7 but recorded **`continue_last_error=http_546`**, remained `finalizing` at inspection, and did **not** record a publish. The most recent feed row at that inspection was 09:25 ET (94 rows, six tab counts). HTTP 546 indicates an Edge resource-limit event; CPU-specific cause of this new occurrence is **not** independently established by DB records. **ISS-034 P0 remains OPEN**; correlate this job with Lovable Cloud Edge logs.
+- **Session matrix:** Friday Nov 6 RTH 47 published, 26 aborted (09:30–16:00 ET). Friday after-hours 48 published. Saturday Nov 7 and Sunday Nov 8 each had **288 aborted generation jobs** across the day. These weekend classifications are closed-session jobs, regardless of wall-clock hour. **Batch 215 git fix is merged, but its Edge activation is NOT VERIFIED; ISS-043 remains OPEN.** Do not disable cron 25 or confuse cron invocation with new-generation eligibility.
+- **Operations RPC:** live Lovable Cloud query confirmed `get_ops_scanner_diagnostics_v1(integer)` exists, `authenticated` can EXECUTE, `anon` and `service_role` cannot, and function `search_path` is empty. The earlier “Batch 213 migration not applied” statement is **superseded as an assertion about function existence**, but **migration ledger/DDL provenance remains UNVERIFIED**. Do not reapply SQL without ledger reconciliation; authenticated UI/admin-role acceptance remains unverified (ISS-042).
+- **Launch gate:** November 29 target remains **AT RISK**, pending repeated RTH/AH scanner acceptance, source-sync acceptance, targeted release activations, 23×5 provider/pipeline prerequisites, and final truthful delayed-feed/SEO/UX verification. Do not present Git parity as runtime parity. Keep AI Trader, broker, billing, and major real-time feed upgrades deferred.
+
+
+**09:42 ET log/source follow-up:** Lovable's diagnostic read found Edge runtime **version 518**, a **09:35 ET HTTP 409** for `sync-screener-data`, but no matching 09:30 HTTP 546 request record, stage-enter/exit evidence, or explicit `CPU Time exceeded` message in its sampled 14:25–14:40 UTC log window. The **database** `continue_last_error=http_546` on the 09:30 job remains confirmed. Exact runtime failure stage and CPU-vs-other-resource cause remain **UNVERIFIED**; prioritize correlating logs and bounded stage tracing, not speculative infrastructure changes. During this Lovable **plan-mode** log review, Lovable created **two Git commits altering only `.lovable/plan.md`**; the new integration **and editor** tip is `a751f7d5854114fab651f0fbd29214c3da5bff0d`, **86 commits ahead** of main and still **5 behind**. GitHub compare verified no other path changed between the previous and new integration tips. The plan artifact is a Lovable-only overlay, not a backend deployment.
+
+## Current source-sync checkpoint — November 6, 2026 (Batch 211 PR under review)
+
+- **GitHub main:** `88de3533da1a8fad64e0664cb810b322ee424719` (Batch 195.1 PR #222 merged). **Lovable integration:** `cursor/lovable-sync-from-main-20261024` @ `3ec5f7cd193ff49d03782781421fcbae3bd4678e`, verified to contain main; Lovable editor reported same integration commit. Later dated sections remain historical snapshots, not the current Git tip.
+- **Batch 211:** source-only forward-sync controller proposed in `.github/workflows/lovable-source-forward-sync.yml` and `scripts/lovable-sync/`. Read-only check is default. Automatic writes to the Lovable integration branch **MUST remain disabled** until owner explicitly approves activation of `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; no branch writes are authorized by the PR alone. No Edge, Fly, Vercel, migration or production job deployment is implied. Runbook: `docs/release/batch211-lovable-source-forward-sync-v1.md`.
+- **Production acceptance remains open:** ISS-028 (Catalyst frontend/backend rollout), ISS-034 and ISS-024 (RTH/AH scanner), ISS-036 (Radar numerical acceptance), ISS-039 (live binary provenance). Git source sync is NOT a production release attestation.
+
+
+## Operations Control Center (Batch 212, read-only)
+
+- `/admin/operations` observes; it never repairs, replays, deploys, restarts, or activates. Runbook `docs/release/batch212-operations-control-center-v1.md`.
+- Missing evidence is **Unknown**, never green. Overall health is driven by scanner publication, provider freshness and the Fly worker first; source sync and provenance are reported separately.
+- Source parity (integration contains main) is not runtime identity. Owner-reported versions (e.g. Edge v516) stay Unknown without a platform digest (**ISS-039**).
+- Generation job rows, leases and Edge logs are service-role / Lovable Cloud only, so V1 shows them as Unknown. Exposing them needs a separately approved admin-only read RPC; do not add direct table grants.
+- **Batch 213** supplies that RPC: `get_ops_scanner_diagnostics_v1`. It is `SECURITY DEFINER`, uses `search_path=''`, checks `has_role(auth.uid(),'admin')` inside the function, grants EXECUTE to `authenticated` only, and returns a redacted, bounded projection (at most 20 jobs and a ±2-week exception calendar). It never returns ticker universes or payload columns. Migration `20261106200000` is **not applied** until the owner approves it in Lovable Cloud (`docs/release/batch213-secure-scanner-diagnostics-v1.md`).
+- Only explicit CPU-limit wording counts as confirmed CPU exhaustion; HTTP 546 is an Edge resource limit; generic 500s and wall-clock timeouts are not CPU evidence.
+
+### Unified equity session control (Batch 215)
+
+- One unified equities scanner. `_shared/markets/equity-session-control.ts` is the schedule contract. The staged `cron` action skips **new** generations when the session is not scan-eligible: weekend, calendar holiday, weekday nights, and the maintenance pause. Cleanup, reconcile, resume, `continue`, and `finalize` always run. Do not disable cron job 25 to save closed-session work.
+- 23×5 overnight (Sun–Thu 21:00–04:00 ET, belonging to the next trading day) is built in but **off**. It needs an exchange effective date, provider confirmation, and owner authorization env flags, **plus** an overnight pipeline batch that flips `OVERNIGHT_SCANNER_PIPELINE_READY`. The calendar date alone never activates it. CME futures hours never drive the equities scanner.
+- An unreadable exception calendar fails open on weekdays (scan), so a missing calendar can never silence a trading day.
+
+### Admin access (Batch 214)
+
+- `AdminGuard` fails closed and makes the cause visible. No session goes to `/login?next=…`. A signed-in non-admin sees Access Denied with their email and user id. A `has_role` error shows "Could not verify" with retry. Only `has_role` → `true` renders admin pages.
+- The `admin` role lives only in `public.user_roles`, and client writes to it are blocked by RLS. No migration grants it. Grant it per user through Lovable Cloud with owner approval, never as a git migration (that would commit user ids). Procedure: `docs/release/batch214-admin-access-states-v1.md`.
+
+## Historical operating baseline — 2026-11-05 (post Batch 190.15 activation)
 
 **GitHub `main`:** `3c810c4bafa36bf547d2235451a7643d9e1f7cbe` (Batch **190.15** PR **#217** merged atop Batch **190.14** / **196.2** continuity). Preserve Lovable-specific generated files and migrations.
 
@@ -76,6 +115,27 @@ Merging to `main` updates git only. Production Supabase state changes when Lovab
 - **Active Lovable integration branch:** `cursor/lovable-sync-from-main-20261024`. After each `main` merge, **forward-sync** the integration branch from `main` without merging the whole integration branch into `main`. Do not merge `cursor/chat-single-pass-v1`.
 - **Archived recovery branch:** `cursor/chat-single-pass-v1`. Source of analyst commits below; large divergence is historical — not current Lovable sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Recovery used archived-branch versions.
+
+## GitHub ↔ Lovable Source Synchronization
+
+- **Authoritative source:** GitHub `main` is the authoritative application history. Lovable does not replace `main`; the integration branch carries Lovable-native overlays on top of forwarded `main` commits.
+- **Integration branch:** `cursor/lovable-sync-from-main-20261024`. Preserve Lovable-only paths there; never merge that branch wholesale into `main` as a substitute for review.
+- **Batch 211 controller:** `.github/workflows/lovable-source-forward-sync.yml` plus `scripts/lovable-sync/forward-sync.mjs`. Default runs are **read-only** (`check`). **Apply** (push to integration) requires repository variable `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` and owner-approved configuration; PR runs never apply.
+- **Trigger and conflict protection:** When activated, pushes to `main` can run check then apply. The controller fetches fresh tips, validates overlay allowlists and ancestry, merges only in a disposable worktree, and **never** force-pushes, rebases, or resets protected refs. **CONFLICT** or **UNKNOWN** ends the run without overwriting the integration branch. Bounded retries handle normal concurrent push rejection only.
+- **Separation from deploy:** Source sync does **not** deploy Vercel, Fly, Lovable Edge Functions, or apply SQL. Those stay separate owner-approved batches and Lovable Cloud operations.
+- **Recovery, disable, rollback:** Remove or set `STOCKSIST_LOVABLE_SYNC_ACTIVATED` to non-`true` to keep all runs check-only. On conflicts or bad merges, fix on a reviewed branch and fast-forward only after human verification — see `docs/release/batch211-lovable-source-forward-sync-v1.md`. Do not “recover” with `--force` on integration or `main`.
+- **Lovable editor SHA:** Remote Git integration tip **≠** guaranteed Lovable editor loaded commit. Independently verify the Lovable project’s reported active SHA or supported Git re-check after a sync.
+
+**Monitoring (ongoing):**
+
+- Compare **`origin/main`** and **remote integration** tip SHAs; record last **SYNCED** / successful apply from workflow artifacts.
+- Capture **Lovable editor / project active SHA** when the product exposes it; treat absence as unknown for editor parity.
+- Track **last successful synchronization** (artifact timestamp + integration `integration_sha_after` from `status.json`).
+- **Failed runs** (FAILED job, or `status` not SYNCED on apply): alert owners; **CONFLICT** / **UNKNOWN** require human triage — no silent ignore.
+- **Escalation:** CONFLICT or UNKNOWN means automatic forward-merge stopped; do not bypass with force-push or unapproved shortcuts.
+- **No silent failures** and **no automatic force-push recovery** — ever.
+
+**Issue tracking:** **ISS-040** stays **OPEN** until real **GitHub `main` → Lovable integration** automatic synchronization is **verified** in production (not merely merged). Latest human-verified numbers belong in `docs/DEPLOYMENT_STATUS.md`; **per-run** evidence stays in **GitHub Actions artifacts**, not a new doc commit on every sync.
 
 ## Master roadmap (2026-10-28)
 

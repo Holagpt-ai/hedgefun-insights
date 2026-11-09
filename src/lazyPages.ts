@@ -97,6 +97,7 @@ export const LazyAdminSubscriptions = lazy(() => import("@/pages/admin/AdminSubs
 export const LazyAdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalyticsPage"));
 export const LazyAdminNews = lazy(() => import("@/pages/admin/AdminNewsPage"));
 export const LazyAdminMarket = lazy(() => import("@/pages/admin/AdminMarketPage"));
+export const LazyAdminOperations = lazy(() => import("@/pages/admin/AdminOperationsPage"));
 export const LazyAdminSeo = lazy(() => import("@/pages/admin/AdminSeoPage"));
 export const LazyAdminAlerts = lazy(() => import("@/pages/admin/AdminAlertsPage"));
 export const LazyAdminSettings = lazy(() => import("@/pages/admin/AdminSettingsPage"));

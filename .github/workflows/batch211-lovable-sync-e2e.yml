@@ -1,0 +1,39 @@
+# Batch 211 — disposable-ref forward-sync E2E (manual only). No production branch writes.
+# Uses allowlisted cursor/_batch211_e2e_* pairs; aborts if refs already exist; deletes only refs this run created.
+name: Batch 211 Lovable Sync E2E (disposable refs)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stocksist-batch211-lovable-sync-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Local regression tests (no remote)
+        run: node --test scripts/lovable-sync/forward-sync.test.mjs
+      - name: Disposable-branch GitHub E2E (deletes only refs created this run)
+        env:
+          STOCKSIST_LOVABLE_SYNC_TEST_MODE: "true"
+        run: node scripts/lovable-sync/batch211-github-e2e.mjs
+      - name: Upload E2E matrix artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch211-e2e-matrix
+          path: .lovable-sync-verify/batch211-e2e-matrix.json
+          if-no-files-found: ignore

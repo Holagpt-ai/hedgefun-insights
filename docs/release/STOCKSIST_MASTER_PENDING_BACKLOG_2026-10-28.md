@@ -1,5 +1,10 @@
 # Stocksist — Master pending work register and batch roadmap
 
+> **November 9, 2026 live override (read-only):** GitHub main `c7cf47ee` has merged **Batches 210–215** (#220–#227); all those code implementation PRs are complete. **Only their unverified activation/acceptance remains in backlog.** Lovable integration/editor `a751f7d5` remains 5 main commits behind and 86 Lovable commits ahead, source-sync apply skipped (**ISS-040**). Batch 213 diagnostics RPC exists in production with verified ACL and empty search_path; ledger provenance and admin UI acceptance remain outstanding, not reimplementation. **P0 ISS-034** has fresh November 9 `http_546` on a 7/7 finalization plus recovery after a 09:05 aborted job; Friday Nov 6 RTH 47 published / 26 aborted and AH 48 published. **P1 ISS-043:** Nov 7/8 each 288 weekend aborted jobs; Batch 215 new closed-session cron guard merged but Edge deploy not attested. Prior roadmap sections retain October historical evidence. The November 29 launch is at risk unless scanner, session gate and core workflow acceptance finish; 23×5 overnight pipeline/provider verification are not complete. AI Trader, broker, billing, major real-time feed upgrades and optional features remain deferred. Do not duplicate completed batches 171–189 or 190.9–190.15.
+
+
+**09:42 ET log/source follow-up:** Lovable's diagnostic read found Edge runtime **version 518**, a **09:35 ET HTTP 409** for `sync-screener-data`, but no matching 09:30 HTTP 546 request record, stage-enter/exit evidence, or explicit `CPU Time exceeded` message in its sampled 14:25–14:40 UTC log window. The **database** `continue_last_error=http_546` on the 09:30 job remains confirmed. Exact runtime failure stage and CPU-vs-other-resource cause remain **UNVERIFIED**; prioritize correlating logs and bounded stage tracing, not speculative infrastructure changes. During this Lovable **plan-mode** log review, Lovable created **two Git commits altering only `.lovable/plan.md`**; the new integration **and editor** tip is `a751f7d5854114fab651f0fbd29214c3da5bff0d`, **86 commits ahead** of main and still **5 behind**. GitHub compare verified no other path changed between the previous and new integration tips. The plan artifact is a Lovable-only overlay, not a backend deployment.
+
 **Approved:** October 28, 2026 (ET) — Master Continuity Sync V4 (PR **#195**).  
 **Scope:** Stocksist.com / `Holagpt-ai/hedgefun-insights` only. Reconciles October 27 handoff, October 28 production evidence, GitHub `main`, runbooks, and read-only Lovable Cloud observations.  
 **Canonical link:** `docs/PROJECT_MEMORY.md`, `docs/SESSION_HANDOFF.md`, `docs/ISSUE_REGISTER.md`.
@@ -170,6 +175,13 @@ Separate authorization and architecture, legal/compliance, provider risk and cre
 Operating mode OFF; no homepage promotion, no live/paper trading activation, no performance redesign until owner explicitly reopens after core product work.
 
 #### Batch 209 — Optional community/content/market-alert distribution — PARKED / NOT APPROVED
+
+
+#### Batch 211 — Automatic Lovable Git forward-sync (review-only, not activated)
+
+- **Open / pending owner activation.** GitHub Actions controller verifies approved main ancestry, strict Lovable-overlay parity, and clean merge behavior; once separately authorized, performs only a normal non-force forward merge into `cursor/lovable-sync-from-main-20261024`. No production Edge, database, Fly, Vercel, cron or secrets changes.
+- **Source status:** GitHub main `88de3533` is already included in integration `3ec5f7cd`; no recovery merge currently required. See `docs/release/batch211-lovable-source-forward-sync-v1.md` and **ISS-040**.
+- **Activation:** workflow must remain check-only until PR review and separate owner authorization to set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`; Lovable editor SHA and runtime deployment remain independently verified.
 
 #### Batch 210 — Unified Release Control V1 (git-only provenance + read-only verification)
 
