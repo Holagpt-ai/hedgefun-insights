@@ -1,10 +1,20 @@
-# Session handoff — Batch 216, November 9, 2026 ET
+# Session handoff — Batch 217, November 9, 2026 ET
+
+**Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). One-time GitHub → Lovable sync previously succeeded (`fee9ab51`); activation remains **false**. Automatic sync is not active.
+
+**Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment completed. Closed-session skip observation for ISS-043 and production finalize-stage marker correlation for ISS-034 remain open.
+
+**Batch 217 (ISS-025):** AM Inbox Late-Session Continuation production readiness for the Nov 9 load (3,776 rows / 1,525 symbols / ~4.1 MB). Measured client map+build **~424 ms** (bound 8 s). Fixed missing symbol-aware Screeners handoff on continuation cards. No RPC/migration/candidate-limit changes. Authenticated UI acceptance **NOT VERIFIED**.
+
+**Next:** owner review of the Batch 217 PR. Do not merge from this session. After merge + Vercel frontend deploy, authenticate and visually accept AM Inbox continuation. No Edge SQL/cron from this batch.
+
+## Archived handoff — Batch 216, November 9, 2026 ET
 
 **Source:** GitHub `main` `ff81065b8edf5a02c54ba356105965f23466c2ae`. One-time GitHub → Lovable sync succeeded; integration/editor `fee9ab51`. Activation variable returned to **false**. Automatic sync is not active.
 
-**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 / 216.2: durable stage marker via conditional UPDATE; Operations treats standalone `finalize_stage:*` as progress and keeps `http_546:finalize_stage:*` as an Edge resource-limit failure. Not deployed.
+**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 / 216.2: durable stage marker via conditional UPDATE; Operations treats standalone `finalize_stage:*` as progress and keeps `http_546:finalize_stage:*` as an Edge resource-limit failure. Merged as PR #229 → `17a31da8`; Edge later owner-reported deployed.
 
-**Next:** owner review of PR #229. Do not merge, deploy Edge, run migrations, change cron, or turn sync activation back on from this batch. After an approved Edge deploy, confirm one failed or successful finalize row shows `finalize_stage:*` or `http_546:finalize_stage:*` without a duplicate publication.
+**Next (historical):** owner review of PR #229 — completed (merged). Production marker correlation still required.
 
 ## Archived handoff — live read-only audit, November 9, 2026 morning ET
 

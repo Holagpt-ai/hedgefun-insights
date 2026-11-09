@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { guardedWorkflowLinkClick } from "@/lib/navigation/guarded-link-click";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bot, CalendarClock, LayoutDashboard, LineChart, MoreHorizontal, NotebookPen, Star } from "lucide-react";
+import { Bot, CalendarClock, LayoutDashboard, LayoutGrid, LineChart, MoreHorizontal, NotebookPen, Star } from "lucide-react";
 import {
   buildMarketEvidenceHandoff,
   persistMarketEvidenceHandoff,
@@ -59,6 +59,7 @@ export function PreMarketSymbolActions({
     { to: routes.watchlist, label: "Watchlist", Icon: Star },
     { to: routes.journal, label: "Journal", Icon: NotebookPen },
     { to: routes.actionCenter, label: "Action Center", Icon: LayoutDashboard },
+    { to: routes.screeners, label: "Screeners", Icon: LayoutGrid },
   ];
 
   const chip = (to: string, label: string, Icon: typeof Bot, className = "") => (
