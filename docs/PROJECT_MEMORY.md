@@ -2,11 +2,22 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Verified live checkpoint — November 9, 2026 afternoon (read-only; supersedes the morning labels below)
+## November 9, 2026 post-Batch 217 source-sync conflict (current)
+
+- **Batch 217:** PR #230 squash-merged into GitHub `main` at `79260fbb10673f96ace21bae491c8953c42fe3c4` (AM Inbox symbol-aware Screeners handoff). Vercel PR check passed; authenticated production AM Inbox acceptance remains open (**ISS-025**).
+- **GitHub → Lovable source sync:** owner activated `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`, and push-run `42717914109` triggered automatically but correctly failed closed with `CONFLICT` / `unexpected_paths: [src/integrations/supabase/previewAuthStorage.ts]` on Nov 9. Integration/editor `b54b328ae9745ebad67a888806f19d0013c7f1b1` remain **one main commit behind**. The unapproved path is a generated Lovable preview-auth source change (broader UUID syntax + `live--UUID-thr_*` host parsing); do not add an authentication file to the blanket overlay allowlist, reset the Lovable branch, or force-push. A narrowly scoped review PR backports the exact Lovable version to GitHub main and preserves its behavior. **ISS-040 OPEN until clean subsequent apply plus editor parity is observed.** Source sync never deploys Edge or SQL.
+
+## Verified live checkpoint — November 9, 2026 evening (supersedes afternoon labels below)
+
+- **GitHub main:** `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable one-time apply **passed** in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner enabled `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic forward-sync. **ISS-040 remains open solely for unattended post-merge monitoring/acceptance**, not activation or source parity; Edge deploy remains separately gated.
+- **Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment **completed**. Closed-session observation for **ISS-043** and finalize-stage production correlation for **ISS-034** remain open. HTTP 546 root cause remains **NOT YET VERIFIED**.
+- **AM Inbox (ISS-025):** Nov 9 RPC returned **3,776** active rows / **1,525** symbols / ~**4.1 MB**. Batch **217** measures client processing (~**424 ms**) and adds missing symbol-aware Screeners handoffs. Authenticated UI acceptance **NOT VERIFIED**.
+
+## Verified live checkpoint — November 9, 2026 afternoon (historical; superseded above)
 
 - **GitHub main:** `ff81065b8edf5a02c54ba356105965f23466c2ae`. **One-time** GitHub → Lovable source sync succeeded. Integration and editor are `fee9ab51`. The repository activation variable was returned to **false**. Permanent automatic synchronization is **not** active. **ISS-040 stays OPEN** for ongoing automation.
 - **Scanner:** 09:30 ET completed 7/7 chunks, entered finalization, recorded `continue_last_error=http_546`, and aborted without publication. Lovable Edge runtime **v518** was observed. Available logs did not name the failing stage or prove CPU exhaustion. The scanner recovered: 11:50 ET published **113** rows across six tabs. The last 12 observed jobs, 10:55–11:50 ET, all published. **ISS-034 stays OPEN.**
-- **Batch 216 / 216.1:** root cause of the 09:30 HTTP 546 is **NOT YET VERIFIED**. Source-only change persists a bounded `finalize_stage:*` marker via one conditional UPDATE (six durable stages; real errors preserved) and keeps it when the parent records `http_546`. No Edge deploy, migration, cron, or sync activation.
+- **Batch 216 / 216.1:** root cause of the 09:30 HTTP 546 is **NOT YET VERIFIED**. Source-only change persists a bounded `finalize_stage:*` marker via one conditional UPDATE (six durable stages; real errors preserved) and keeps it when the parent records `http_546`. Later owner-reported Edge deploy completed with Batch 215.
 
 ## Verified live checkpoint — November 9, 2026 morning (historical; superseded above)
 

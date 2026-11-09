@@ -1,8 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-09 (Batch 217 — AM Inbox production readiness)
+
+- ISS-025 gate for the November 9 production load: 3,776 active late-session rows / 1,525 symbols (~4.1 MB). Synthetic fixture reproduces map+build in **~424 ms** under the existing 8 s bound. Adds missing symbol-aware **Screeners** handoff on continuation cards (Catalyst / Watchlist / AI Analyst / Journal / Action Center already present). Ranking, qualification, RPCs, and candidate limits unchanged. Runbook `docs/release/batch217-am-inbox-production-readiness-v1.md`. Authenticated UI acceptance still **NOT VERIFIED**.
+- Continuity: owner-reported **Batches 215 and 216 Lovable Cloud Edge deployment completed** after PR #227 / #229 merge. Closed-session observation for ISS-043 and finalize-stage production correlation for ISS-034 remain open.
+
 ## 2026-11-09 (Batch 216.2 — operations marker compatibility)
 
-- Operations Control Center treats standalone `finalize_stage:<stage>` as diagnostic progress, not a runtime failure. `http_546:finalize_stage:<stage>` remains an HTTP 546 Edge resource-limit failure with the stage kept in the message. Frontend classification only; not deployed.
+- Operations Control Center treats standalone `finalize_stage:<stage>` as diagnostic progress, not a runtime failure. `http_546:finalize_stage:<stage>` remains an HTTP 546 Edge resource-limit failure with the stage kept in the message. Frontend classification only. Merged with Batch 216 as PR #229 → `17a31da8`; Edge deploy later owner-reported complete.
 
 ## 2026-11-09 (Batch 216.1 — finalize stage marker safety)
 

@@ -1,10 +1,22 @@
-# Session handoff — Batch 216, November 9, 2026 ET
+# Session handoff — Batch 217, November 9, 2026 ET
+
+**Post-merge checkpoint (current):** PR #230 merged to `main=79260fbb` after Vercel success; AM Inbox authenticated visual acceptance **ISS-025 OPEN**. Auto source-sync push run `42717914109` failed closed (`CONFLICT`) on unexpected Lovable generated `src/integrations/supabase/previewAuthStorage.ts`, so Lovable integration/editor `b54b328a` remain one main commit behind. Do not disable safeguards, force-push or manually resync. Targeted GitHub main PR from `fix/lovable-preview-auth-source-parity-20261109` copies the exact Lovable generated file into canonical main; owner review required before merge. When merged, observe the next automatic sync and verify editor SHA + main ancestry. No Edge deployment or production SQL involved.
+
+**Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable apply succeeded in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic source forward-sync. Unattended future-push acceptance is still pending under ISS-040; this never implies Edge or SQL deployment.
+
+**Edge (owner-reported):** Batches **215** and **216** Lovable Cloud Edge deployment completed. Closed-session skip observation for ISS-043 and production finalize-stage marker correlation for ISS-034 remain open.
+
+**Batch 217 (ISS-025):** AM Inbox Late-Session Continuation production readiness for the Nov 9 load (3,776 rows / 1,525 symbols / ~4.1 MB). Measured client map+build **~424 ms** (bound 8 s). Fixed missing symbol-aware Screeners handoff on continuation cards. No RPC/migration/candidate-limit changes. Authenticated UI acceptance **NOT VERIFIED**.
+
+**Next:** owner review of the Batch 217 PR. Do not merge from this session. After merge + Vercel frontend deploy, authenticate and visually accept AM Inbox continuation. No Edge SQL/cron from this batch.
+
+## Archived handoff — Batch 216, November 9, 2026 ET
 
 **Source:** GitHub `main` `ff81065b8edf5a02c54ba356105965f23466c2ae`. One-time GitHub → Lovable sync succeeded; integration/editor `fee9ab51`. Activation variable returned to **false**. Automatic sync is not active.
 
-**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 / 216.2: durable stage marker via conditional UPDATE; Operations treats standalone `finalize_stage:*` as progress and keeps `http_546:finalize_stage:*` as an Edge resource-limit failure. Not deployed.
+**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 / 216.2: durable stage marker via conditional UPDATE; Operations treats standalone `finalize_stage:*` as progress and keeps `http_546:finalize_stage:*` as an Edge resource-limit failure. Merged as PR #229 → `17a31da8`; Edge later owner-reported deployed.
 
-**Next:** owner review of PR #229. Do not merge, deploy Edge, run migrations, change cron, or turn sync activation back on from this batch. After an approved Edge deploy, confirm one failed or successful finalize row shows `finalize_stage:*` or `http_546:finalize_stage:*` without a duplicate publication.
+**Next (historical):** owner review of PR #229 — completed (merged). Production marker correlation still required.
 
 ## Archived handoff — live read-only audit, November 9, 2026 morning ET
 

@@ -17,6 +17,7 @@ export interface WorkflowSymbolRoutes {
   chart: string;
   stock: string;
   actionCenter: string;
+  screeners: string;
 }
 
 function queryForSymbol(symbol: string, securityId: SecurityId | null | undefined): string {
@@ -46,6 +47,7 @@ export function workflowSymbolRoutes(
     chart: base.chart,
     stock: base.stock,
     actionCenter: `/dashboard/action-center?${q}`,
+    screeners: `/dashboard/screeners?${q}`,
   };
 }
 
@@ -76,7 +78,7 @@ export function buildInboxWorkflowNavigatePath(
     case "watchlist":
       return routes.watchlist;
     case "screeners":
-      return "/dashboard/screeners";
+      return routes.screeners;
     default:
       return null;
   }

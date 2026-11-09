@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "test-user" } }),
+}));
+
 import { PreMarketSymbolActions } from "@/components/pre-market/PreMarketSymbolActions";
 
 describe("PreMarketSymbolActions", () => {
@@ -28,5 +33,8 @@ describe("PreMarketSymbolActions", () => {
     expect(screen.getAllByLabelText("Catalyst for AAPL").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Watchlist for AAPL").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Journal for AAPL").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("Action Center for AAPL").length).toBeGreaterThan(0);
+    const screeners = screen.getAllByLabelText("Screeners for AAPL")[0] as HTMLAnchorElement;
+    expect(screeners.getAttribute("href")).toContain("/dashboard/screeners?symbol=AAPL");
   });
 });
