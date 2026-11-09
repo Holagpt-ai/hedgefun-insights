@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## 2026-11-09 (Batch 216.2 — operations marker compatibility)
+
+- Operations Control Center treats standalone `finalize_stage:<stage>` as diagnostic progress, not a runtime failure. `http_546:finalize_stage:<stage>` remains an HTTP 546 Edge resource-limit failure with the stage kept in the message. Frontend classification only; not deployed.
+
+## 2026-11-09 (Batch 216.1 — finalize stage marker safety)
+
+- Hardens PR #229: `noteFinalizeStage` is one conditional PostgREST UPDATE (`status` + null/marker `or` filter), so a concurrent real error cannot be overwritten by a stale read. Durable markers are limited to six kill-relevant stages (about six round trips, down from ~18). Successful publication still clears `continue_last_error` only via existing `complete_screener_sync_publish_v1`. Root cause of HTTP 546 remains **NOT YET VERIFIED**. Not deployed.
+
+## 2026-11-09 (Batch 216 — scanner finalization stage marker)
+
+- **ROOT CAUSE NOT YET VERIFIED.** 09:30 ET HTTP 546 killed the finalize isolate before a stage was retained; the parent then stored only `http_546`. Batch 216 writes a bounded `finalize_stage:<stage>` marker and keeps it on that status (`http_546:finalize_stage:<stage>`). Publishing, leases, and session control are unchanged. Not deployed. One-time Lovable source sync to `fee9ab51` succeeded with activation returned to false; automatic sync is not active.
+
 ## 2026-11-07 (Batch 215 — unified scanner session control, PR #227)
 
 - **Landed on branch (not merged):** the staged `sync-screener-data` cron no longer starts new generations on weekends, calendar holidays, or weekday nights. Cleanup, reconcile, and in-flight resume are preserved, and `continue`/`finalize` are never gated. The new `_shared/markets/equity-session-control.ts` models the 23×5 schedule (overnight Sun–Thu 21:00–04:00 for the next trading day, the maintenance pause, the weekend) behind disabled-by-default env flags and an overnight-pipeline guard. Futures hours are not used. PR https://github.com/Holagpt-ai/hedgefun-insights/pull/227, code head `01a8d7e3`. **Deployment state checked:** none. **Open:** Lovable Cloud deploy and weekend observation (ISS-043); 23×5 activation prerequisites per the runbook `docs/release/batch215-unified-scanner-session-control-v1.md`.

@@ -260,6 +260,21 @@ export interface RuntimeFailureClassification {
 
 const CPU_MARKERS = /\b(cpu time (soft |hard )?limit|cpu[_ ]limit|exceeded cpu|cpu time exceeded)\b/i;
 
+/** Batch 216 durable progress marker written before a finalize boundary. */
+const FINALIZE_STAGE_PROGRESS_RE = /^finalize_stage:([a-z0-9_]{1,40})$/;
+
+/**
+ * Standalone `finalize_stage:<stage>` values are diagnostic progress, not
+ * runtime failures. Merged forms such as `http_546:finalize_stage:<stage>`
+ * are not matched here — those remain HTTP 546 failures with the stage kept
+ * in the message as supporting evidence.
+ */
+export function parseFinalizeStageProgress(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const match = raw.trim().match(FINALIZE_STAGE_PROGRESS_RE);
+  return match?.[1] ?? null;
+}
+
 /**
  * Classify a recorded runtime failure string.
  *
@@ -268,10 +283,14 @@ const CPU_MARKERS = /\b(cpu time (soft |hard )?limit|cpu[_ ]limit|exceeded cpu|c
  *   memory). Project history attributes Nov 4 546s to CPU, but the string
  *   alone does not prove which resource.
  * - Generic 5xx, wall-clock timeouts and aborts are never CPU exhaustion.
+ * - Standalone finalize stage markers are progress, not failures.
  */
 export function classifyRuntimeFailure(raw: unknown): RuntimeFailureClassification | null {
   const message = safeDisplayText(raw, 300);
   if (!message) return null;
+  if (parseFinalizeStageProgress(raw) !== null || parseFinalizeStageProgress(message) !== null) {
+    return null;
+  }
   const statusMatch = message.match(/\b(?:http[_ ]?|status[ =:]*)?([45]\d\d)\b/i);
   const httpStatus = statusMatch ? Number(statusMatch[1]) : null;
 
@@ -424,14 +443,22 @@ export function classifyGenerationJob(job: GenerationJobOpsRecord, nowMs: number
           `All ${chunkText} completed but finalize failed${failure ? ` — ${failure.label}` : ""}.`,
         )
         : make("failed_during_chunking", "failing", `Failed after ${chunkText}${failure ? ` — ${failure.label}` : ""}.`);
-    case "finalizing":
+    case "finalizing": {
+      const progressStage = parseFinalizeStageProgress(job.continue_last_error);
       return finalizeLeaseExpired || leaseExpired
         ? make(
           "stranded_finalizing",
           "failing",
           `Stranded in finalizing with an expired lease after ${chunkText}${failure ? ` — ${failure.label}` : ""}.`,
         )
-        : make("finalizing", "healthy", `Finalizing after ${chunkText}; lease active.`);
+        : make(
+          "finalizing",
+          "healthy",
+          progressStage
+            ? `Finalizing after ${chunkText}; lease active (progress: ${progressStage}).`
+            : `Finalizing after ${chunkText}; lease active.`,
+        );
+    }
     case "chunking":
       return leaseExpired
         ? make(

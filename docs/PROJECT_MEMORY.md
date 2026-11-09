@@ -2,7 +2,13 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Verified live checkpoint — November 9, 2026 (read-only; supersedes older “current” labels)
+## Verified live checkpoint — November 9, 2026 afternoon (read-only; supersedes the morning labels below)
+
+- **GitHub main:** `ff81065b8edf5a02c54ba356105965f23466c2ae`. **One-time** GitHub → Lovable source sync succeeded. Integration and editor are `fee9ab51`. The repository activation variable was returned to **false**. Permanent automatic synchronization is **not** active. **ISS-040 stays OPEN** for ongoing automation.
+- **Scanner:** 09:30 ET completed 7/7 chunks, entered finalization, recorded `continue_last_error=http_546`, and aborted without publication. Lovable Edge runtime **v518** was observed. Available logs did not name the failing stage or prove CPU exhaustion. The scanner recovered: 11:50 ET published **113** rows across six tabs. The last 12 observed jobs, 10:55–11:50 ET, all published. **ISS-034 stays OPEN.**
+- **Batch 216 / 216.1:** root cause of the 09:30 HTTP 546 is **NOT YET VERIFIED**. Source-only change persists a bounded `finalize_stage:*` marker via one conditional UPDATE (six durable stages; real errors preserved) and keeps it when the parent records `http_546`. No Edge deploy, migration, cron, or sync activation.
+
+## Verified live checkpoint — November 9, 2026 morning (historical; superseded above)
 
 - **GitHub main:** `c7cf47eea30a70b86a6edae03b572268d2202b15` (Batch 215, PR #227, merged Nov 7). Batches 210–215 / PRs #220–#227 are merged, including #223 (source-sync controller), #224 (Operations UI), #225 (diagnostics RPC source), #226 (admin guard), #227 (closed-session/23×5-ready session control). Older “PR not merged” paragraphs below are dated historical records, not current Git status.
 - **Source-sync not complete:** integration branch `cursor/lovable-sync-from-main-20261024` and Lovable project active SHA both `a751f7d5854114fab651f0fbd29214c3da5bff0d`. GitHub compare `main...integration`: integration **behind by 5** main commits, **ahead by 86** Lovable-overlay commits. Latest Batch 211 push workflow run `42378183167` checked successfully; apply job **SKIPPED**. **ISS-040 OPEN.** Do not bypass guarded workflow, reset, rebase, force-push, or auto-merge the overlay back into main. Owner-approved activation of `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` must be separately controlled and disabled after a one-shot acceptance unless ongoing automation is separately approved.

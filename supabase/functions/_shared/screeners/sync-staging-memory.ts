@@ -14,6 +14,11 @@ import { jobToPreflightView } from "./sync-staging-serialize.ts";
 import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
+import {
+  continueLastErrorAllowsFinalizeStageMarker,
+  formatFinalizeStageMarker,
+  mergePlatformKillWithFinalizeStage,
+} from "./sync-finalize-diagnostics.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import {
   emptyChunkArtifacts,
@@ -111,6 +116,12 @@ export interface SyncStagingStore {
     action: string;
     ok: boolean;
     error?: string;
+    nowMs: number;
+  }): Promise<void>;
+  /** Best-effort breadcrumb. Does not overwrite a real dispatch or publish error. */
+  noteFinalizeStage(params: {
+    jobId: string;
+    stage: import("./sync-finalize-diagnostics.ts").FinalizeStage;
     nowMs: number;
   }): Promise<void>;
   abortExpired(nowMs: number): Promise<number>;
@@ -445,11 +456,28 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     if (params.ok) {
       if (job.status !== "failed") job.continueLastError = null;
     } else {
-      const err = params.error ?? "continue_failed";
+      const err = mergePlatformKillWithFinalizeStage(
+        params.error ?? "continue_failed",
+        job.continueLastError,
+      );
       if (job.status !== "failed" || !job.continueLastError) {
         job.continueLastError = err;
       }
     }
+    job.updatedAtMs = params.nowMs;
+    this.jobs.set(params.jobId, job);
+  }
+
+  async noteFinalizeStage(params: {
+    jobId: string;
+    stage: import("./sync-finalize-diagnostics.ts").FinalizeStage;
+    nowMs: number;
+  }): Promise<void> {
+    const job = this.jobs.get(params.jobId);
+    if (!job) return;
+    if (job.status !== "chunking" && job.status !== "finalizing") return;
+    if (!continueLastErrorAllowsFinalizeStageMarker(job.continueLastError)) return;
+    job.continueLastError = formatFinalizeStageMarker(params.stage);
     job.updatedAtMs = params.nowMs;
     this.jobs.set(params.jobId, job);
   }

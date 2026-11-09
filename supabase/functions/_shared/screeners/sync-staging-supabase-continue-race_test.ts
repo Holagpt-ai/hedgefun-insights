@@ -96,6 +96,9 @@ function racingClient(row: StagingJobRow, onMetadataWrite?: () => Promise<void>)
                   allowed = vals;
                   return builder;
                 },
+                or(_filters: string) {
+                  return builder;
+                },
                 then(
                   resolve: (value: { error: null }) => unknown,
                   reject?: (reason: unknown) => unknown,
