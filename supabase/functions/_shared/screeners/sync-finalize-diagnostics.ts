@@ -55,14 +55,72 @@ export function classifyFinalizeError(
   };
 }
 
+const FINALIZE_STAGE_MARKER_RE = /^finalize_stage:[a-z0-9_]{1,40}$/;
+
+/**
+ * PostgREST `or` filter for a single conditional marker write.
+ * Matches null or an existing stage marker so real errors are never replaced.
+ */
+export const FINALIZE_STAGE_MARKER_WRITE_OR_FILTER =
+  "continue_last_error.is.null,continue_last_error.like.finalize_stage:*";
+
+/**
+ * Durable DB markers are limited to kill-relevant boundaries so finalize does
+ * not add a PostgREST round trip at every console stage enter.
+ */
+export const DURABLE_FINALIZE_STAGE_MARKERS: ReadonlySet<FinalizeStage> = new Set([
+  "load_job",
+  "claim_finalize_lease",
+  "merge_selections",
+  "build_rows",
+  "build_evidence",
+  "atomic_publish",
+]);
+
+/** Bounded job marker written before a finalize stage. Survives an isolate kill. */
+export function formatFinalizeStageMarker(stage: FinalizeStage): string {
+  return `finalize_stage:${stage}`;
+}
+
+export function isFinalizeStageMarker(value: string | null | undefined): boolean {
+  return typeof value === "string" && FINALIZE_STAGE_MARKER_RE.test(value);
+}
+
+/** True when a marker write may replace the current continue_last_error value. */
+export function continueLastErrorAllowsFinalizeStageMarker(
+  value: string | null | undefined,
+): boolean {
+  return value == null || isFinalizeStageMarker(value);
+}
+
+export function shouldPersistFinalizeStageMarker(stage: FinalizeStage): boolean {
+  return DURABLE_FINALIZE_STAGE_MARKERS.has(stage);
+}
+
+/**
+ * Parent continue dispatch records `http_546` after the child isolate is killed.
+ * Keep the last stage marker so the resource-limit row still names the boundary.
+ */
+export function mergePlatformKillWithFinalizeStage(
+  dispatchError: string,
+  existing: string | null | undefined,
+): string {
+  if (!dispatchError.startsWith("http_")) return dispatchError;
+  if (!isFinalizeStageMarker(existing)) return dispatchError;
+  const merged = `${dispatchError}:${existing}`;
+  return merged.length <= 80 ? merged : dispatchError;
+}
+
 export function logFinalizeStageEnter(input: {
   generationId: string;
   stage: FinalizeStage;
   syncRunId?: string;
+  action?: string;
 }): void {
   try {
     console.log(
       `[sync-screener-data] staged_finalize_stage_enter generation_id=${input.generationId}` +
+        (input.action ? ` action=${input.action}` : "") +
         (input.syncRunId ? ` sync_run_id=${input.syncRunId}` : "") +
         ` stage=${input.stage}`,
     );

@@ -1,4 +1,12 @@
-# Session handoff — live read-only audit, November 9, 2026 ET
+# Session handoff — Batch 216, November 9, 2026 ET
+
+**Source:** GitHub `main` `ff81065b8edf5a02c54ba356105965f23466c2ae`. One-time GitHub → Lovable sync succeeded; integration/editor `fee9ab51`. Activation variable returned to **false**. Automatic sync is not active.
+
+**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 / 216.2: durable stage marker via conditional UPDATE; Operations treats standalone `finalize_stage:*` as progress and keeps `http_546:finalize_stage:*` as an Edge resource-limit failure. Not deployed.
+
+**Next:** owner review of PR #229. Do not merge, deploy Edge, run migrations, change cron, or turn sync activation back on from this batch. After an approved Edge deploy, confirm one failed or successful finalize row shows `finalize_stage:*` or `http_546:finalize_stage:*` without a duplicate publication.
+
+## Archived handoff — live read-only audit, November 9, 2026 morning ET
 
 **Read-only evidence checkpoint:** GitHub `main` `c7cf47eea30a70b86a6edae03b572268d2202b15` and Lovable integration/editor `a751f7d5854114fab651f0fbd29214c3da5bff0d`; Batch 211 check passed but apply was SKIPPED (run `42378183167`). All PRs #220–#227 are merged; **no** source sync or Edge deploy was performed by this audit. Source-sync acceptance **ISS-040 OPEN**.
 

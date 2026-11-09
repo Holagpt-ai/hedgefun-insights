@@ -23,6 +23,11 @@ import {
 } from "./sync-staging-serialize.ts";
 import { formatStagedPublishRpcTransportFailure } from "./sync-publish-rpc-error.ts";
 import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-reconcile.ts";
+import {
+  FINALIZE_STAGE_MARKER_WRITE_OR_FILTER,
+  formatFinalizeStageMarker,
+  mergePlatformKillWithFinalizeStage,
+} from "./sync-finalize-diagnostics.ts";
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 
 export type StagingTableClient = {
@@ -69,9 +74,12 @@ type StagingUpdateResult = Promise<{
   error: { message: string; code?: string } | null;
 }>;
 
-type StagingUpdateEqChain = StagingUpdateResult & {
-  in: (col: string, vals: string[]) => StagingUpdateResult;
+type StagingUpdateFilterChain = StagingUpdateResult & {
+  in: (col: string, vals: string[]) => StagingUpdateFilterChain;
+  or: (filters: string) => StagingUpdateFilterChain;
 };
+
+type StagingUpdateEqChain = StagingUpdateFilterChain;
 
 const TABLE = "screener_sync_generation_jobs";
 
@@ -609,15 +617,55 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
       updated_at: nowIso,
     }).eq("id", params.jobId);
 
-    const continueLastError = params.ok
+    let continueLastError = params.ok
       ? null
       : (params.error ?? "continue_failed");
+    // Only platform-kill statuses need the prior marker. Skip the SELECT on
+    // ordinary continue failures so the hot path stays one predicated UPDATE.
+    if (!params.ok && continueLastError?.startsWith("http_")) {
+      try {
+        const prior = await this.sb
+          .from(TABLE)
+          .select("continue_last_error")
+          .eq("id", params.jobId)
+          .limit(1);
+        const row = prior.data?.[0] as { continue_last_error?: string | null } | undefined;
+        continueLastError = mergePlatformKillWithFinalizeStage(
+          continueLastError,
+          row?.continue_last_error ?? null,
+        );
+      } catch {
+        /* keep the dispatch status if the marker read fails */
+      }
+    }
     await this.sb.from(TABLE).update({
       continue_last_error: continueLastError,
       updated_at: nowIso,
     })
       .eq("id", params.jobId)
       .in("status", [...CONTINUATION_ERROR_STATUSES]);
+  }
+
+  async noteFinalizeStage(params: {
+    jobId: string;
+    stage: import("./sync-finalize-diagnostics.ts").FinalizeStage;
+    nowMs: number;
+  }): Promise<void> {
+    const nowIso = new Date(params.nowMs).toISOString();
+    const marker = formatFinalizeStageMarker(params.stage);
+    try {
+      // Single conditional UPDATE: never replace finalize_failed:*, http_*, or
+      // other real errors, and never race a SELECT with a concurrent writer.
+      await this.sb.from(TABLE).update({
+        continue_last_error: marker,
+        updated_at: nowIso,
+      })
+        .eq("id", params.jobId)
+        .in("status", [...CONTINUATION_ERROR_STATUSES])
+        .or(FINALIZE_STAGE_MARKER_WRITE_OR_FILTER);
+    } catch {
+      /* diagnostic only */
+    }
   }
 }
 
