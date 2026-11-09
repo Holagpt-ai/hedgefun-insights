@@ -1,6 +1,6 @@
 # Session handoff — live read-only audit, November 9, 2026 ET
 
-**Read-only evidence checkpoint:** GitHub `main` `c7cf47eea30a70b86a6edae03b572268d2202b15` and Lovable integration/editor `3ec5f7cd193ff49d03782781421fcbae3bd4678e`; Batch 211 check passed but apply was SKIPPED (run `42378183167`). All PRs #220–#227 are merged; **no** source sync or Edge deploy was performed by this audit. Source-sync acceptance **ISS-040 OPEN**.
+**Read-only evidence checkpoint:** GitHub `main` `c7cf47eea30a70b86a6edae03b572268d2202b15` and Lovable integration/editor `a751f7d5854114fab651f0fbd29214c3da5bff0d`; Batch 211 check passed but apply was SKIPPED (run `42378183167`). All PRs #220–#227 are merged; **no** source sync or Edge deploy was performed by this audit. Source-sync acceptance **ISS-040 OPEN**.
 
 **Production scanner (Nov 9):** 61 premarket publishes through 09:00 ET; 09:05 7/7 job later aborted, recovered with 09:20 and 09:25 successful 94-row publications; 09:30 7/7 job recorded `http_546` and was still finalizing without publish at ~09:38 ET. Friday Nov 6 RTH 47 published and 26 aborted; AH 48 published. Nov 7 and Nov 8 each 288 closed-session aborts. **ISS-034 OPEN**; correlate 09:30 Edge logs before assigning CPU root cause, then complete repeated RTH/AH publication and tab evidence matrix. **ISS-043 OPEN:** Batch 215 merged but production Edge not verified.
 
@@ -14,6 +14,8 @@
 5. Record confirmed source/deploy/DB evidence in the continuity docs; keep completed implementation in CHANGELOG and only unfinished acceptance in active backlog.
 
 **Safety:** No production SQL, Edge/Fly deploy, Vercel publish, cron/config/secret change, branch force-push, or PR merge is authorized by this documentation audit. Old source snapshots below are preserved as historical handoffs.
+
+**09:42 ET log/source follow-up:** Lovable's diagnostic read found Edge runtime **version 518**, a **09:35 ET HTTP 409** for `sync-screener-data`, but no matching 09:30 HTTP 546 request record, stage-enter/exit evidence, or explicit `CPU Time exceeded` message in its sampled 14:25–14:40 UTC log window. The **database** `continue_last_error=http_546` on the 09:30 job remains confirmed. Exact runtime failure stage and CPU-vs-other-resource cause remain **UNVERIFIED**; prioritize correlating logs and bounded stage tracing, not speculative infrastructure changes. During this Lovable **plan-mode** log review, Lovable created **two Git commits altering only `.lovable/plan.md`**; the new integration **and editor** tip is `a751f7d5854114fab651f0fbd29214c3da5bff0d`, **86 commits ahead** of main and still **5 behind**. GitHub compare verified no other path changed between the previous and new integration tips. The plan artifact is a Lovable-only overlay, not a backend deployment.
 
 ## Archived previous handoff — November 7
 
