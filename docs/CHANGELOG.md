@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-09 (Batch 216.2 — operations marker compatibility)
+
+- Operations Control Center treats standalone `finalize_stage:<stage>` as diagnostic progress, not a runtime failure. `http_546:finalize_stage:<stage>` remains an HTTP 546 Edge resource-limit failure with the stage kept in the message. Frontend classification only; not deployed.
+
 ## 2026-11-09 (Batch 216.1 — finalize stage marker safety)
 
 - Hardens PR #229: `noteFinalizeStage` is one conditional PostgREST UPDATE (`status` + null/marker `or` filter), so a concurrent real error cannot be overwritten by a stale read. Durable markers are limited to six kill-relevant stages (about six round trips, down from ~18). Successful publication still clears `continue_last_error` only via existing `complete_screener_sync_publish_v1`. Root cause of HTTP 546 remains **NOT YET VERIFIED**. Not deployed.
