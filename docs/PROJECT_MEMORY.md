@@ -6,7 +6,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 - **GitHub main:** `ff81065b8edf5a02c54ba356105965f23466c2ae`. **One-time** GitHub → Lovable source sync succeeded. Integration and editor are `fee9ab51`. The repository activation variable was returned to **false**. Permanent automatic synchronization is **not** active. **ISS-040 stays OPEN** for ongoing automation.
 - **Scanner:** 09:30 ET completed 7/7 chunks, entered finalization, recorded `continue_last_error=http_546`, and aborted without publication. Lovable Edge runtime **v518** was observed. Available logs did not name the failing stage or prove CPU exhaustion. The scanner recovered: 11:50 ET published **113** rows across six tabs. The last 12 observed jobs, 10:55–11:50 ET, all published. **ISS-034 stays OPEN.**
-- **Batch 216:** root cause of the 09:30 HTTP 546 is **NOT YET VERIFIED**. Source-only change persists a bounded `finalize_stage:*` marker and keeps it when the parent records `http_546`. No Edge deploy, migration, cron, or sync activation.
+- **Batch 216 / 216.1:** root cause of the 09:30 HTTP 546 is **NOT YET VERIFIED**. Source-only change persists a bounded `finalize_stage:*` marker via one conditional UPDATE (six durable stages; real errors preserved) and keeps it when the parent records `http_546`. No Edge deploy, migration, cron, or sync activation.
 
 ## Verified live checkpoint — November 9, 2026 morning (historical; superseded above)
 

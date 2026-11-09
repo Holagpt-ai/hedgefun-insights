@@ -15,8 +15,8 @@ import { jobEligibleForPostPublishReconcile } from "./sync-staging-post-publish-
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 import type { ReleaseFinalizeLeaseCas } from "./sync-finalize-lease-release.ts";
 import {
+  continueLastErrorAllowsFinalizeStageMarker,
   formatFinalizeStageMarker,
-  isFinalizeStageMarker,
   mergePlatformKillWithFinalizeStage,
 } from "./sync-finalize-diagnostics.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
@@ -476,7 +476,7 @@ export class MemorySyncStagingStore implements SyncStagingStore {
     const job = this.jobs.get(params.jobId);
     if (!job) return;
     if (job.status !== "chunking" && job.status !== "finalizing") return;
-    if (job.continueLastError && !isFinalizeStageMarker(job.continueLastError)) return;
+    if (!continueLastErrorAllowsFinalizeStageMarker(job.continueLastError)) return;
     job.continueLastError = formatFinalizeStageMarker(params.stage);
     job.updatedAtMs = params.nowMs;
     this.jobs.set(params.jobId, job);

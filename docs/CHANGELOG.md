@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-09 (Batch 216.1 — finalize stage marker safety)
+
+- Hardens PR #229: `noteFinalizeStage` is one conditional PostgREST UPDATE (`status` + null/marker `or` filter), so a concurrent real error cannot be overwritten by a stale read. Durable markers are limited to six kill-relevant stages (about six round trips, down from ~18). Successful publication still clears `continue_last_error` only via existing `complete_screener_sync_publish_v1`. Root cause of HTTP 546 remains **NOT YET VERIFIED**. Not deployed.
+
 ## 2026-11-09 (Batch 216 — scanner finalization stage marker)
 
 - **ROOT CAUSE NOT YET VERIFIED.** 09:30 ET HTTP 546 killed the finalize isolate before a stage was retained; the parent then stored only `http_546`. Batch 216 writes a bounded `finalize_stage:<stage>` marker and keeps it on that status (`http_546:finalize_stage:<stage>`). Publishing, leases, and session control are unchanged. Not deployed. One-time Lovable source sync to `fee9ab51` succeeded with activation returned to false; automatic sync is not active.

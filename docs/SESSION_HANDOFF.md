@@ -2,9 +2,9 @@
 
 **Source:** GitHub `main` `ff81065b8edf5a02c54ba356105965f23466c2ae`. One-time GitHub → Lovable sync succeeded; integration/editor `fee9ab51`. Activation variable returned to **false**. Automatic sync is not active.
 
-**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 only adds a durable bounded stage marker so a future `http_546` keeps the last finalize boundary. Not deployed.
+**ISS-034:** 09:30 ET 7/7 finalize recorded `http_546` and aborted without publication. Edge v518 logs did not identify the stage or prove CPU exhaustion. Recovered: 11:50 ET published 113 rows / six tabs; 10:55–11:50 ET, 12/12 published. **ROOT CAUSE NOT YET VERIFIED.** Batch 216 / 216.1 add a durable bounded stage marker via one conditional UPDATE so a future `http_546` keeps the last kill-relevant boundary without overwriting real errors. Not deployed.
 
-**Next:** owner review of the Batch 216 PR. Do not merge, deploy Edge, run migrations, change cron, or turn sync activation back on from this batch. After an approved Edge deploy, confirm one failed or successful finalize row shows `finalize_stage:*` or `http_546:finalize_stage:*` without a duplicate publication.
+**Next:** owner review of PR #229. Do not merge, deploy Edge, run migrations, change cron, or turn sync activation back on from this batch. After an approved Edge deploy, confirm one failed or successful finalize row shows `finalize_stage:*` or `http_546:finalize_stage:*` without a duplicate publication.
 
 ## Archived handoff — live read-only audit, November 9, 2026 morning ET
 

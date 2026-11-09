@@ -20,6 +20,7 @@ import {
   logFinalizeStageEnter,
   logFinalizeStageExit,
   logFinalizeStageTimings,
+  shouldPersistFinalizeStageMarker,
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
@@ -656,6 +657,7 @@ async function finalizeStagedScreenerGeneration(
       syncRunId,
       action: "finalize",
     });
+    if (!shouldPersistFinalizeStageMarker(next)) return;
     try {
       await store.noteFinalizeStage({
         jobId: generationId,

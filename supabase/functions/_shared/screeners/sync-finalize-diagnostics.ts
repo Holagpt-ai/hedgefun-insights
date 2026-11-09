@@ -57,6 +57,26 @@ export function classifyFinalizeError(
 
 const FINALIZE_STAGE_MARKER_RE = /^finalize_stage:[a-z0-9_]{1,40}$/;
 
+/**
+ * PostgREST `or` filter for a single conditional marker write.
+ * Matches null or an existing stage marker so real errors are never replaced.
+ */
+export const FINALIZE_STAGE_MARKER_WRITE_OR_FILTER =
+  "continue_last_error.is.null,continue_last_error.like.finalize_stage:*";
+
+/**
+ * Durable DB markers are limited to kill-relevant boundaries so finalize does
+ * not add a PostgREST round trip at every console stage enter.
+ */
+export const DURABLE_FINALIZE_STAGE_MARKERS: ReadonlySet<FinalizeStage> = new Set([
+  "load_job",
+  "claim_finalize_lease",
+  "merge_selections",
+  "build_rows",
+  "build_evidence",
+  "atomic_publish",
+]);
+
 /** Bounded job marker written before a finalize stage. Survives an isolate kill. */
 export function formatFinalizeStageMarker(stage: FinalizeStage): string {
   return `finalize_stage:${stage}`;
@@ -64,6 +84,17 @@ export function formatFinalizeStageMarker(stage: FinalizeStage): string {
 
 export function isFinalizeStageMarker(value: string | null | undefined): boolean {
   return typeof value === "string" && FINALIZE_STAGE_MARKER_RE.test(value);
+}
+
+/** True when a marker write may replace the current continue_last_error value. */
+export function continueLastErrorAllowsFinalizeStageMarker(
+  value: string | null | undefined,
+): boolean {
+  return value == null || isFinalizeStageMarker(value);
+}
+
+export function shouldPersistFinalizeStageMarker(stage: FinalizeStage): boolean {
+  return DURABLE_FINALIZE_STAGE_MARKERS.has(stage);
 }
 
 /**
