@@ -18,6 +18,8 @@ if (/lovable|supabase\.co|zcjptaolpumhtlwhlemq/i.test(url)) {
 }
 
 const migrationsDir = join(process.cwd(), "supabase", "migrations");
+const bootstrapDir = join(process.cwd(), "supabase", "tests", "radar-v22-pg");
+const bootstrap = join(bootstrapDir, "00-bootstrap.sql");
 
 const RADAR_V22_MIGRATION_CHAIN = [
   "20260813210000_radar_v22.sql",
@@ -50,6 +52,7 @@ function runSql(label, filePath) {
 }
 
 console.log("Radar V22 PG test bootstrap…");
+runSql("00-bootstrap", bootstrap);
 for (const file of RADAR_V22_MIGRATION_CHAIN) {
   runSql(file, join(migrationsDir, file));
 }
