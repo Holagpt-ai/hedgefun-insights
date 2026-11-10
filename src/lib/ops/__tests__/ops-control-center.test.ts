@@ -8,7 +8,11 @@ import {
   type FeedStateOpsRow,
   type GenerationJobOpsRecord,
 } from "@/lib/ops/scanner";
-import { buildWorkerOpsView, type RadarFeedOpsRow } from "@/lib/ops/worker";
+import {
+  assessV2PublicationFreshness,
+  buildWorkerOpsView,
+  type RadarFeedOpsRow,
+} from "@/lib/ops/worker";
 import {
   classifyAttestedRuntime,
   classifyFrontendBuild,
@@ -100,7 +104,7 @@ function radarRow(over: Partial<RadarFeedOpsRow> = {}): RadarFeedOpsRow {
     session_date: "2026-11-06",
     updated_at: iso(RTH_NOW - 30_000),
     synced_at: iso(RTH_NOW - 30_000),
-    v2_synced_at: null,
+    v2_synced_at: iso(RTH_NOW - 30_000),
     last_receive_at: iso(RTH_NOW - 30_000),
     last_provider_event_at: iso(RTH_NOW - 16 * 60_000),
     feed_stale: false,
@@ -344,6 +348,48 @@ describe("Fly worker telemetry", () => {
   });
   it("missing connection state is unknown, not healthy", () => {
     expect(buildWorkerOpsView(radarRow({ feed_connection_state: null }), ctx(RTH_NOW)).status).toBe("unknown");
+  });
+  it("fresh checkpoint does not mask stale V2 publication during RTH", () => {
+    const v = buildWorkerOpsView(
+      radarRow({
+        v2_synced_at: iso(RTH_NOW - 20 * 3_600_000),
+        session_kind: "after-hours",
+        session_date: "2026-11-05",
+      }),
+      ctx(RTH_NOW),
+    );
+    expect(v.status).toBe("degraded");
+    expect(v.v2PublicationStatus).toBe("degraded");
+    expect(v.explanation).toContain("session_kind");
+  });
+  it("V2 publication stalled 8 minutes degrades with fresh worker checkpoint", () => {
+    const v = buildWorkerOpsView(
+      radarRow({
+        updated_at: iso(RTH_NOW - 20_000),
+        v2_synced_at: iso(RTH_NOW - 8 * 60_000),
+        session_kind: "market",
+        session_date: "2026-11-06",
+      }),
+      ctx(RTH_NOW),
+    );
+    expect(v.status).toBe("degraded");
+    expect(v.v2PublicationStatus).toBe("degraded");
+    expect(v.explanation).toContain("V2 publication");
+  });
+  it("V2 publication within cadence stays healthy when session aligned", () => {
+    const assessment = assessV2PublicationFreshness(
+      radarRow({ v2_synced_at: iso(RTH_NOW - 45_000) }),
+      ctx(RTH_NOW),
+    );
+    expect(assessment.status).toBe("healthy");
+  });
+  it("closed session does not alarm on old V2 publication", () => {
+    const v = buildWorkerOpsView(
+      radarRow({ v2_synced_at: iso(WEEKEND_NOW - 48 * 3_600_000) }),
+      ctx(WEEKEND_NOW),
+    );
+    expect(v.v2PublicationStatus).toBe("not_applicable");
+    expect(v.status).toBe("not_applicable");
   });
 });
 

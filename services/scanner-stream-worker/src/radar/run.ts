@@ -251,7 +251,7 @@ export function startRadarV22(opts: {
         nowMs,
       });
       if (v2 !== "skipped" && !v2.ok) {
-        notePersistFailure(v2.code);
+        notePersistFailure(v2.code ?? "persist_failed");
         log("error", "radar_persist_v2_failed", { code: v2.code });
       } else {
         tryClearPersistFailure({ v2, v1Attempted: false, v1Ok: true });
@@ -326,7 +326,7 @@ export function startRadarV22(opts: {
       nowMs,
     });
     if (v2 !== "skipped" && !v2.ok) {
-      notePersistFailure(v2.code);
+      notePersistFailure(v2.code ?? "persist_failed");
       log("error", "radar_persist_v2_failed", { code: v2.code });
     } else {
       tryClearPersistFailure({

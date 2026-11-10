@@ -1,5 +1,22 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 219.2 — Radar V2 closed-session snapshot integrity, ISS-044)
+
+- Same pending RPC `20261110193000`: closed-session snapshot copy uses **named columns** instead of `SELECT c.*`. Production physical order diverges (candidates col 48 `promotion_reason` vs snapshot col 48 `snapshot_kind`); positional insert aborted closed/carryover copies (both tables empty). Cross-date 219.1 delete-before-insert preserved.
+- Postgres tests: AH → closed park, participation field copy, `snapshot_kind`/`captured_at`, V2 timestamp/session transition, next-date carryover archive, failed-tx retention. **Not applied.**
+
+## 2026-11-10 (Batch 219.1 — Radar V2 cross-date candidate replace, ISS-044)
+
+- Migration `20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`: delete prior `trading_date` rows **before** INSERT under global `(symbol)` PK (fixes 23505 class failures on surveillance date advance).
+- Postgres regression `batch219-cross-date-replace-postgres_test.ts`; CI bootstrap `scripts/supabase/radar-v22-pg-test-setup.mjs`. **Not applied** to production.
+
+## 2026-11-10 (Batch 219 — Radar V2 publication recovery, ISS-044)
+
+- **Fly worker:** any RPC `applied: false` fails closed; churn **`skipped`** no longer clears persist-failure telemetry when V2 is enabled.
+- **Operations:** V2 freshness uses **~120 s** publication cadence (no 15-minute provider allowance on `v2_synced_at`); session alignment checks unchanged.
+- **Production (read-only Fly):** V2 attempts active; sample failures **`23505`** / 502 — **`stale_generation` not observed in logs**; worker **v46** predates PR. Runbook updated.
+- Tests: Deno `persist_v2_test` / `run-health_test`; Vitest ops control center. Runbook `docs/release/batch219-radar-v2-recovery-v1.md`. **No deploy.** ISS-044 **OPEN** until Fly + Vercel acceptance.
+
 ## 2026-11-10 (Batch 191 — scanner acceptance, ledger attestation update on PR #233)
 
 - **Documentation-only** (PR **#233** revision): owner-verified **`screener_sync_generation_jobs`** via **read-only Lovable Cloud** (not anon REST). ET session publication/abort totals Nov **6/9/10**; Nov **10** RTH-to-1:30 **43** pubs, all **7/7** + publish RPC; feed **107** rows, tabs **`evaluated`**. Distinct layers: ledger vs per-job tab evidence vs UI. **Nov 10 AH not accepted.** **ISS-034** / **ISS-024** **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`.

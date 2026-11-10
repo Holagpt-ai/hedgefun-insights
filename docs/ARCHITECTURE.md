@@ -48,7 +48,7 @@ Fly stocksist-ai-trader-shadow-worker
 - **Lovable Cloud:** executes production Supabase deploys and configuration against that project.
 - **Vercel:** hosts the public SPA at `https://stocksist.com`.
 - Edge Functions live in `supabase/functions/`. Shared code is `supabase/functions/_shared/`.
-- The Radar worker image is `services/scanner-stream-worker` (`fly.radar.toml`). It publishes the 52-week baseline and, while it holds the lease, the Radar V2.2 board. It does not hold the service-role key.
+- The Radar worker image is `services/scanner-stream-worker` (`fly.radar.toml`). It publishes the 52-week baseline and, while it holds the lease, the Radar V2.2 board. It does not hold the service-role key. V2 replace (`replace_radar_v22_candidates_v1`) copies closed-session rows into `radar_v22_closed_snapshot` with **named columns** (pending `20261110193000`); `SELECT c.*` is unsafe because snapshot metadata columns sit at different physical ordinals than later candidate attributes.
 - Historical catch-up is `services/historical-backfill-job` (`fly.historical-backfill.toml`).
 - SEC egress is `services/sec-egress-gateway`. Catalyst remains on direct Supabase egress until `SEC_TRANSPORT_MODE=gateway` is set. That switch is not part of ordinary app merges.
 - AI Trader shadow orchestration is `services/ai-trader-shadow-worker`. Product work is deferred.
