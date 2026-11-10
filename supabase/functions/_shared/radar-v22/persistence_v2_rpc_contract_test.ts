@@ -12,7 +12,7 @@ const SCHEMA_MIGRATION_REL =
 const LOVABLE_FULL_MIGRATION_NAME =
   "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
 const LATEST_RPC_MIGRATION_NAME =
-  "20261015143000_radar_v22_replace_rpc_set_based_events_v1.sql";
+  "20261110193000_radar_v22_cross_date_candidate_delete_v1.sql";
 const LATEST_RPC_MIGRATION_REL =
   `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";
@@ -106,10 +106,25 @@ Deno.test("static: events persist with set-based INSERT", async () => {
   assertFalse(body.includes("INSERT INTO public.radar_v22_events (\n      trading_date, session_kind, symbol, event_type, event_at, generation_id, recorded_at\n    ) VALUES ("));
 });
 
-Deno.test("static: candidate delete scoped to trading date", async () => {
+Deno.test("static: prior trading_date rows deleted before candidate INSERT", async () => {
   const body = functionBody(await loadRpc());
-  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date"));
-  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date"));
+  const insertAt = body.indexOf("INSERT INTO public.radar_v22_candidates");
+  const deleteOlderAt = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date",
+  );
+  const deleteSameAt = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date",
+  );
+  assert(insertAt >= 0, "missing candidate INSERT");
+  assert(deleteOlderAt >= 0, "missing prior-date DELETE");
+  assert(deleteSameAt >= 0, "missing same-date DELETE");
+  assert(deleteOlderAt < insertAt, "prior-date DELETE must precede INSERT");
+  assert(deleteSameAt < insertAt, "same-date DELETE must precede INSERT");
+  const postInsertOlder = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date",
+    insertAt,
+  );
+  assertEquals(postInsertOlder, -1, "must not delete prior-date only after INSERT");
   assertFalse(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE true"));
 });
 

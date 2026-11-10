@@ -2,7 +2,7 @@
 
 **Source:** GitHub `main` (post Batch 191 PR **#233** merge).
 
-**Batch 219 (ISS-044, P0):** Worker + Operations fix for stalled V2 publication and false **Healthy** worker rollup. Confirmed code defects + Ops V2 cadence; production stall mechanism **not proven** as `stale_generation` (read-only Fly: V2 enabled, **`23505`** / 502 on `publish_candidates_v2`). PR [#234](https://github.com/Holagpt-ai/hedgefun-insights/pull/234) head `a9310d93` — **not merged or deployed.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
+**Batch 219 / 219.1 (ISS-044, P0):** Worker + Ops fixes **and** `replace_radar_v22_candidates_v1` cross-date delete-order migration (`20261110193000`). Owner-verified: PK `(symbol)`, 89 Nov 9 AH rows; Fly **`23505`** on `publish_candidates_v2` (exact constraint **not captured**). PR [#234](https://github.com/Holagpt-ai/hedgefun-insights/pull/234) — **not merged; migration not applied; no deploy.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
 
 **Next:** Owner review PR; after merge — **Fly worker deploy** + **Vercel** for Operations; verify `v2_synced_at` advances and `/admin/operations` degrades when V2 stale. Confirm `RADAR_PERSISTENCE_V2_ENABLED=true` on Fly if still stuck.
 

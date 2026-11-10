@@ -75,6 +75,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Bootstrap disposable Postgres (Batch 190 migrations)
         run: node scripts/supabase/screener-sync-pg-test-setup.mjs
+      - name: Bootstrap Radar V22 migrations (Batch 219.1)
+        run: node scripts/supabase/radar-v22-pg-test-setup.mjs
       - uses: denoland/setup-deno@v2
         with:
           deno-version: 2.9.4
@@ -128,3 +130,5 @@ jobs:
           supabase/functions/_shared/markets/equity-session-control_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts
+          supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts
+          supabase/functions/_shared/radar-v22/batch219-cross-date-replace-postgres_test.ts

@@ -4,7 +4,7 @@
 **Base:** GitHub `main` (post Batch 191 acceptance PR **#233**)  
 **Branch:** `cursor/batch219-radar-v2-recovery`  
 **Date:** November 10, 2026 ET  
-**Scope:** Fly scanner worker V2 publish semantics + Operations worker health rollup. **No** six-tab scanner, Edge SQL, migrations, cron, or provider changes.
+**Scope:** Fly worker + Operations health (Batch **219**) and **`replace_radar_v22_candidates_v1` cross-date delete order** (Batch **219.1** migration file only — **not applied** in this session). **No** six-tab scanner, Edge deploy, cron, or production SQL apply.
 
 ## Restrictions honored
 
@@ -25,6 +25,24 @@ No production Fly deploy, Edge deploy, SQL apply, DNS, cron, or secret changes f
 | Operations worker rollup | **Healthy** (checkpoint + connection only) |
 
 `rvol_5m` / `acceleration_5m` null on stored rows is **out of scope** for this batch (no metric fabrication).
+
+---
+
+## Batch 219.1 — SQL defect (confirmed; migration pending Lovable apply)
+
+**Table:** `radar_v22_candidates` — **`PRIMARY KEY (symbol)`** (global symbol uniqueness, not scoped to `trading_date`).
+
+**Defect (matches latest GitHub RPC `20261015143000` / production order per owner read-only inspection):**
+
+1. `DELETE … WHERE trading_date = p_trading_date`
+2. `INSERT` incoming candidates
+3. `DELETE … WHERE trading_date < p_trading_date` **after** insert
+
+When surveillance advances (e.g. Nov **10** publish with symbols still present on Nov **9** AH), step 2 collides on `(symbol)` **before** step 3 removes prior-day rows → PostgreSQL **`23505`** (unique violation). Sampled Fly logs show **`publish_candidates_v2` HTTP 502** with **`rpc_error_code: 23505`**; the **exact constraint name** on the failed request is **not captured**.
+
+**Fix (`20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`):** delete `trading_date < p_trading_date` **then** same-day delete **then** `INSERT`; remove post-insert cleanup. Re-assert `statement_timeout = 120s`. Signature, `SECURITY DEFINER`, `search_path = ''`, grants unchanged.
+
+**Regression:** `supabase/functions/_shared/radar-v22/batch219-cross-date-replace-postgres_test.ts` (CI: disposable Postgres + `scripts/supabase/radar-v22-pg-test-setup.mjs`).
 
 ---
 
@@ -74,8 +92,9 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 
 ## Release procedure (owner-approved)
 
-1. **Merge PR** after CI green.
-2. **Deploy Fly** `scanner-stream-worker` image from merged `main` (Lovable Cloud or existing Fly pipeline — same artifact as `services/scanner-stream-worker`).
+1. **Merge PR #234** after CI green.
+2. **Lovable Cloud:** apply migration **`20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`** (append-only; no historical migration edits).
+3. **Deploy Fly** `scanner-stream-worker` image from merged `main` (worker Batch 219 failure/telemetry fixes; image **v46** predates PR).
 3. **Verify** during RTH (read-only):
    - `radar_v22_feed_state.v2_synced_at` advances within one V2 checkpoint window (~30s default).
    - `session_kind` matches live session; Nov 10 candidates appear for current session.
@@ -88,9 +107,9 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 
 ## Rollback
 
-1. Revert PR on `main` or redeploy the prior Fly worker image tag recorded before deploy.
-2. Operations will again mask V2 staleness until the frontend rollback or forward-fix is live.
-3. No database rollback required (no migrations in this batch).
+1. **SQL:** redeploy prior `replace_radar_v22_candidates_v1` body from `20261015143000` via approved Lovable apply (restores old delete order; only safe if V2 publication already cleared).
+2. **Fly:** redeploy image **v46** `deployment-01M6K5GH34NZCA1C5Y45AWPVHZ` (see `docs/DEPLOYMENT_STATUS.md`).
+3. **Vercel:** prior bundle if Operations rollup must be reverted.
 
 ---
 

@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 219.1 — Radar V2 cross-date candidate replace, ISS-044)
+
+- Migration `20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`: delete prior `trading_date` rows **before** INSERT under global `(symbol)` PK (fixes 23505 class failures on surveillance date advance).
+- Postgres regression `batch219-cross-date-replace-postgres_test.ts`; CI bootstrap `scripts/supabase/radar-v22-pg-test-setup.mjs`. **Not applied** to production.
+
 ## 2026-11-10 (Batch 219 — Radar V2 publication recovery, ISS-044)
 
 - **Fly worker:** any RPC `applied: false` fails closed; churn **`skipped`** no longer clears persist-failure telemetry when V2 is enabled.
