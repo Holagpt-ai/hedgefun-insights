@@ -100,7 +100,7 @@ function radarRow(over: Partial<RadarFeedOpsRow> = {}): RadarFeedOpsRow {
     session_date: "2026-11-06",
     updated_at: iso(RTH_NOW - 30_000),
     synced_at: iso(RTH_NOW - 30_000),
-    v2_synced_at: null,
+    v2_synced_at: iso(RTH_NOW - 30_000),
     last_receive_at: iso(RTH_NOW - 30_000),
     last_provider_event_at: iso(RTH_NOW - 16 * 60_000),
     feed_stale: false,
@@ -344,6 +344,27 @@ describe("Fly worker telemetry", () => {
   });
   it("missing connection state is unknown, not healthy", () => {
     expect(buildWorkerOpsView(radarRow({ feed_connection_state: null }), ctx(RTH_NOW)).status).toBe("unknown");
+  });
+  it("fresh checkpoint does not mask stale V2 publication during RTH", () => {
+    const v = buildWorkerOpsView(
+      radarRow({
+        v2_synced_at: iso(RTH_NOW - 20 * 3_600_000),
+        session_kind: "after-hours",
+        session_date: "2026-11-05",
+      }),
+      ctx(RTH_NOW),
+    );
+    expect(v.status).toBe("degraded");
+    expect(v.v2PublicationStatus).toBe("degraded");
+    expect(v.explanation).toContain("session_kind");
+  });
+  it("closed session does not alarm on old V2 publication", () => {
+    const v = buildWorkerOpsView(
+      radarRow({ v2_synced_at: iso(WEEKEND_NOW - 48 * 3_600_000) }),
+      ctx(WEEKEND_NOW),
+    );
+    expect(v.v2PublicationStatus).toBe("not_applicable");
+    expect(v.status).toBe("not_applicable");
   });
 });
 

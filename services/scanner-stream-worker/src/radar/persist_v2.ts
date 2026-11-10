@@ -412,7 +412,19 @@ export function buildRadarV2Events(opts: {
 
 export type PublishRadarResult =
   | { ok: true; applied?: boolean; reason?: RadarV2FenceReason }
-  | { ok: false; code: "validation_failed" | "persist_failed" };
+  | { ok: false; code: "validation_failed" | "persist_failed" | "stale_generation" };
+
+/** True only when V2 data was committed or V2 was intentionally not attempted. */
+export function isRadarV2PublishCommitted(
+  v2: PublishRadarResult | "skipped",
+  persistenceV2Enabled: boolean,
+): boolean {
+  if (!persistenceV2Enabled) return true;
+  if (v2 === "skipped") return true;
+  if (!v2.ok) return false;
+  if (v2.applied === false) return false;
+  return true;
+}
 
 function parseRadarV2RpcData(data: unknown): {
   applied: boolean;
@@ -451,7 +463,7 @@ export async function publishRadarV2Generation(
     if (result.error) return { ok: false, code: "persist_failed" };
     const parsed = parseRadarV2RpcData(result.data);
     if (!parsed.applied && parsed.reason === "stale_generation") {
-      return { ok: true, applied: false, reason: "stale_generation" };
+      return { ok: false, code: "stale_generation" };
     }
     if (parsed.reason === "already_current") {
       return { ok: true, applied: true, reason: "already_current" };
@@ -1073,7 +1085,7 @@ export async function publishRadarV2IfNeeded(opts: {
       const persistedKeys = eventBatch.map(eventKey);
       opts.gate.eventQueue.confirmPersisted(eventBatch);
       opts.gate.markSuccess(decision, opts.wallNowMs, persistedKeys);
-    } else if (!result.ok) {
+    } else {
       opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
     }
     return result;

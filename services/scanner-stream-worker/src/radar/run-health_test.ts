@@ -169,6 +169,34 @@ Deno.test("V1 recovery clears telemetry after successful V1 publish with V2 ok",
   );
 });
 
+Deno.test("stale_generation V2 outcome keeps loop degraded", () => {
+  assertEquals(
+    resolveRadarLoopHealth({
+      leaseHeld: true,
+      feedStale: false,
+      persistenceV2Enabled: true,
+      v2: { ok: false, code: "stale_generation" },
+      v1Attempted: true,
+      v1Ok: true,
+      unresolvedPersistFailure: true,
+    }),
+    "degraded",
+  );
+});
+
+Deno.test("stale_generation does not clear persist failure telemetry", () => {
+  assertEquals(
+    shouldClearPersistFailureTelemetry({
+      persistenceV2Enabled: true,
+      v1RecoveryRequired: false,
+      v2: { ok: false, code: "stale_generation" },
+      v1Attempted: true,
+      v1Ok: true,
+    }),
+    false,
+  );
+});
+
 Deno.test("lease loss reports degraded", () => {
   assertEquals(
     resolveRadarLoopHealth({

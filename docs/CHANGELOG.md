@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 219 — Radar V2 publication recovery, ISS-044)
+
+- **Fly worker:** `stale_generation` RPC responses are V2 failures (`ok: false`); write gate `markFailure` on any non-commit; loop health / persist telemetry use `isRadarV2PublishCommitted`.
+- **Operations:** worker rollup assesses `v2_synced_at` and feed `session_kind` / `session_date` vs live session — fresh V1 checkpoint cannot mask stale V2.
+- Tests: Deno `persist_v2_test` / `run-health_test`; Vitest ops control center. Runbook `docs/release/batch219-radar-v2-recovery-v1.md`. **No deploy.** ISS-044 **OPEN** until Fly + Vercel acceptance.
+
 ## 2026-11-10 (Batch 191 — scanner acceptance, ledger attestation update on PR #233)
 
 - **Documentation-only** (PR **#233** revision): owner-verified **`screener_sync_generation_jobs`** via **read-only Lovable Cloud** (not anon REST). ET session publication/abort totals Nov **6/9/10**; Nov **10** RTH-to-1:30 **43** pubs, all **7/7** + publish RPC; feed **107** rows, tabs **`evaluated`**. Distinct layers: ledger vs per-job tab evidence vs UI. **Nov 10 AH not accepted.** **ISS-034** / **ISS-024** **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`.

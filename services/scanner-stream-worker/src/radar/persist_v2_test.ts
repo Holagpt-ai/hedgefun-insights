@@ -1358,7 +1358,7 @@ Deno.test("stale 12. V2 failure still cannot stop V1", async () => {
   assertEquals(out.v2, { ok: false, code: "persist_failed" });
 });
 
-Deno.test("stale RPC result is success and does not mark write-gate success", async () => {
+Deno.test("stale_generation RPC is a V2 failure and does not mark write-gate success", async () => {
   const gate = createRadarV2WriteGate();
   const rpc: RadarV2RpcFn = async () => ({
     error: null,
@@ -1374,10 +1374,13 @@ Deno.test("stale RPC result is success and does not mark write-gate success", as
     syncedAt: SYNC,
     rpc,
   });
-  assertEquals(first, { ok: true, applied: false, reason: "stale_generation" });
-  const retry = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
-  assertEquals(retry.shouldWrite, true);
-  assertEquals(retry.reason, "events");
+  assertEquals(first, { ok: false, code: "stale_generation" });
+  const duringBackoff = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
+  assertEquals(duringBackoff.shouldWrite, false);
+  assertEquals(duringBackoff.reason, "backoff");
+  const afterBackoff = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 20_000 }));
+  assertEquals(afterBackoff.shouldWrite, true);
+  assert(afterBackoff.reason === "bootstrap" || afterBackoff.reason === "events");
 });
 
 function sessionMetrics(lastPrice: number): SymbolMetrics {

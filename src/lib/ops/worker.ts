@@ -9,9 +9,18 @@
  * readable, so it is always UNKNOWN here.
  */
 
-import { assessFreshness, formatAge, providerDelayAllowanceMs, providerDelayFromFeedMode, type SessionContext } from "@/lib/ops/freshness";
+import {
+  assessFreshness,
+  formatAge,
+  providerDelayAllowanceMs,
+  providerDelayFromFeedMode,
+  SESSION_LABEL,
+  type SessionContext,
+} from "@/lib/ops/freshness";
 import { safeDisplayText } from "@/lib/ops/redact";
 import type { OpsStatus } from "@/lib/ops/status";
+import { worstStatus } from "@/lib/ops/status";
+import { easternParts } from "@/lib/market-session";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 
 /** Max checkpoint interval (300 s) plus slack. */
@@ -58,6 +67,83 @@ export interface WorkerOpsView {
   telemetryStale: boolean;
   providerStatus: OpsStatus;
   providerExplanation: string;
+  v2PublicationStatus: OpsStatus;
+  v2PublicationExplanation: string;
+}
+
+/** V2 publication lag must not be masked by V1 checkpoint / feed telemetry alone. */
+export function assessV2PublicationFreshness(
+  row: RadarFeedOpsRow,
+  context: SessionContext,
+): { status: OpsStatus; explanation: string; ageMs: number | null } {
+  if (context.session === "closed") {
+    return {
+      status: "not_applicable",
+      explanation: "Session closed; V2 publication cadence not required.",
+      ageMs: null,
+    };
+  }
+  const v2Ms = parseTimestampMs(row.v2_synced_at);
+  const ageMs = v2Ms === null ? null : context.nowMs - v2Ms;
+  const delay = providerDelayFromFeedMode(row.market_data_feed_mode);
+  const allowance = providerDelayAllowanceMs(delay);
+
+  if (v2Ms === null) {
+    return {
+      status: "failing",
+      explanation: "V2 publication timestamp (v2_synced_at) is missing during a live session.",
+      ageMs: null,
+    };
+  }
+
+  const freshness = assessFreshness({
+    context,
+    observedAtIso: row.v2_synced_at,
+    staleAfterMs: WORKER_CHECKPOINT_STALE_MS + allowance,
+    providerDelayMs: 0,
+    failingMultiplier: 2,
+  });
+
+  const parts = easternParts(context.nowMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const etSurveillanceDate = parts
+    ? (parts.msOfDay >= 4 * 60 * 60 * 1000
+      ? `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`
+      : (() => {
+        const prev = new Date(Date.UTC(parts.year, parts.month - 1, parts.day) - 86400000);
+        return `${prev.getUTCFullYear()}-${pad(prev.getUTCMonth() + 1)}-${pad(prev.getUTCDate())}`;
+      })())
+    : null;
+
+  if (row.session_kind && row.session_kind !== context.session) {
+    return {
+      status: "degraded",
+      ageMs,
+      explanation: `V2 feed session_kind is "${row.session_kind}" but the current market session is "${context.session}" (${SESSION_LABEL[context.session]}).`,
+    };
+  }
+
+  if (etSurveillanceDate && row.session_date && row.session_date < etSurveillanceDate) {
+    return {
+      status: "degraded",
+      ageMs,
+      explanation: `V2 session_date ${row.session_date} is behind current surveillance date ${etSurveillanceDate}.`,
+    };
+  }
+
+  if (freshness.status !== "healthy") {
+    return {
+      status: freshness.status,
+      ageMs: freshness.ageMs,
+      explanation: `V2 publication ${formatAge(freshness.ageMs)} old (${freshness.explanation}).`,
+    };
+  }
+
+  return {
+    status: "healthy",
+    ageMs,
+    explanation: `V2 publication ${formatAge(ageMs)} old; aligned with ${SESSION_LABEL[context.session]}.`,
+  };
 }
 
 export function buildWorkerOpsView(row: RadarFeedOpsRow, context: SessionContext): WorkerOpsView {
@@ -75,6 +161,7 @@ export function buildWorkerOpsView(row: RadarFeedOpsRow, context: SessionContext
     delay === "unknown" && provider.status === "healthy"
       ? `${provider.explanation} Feed mode not reported; delayed allowance applied.`
       : provider.explanation;
+  const v2Pub = assessV2PublicationFreshness(row, context);
 
   const base = {
     checkpointAt: row.updated_at,
@@ -90,19 +177,34 @@ export function buildWorkerOpsView(row: RadarFeedOpsRow, context: SessionContext
     telemetryStale: row.feed_telemetry_stale,
     providerStatus: provider.status,
     providerExplanation,
+    v2PublicationStatus: v2Pub.status,
+    v2PublicationExplanation: v2Pub.explanation,
+  };
+
+  const mergeStatus = (
+    status: OpsStatus,
+    explanation: string,
+  ): { status: OpsStatus; explanation: string } => {
+    const combined = worstStatus([status, v2Pub.status]);
+    if (combined === status) return { status, explanation };
+    const v2Note = v2Pub.status !== "healthy" && v2Pub.status !== "not_applicable"
+      ? ` ${v2Pub.explanation}`
+      : "";
+    return { status: combined, explanation: `${explanation}${v2Note}` };
   };
 
   if (checkpointAgeMs === null) {
-    return { ...base, status: "unknown", explanation: "Worker checkpoint timestamp missing." };
+    const m = mergeStatus("unknown", "Worker checkpoint timestamp missing.");
+    return { ...base, status: m.status, explanation: m.explanation };
   }
 
   // A stale checkpoint is never a current heartbeat, whatever the session.
   if (context.session !== "closed" && checkpointAgeMs > WORKER_CHECKPOINT_STALE_MS) {
-    return {
-      ...base,
-      status: "stale_telemetry",
-      explanation: `Last worker checkpoint ${formatAge(checkpointAgeMs)} ago — no current heartbeat evidence.`,
-    };
+    const m = mergeStatus(
+      "stale_telemetry",
+      `Last worker checkpoint ${formatAge(checkpointAgeMs)} ago — no current heartbeat evidence.`,
+    );
+    return { ...base, status: m.status, explanation: m.explanation };
   }
   if (context.session === "closed") {
     return {
@@ -112,27 +214,31 @@ export function buildWorkerOpsView(row: RadarFeedOpsRow, context: SessionContext
     };
   }
   if (row.feed_telemetry_stale) {
-    return { ...base, status: "stale_telemetry", explanation: "Worker reports its feed telemetry as stale." };
+    const m = mergeStatus("stale_telemetry", "Worker reports its feed telemetry as stale.");
+    return { ...base, status: m.status, explanation: m.explanation };
   }
   if (conn === "disconnected" || conn === "idle") {
-    return { ...base, status: "failing", explanation: `Provider feed connection is ${conn} during a live session.` };
+    const m = mergeStatus("failing", `Provider feed connection is ${conn} during a live session.`);
+    return { ...base, status: m.status, explanation: m.explanation };
   }
   if (conn === "connecting" || conn === "authenticating" || conn === "reconnecting") {
-    return { ...base, status: "degraded", explanation: `Provider feed connection is ${conn}.` };
+    const m = mergeStatus("degraded", `Provider feed connection is ${conn}.`);
+    return { ...base, status: m.status, explanation: m.explanation };
   }
   if (row.feed_stale) {
-    return { ...base, status: "degraded", explanation: "Worker reports feed data as stale." };
+    const m = mergeStatus("degraded", "Worker reports feed data as stale.");
+    return { ...base, status: m.status, explanation: m.explanation };
   }
   if (conn === null) {
-    return {
-      ...base,
-      status: "unknown",
-      explanation: `Checkpoint ${formatAge(checkpointAgeMs)} ago, but no feed connection state reported.`,
-    };
+    const m = mergeStatus(
+      "unknown",
+      `Checkpoint ${formatAge(checkpointAgeMs)} ago, but no feed connection state reported.`,
+    );
+    return { ...base, status: m.status, explanation: m.explanation };
   }
-  return {
-    ...base,
-    status: "healthy",
-    explanation: `Checkpoint ${formatAge(checkpointAgeMs)} ago; feed ${conn}${row.market_data_feed_mode === "delayed" ? " (delayed tier — expected)" : ""}.`,
-  };
+  const m = mergeStatus(
+    "healthy",
+    `Checkpoint ${formatAge(checkpointAgeMs)} ago; feed ${conn}${row.market_data_feed_mode === "delayed" ? " (delayed tier — expected)" : ""}.`,
+  );
+  return { ...base, status: m.status, explanation: m.explanation };
 }
