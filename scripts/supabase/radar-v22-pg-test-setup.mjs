@@ -20,6 +20,7 @@ if (/lovable|supabase\.co|zcjptaolpumhtlwhlemq/i.test(url)) {
 const migrationsDir = join(process.cwd(), "supabase", "migrations");
 
 const RADAR_V22_MIGRATION_CHAIN = [
+  "20260813210000_radar_v22.sql",
   "20260901150000_radar_v22_persistence_v2.sql",
   "20260923160000_radar_v22_momentum_metrics.sql",
   "20260923180000_radar_v22_scanner_events.sql",

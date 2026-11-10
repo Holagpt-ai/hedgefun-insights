@@ -107,7 +107,7 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 
 ## Rollback
 
-1. **SQL:** redeploy prior `replace_radar_v22_candidates_v1` body from `20261015143000` via approved Lovable apply (restores old delete order; only safe if V2 publication already cleared).
+1. **SQL:** redeploying the pre-219.1 RPC body (`20261015143000`) **reintroduces the cross-date `(symbol)` PK defect** and can bring back `23505` failures on surveillance date advance — **do not roll back SQL** unless an owner accepts that risk and has a data remediation plan. Prefer forward-fix with `20261110193000`.
 2. **Fly:** redeploy image **v46** `deployment-01M6K5GH34NZCA1C5Y45AWPVHZ` (see `docs/DEPLOYMENT_STATUS.md`).
 3. **Vercel:** prior bundle if Operations rollup must be reverted.
 
