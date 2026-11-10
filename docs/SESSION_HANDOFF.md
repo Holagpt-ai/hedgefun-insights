@@ -1,6 +1,14 @@
-# Session handoff — Batch 217, November 9, 2026 ET
+# Session handoff — Batch 218, November 10, 2026 ET
 
-**Post-merge checkpoint (current):** PR #230 merged to `main=79260fbb` after Vercel success; AM Inbox authenticated visual acceptance **ISS-025 OPEN**. Auto source-sync push run `42717914109` failed closed (`CONFLICT`) on unexpected Lovable generated `src/integrations/supabase/previewAuthStorage.ts`, so Lovable integration/editor `b54b328a` remain one main commit behind. Do not disable safeguards, force-push or manually resync. Targeted GitHub main PR from `fix/lovable-preview-auth-source-parity-20261109` copies the exact Lovable generated file into canonical main; owner review required before merge. When merged, observe the next automatic sync and verify editor SHA + main ancestry. No Edge deployment or production SQL involved.
+**Source:** GitHub `main` `a23c7474175cde3a044c09dbe35d646c80cdc745` (preview-auth parity #231 atop Batch 217 #230).
+
+**Batch 218 (ISS-034 closure gate):** Documentation-only. Reconciled Nov 9 **09:30 `http_546`** — **finalize stage and CPU cause NOT VERIFIED**; no scanner code change. Nov 10 **09:30** abort: **mechanism NOT conclusively established** (null `abort_reason` / `abort_evidence`; last **`finalize_stage:claim_finalize_lease`**). **09:45–09:55:** **confirmed `prior_generation_retained`**. Gappers unresolved **3→0** supports transient incomplete gap inputs; **no** symbol-level provider attribution. **09:45** Gainers/Losers **`prerequisite_unavailable`** in abort evidence is tab evaluation only — **not** verified provider failure. Nov 10 **10:00–12:35:** **32** consecutive publications / **106** rows. **ISS-034 OPEN**; **ISS-044** tracked separately. Runbook: `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`.
+
+**Next:** Owner review of Batch 218 PR. Then Batch **191** after-hours + multi-day acceptance; correlate any future `http_546` with `finalize_stage:*`. No Edge/SQL/cron from 218.
+
+## Archived handoff — Batch 217, November 9, 2026 ET
+
+**Post-merge checkpoint:** PR #230 merged to `main=79260fbb` after Vercel success; AM Inbox authenticated visual acceptance **ISS-025 OPEN**. Preview-auth parity #231 landed on `main`. Source-sync: see ISS-040 in register.
 
 **Source:** GitHub `main` `17a31da8fcb22ad89abdb623edc950f2094e849e` (Batch 216 PR #229 merged). GitHub → Lovable apply succeeded in Actions run `42676903219`; integration/editor contained all main commits (`2708cc04`, later `b54b328a`). Owner set `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true` for ongoing guarded automatic source forward-sync. Unattended future-push acceptance is still pending under ISS-040; this never implies Edge or SQL deployment.
 
