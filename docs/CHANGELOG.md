@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 191 — scanner production acceptance, read-only)
+
+- **Documentation-only** Batch **191** acceptance: live `screener_feed_state` snapshot (~**1:25 PM ET**) — **108** rows, six tabs **`evaluated`**, Gappers unresolved **0**, NHL **available**; `screener_sync_generation_jobs` **not** readable without service_role. PASS/FAIL/NOT VERIFIED matrix for Nov 6/9/10 PM/RTH/AH; **Nov 10 after-hours not claimed**. **ISS-034** and **ISS-024** stay **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`. No code/deploy.
+
 ## 2026-11-10 (Batch 218 — ISS-034 root-cause verification & closure gate)
 
 - **Documentation-only** reconciliation for **ISS-034** (evidence corrected on PR #232). Nov 9 **09:30 `http_546`:** resource limit confirmed; finalize **stage** / **CPU** **NOT VERIFIED**. Nov 10 **09:30:** aborted — **mechanism NOT conclusively established** (null `abort_reason` / `abort_evidence`; last `finalize_stage:claim_finalize_lease`). **09:45–09:55:** **confirmed `prior_generation_retained`**. Gappers unresolved **3→0** supports transient incomplete gap inputs without symbol-level provider proof; **09:45** Gainers/Losers prerequisite status in abort evidence **≠** verified provider failure. Nov 10 **10:00–12:35:** **32** consecutive publications, **106** rows. **ISS-034 OPEN**; **ISS-044** follow-up only. Runbook `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`. **No** Edge/SQL/cron/deploy.

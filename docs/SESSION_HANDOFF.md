@@ -1,4 +1,12 @@
-# Session handoff — Batch 218, November 10, 2026 ET
+# Session handoff — Batch 191 scanner acceptance, November 10, 2026 ET
+
+**Source:** GitHub `main` `fcef28f66482affdf1491660e8398c697b84c3d1` (Batch 218 #232 merged).
+
+**Batch 191 (read-only):** Documentation-only acceptance report `docs/release/batch191-scanner-acceptance-v1.md`. Live `screener_feed_state` @ **~1:25 PM ET**: **108** rows, six tabs **evaluated**, Gappers `unresolved_gap_input_count=0`, NHL **available**. Job ledger **not** readable (service_role). **ISS-034** and **ISS-024** stay **OPEN** — no AH for Nov 10 at capture, no 7/7 job proof, Nov 9 `http_546` stands. **No code/deploy.**
+
+**Next:** Owner review Batch 191 PR; run documented SQL / admin diagnostics; complete Nov 10 AH after 8 PM ET.
+
+## Archived handoff — Batch 218, November 10, 2026 ET
 
 **Source:** GitHub `main` `a23c7474175cde3a044c09dbe35d646c80cdc745` (preview-auth parity #231 atop Batch 217 #230).
 
