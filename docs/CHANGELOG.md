@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 218 — ISS-034 root-cause verification & closure gate)
+
+- **Documentation-only** reconciliation for **ISS-034** (evidence corrected on PR #232). Nov 9 **09:30 `http_546`:** resource limit confirmed; finalize **stage** / **CPU** **NOT VERIFIED**. Nov 10 **09:30:** aborted — **mechanism NOT conclusively established** (null `abort_reason` / `abort_evidence`; last `finalize_stage:claim_finalize_lease`). **09:45–09:55:** **confirmed `prior_generation_retained`**. Gappers unresolved **3→0** supports transient incomplete gap inputs without symbol-level provider proof; **09:45** Gainers/Losers prerequisite status in abort evidence **≠** verified provider failure. Nov 10 **10:00–12:35:** **32** consecutive publications, **106** rows. **ISS-034 OPEN**; **ISS-044** follow-up only. Runbook `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`. **No** Edge/SQL/cron/deploy.
+
 ## 2026-11-09 (Batch 217 — AM Inbox production readiness)
 
 - ISS-025 gate for the November 9 production load: 3,776 active late-session rows / 1,525 symbols (~4.1 MB). Synthetic fixture reproduces map+build in **~424 ms** under the existing 8 s bound. Adds missing symbol-aware **Screeners** handoff on continuation cards (Catalyst / Watchlist / AI Analyst / Journal / Action Center already present). Ranking, qualification, RPCs, and candidate limits unchanged. Runbook `docs/release/batch217-am-inbox-production-readiness-v1.md`. Authenticated UI acceptance still **NOT VERIFIED**.
