@@ -33,6 +33,8 @@ Present under `supabase/functions/` on `main`:
 
 Radar and historical jobs call `radar-worker-bridge` with `RADAR_WORKER_SECRET`. They do not receive `SUPABASE_SERVICE_ROLE_KEY`.
 
+V2 publication RPC `replace_radar_v22_candidates_v1` (pending `20261110193000`) writes live rows to `radar_v22_candidates` and, on empty `session_kind='closed'`, copies the last same-date generation into `radar_v22_closed_snapshot` by **named column**. Carryover archive triggers on that table remain `archive_radar_carryover_snapshot`. Do not use `SELECT c.*` for the snapshot insert: production candidates have 62 columns and the snapshot table 64, with attnum 48/49 occupied by `promotion_reason`/`radar_event_lifecycle` on candidates vs `snapshot_kind`/`captured_at` on the snapshot.
+
 ## Client domains
 
 | Area | Source |

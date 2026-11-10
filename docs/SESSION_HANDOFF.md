@@ -1,4 +1,12 @@
-# Session handoff — Batch 191 scanner acceptance, November 10, 2026 ET
+# Session handoff — Batch 219 Radar V2 recovery, November 10, 2026 ET
+
+**Source:** GitHub `main` (post Batch 191 PR **#233** merge).
+
+**Batch 219 / 219.1 / 219.2 (ISS-044, P0):** Worker + Ops fixes, cross-date delete-before-insert, **and** named-column closed-session snapshot copy in pending `20261110193000`. Owner-verified: PK `(symbol)`, 89 Nov 9 AH rows; Fly **`23505`**; production candidates **62** cols vs closed snapshot **64** cols with attnum 48/49 mismatch (`promotion_reason` vs `snapshot_kind`) — both snapshot tables **empty**. PR [#234](https://github.com/Holagpt-ai/hedgefun-insights/pull/234) — **not merged; migration not applied; no deploy.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
+
+**Next:** Owner review PR; after merge — **Lovable apply `20261110193000`** + **Fly worker deploy** + **Vercel** for Operations; verify `v2_synced_at` advances, closed-session snapshot populates, and `/admin/operations` degrades when V2 stale. Confirm `RADAR_PERSISTENCE_V2_ENABLED=true` on Fly if still stuck.
+
+## Archived handoff — Batch 191 scanner acceptance, November 10, 2026 ET
 
 **Source:** GitHub `main` `fcef28f66482affdf1491660e8398c697b84c3d1` (Batch 218 #232 merged).
 

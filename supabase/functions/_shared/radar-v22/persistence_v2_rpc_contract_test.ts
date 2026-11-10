@@ -12,7 +12,7 @@ const SCHEMA_MIGRATION_REL =
 const LOVABLE_FULL_MIGRATION_NAME =
   "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
 const LATEST_RPC_MIGRATION_NAME =
-  "20261015143000_radar_v22_replace_rpc_set_based_events_v1.sql";
+  "20261110193000_radar_v22_cross_date_candidate_delete_v1.sql";
 const LATEST_RPC_MIGRATION_REL =
   `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";
@@ -106,10 +106,25 @@ Deno.test("static: events persist with set-based INSERT", async () => {
   assertFalse(body.includes("INSERT INTO public.radar_v22_events (\n      trading_date, session_kind, symbol, event_type, event_at, generation_id, recorded_at\n    ) VALUES ("));
 });
 
-Deno.test("static: candidate delete scoped to trading date", async () => {
+Deno.test("static: prior trading_date rows deleted before candidate INSERT", async () => {
   const body = functionBody(await loadRpc());
-  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date"));
-  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date"));
+  const insertAt = body.indexOf("INSERT INTO public.radar_v22_candidates");
+  const deleteOlderAt = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date",
+  );
+  const deleteSameAt = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date",
+  );
+  assert(insertAt >= 0, "missing candidate INSERT");
+  assert(deleteOlderAt >= 0, "missing prior-date DELETE");
+  assert(deleteSameAt >= 0, "missing same-date DELETE");
+  assert(deleteOlderAt < insertAt, "prior-date DELETE must precede INSERT");
+  assert(deleteSameAt < insertAt, "same-date DELETE must precede INSERT");
+  const postInsertOlder = body.indexOf(
+    "DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date",
+    insertAt,
+  );
+  assertEquals(postInsertOlder, -1, "must not delete prior-date only after INSERT");
   assertFalse(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE true"));
 });
 
@@ -167,6 +182,18 @@ Deno.test("static: candidate INSERT persists scanner intelligence stack fields",
 Deno.test("static: V2 replace advances surveillance session_date", async () => {
   const body = functionBody(await loadRpc());
   assert(body.includes("session_date = EXCLUDED.session_date"));
+});
+
+Deno.test("static: closed snapshot insert uses named columns, not SELECT c.*", async () => {
+  const body = functionBody(await loadRpc());
+  const insertAt = body.indexOf("INSERT INTO public.radar_v22_closed_snapshot (");
+  assert(insertAt >= 0, "closed snapshot INSERT must list target columns");
+  assert(body.includes("snapshot_kind,\n      captured_at"));
+  assert(body.includes("c.promotion_reason, c.radar_event_lifecycle"));
+  assert(body.includes("c.participation_state"));
+  assert(body.includes("'closed_session',\n      p_synced_at"));
+  assertFalse(body.includes("SELECT c.*, 'closed_session'"));
+  assertFalse(body.includes("SELECT c.*, 'closed_session', p_synced_at"));
 });
 
 Deno.test("static: latest forward migration is the authoritative replace RPC definition", async () => {
