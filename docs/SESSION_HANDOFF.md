@@ -2,9 +2,9 @@
 
 **Source:** GitHub `main` `fcef28f66482affdf1491660e8398c697b84c3d1` (Batch 218 #232 merged).
 
-**Batch 191 (read-only):** Documentation-only acceptance report `docs/release/batch191-scanner-acceptance-v1.md`. Live `screener_feed_state` @ **~1:25 PM ET**: **108** rows, six tabs **evaluated**, Gappers `unresolved_gap_input_count=0`, NHL **available**. Job ledger **not** readable (service_role). **ISS-034** and **ISS-024** stay **OPEN** — no AH for Nov 10 at capture, no 7/7 job proof, Nov 9 `http_546` stands. **No code/deploy.**
+**Batch 191 (PR #233, read-only):** Owner-verified `screener_sync_generation_jobs` via **Lovable Cloud** (ET session totals Nov 6/9/10 in runbook). Nov 10 RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted (09:30 inconclusive; 09:45–09:55 retention). Feed @ **1:30 PM:** **107** rows, six tabs **evaluated**, Gappers unresolved **0**, NHL **available**. **Nov 10 AH not accepted.** Layers: ledger **verified**; per-job tab history + authenticated UI **not verified**. **ISS-034** / **ISS-024** **OPEN**. **No code/deploy.**
 
-**Next:** Owner review Batch 191 PR; run documented SQL / admin diagnostics; complete Nov 10 AH after 8 PM ET.
+**Next:** Owner review PR #233; after Nov 10 AH, extend ledger + Layer B; Layer C/D acceptance.
 
 ## Archived handoff — Batch 218, November 10, 2026 ET
 

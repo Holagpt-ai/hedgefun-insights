@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-10 (Batch 191 — scanner production acceptance, read-only)
+## 2026-11-10 (Batch 191 — scanner acceptance, ledger attestation update on PR #233)
 
-- **Documentation-only** Batch **191** acceptance: live `screener_feed_state` snapshot (~**1:25 PM ET**) — **108** rows, six tabs **`evaluated`**, Gappers unresolved **0**, NHL **available**; `screener_sync_generation_jobs` **not** readable without service_role. PASS/FAIL/NOT VERIFIED matrix for Nov 6/9/10 PM/RTH/AH; **Nov 10 after-hours not claimed**. **ISS-034** and **ISS-024** stay **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`. No code/deploy.
+- **Documentation-only** (PR **#233** revision): owner-verified **`screener_sync_generation_jobs`** via **read-only Lovable Cloud** (not anon REST). ET session publication/abort totals Nov **6/9/10**; Nov **10** RTH-to-1:30 **43** pubs, all **7/7** + publish RPC; feed **107** rows, tabs **`evaluated`**. Distinct layers: ledger vs per-job tab evidence vs UI. **Nov 10 AH not accepted.** **ISS-034** / **ISS-024** **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`.
 
 ## 2026-11-10 (Batch 218 — ISS-034 root-cause verification & closure gate)
 

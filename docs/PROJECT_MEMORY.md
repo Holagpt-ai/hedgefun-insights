@@ -2,10 +2,10 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Verified live checkpoint — November 10, 2026 (~1:25 PM ET, Batch 191 read)
+## Verified live checkpoint — November 10, 2026 (~1:30 PM ET, Batch 191 / PR #233)
 
-- **GitHub main:** `fcef28f66482affdf1491660e8398c697b84c3d1` (Batch 218 #232).
-- **Live `screener_feed_state` (public read):** `synced_at` **2026-11-10T18:25:03Z**; **108** rows; six tabs **`evaluated`**; Gappers `unresolved_gap_input_count=0`, `split_scale_suppressed_count=2`; **`nhl_baseline_status=available`**. Provider as-of span ~10:10 AM–1:10 PM ET. **Batch 191** acceptance matrix **incomplete** — **ISS-034** / **ISS-024** **OPEN**. Runbook `docs/release/batch191-scanner-acceptance-v1.md`.
+- **Publication ledger (owner-verified, Lovable read-only DB):** ET session totals Nov **6/9/10** — see `docs/release/batch191-scanner-acceptance-v1.md`. Nov **10** RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted; **Nov 10 AH not accepted**.
+- **Current feed:** **107** rows @ ~1:30 PM; six tabs **`evaluated`**; Gappers unresolved **0**; NHL **available**. Ledger **verified**; historical per-tab evaluation on all jobs + authenticated UI **not verified**. **ISS-034** / **ISS-024** **OPEN**.
 
 ## Verified live checkpoint — November 10, 2026 (Batch 218 ISS-034 evidence)
 

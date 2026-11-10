@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Post-Batch 191 acceptance read (Nov 10 ~1:25 PM ET):** Live `screener_feed_state`: **108** rows, all six tabs **`evaluated`**, Gappers `unresolved=0`, NHL **`available`**. Batch 191 matrix: **ISS-034 OPEN**, **ISS-024 OPEN** — full PM/RTH/AH multi-day sign-off **NOT VERIFIED**; Nov 10 **AH not claimed**; job/chunk proof needs service-role SQL (`docs/release/batch191-scanner-acceptance-v1.md`). Prior Batch **218** opening-abort narrative unchanged.
+**Post-Batch 191 ledger attestation (Nov 10 ~1:30 PM ET, PR #233):** Owner-verified job ledger (Lovable read-only): Nov **6/9/10** PM/RTH/AH publication counts in runbook; Nov **10** RTH **43** pubs (**7/7** + publish RPC), **4** aborts; feed **107** rows, six tabs **`evaluated`**, Gappers **0** unresolved, NHL **available**. **Nov 10 AH not accepted.** **ISS-034** / **ISS-024** **OPEN** — historical per-tab evaluation + authenticated UI not verified (`docs/release/batch191-scanner-acceptance-v1.md`).
 
 **Post-Batch 217 merge, Nov 9 (historical):** PR #230 merged at `main=79260fbb`; Vercel check passed. Preview-auth #231 later merged to `main`. **ISS-040 OPEN**; **ISS-025** authenticated UI **NOT VERIFIED**.
 
@@ -23,9 +23,9 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 
 | ID | Priority | Open item | Status / next action |
 | --- | --- | --- | --- |
-| **ISS-034** | **P0** | Scanner repeated-session acceptance / finalize resource limits | **CONFIRMED OPEN.** Batch **191** read-only matrix **NOT COMPLETE** (Nov 10 AH pending; no 7/7 job proof; Nov 9 **09:30 `http_546`**). Live feed @ 1:25 PM ET **evaluated** / 108 rows. Runbooks: `docs/release/batch191-scanner-acceptance-v1.md`, `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`. |
+| **ISS-034** | **P0** | Scanner repeated-session acceptance / finalize resource limits | **CONFIRMED OPEN.** Batch **191** ledger **partial** — PM/AH Nov 6/9 **verified**; Nov **10** RTH-to-1:30 **7/7** pubs verified; **Nov 10 AH not accepted**; Nov **9 `http_546`**; RTH retention on Nov **6/10**. Runbooks: `docs/release/batch191-scanner-acceptance-v1.md`, `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`. |
 | ISS-033 | P0 | Premarket `day.v=0` vs `min.av` | **Fixed in git + Edge D1 deployed** (`23980c31…`). November 2 premarket acceptance window reported **PASS**. Keep broader Batch 191 matrix open until regular and after-hours checks are verified. |
-| ISS-024 | P0 | Tab evidence / Gappers inputs | Batch **191** live snapshot (Nov 10 ~1:25 PM): all tabs **`evaluated`**, Gappers unresolved **0**, NHL **available** — momentary **PASS** only. Multi-session RTH/AH tab-evidence matrix and authenticated UI **NOT VERIFIED**. Batch **191.1** split-scale fix merged; **Nov 5 reported** stale Gappers/NHL UI **not re-checked**. **OPEN** until Batch **191** closes. |
+| ISS-024 | P0 | Tab evidence / Gappers inputs | **Current feed** (Nov 10 ~1:30 PM): all tabs **`evaluated`**, Gappers **0** unresolved, NHL **available**. **Per-generation tab evidence history** and authenticated UI **NOT VERIFIED** (distinct from publication ledger). **OPEN** until Batch **191** Layer C/D complete. |
 | **ISS-025** | **P0** | AM Inbox continuation loading | **OPEN for authenticated UI.** Backend RPC Nov 9: 3,776 rows / 1,525 symbols / ~4.1 MB. Batch **192** metadata deployed. Batch **217** adds Nov 9 scale fixtures/tests and symbol-aware Screeners handoffs (client map+build ~424 ms). Authenticated visual acceptance **NOT VERIFIED**. |
 | ISS-036 | P1 | Extreme / unreliable volume acceleration display | Batch **196.1** merged (`797cc615`) and Fly **v46** deployed 2026-11-04. Worker `/health` **running**, Polygon subscribed. Live acceleration-value acceptance **NOT VERIFIED** (no sampled rows this window). |
 | ISS-032 | P2 | Journal terminal-error loading | Fixed on `main` (Batch **188**) → **Batch 193** acceptance. |
