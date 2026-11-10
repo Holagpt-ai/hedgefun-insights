@@ -2,7 +2,7 @@
 
 **Source:** GitHub `main` (post Batch 191 PR **#233** merge).
 
-**Batch 219 (ISS-044, P0):** Worker + Operations fix for stalled V2 publication and false **Healthy** worker rollup. Root cause: `stale_generation` treated as success + health ignored `v2_synced_at` / session alignment. Branch `cursor/batch219-radar-v2-recovery` — **PR pending**; **not merged or deployed.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
+**Batch 219 (ISS-044, P0):** Worker + Operations fix for stalled V2 publication and false **Healthy** worker rollup. Root cause: `stale_generation` treated as success + health ignored `v2_synced_at` / session alignment. PR [#234](https://github.com/Holagpt-ai/hedgefun-insights/pull/234) head `f114be0f` — **not merged or deployed.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
 
 **Next:** Owner review PR; after merge — **Fly worker deploy** + **Vercel** for Operations; verify `v2_synced_at` advances and `/admin/operations` degrades when V2 stale. Confirm `RADAR_PERSISTENCE_V2_ENABLED=true` on Fly if still stuck.
 
