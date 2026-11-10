@@ -8,7 +8,11 @@ import {
   type FeedStateOpsRow,
   type GenerationJobOpsRecord,
 } from "@/lib/ops/scanner";
-import { buildWorkerOpsView, type RadarFeedOpsRow } from "@/lib/ops/worker";
+import {
+  assessV2PublicationFreshness,
+  buildWorkerOpsView,
+  type RadarFeedOpsRow,
+} from "@/lib/ops/worker";
 import {
   classifyAttestedRuntime,
   classifyFrontendBuild,
@@ -357,6 +361,27 @@ describe("Fly worker telemetry", () => {
     expect(v.status).toBe("degraded");
     expect(v.v2PublicationStatus).toBe("degraded");
     expect(v.explanation).toContain("session_kind");
+  });
+  it("V2 publication stalled 8 minutes degrades with fresh worker checkpoint", () => {
+    const v = buildWorkerOpsView(
+      radarRow({
+        updated_at: iso(RTH_NOW - 20_000),
+        v2_synced_at: iso(RTH_NOW - 8 * 60_000),
+        session_kind: "market",
+        session_date: "2026-11-06",
+      }),
+      ctx(RTH_NOW),
+    );
+    expect(v.status).toBe("degraded");
+    expect(v.v2PublicationStatus).toBe("degraded");
+    expect(v.explanation).toContain("V2 publication");
+  });
+  it("V2 publication within cadence stays healthy when session aligned", () => {
+    const assessment = assessV2PublicationFreshness(
+      radarRow({ v2_synced_at: iso(RTH_NOW - 45_000) }),
+      ctx(RTH_NOW),
+    );
+    expect(assessment.status).toBe("healthy");
   });
   it("closed session does not alarm on old V2 publication", () => {
     const v = buildWorkerOpsView(

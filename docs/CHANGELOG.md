@@ -2,8 +2,9 @@
 
 ## 2026-11-10 (Batch 219 — Radar V2 publication recovery, ISS-044)
 
-- **Fly worker:** `stale_generation` RPC responses are V2 failures (`ok: false`); write gate `markFailure` on any non-commit; loop health / persist telemetry use `isRadarV2PublishCommitted`.
-- **Operations:** worker rollup assesses `v2_synced_at` and feed `session_kind` / `session_date` vs live session — fresh V1 checkpoint cannot mask stale V2.
+- **Fly worker:** any RPC `applied: false` fails closed; churn **`skipped`** no longer clears persist-failure telemetry when V2 is enabled.
+- **Operations:** V2 freshness uses **~120 s** publication cadence (no 15-minute provider allowance on `v2_synced_at`); session alignment checks unchanged.
+- **Production (read-only Fly):** V2 attempts active; sample failures **`23505`** / 502 — **`stale_generation` not observed in logs**; worker **v46** predates PR. Runbook updated.
 - Tests: Deno `persist_v2_test` / `run-health_test`; Vitest ops control center. Runbook `docs/release/batch219-radar-v2-recovery-v1.md`. **No deploy.** ISS-044 **OPEN** until Fly + Vercel acceptance.
 
 ## 2026-11-10 (Batch 191 — scanner acceptance, ledger attestation update on PR #233)

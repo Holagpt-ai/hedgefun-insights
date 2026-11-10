@@ -493,6 +493,25 @@ Deno.test("30. publishRadarV2Generation accepts a valid payload", async () => {
   assertEquals(calls.length, 1);
 });
 
+Deno.test("publishRadarV2Generation treats any applied:false RPC as failure", async () => {
+  const rpc: RadarV2RpcFn = async () => ({
+    error: null,
+    data: { applied: false, reason: "stale_generation", inserted: 1 },
+  });
+  assertEquals(
+    await publishRadarV2Generation(rpc, args([candidate("AAA")])),
+    { ok: false, code: "stale_generation" },
+  );
+  const other: RadarV2RpcFn = async () => ({
+    error: null,
+    data: { applied: false, inserted: 0 },
+  });
+  assertEquals(
+    await publishRadarV2Generation(other, args([candidate("AAA")])),
+    { ok: false, code: "persist_failed" },
+  );
+});
+
 Deno.test("migration contract names match worker RPC constant", () => {
   assertEquals(REPLACE_RADAR_V2_RPC, "replace_radar_v22_candidates_v1");
   assertEquals(RADAR_V22_CANDIDATE_CAP, 200);
@@ -750,7 +769,7 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
     syncedAt: "2026-08-10T14:00:16.000Z",
     rpc,
   });
-  assertEquals(retry, { ok: true });
+  assertEquals(retry, { ok: true, applied: true });
   assertEquals(calls, 2);
   const skipped = await publishRadarV2IfNeeded({
     flagEnabled: true,
@@ -1176,7 +1195,7 @@ Deno.test("stale 2-4. continued stale suppresses checkpoint, fingerprint, and ne
     syncedAt: SYNC,
     rpc,
   });
-  assertEquals(first, { ok: true });
+  assertEquals(first, { ok: true, applied: true });
   assertEquals(calls, 1);
   const continued = livePublishResult({
     feedStale: true,
@@ -1248,7 +1267,7 @@ Deno.test("stale 5-6. CLOSED and persistEmpty still write while stale", async ()
       return { error: null };
     },
   });
-  assertEquals(out, { ok: true });
+  assertEquals(out, { ok: true, applied: true });
   assertEquals(calls, 1);
 
   const engine = sentinelEngine();

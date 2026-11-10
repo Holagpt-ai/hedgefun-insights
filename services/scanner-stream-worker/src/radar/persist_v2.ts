@@ -414,13 +414,8 @@ export type PublishRadarResult =
   | { ok: true; applied?: boolean; reason?: RadarV2FenceReason }
   | { ok: false; code: "validation_failed" | "persist_failed" | "stale_generation" };
 
-/** True only when V2 data was committed or V2 was intentionally not attempted. */
-export function isRadarV2PublishCommitted(
-  v2: PublishRadarResult | "skipped",
-  persistenceV2Enabled: boolean,
-): boolean {
-  if (!persistenceV2Enabled) return true;
-  if (v2 === "skipped") return true;
+/** True only when a V2 RPC committed generation state (not fence reject). */
+export function isRadarV2PublishCommitted(v2: PublishRadarResult): boolean {
   if (!v2.ok) return false;
   if (v2.applied === false) return false;
   return true;
@@ -438,8 +433,18 @@ function parseRadarV2RpcData(data: unknown): {
   }
   if (typeof data === "object" && !Array.isArray(data)) {
     const rec = data as Record<string, unknown>;
-    if (rec.applied === false && rec.reason === "stale_generation") {
-      return { applied: false, reason: "stale_generation" };
+    if (rec.applied === false) {
+      const reason = rec.reason === "stale_generation"
+        ? "stale_generation"
+        : rec.reason === "already_current"
+        ? "already_current"
+        : rec.reason === "replaced"
+        ? "replaced"
+        : null;
+      return {
+        applied: false,
+        reason: reason as RadarV2FenceReason | null,
+      };
     }
     if (rec.reason === "already_current") {
       return { applied: true, reason: "already_current" };
@@ -462,16 +467,22 @@ export async function publishRadarV2Generation(
     const result = await rpc(input);
     if (result.error) return { ok: false, code: "persist_failed" };
     const parsed = parseRadarV2RpcData(result.data);
-    if (!parsed.applied && parsed.reason === "stale_generation") {
-      return { ok: false, code: "stale_generation" };
+    if (!parsed.applied) {
+      if (parsed.reason === "stale_generation") {
+        return { ok: false, code: "stale_generation" };
+      }
+      return { ok: false, code: "persist_failed" };
     }
     if (parsed.reason === "already_current") {
       return { ok: true, applied: true, reason: "already_current" };
     }
+    if (parsed.reason === "replaced") {
+      return { ok: true, applied: true, reason: "replaced" };
+    }
   } catch {
     return { ok: false, code: "persist_failed" };
   }
-  return { ok: true };
+  return { ok: true, applied: true };
 }
 
 /**

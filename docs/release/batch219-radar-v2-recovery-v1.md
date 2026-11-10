@@ -28,13 +28,29 @@ No production Fly deploy, Edge deploy, SQL apply, DNS, cron, or secret changes f
 
 ---
 
-## Root cause (code-level, reproducible)
+## Confirmed code defects (reproducible in tests)
 
-1. **`publishRadarV2Generation`** treated RPC `applied: false, reason: stale_generation` as **`ok: true`**, so the worker cleared persist-failure telemetry and loop health while **`v2_synced_at` / `session_kind` never advanced**.
-2. **`publishRadarV2IfNeeded`** did not call **`markFailure`** on that path, so the V2 write gate could not back off/retry correctly after a fence reject.
-3. **Operations** (`buildWorkerOpsView`) scored health from **`updated_at`** (V1/status checkpoint) and feed connection only — **not** `v2_synced_at` or feed **`session_kind` / `session_date`** alignment with the live market session.
+1. **`publishRadarV2Generation`** could treat some RPC **`applied: false`** outcomes as success and clear persist-failure telemetry while **`v2_synced_at` never advanced** (including **`stale_generation`** fence rejects; any explicit `applied: false` now fails closed).
+2. **`shouldClearPersistFailureTelemetry`** treated churn **`skipped`** V2 cycles as recovery when V2 was enabled — fixed so only a **committed** V2 result clears an outstanding failure (V2 disabled still falls back to V1-only clear).
+3. **Operations** (`buildWorkerOpsView`) scored health from **`updated_at`** and feed connection only, and (initially) applied the **15-minute delayed-feed allowance** to **`v2_synced_at`** — now uses **V2 publication cadence** (~120 s stale window, no provider delay).
 
-V1 `set_radar_v22_feed_status_v1` can refresh `updated_at` without a V2 commit; that is expected separation — health must not treat it as V2 publication success.
+V1 `set_radar_v22_feed_status_v1` can refresh `updated_at` without a V2 commit; that separation is expected.
+
+## Production mechanism — read-only Fly evidence (Nov 10, 2026 UTC)
+
+**Not conclusively `stale_generation` in production** (no matching log lines in sampled `fly logs`).
+
+| Evidence | Observation |
+| --- | --- |
+| V2 disabled? | **No** — repeated `publish_candidates_v2` bridge calls |
+| Worker image | `stocksist-radar-v22-worker` release **v46** (`deployment-01M6K5GH34NZCA1C5Y45AWPVHZ`), machine **started** — **predates Batch 219 worker fixes** |
+| V1 path | `publish_generation` **HTTP 200** on same timeline |
+| V2 failures (sample) | **`publish_candidates_v2` HTTP 502**, `bridge_database_rejected`, **`rpc_error_code: 23505`** (Postgres unique violation class) |
+| Worker logs | `radar_persist_v2_failed` with **`persist_failed`** |
+
+**Hypothesis (unverified):** bridge/RPC or DB constraint failure on V2 replace is blocking `v2_synced_at` advancement; the **`stale_generation` misclassification** is a separate defect that could mask fence rejects **if** they occur. **23505** root cause (payload/event idempotency vs schema) is **out of scope** for this batch unless owner approves a follow-up.
+
+Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence of `v2_synced_at` during a live session is treated as a V2 publication problem, not as “disabled.”
 
 ---
 
@@ -43,9 +59,9 @@ V1 `set_radar_v22_feed_status_v1` can refresh `updated_at` without a V2 commit; 
 | Area | Change |
 | --- | --- |
 | `services/scanner-stream-worker/src/radar/persist_v2.ts` | `stale_generation` → `{ ok: false, code: "stale_generation" }`; `isRadarV2PublishCommitted()`; `markFailure` on any non-commit |
-| `services/scanner-stream-worker/src/radar/run-health.ts` | Loop health / telemetry clear use `isRadarV2PublishCommitted` |
+| `services/scanner-stream-worker/src/radar/run-health.ts` | Telemetry clear requires committed V2; **`skipped` does not clear**; loop health unchanged on churn skip |
 | `services/scanner-stream-worker/src/radar/run.ts` | Persist failure notes include `stale_generation` |
-| `src/lib/ops/worker.ts` | `assessV2PublicationFreshness` + rollup via `worstStatus` |
+| `src/lib/ops/worker.ts` | `assessV2PublicationFreshness` (**120 s** stale window, no provider delay) + rollup via `worstStatus` |
 
 ---
 

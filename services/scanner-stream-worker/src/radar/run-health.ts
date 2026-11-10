@@ -22,7 +22,8 @@ export function resolveRadarLoopHealth(input: {
   if (input.v1Attempted && !input.v1Ok) return "degraded";
   if (
     input.persistenceV2Enabled &&
-    !isRadarV2PublishCommitted(input.v2, true)
+    input.v2 !== "skipped" &&
+    !isRadarV2PublishCommitted(input.v2)
   ) {
     return "degraded";
   }
@@ -54,7 +55,8 @@ export function shouldClearPersistFailureTelemetry(input: {
   if (input.v1RecoveryRequired) return false;
   if (input.v1Attempted && !input.v1Ok) return false;
   if (input.persistenceV2Enabled) {
-    return isRadarV2PublishCommitted(input.v2, true);
+    if (input.v2 === "skipped") return false;
+    return isRadarV2PublishCommitted(input.v2);
   }
   return input.v1Attempted && input.v1Ok;
 }

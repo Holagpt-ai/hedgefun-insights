@@ -26,6 +26,14 @@ import { parseTimestampMs } from "@/lib/screeners/contract";
 /** Max checkpoint interval (300 s) plus slack. */
 export const WORKER_CHECKPOINT_STALE_MS = 6 * 60_000;
 
+/**
+ * V2 publication cadence (default worker checkpoint 30 s). Internal DB commit
+ * time — do not add the 15-minute delayed-feed provider allowance here.
+ */
+export const V2_PUBLICATION_CHECKPOINT_MS = 30_000;
+/** ~4× default checkpoint + RPC slack before V2 publication reads stale. */
+export const V2_PUBLICATION_STALE_AFTER_MS = 120_000;
+
 export const RADAR_FEED_OPS_SELECT =
   "state_key,status,session_kind,session_date,updated_at,synced_at,v2_synced_at,last_receive_at," +
   "last_provider_event_at,feed_stale,feed_telemetry_stale,feed_connection_state,feed_last_message_at," +
@@ -85,8 +93,6 @@ export function assessV2PublicationFreshness(
   }
   const v2Ms = parseTimestampMs(row.v2_synced_at);
   const ageMs = v2Ms === null ? null : context.nowMs - v2Ms;
-  const delay = providerDelayFromFeedMode(row.market_data_feed_mode);
-  const allowance = providerDelayAllowanceMs(delay);
 
   if (v2Ms === null) {
     return {
@@ -99,9 +105,9 @@ export function assessV2PublicationFreshness(
   const freshness = assessFreshness({
     context,
     observedAtIso: row.v2_synced_at,
-    staleAfterMs: WORKER_CHECKPOINT_STALE_MS + allowance,
+    staleAfterMs: V2_PUBLICATION_STALE_AFTER_MS,
     providerDelayMs: 0,
-    failingMultiplier: 2,
+    failingMultiplier: 3,
   });
 
   const parts = easternParts(context.nowMs);
