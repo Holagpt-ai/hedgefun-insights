@@ -21,9 +21,10 @@ No production migrations, Edge deploys, DNS, cron, provider upgrades, or infrast
 | Jobs through 12:35 ET | **98** successful publications, **4** aborted |
 | RTH stability (post-open) | **32** consecutive successful publications **10:00 AM–12:35 PM ET** |
 | Aborted cron windows | **09:30**, **09:45**, **09:50**, **09:55 AM ET |
-| Aborted job mechanism (Nov 10) | **`prior_generation_retained`** — **no** confirmed new **`http_546`** on these four jobs |
-| Gappers `unresolved_gap_input_count` | **3** @ 09:30 → **2** @ 09:45 → **1** @ 09:50/09:55 → **0** by 10:00 |
-| Preservation trigger (09:45–09:55) | Prerequisite degradation, **primarily Gappers**; Gainers/Losers also recorded prerequisite pressure at **09:45** in retained abort evidence |
+| **09:30 ET abort mechanism** | **Aborted; mechanism NOT conclusively established.** `abort_reason` and `abort_evidence` were **null**; last recorded progress was **`finalize_stage:claim_finalize_lease`**. Gappers `unresolved_gap_input_count` **3** on the candidate evaluation does **not** prove the abort mechanism (no durable `prior_generation_retained` row). **No** confirmed **`http_546`** on this job. |
+| **09:45 / 09:50 / 09:55 ET abort mechanism** | **Confirmed `prior_generation_retained`** with durable abort diagnostics (**not** finalize **`http_546`**). |
+| Gappers `unresolved_gap_input_count` (observed) | **3** @ 09:30 → **2** @ 09:45 → **1** @ 09:50/09:55 → **0** by 10:00 — supports **transient incomplete gap-input accounting** at the open; **symbol-level provider attribution NOT VERIFIED**. |
+| Preservation trigger (09:45–09:55) | **Confirmed** prerequisite degradation, **primarily Gappers**, per `abort_evidence` tabs. At **09:45**, **Gainers/Losers** **`prerequisite_unavailable`** appears in retained abort evidence — **tab evaluation status only**; **not** an independently verified provider failure. |
 
 Batch **191.1** split-scale evidence accounting is **already merged** on `main` — do **not** reimplement.
 
@@ -59,11 +60,15 @@ The November 9 **09:30** failure predates **usable production correlation** with
 
 ## Finding 2 — November 10 opening-window aborts (Gappers / preservation)
 
-### Confirmed facts
+### Confirmed facts — per-job classification
 
-- All four November 10 morning aborts are **`prior_generation_retained`**, not finalize HTTP 546.
-- Abort diagnostics structure matches Batch **190.6** / `buildPriorGenerationRetentionAbortDetail` (`generation-abort-diagnostics.ts`): tabs can show **`evaluated` → `prerequisite_unavailable`** on **`gappers`**, **`gainers_losers`**, and **`new_highs_lows`** when `shouldPreservePriorScreenerGeneration` fires.
-- Gappers evidence counters showed **monotonically decreasing** `unresolved_gap_input_count` across 09:30–10:00 ET, reaching **zero** when publication succeeded — consistent with **transient incomplete provider/prior-close inputs at the RTH open**, not a stable mis-accounting bug.
+| Job (ET) | Status | Mechanism |
+| --- | --- | --- |
+| **09:30** | **Aborted** | **NOT conclusively established.** `abort_reason` / `abort_evidence` **null**; last progress **`finalize_stage:claim_finalize_lease`**. Do **not** label as confirmed **`prior_generation_retained`** or **`http_546`** from retained abort fields alone. |
+| **09:45**, **09:50**, **09:55** | **Aborted** | **Confirmed `prior_generation_retained`** (durable `abort_reason` + `abort_evidence`). **No** confirmed new **`http_546`** on these three jobs. |
+
+- For the **09:45–09:55** trio, abort diagnostics match Batch **190.6** / `buildPriorGenerationRetentionAbortDetail` (`generation-abort-diagnostics.ts`): tabs can show **`evaluated` → `prerequisite_unavailable`** on **`gappers`**, **`gainers_losers`**, and **`new_highs_lows`** when `shouldPreservePriorScreenerGeneration` fires.
+- Gappers **`unresolved_gap_input_count`** decreased **3 → 2 → 1 → 0** across the opening window and publication succeeded from **10:00** onward — **supports transient incomplete gap-input accounting** at the open. **Do not** assert a specific **provider** root cause without symbol-level proof.
 
 ### Classification vs incomplete provider input
 
@@ -74,17 +79,21 @@ Code path (`evaluation-evidence.ts` → `evaluateGappersEvidence`):
 - **`gap_input_coverage_incomplete`** → **`prerequisite_unavailable`** when accounting is incomplete.
 - **`shouldPreservePriorScreenerGeneration`** — fail-closed retention when a tab would **degrade** from **`evaluated`**; **by design**.
 
-### Gainers/Losers at 09:45
+### Gainers/Losers at 09:45 (09:45 retention job only)
 
-`evaluateGenericTabEvidence` marks **`gainers_losers`** **`prerequisite_unavailable`** with **`no_usable_session_volume`** when extended/observation session volume accounting yields zero volume-active symbols — a distinct path from Gappers accounting. Retained November 10 abort rows show **Gainers/Losers** prerequisite pressure at **09:45** alongside Gappers; preservation triggers if **any** of the three preservation tabs degrades. **No code defect** was reproduced in git tests for this transient open-window pattern.
+On the **09:45** **`prior_generation_retained`** job, retained `abort_evidence` records **Gainers/Losers** **`prerequisite_unavailable`** alongside **Gappers** degradation. In code, `evaluateGenericTabEvidence` can set **`gainers_losers`** **`prerequisite_unavailable`** (e.g. **`no_usable_session_volume`** under observation-session volume rules) — a **distinct path** from Gappers accounting. Preservation triggers if **any** preservation tab degrades.
 
-### Root-cause verdict (Nov 10 aborts)
+**Distinction:** Gainers/Losers **`prerequisite_unavailable` in abort evidence** is **confirmed tab-evaluation status**, not an **independently verified provider failure**. No symbol-level volume or feed proof was captured in Batch 218.
+
+### Root-cause verdict (Nov 10 opening aborts)
 
 | Question | Status |
 | --- | --- |
-| Incorrect split-scale classification (Batch 191.1 class)? | **NOT INDICATED** — unresolved counts decayed to zero within 30 minutes |
-| Incomplete provider input at open? | **CONFIRMED LIKELY** — matches counter decay and successful 10:00+ publication streak |
-| Should preservation have been disabled? | **No** — valid fail-closed behavior per Batch **185** / **190.6** |
+| **09:30** abort mechanism | **NOT conclusively established** (null abort fields; `finalize_stage:claim_finalize_lease` last progress) |
+| **09:45–09:55** = valid **`prior_generation_retained`**? | **Confirmed** for three jobs with durable abort diagnostics |
+| Incorrect split-scale classification (Batch 191.1 class)? | **NOT INDICATED** — unresolved counts decayed to zero by 10:00 |
+| Transient incomplete gap inputs at open? | **Supported by counter decay** — **provider/symbol cause NOT VERIFIED** |
+| Should preservation have been disabled? | **No** — fail-closed behavior per Batch **185** / **190.6** remains correct; **do not weaken** |
 
 **No narrow code correction or regression test** — behavior matches documented contracts.
 
@@ -102,7 +111,7 @@ Per `docs/release/STOCKSIST_MASTER_PENDING_BACKLOG_2026-10-28.md` § Batch 191:
 
 | Window | Result |
 | --- | --- |
-| RTH open (09:30–09:55) | **CONDITIONAL** — fail-closed preservation aborts when Gappers inputs incomplete; recovered by 10:00 |
+| RTH open (09:30–09:55) | **CONDITIONAL** — **09:30** aborted (mechanism inconclusive); **09:45–09:55** confirmed **`prior_generation_retained`**; recovered by 10:00 |
 | RTH mid (10:00–12:35) | **PASS (reported)** — 32 consecutive publications, 106 rows, six tabs evaluated |
 | After-hours Nov 10 | **NOT VERIFIED** in this batch |
 | Repeated multi-day RTH/AH | **NOT VERIFIED** — ISS-034 **stays OPEN** |
@@ -115,7 +124,7 @@ ISS-034 closes only when **Batch 191** acceptance is satisfied **and**:
 
 1. **Repeated** regular-session and after-hours production windows show successful six-tab publication without systematic finalize resource-limit failures.
 2. Any remaining **`http_546`** events are correlated with **`http_546:finalize_stage:*`** (post–Batch 216 Edge) **or** explicit platform limit logs — **not** speculated CPU cause.
-3. Opening-window **`prior_generation_retained`** aborts are **distinguished** from finalize kills and are **not** counted as publication regressions when transient Gappers input lag is documented (as Nov 10).
+3. Opening-window **`prior_generation_retained`** aborts (when **confirmed** via durable abort fields) are **distinguished** from finalize kills and from **09:30-style** aborts with **null** `abort_reason` / `abort_evidence`. Transient incomplete gap-input accounting may support fail-closed retention without counting as unexplained finalize failure.
 4. Nov 9 **09:30 `http_546` stage** may remain **historically unverified** without blocking closure **if** subsequent windows meet Batch 191 and no unexplained finalize kill pattern persists.
 
 **Batch 218 does not close ISS-034.** It records verified Nov 10 RTH recovery, classifies Nov 10 aborts, and preserves Nov 9 finalize uncertainty.
