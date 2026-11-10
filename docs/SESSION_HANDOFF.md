@@ -1,4 +1,12 @@
-# Session handoff — Batch 218, November 10, 2026 ET
+# Session handoff — Batch 191 scanner acceptance, November 10, 2026 ET
+
+**Source:** GitHub `main` `fcef28f66482affdf1491660e8398c697b84c3d1` (Batch 218 #232 merged).
+
+**Batch 191 (PR #233, read-only):** Owner-verified `screener_sync_generation_jobs` via **Lovable Cloud** (ET session totals Nov 6/9/10 in runbook). Nov 10 RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted (09:30 inconclusive; 09:45–09:55 retention). Feed @ **1:30 PM:** **107** rows, six tabs **evaluated**, Gappers unresolved **0**, NHL **available**. **Nov 10 AH not accepted.** Layers: ledger **verified**; per-job tab history + authenticated UI **not verified**. **ISS-034** / **ISS-024** **OPEN**. **No code/deploy.**
+
+**Next:** Owner review PR #233; after Nov 10 AH, extend ledger + Layer B; Layer C/D acceptance.
+
+## Archived handoff — Batch 218, November 10, 2026 ET
 
 **Source:** GitHub `main` `a23c7474175cde3a044c09dbe35d646c80cdc745` (preview-auth parity #231 atop Batch 217 #230).
 
