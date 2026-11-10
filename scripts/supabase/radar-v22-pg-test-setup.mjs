@@ -31,6 +31,7 @@ const RADAR_V22_MIGRATION_CHAIN = [
   "20260924181500_radar_v22_feed_session_date_v1.sql",
   "20260925180000_radar_v22_previous_session_facts_v1.sql",
   "20260926011500_radar_v22_closed_session_snapshot_v1.sql",
+  "20260926130000_intraday_participation_v1.sql",
   "20260926130200_scanner_intelligence_stack_replace_rpc_v1.sql",
   "20261013170000_radar_carryover_watch_v1.sql",
   "20261015143000_radar_v22_replace_rpc_set_based_events_v1.sql",
