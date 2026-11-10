@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 219.2 — Radar V2 closed-session snapshot integrity, ISS-044)
+
+- Same pending RPC `20261110193000`: closed-session snapshot copy uses **named columns** instead of `SELECT c.*`. Production physical order diverges (candidates col 48 `promotion_reason` vs snapshot col 48 `snapshot_kind`); positional insert aborted closed/carryover copies (both tables empty). Cross-date 219.1 delete-before-insert preserved.
+- Postgres tests: AH → closed park, participation field copy, `snapshot_kind`/`captured_at`, V2 timestamp/session transition, next-date carryover archive, failed-tx retention. **Not applied.**
+
 ## 2026-11-10 (Batch 219.1 — Radar V2 cross-date candidate replace, ISS-044)
 
 - Migration `20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`: delete prior `trading_date` rows **before** INSERT under global `(symbol)` PK (fixes 23505 class failures on surveillance date advance).

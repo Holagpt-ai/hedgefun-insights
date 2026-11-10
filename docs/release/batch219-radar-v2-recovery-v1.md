@@ -4,7 +4,7 @@
 **Base:** GitHub `main` (post Batch 191 acceptance PR **#233**)  
 **Branch:** `cursor/batch219-radar-v2-recovery`  
 **Date:** November 10, 2026 ET  
-**Scope:** Fly worker + Operations health (Batch **219**) and **`replace_radar_v22_candidates_v1` cross-date delete order** (Batch **219.1** migration file only — **not applied** in this session). **No** six-tab scanner, Edge deploy, cron, or production SQL apply.
+**Scope:** Fly worker + Operations health (Batch **219**), **`replace_radar_v22_candidates_v1` cross-date delete order** (Batch **219.1**), and **closed-session snapshot named-column copy** (Batch **219.2**). Same pending migration file — **not applied**. **No** six-tab scanner, Edge deploy, cron, or production SQL apply.
 
 ## Restrictions honored
 
@@ -43,6 +43,25 @@ When surveillance advances (e.g. Nov **10** publish with symbols still present o
 **Fix (`20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`):** delete `trading_date < p_trading_date` **then** same-day delete **then** `INSERT`; remove post-insert cleanup. Re-assert `statement_timeout = 120s`. Signature, `SECURITY DEFINER`, `search_path = ''`, grants unchanged.
 
 **Regression:** `supabase/functions/_shared/radar-v22/batch219-cross-date-replace-postgres_test.ts` (CI: disposable Postgres + `scripts/supabase/radar-v22-pg-test-setup.mjs`).
+
+---
+
+## Batch 219.2 — closed-session snapshot schema mismatch (confirmed; same pending migration)
+
+**Owner-verified production schema (read-only):**
+
+| Table | Columns | attnum 48 | attnum 49 |
+| --- | --- | --- | --- |
+| `radar_v22_candidates` | **62** | `promotion_reason` (JSONB) | `radar_event_lifecycle` (TEXT) |
+| `radar_v22_closed_snapshot` | **64** | `snapshot_kind` (TEXT) | `captured_at` (TIMESTAMPTZ) |
+
+Cause: snapshot table was created `LIKE radar_v22_candidates` then appended `snapshot_kind` / `captured_at`; later participation columns were added to **both** tables and therefore land **after** those metadata columns on the snapshot table only.
+
+Production RPC used `INSERT INTO radar_v22_closed_snapshot SELECT c.*, 'closed_session', p_synced_at`. That positional list writes candidate col 48 into `snapshot_kind` and col 49 into `captured_at`, aborting the closed-session copy. Both `radar_v22_closed_snapshot` and `radar_v22_carryover_snapshot` currently contain **zero rows**.
+
+**Fix (same `20261110193000` body, still not applied):** named target columns and matching `c.<column>` / `'closed_session'` / `p_synced_at` expressions. Cross-date delete-before-insert (219.1) is unchanged. Generation fencing, transactional rollback, event retention, and carryover triggers are unchanged.
+
+**Do not** restore `SELECT c.*` for tables whose physical column orders diverge.
 
 ---
 
@@ -85,7 +104,8 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 
 ## Tests (local)
 
-- Deno: `services/scanner-stream-worker/src/radar/persist_v2_test.ts`, `run-health_test.ts`
+- Deno: `services/scanner-stream-worker/src/radar/persist_v2_test.ts`, `run-health_test.ts`, `persistence_v2_rpc_contract_test.ts`
+- Postgres (CI disposable, must execute not skip): `batch219-cross-date-replace-postgres_test.ts` — cross-date 23505, stale_generation, rollback, closed-snapshot named copy, carryover archive, failed-tx snapshot retention
 - Vitest: `src/lib/ops/__tests__/ops-control-center.test.ts`
 
 ---
@@ -93,7 +113,7 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 ## Release procedure (owner-approved)
 
 1. **Merge PR #234** after CI green.
-2. **Lovable Cloud:** apply migration **`20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`** (append-only; no historical migration edits).
+2. **Lovable Cloud:** apply migration **`20261110193000_radar_v22_cross_date_candidate_delete_v1.sql`** (append-only; no historical migration edits). This body includes **219.1** delete-before-insert **and** **219.2** named-column snapshot copy. Do not apply a pre-219.2 copy of the same filename.
 3. **Deploy Fly** `scanner-stream-worker` image from merged `main` (worker Batch 219 failure/telemetry fixes; image **v46** predates PR).
 3. **Verify** during RTH (read-only):
    - `radar_v22_feed_state.v2_synced_at` advances within one V2 checkpoint window (~30s default).
@@ -107,7 +127,7 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 
 ## Rollback
 
-1. **SQL:** redeploying the pre-219.1 RPC body (`20261015143000`) **reintroduces the cross-date `(symbol)` PK defect** and can bring back `23505` failures on surveillance date advance — **do not roll back SQL** unless an owner accepts that risk and has a data remediation plan. Prefer forward-fix with `20261110193000`.
+1. **SQL:** redeploying the pre-219.1 RPC body (`20261015143000`) **reintroduces both** the cross-date `(symbol)` PK / `23505` defect **and** the positional closed-snapshot insert that leaves closed/carryover tables empty — **do not roll back SQL** unless an owner accepts those consequences and has a data remediation plan. Prefer forward-fix with the current `20261110193000` body.
 2. **Fly:** redeploy image **v46** `deployment-01M6K5GH34NZCA1C5Y45AWPVHZ` (see `docs/DEPLOYMENT_STATUS.md`).
 3. **Vercel:** prior bundle if Operations rollup must be reverted.
 
@@ -119,4 +139,5 @@ Operations cannot read `RADAR_PERSISTENCE_V2_ENABLED` from the browser; absence 
 - [ ] Session transitions replace prior-session candidates (no AH board presented as current RTH).
 - [ ] Operations worker ≠ **Healthy** when checkpoint fresh but V2 stale or `session_kind` mismatched.
 - [ ] Closed session: no false V2 alarm (`not_applicable`).
+- [ ] Closed-session park writes `radar_v22_closed_snapshot` with `snapshot_kind='closed_session'`, correct `captured_at`, and participation fields intact; next surveillance date archives carryover.
 - [ ] Delayed-feed allowance unchanged (15-minute provider delay).

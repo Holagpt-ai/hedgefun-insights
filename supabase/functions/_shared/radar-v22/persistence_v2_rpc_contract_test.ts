@@ -184,6 +184,18 @@ Deno.test("static: V2 replace advances surveillance session_date", async () => {
   assert(body.includes("session_date = EXCLUDED.session_date"));
 });
 
+Deno.test("static: closed snapshot insert uses named columns, not SELECT c.*", async () => {
+  const body = functionBody(await loadRpc());
+  const insertAt = body.indexOf("INSERT INTO public.radar_v22_closed_snapshot (");
+  assert(insertAt >= 0, "closed snapshot INSERT must list target columns");
+  assert(body.includes("snapshot_kind,\n      captured_at"));
+  assert(body.includes("c.promotion_reason, c.radar_event_lifecycle"));
+  assert(body.includes("c.participation_state"));
+  assert(body.includes("'closed_session',\n      p_synced_at"));
+  assertFalse(body.includes("SELECT c.*, 'closed_session'"));
+  assertFalse(body.includes("SELECT c.*, 'closed_session', p_synced_at"));
+});
+
 Deno.test("static: latest forward migration is the authoritative replace RPC definition", async () => {
   const migrationsDir = new URL("../../../migrations/", import.meta.url);
   const defs: string[] = [];

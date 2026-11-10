@@ -1,6 +1,15 @@
 -- Batch 219.1 (ISS-044): cross-date candidate replacement under global symbol PK.
 -- Prior trading_date rows must be removed before INSERT; otherwise symbol-uniqueness
 -- (PRIMARY KEY (symbol)) conflicts with retained prior-day candidates (HTTP 502 / 23505).
+--
+-- Batch 219.2 (ISS-044): closed-session snapshot copy uses named columns.
+-- radar_v22_closed_snapshot was created LIKE candidates, then received
+-- snapshot_kind/captured_at, after which participation columns were appended to
+-- both tables. Physical order therefore diverges: candidate attnum 48 is
+-- promotion_reason (jsonb); snapshot attnum 48 is snapshot_kind (text).
+-- INSERT ... SELECT c.*, 'closed_session', p_synced_at maps those positions
+-- incorrectly and aborts the RPC (production closed/carryover snapshots empty).
+--
 -- Preserves generation fencing, events, closed/carryover snapshots, and feed_state upsert.
 
 CREATE OR REPLACE FUNCTION public.replace_radar_v22_candidates_v1(
@@ -144,8 +153,51 @@ BEGIN
        WHERE trading_date = p_trading_date
      ) THEN
     DELETE FROM public.radar_v22_closed_snapshot;
-    INSERT INTO public.radar_v22_closed_snapshot
-    SELECT c.*, 'closed_session', p_synced_at
+    INSERT INTO public.radar_v22_closed_snapshot (
+      symbol, generation_id, trading_date, session_kind, lifecycle, signal_status,
+      last_price, last_price_at, move_15s_pct, move_60s_pct,
+      volume_5s, volume_15s, volume_60s, session_volume, dollar_volume_60s,
+      acceleration_5m, rvol_5m, volume_velocity, volume_acceleration_pct,
+      session_high, session_low, distance_from_hod_pct,
+      session_vwap, vwap_side, geometry_partial, vwap_partial,
+      last_new_hod_at, last_hod_attempt_at, last_hod_break_at, last_hod_reject_at,
+      last_vwap_cross_at, last_vwap_reclaim_at, last_vwap_loss_at,
+      freshness_class, freshness_age_ms, last_volume_burst_at, last_price_move_at,
+      last_acceleration_at, promoted_at, lifecycle_entered_at, provider_as_of,
+      primary_scanner_event, primary_scanner_event_at, scanner_events,
+      promotion_reason, radar_event_lifecycle, radar_engine_events,
+      time_adjusted_rvol, volume_5m, volume_15m, volume_60m,
+      volume_velocity_5m, volume_velocity_15m, volume_velocity_60m,
+      dollar_volume_velocity_5m, participation_state,
+      participation_baseline_session_count, participation_calculated_at,
+      participation_source_as_of,
+      previous_close, prior_session_volume,
+      updated_at,
+      snapshot_kind,
+      captured_at
+    )
+    SELECT
+      c.symbol, c.generation_id, c.trading_date, c.session_kind, c.lifecycle, c.signal_status,
+      c.last_price, c.last_price_at, c.move_15s_pct, c.move_60s_pct,
+      c.volume_5s, c.volume_15s, c.volume_60s, c.session_volume, c.dollar_volume_60s,
+      c.acceleration_5m, c.rvol_5m, c.volume_velocity, c.volume_acceleration_pct,
+      c.session_high, c.session_low, c.distance_from_hod_pct,
+      c.session_vwap, c.vwap_side, c.geometry_partial, c.vwap_partial,
+      c.last_new_hod_at, c.last_hod_attempt_at, c.last_hod_break_at, c.last_hod_reject_at,
+      c.last_vwap_cross_at, c.last_vwap_reclaim_at, c.last_vwap_loss_at,
+      c.freshness_class, c.freshness_age_ms, c.last_volume_burst_at, c.last_price_move_at,
+      c.last_acceleration_at, c.promoted_at, c.lifecycle_entered_at, c.provider_as_of,
+      c.primary_scanner_event, c.primary_scanner_event_at, c.scanner_events,
+      c.promotion_reason, c.radar_event_lifecycle, c.radar_engine_events,
+      c.time_adjusted_rvol, c.volume_5m, c.volume_15m, c.volume_60m,
+      c.volume_velocity_5m, c.volume_velocity_15m, c.volume_velocity_60m,
+      c.dollar_volume_velocity_5m, c.participation_state,
+      c.participation_baseline_session_count, c.participation_calculated_at,
+      c.participation_source_as_of,
+      c.previous_close, c.prior_session_volume,
+      c.updated_at,
+      'closed_session',
+      p_synced_at
     FROM public.radar_v22_candidates AS c
     WHERE c.trading_date = p_trading_date;
   END IF;
