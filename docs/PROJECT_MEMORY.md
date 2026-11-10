@@ -2,7 +2,15 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## November 9, 2026 post-Batch 217 source-sync conflict (current)
+## Verified live checkpoint — November 10, 2026 (Batch 218 ISS-034 evidence)
+
+- **GitHub main:** `a23c7474175cde3a044c09dbe35d646c80cdc745` (Batch 217 follow-on preview-auth parity #231).
+- **Scanner (owner-reported Nov 10 RTH):** Primary screener publishing normally by **12:35 PM ET** — **106** published rows, six tabs evaluated. **98** successful publications and **4** aborted jobs through 12:35 ET. **32** consecutive successful publications **10:00 AM–12:35 PM ET**. Morning aborts at **09:30**, **09:45**, **09:50**, **09:55** were **`prior_generation_retained`** (Gappers prerequisite degradation; **no** confirmed new **`http_546`** on those jobs). Gappers `unresolved_gap_input_count`: **3 → 2 → 1 → 0** by 10:00 — consistent with **transient open-window provider input lag**, not Batch **191.1** split-scale mis-accounting. Fail-closed preservation is **correct**; do not weaken it.
+- **November 9 09:30 `http_546`:** DB-confirmed Edge resource limit; **finalize stage and CPU-specific cause NOT VERIFIED** (no `finalize_stage:*` on row; sampled Edge logs inconclusive). Batch **216** markers apply to **future** failures after owner-reported deploy — they do not retroactively name Nov 9.
+- **ISS-034:** **OPEN** — partial Nov 10 RTH stability does **not** satisfy full **Batch 191** RTH/AH matrix. After-hours and multi-day acceptance still required.
+- **ISS-044 (new follow-up):** Fly Radar V2 stale-feed vs Operations **Healthy** observation — documented in Batch **218** runbook; **no** Fly/Ops code change in 218.
+
+## November 9, 2026 post-Batch 217 source-sync conflict (historical)
 
 - **Batch 217:** PR #230 squash-merged into GitHub `main` at `79260fbb10673f96ace21bae491c8953c42fe3c4` (AM Inbox symbol-aware Screeners handoff). Vercel PR check passed; authenticated production AM Inbox acceptance remains open (**ISS-025**).
 - **GitHub → Lovable source sync:** owner activated `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`, and push-run `42717914109` triggered automatically but correctly failed closed with `CONFLICT` / `unexpected_paths: [src/integrations/supabase/previewAuthStorage.ts]` on Nov 9. Integration/editor `b54b328ae9745ebad67a888806f19d0013c7f1b1` remain **one main commit behind**. The unapproved path is a generated Lovable preview-auth source change (broader UUID syntax + `live--UUID-thr_*` host parsing); do not add an authentication file to the blanket overlay allowlist, reset the Lovable branch, or force-push. A narrowly scoped review PR backports the exact Lovable version to GitHub main and preserves its behavior. **ISS-040 OPEN until clean subsequent apply plus editor parity is observed.** Source sync never deploys Edge or SQL.

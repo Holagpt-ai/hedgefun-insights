@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-10 (Batch 218 — ISS-034 root-cause verification & closure gate)
+
+- **Documentation-only** reconciliation for **ISS-034**. Nov 9 **09:30 `http_546`:** Edge resource limit confirmed in DB; finalize **stage** and **CPU-specific** cause **NOT VERIFIED** (inconclusive logs; no `finalize_stage:*` on historical row). Nov 10 opening **09:30–09:55** four jobs: **`prior_generation_retained`** with Gappers `unresolved_gap_input_count` **3→0** by 10:00 — **valid fail-closed** transient open-window behavior, not a post–**191.1** accounting defect. Nov 10 **10:00–12:35 ET:** owner-reported **32** consecutive publications, **106** rows, six tabs. **ISS-034 stays OPEN** until full Batch **191** RTH/AH matrix. **ISS-044** opened (Fly Radar V2 stale-feed vs Ops Healthy — follow-up, no code). Runbook `docs/release/batch218-iss034-root-cause-closure-gate-v1.md`. **No** Edge/SQL/cron/deploy.
+
 ## 2026-11-09 (Batch 217 — AM Inbox production readiness)
 
 - ISS-025 gate for the November 9 production load: 3,776 active late-session rows / 1,525 symbols (~4.1 MB). Synthetic fixture reproduces map+build in **~424 ms** under the existing 8 s bound. Adds missing symbol-aware **Screeners** handoff on continuation cards (Catalyst / Watchlist / AI Analyst / Journal / Action Center already present). Ranking, qualification, RPCs, and candidate limits unchanged. Runbook `docs/release/batch217-am-inbox-production-readiness-v1.md`. Authenticated UI acceptance still **NOT VERIFIED**.
