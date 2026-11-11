@@ -71,8 +71,23 @@ jobs:
           cache: npm
       - name: Install Node dependencies
         run: npm ci --ignore-scripts
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Provide psql client (postgres:16-alpine, no apt)
+        run: |
+          set -euo pipefail
+          PG_IMAGE=postgres:16-alpine
+          docker pull "$PG_IMAGE"
+          install -d /usr/local/bin
+          cat > /usr/local/bin/psql << 'WRAP'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT="${GITHUB_WORKSPACE:-$PWD}"
+          exec docker run --rm -i --network host \
+            -v "${ROOT}:${ROOT}" \
+            -w "${ROOT}" \
+            postgres:16-alpine psql "$@"
+          WRAP
+          chmod +x /usr/local/bin/psql
+          psql --version
       - name: Bootstrap disposable Postgres (Batch 190 migrations)
         run: node scripts/supabase/screener-sync-pg-test-setup.mjs
       - name: Bootstrap Radar V22 migrations (Batch 219.1)
