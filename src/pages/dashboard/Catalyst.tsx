@@ -45,6 +45,8 @@ import {
   type CatalystRecencyFilter,
 } from "@/lib/catalyst/catalyst-filters";
 import { buildCatalystHistoricalSummary } from "@/lib/catalyst/catalyst-historical-facts";
+import { isCatalystFeedInitialLoading } from "@/lib/catalyst/catalyst-feed-loading";
+import { catalystEnrichmentSymbolsFromFeed } from "@/lib/catalyst/catalyst-enrichment-scheduling";
 import type { CatalystEvent } from "@/types/catalyst";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import { cn } from "@/lib/utils";
@@ -119,7 +121,7 @@ export default function Catalyst() {
   const [searchInput, setSearchInput] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  const { data: rawEvents, isLoading, error } = useCatalystEvents({
+  const { data: rawEvents, isPending, error } = useCatalystEvents({
     symbol: activeSymbol,
     recentDays: 3,
     upcomingDays: 30,
@@ -168,7 +170,13 @@ export default function Catalyst() {
     () => (rawEvents ?? []).filter((event) => isEligibleCatalystFeedEvent(event)),
     [rawEvents],
   );
-  const nowMs = Date.now();
+  const feedInitialLoading = isCatalystFeedInitialLoading(isPending, rawEvents !== undefined);
+
+  const [sessionNowMs, setSessionNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setSessionNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Live feed first: category / workflow / symbol filters never wait on history.
   const feedEvents = useMemo(() => {
@@ -181,18 +189,26 @@ export default function Catalyst() {
       if (searchFilter && e.symbol !== searchFilter) return false;
       return true;
     });
-    return filtered.sort((a, b) => compareCatalystFeedEvents(a, b, feedSortMode, nowMs));
-  }, [events, categoryFilter, feedSortMode, workflow, watchlistSymbols, savedByEvent, reviewedByEvent, searchInput, nowMs]);
+    return filtered.sort((a, b) =>
+      compareCatalystFeedEvents(a, b, feedSortMode, sessionNowMs),
+    );
+  }, [
+    events,
+    categoryFilter,
+    feedSortMode,
+    workflow,
+    watchlistSymbols,
+    savedByEvent,
+    reviewedByEvent,
+    searchInput,
+    sessionNowMs,
+  ]);
 
   // Historical context is enriched asynchronously and fails soft.
-  const enrichSymbols = useMemo(() => {
-    const seen: string[] = [];
-    for (const e of feedEvents) {
-      if (!seen.includes(e.symbol)) seen.push(e.symbol);
-      if (seen.length >= 24) break;
-    }
-    return seen;
-  }, [feedEvents]);
+  const enrichSymbols = useMemo(
+    () => catalystEnrichmentSymbolsFromFeed(feedEvents),
+    [feedEvents],
+  );
 
   const { contexts, loadingSymbols } = useCatalystHistoricalContext(enrichSymbols);
 
@@ -216,23 +232,23 @@ export default function Catalyst() {
           publishedAtIso: e.published_at,
           eventDate: e.event_date ?? null,
           hasHistoricalContext: summaryFor(e.symbol).available,
-          nowMs,
+          nowMs: sessionNowMs,
         }),
       ),
-    [feedEvents, recencyFilter, summaryFor, nowMs],
+    [feedEvents, recencyFilter, summaryFor, sessionNowMs],
   );
 
   const summary = useMemo(() => {
     const upcomingEarnings = events.filter(
-      (e) => e.event_type === "earnings" && isFuture(e, nowMs),
+      (e) => e.event_type === "earnings" && isFuture(e, sessionNowMs),
     ).length;
     const recentCompany = events.filter(
-      (e) => e.event_type !== "earnings" && isRecent(e, nowMs, 72),
+      (e) => e.event_type !== "earnings" && isRecent(e, sessionNowMs, 72),
     ).length;
     const watchlistCatalysts = watchlistCatalystCounts(events, watchlistSymbols);
-    const last24 = events.filter((e) => isRecent(e, nowMs, 24)).length;
+    const last24 = events.filter((e) => isRecent(e, sessionNowMs, 24)).length;
     return { upcomingEarnings, recentCompany, watchlistCatalysts, last24 };
-  }, [events, watchlistSymbols, nowMs]);
+  }, [events, watchlistSymbols, sessionNowMs]);
 
   const clearSymbolFilter = () => {
     const next = new URLSearchParams(searchParams);
@@ -282,7 +298,7 @@ export default function Catalyst() {
             Updated {formatLastSync(lastSync ?? null)}
           </span>
           <span className="rounded-full border border-border px-2 py-1">
-            {sessionContextLabel(nowMs)}
+            {sessionContextLabel(sessionNowMs)}
           </span>
         </div>
       </div>
@@ -373,20 +389,20 @@ export default function Catalyst() {
       </div>
 
       {/* Feed */}
-      {isLoading && (
+      {feedInitialLoading && (
         <Card className="flex items-center justify-center p-6 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading catalyst events…
         </Card>
       )}
 
-      {!isLoading && error && (
+      {!feedInitialLoading && error && (
         <Card className="flex items-center gap-2 p-6 text-[13px] text-amber-600">
           <AlertTriangle className="h-4 w-4" />
           Unable to load catalyst events right now. Please try again shortly.
         </Card>
       )}
 
-      {!isLoading && !error && visibleEvents.length === 0 && (
+      {!feedInitialLoading && !error && visibleEvents.length === 0 && (
         <Card className="space-y-1 p-8 text-center">
           <div className="text-sm font-semibold text-foreground">
             {emptyMessage(activeSymbol, workflow, watchlistSymbols.size)}
@@ -397,7 +413,7 @@ export default function Catalyst() {
         </Card>
       )}
 
-      {!isLoading && !error && visibleEvents.length > 0 && (
+      {!feedInitialLoading && !error && visibleEvents.length > 0 && (
         <div className="grid gap-2">
           {visibleEvents.map((e) => (
             <CatalystEventRow
@@ -411,7 +427,7 @@ export default function Catalyst() {
               onToggleSaved={() => handleToggleSaved(e, !savedByEvent.has(e.id))}
               onToggleReviewed={() => handleToggleReviewed(e, !reviewedByEvent.has(e.id))}
               disabled={toggleSaved.isPending || toggleReviewed.isPending}
-              nowMs={nowMs}
+              nowMs={sessionNowMs}
             />
           ))}
         </div>
@@ -425,7 +441,7 @@ export default function Catalyst() {
         historyLoading={selectedEvent ? loadingSymbols.has(selectedEvent.symbol) : false}
         open={selectedEvent !== null}
         onOpenChange={(open) => { if (!open) setSelectedEventId(null); }}
-        nowMs={nowMs}
+        nowMs={sessionNowMs}
       />
     </div>
   );

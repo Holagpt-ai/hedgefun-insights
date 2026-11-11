@@ -1,4 +1,16 @@
-# Session handoff — Batch 219.3B NHL baseline UI consistency, November 11, 2026 ET
+# Session handoff — Batch 220 Catalyst + Watchlist loading performance V1, November 11, 2026 ET
+
+**Source:** GitHub `main` **`c44b669d4d511d3a8f7683f0725dc07ee0071558`** (Batch 220 branch).
+
+**Batch 220:** Watchlist list shimmer no longer gates on analysis / request-status queries (`resolveWatchlistLoadingState` + `isListLoading`). Catalyst feed uses initial-fetch-only spinner (`isCatalystFeedInitialLoading` + react-query `placeholderData`); historical enrichment effect key is symbol-set stable (`catalystEnrichmentStableKey`) so client-side filter reorder does not re-request identical histories; `sessionNowMs` ticks once per minute instead of every render. Vitest: `watchlist-loading-state`, `batch220-loading-performance`. Frontend only — **not deployed**.
+
+**ISS-044:** **OPEN** — Fly **v48**; weekday **20:00 ET** closed-snapshot acceptance.
+
+**ISS-045:** **OPEN** — PR **#236** merged at `c44b669`; pending Vercel UI acceptance.
+
+**Next:** Owner review Batch 220 PR → Vercel only. Re-check Watchlist cold load (symbols before analysis) and Catalyst tab (feed before history, filter churn).
+
+## Archived handoff — Batch 219.3B NHL baseline UI consistency, November 11, 2026 ET
 
 **Source:** GitHub `main` **`dc9305f59d46e208d9a96f6c3650b2da6a9e48da`** + Fly **v48** (219.3A deployed).
 

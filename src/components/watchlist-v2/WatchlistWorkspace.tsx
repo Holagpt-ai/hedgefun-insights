@@ -64,7 +64,7 @@ function LoadingShimmer() {
 export function WatchlistWorkspace({ className }: Props) {
   const {
     isAuthenticated,
-    isLoading,
+    isListLoading,
     watchlistQueryFailed,
     analysisQueryFailed,
     rows,
@@ -134,7 +134,7 @@ export function WatchlistWorkspace({ className }: Props) {
   );
 
   useEffect(() => {
-    if (!handoff || isLoading) return;
+    if (!handoff || isListLoading) return;
     if (!existingTickers.has(handoff)) return;
     if (lastHandledRef.current === handoff) return;
     lastHandledRef.current = handoff;
@@ -149,7 +149,7 @@ export function WatchlistWorkspace({ className }: Props) {
     }
     const timer = setTimeout(() => setHighlighted(null), 2500);
     return () => clearTimeout(timer);
-  }, [handoff, isLoading, existingTickers]);
+  }, [handoff, isListLoading, existingTickers]);
 
   const prefillSymbol = handoff && !existingTickers.has(handoff) ? handoff : null;
 
@@ -233,7 +233,7 @@ export function WatchlistWorkspace({ className }: Props) {
         onFilter={setFilter}
       />
 
-      {analysisQueryFailed && !isLoading ? (
+      {analysisQueryFailed && !isListLoading ? (
         <div
           role="alert"
           className="rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
@@ -243,7 +243,7 @@ export function WatchlistWorkspace({ className }: Props) {
         </div>
       ) : null}
 
-      {isLoading ? (
+      {isListLoading ? (
         <LoadingShimmer />
       ) : watchlistQueryFailed ? (
         <div
