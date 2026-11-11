@@ -4,8 +4,13 @@
  * not the sync execution clock alone.
  */
 
-import { resolveSyncSessionKind, type SyncSessionKind } from "./session-sync-context.ts";
-import { surveillanceTradingDateFromMs } from "./screener-session.ts";
+import type { CalendarExceptionRow } from "../markets/session-schedule.ts";
+import {
+  resolveObservationSessionKindAt,
+  resolveSyncSessionKind,
+  type ObservationSessionKind,
+} from "./session-sync-context.ts";
+import { equityTradeDateForVolume } from "./screener-session.ts";
 
 export type VolumeTicker = {
   updated?: unknown;
@@ -66,7 +71,24 @@ export type SessionVolumeContext = {
   observationSessionVolume?: boolean;
   nowMs?: number;
   cache?: SessionVolumeCache;
+  calendarExceptions?: CalendarExceptionRow[] | null;
 };
+
+export type OvernightVolumeProvenance = {
+  observationSessionKind: "overnight";
+  observationMs: number;
+  tradeDate: string;
+  source: "min.av";
+};
+
+/** True when min.av exists and day.v is not a positive prior-session cumulative. */
+export function overnightSessionVolume(t: VolumeTicker): number | null {
+  const accumulated = positiveFinite(t?.min?.av);
+  if (accumulated === null) return null;
+  const regularTotal = positiveFinite(t?.day?.v);
+  if (regularTotal !== null) return null;
+  return accumulated;
+}
 
 function usesObservationVolumeResolution(ctx: SessionVolumeContext): boolean {
   return ctx.observationSessionVolume === true || ctx.extendedSession === true;
@@ -152,6 +174,7 @@ export function parseProviderTimestampMs(
 function resolveVerifiedObservationMsUncached(
   t: VolumeTicker,
   nowMs: number,
+  ctx?: SessionVolumeContext,
 ): number | null {
   const minMs = t.min?.t !== undefined && t.min?.t !== null
     ? parseProviderTimestampMs(t.min.t, nowMs)
@@ -160,9 +183,10 @@ function resolveVerifiedObservationMsUncached(
     ? parseUpdatedFieldToMs(t.updated, nowMs)
     : null;
 
+  const exceptions = ctx?.calendarExceptions ?? null;
   if (minMs !== null && updatedMs !== null) {
-    const kindMin = resolveSyncSessionKind(minMs);
-    const kindUpdated = resolveSyncSessionKind(updatedMs);
+    const kindMin = resolveObservationSessionKindAt(minMs, exceptions);
+    const kindUpdated = resolveObservationSessionKindAt(updatedMs, exceptions);
     if (kindMin !== kindUpdated) return null;
   }
 
@@ -185,39 +209,66 @@ export function resolveVerifiedObservationMs(
     if (cache.observationMs.has(t)) {
       return cache.observationMs.get(t)!;
     }
-    const resolved = resolveVerifiedObservationMsUncached(t, nowMs);
+    const resolved = resolveVerifiedObservationMsUncached(t, nowMs, ctx);
     cache.observationMs.set(t, resolved);
     return resolved;
   }
-  return resolveVerifiedObservationMsUncached(t, nowMs);
+  return resolveVerifiedObservationMsUncached(t, nowMs, ctx);
 }
 
 export function resolveObservationSessionKind(
   t: VolumeTicker,
   nowMs: number,
   ctx?: SessionVolumeContext,
-): SyncSessionKind | null {
+): ObservationSessionKind | null {
   const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
-  return resolveSyncSessionKind(observationMs);
+  return resolveObservationSessionKindAt(
+    observationMs,
+    ctx?.calendarExceptions ?? null,
+  );
+}
+
+export function overnightVolumeProvenance(
+  t: VolumeTicker,
+  syncNowMs: number,
+  ctx?: SessionVolumeContext,
+): OvernightVolumeProvenance | null {
+  const observationMs = resolveVerifiedObservationMs(t, syncNowMs, ctx);
+  if (observationMs === null) return null;
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const kind = resolveObservationSessionKindAt(observationMs, exceptions);
+  if (kind !== "overnight") return null;
+  if (overnightSessionVolume(t) === null) return null;
+  const tradeDate = equityTradeDateForVolume(observationMs, exceptions);
+  if (tradeDate === null) return null;
+  return {
+    observationSessionKind: "overnight",
+    observationMs,
+    tradeDate,
+    source: "min.av",
+  };
 }
 
 function volumeForObservationSession(
   t: VolumeTicker,
-  kind: SyncSessionKind,
+  kind: ObservationSessionKind,
 ): number | null {
   if (kind === "pre-market") return premarketAccumulatedVolume(t);
   if (kind === "market") return regularSessionVolume(t);
   if (kind === "after-hours") return afterHoursIncrementalVolume(t);
+  if (kind === "overnight") return overnightSessionVolume(t);
   return null;
 }
 
 function isCurrentSurveillanceObservation(
   observationMs: number,
   syncNowMs: number,
+  ctx?: SessionVolumeContext,
 ): boolean {
-  const syncDate = surveillanceTradingDateFromMs(syncNowMs);
-  const obsDate = surveillanceTradingDateFromMs(observationMs);
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const syncDate = equityTradeDateForVolume(syncNowMs, exceptions);
+  const obsDate = equityTradeDateForVolume(observationMs, exceptions);
   return syncDate !== null && obsDate !== null && syncDate === obsDate;
 }
 
@@ -239,7 +290,7 @@ export function extendedQuoteSemanticsForObservation(
   const kind = resolveObservationSessionKind(t, nowMs, ctx);
   const result = kind === null
     ? null
-    : kind === "pre-market" || kind === "after-hours";
+    : kind === "pre-market" || kind === "after-hours" || kind === "overnight";
   if (useCache) cache.extendedQuoteSemantics.set(t, result);
   return result;
 }
@@ -255,9 +306,12 @@ function sessionQualificationVolumeUncached(
 
   const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
-  if (!isCurrentSurveillanceObservation(observationMs, nowMs)) return null;
+  if (!isCurrentSurveillanceObservation(observationMs, nowMs, ctx)) return null;
 
-  const kind = resolveSyncSessionKind(observationMs);
+  const kind = resolveObservationSessionKindAt(
+    observationMs,
+    ctx.calendarExceptions ?? null,
+  );
   return volumeForObservationSession(t, kind);
 }
 

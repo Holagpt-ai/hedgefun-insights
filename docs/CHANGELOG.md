@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 221 — Overnight scanner backend pipeline V1)
+
+- Backend overnight observation/volume semantics for 23×5-ready scanner (`session-volume.ts`, `session-sync-context.ts`, `resolveOvernightCycleAt`, handler observation gate). `OVERNIGHT_SCANNER_PIPELINE_READY` remains **false**; production overnight scans still **disabled**. Runbook `docs/release/batch221-overnight-scanner-pipeline-v1.md`. **Not deployed.**
+
 ## 2026-11-11 (Batch 220 — Catalyst + Watchlist loading performance V1)
 
 - Watchlist: decouple symbol-list loading from analysis and request-status queries (`isListLoading`); rows render with honest per-row pending/failure states.
