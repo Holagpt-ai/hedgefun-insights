@@ -247,6 +247,15 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
 - Public `/markets/premarket` may use the same provider snapshot as gainers and losers, but a row with a timestamp is premarket only when that timestamp is inside 4:00–9:30 a.m. ET. Afternoon regular-session prints stay on the regular tabs. Extended volume comes from minute accumulation; missing volume stays blank. The public mover table does not invent RVOL or catalyst.
 
+## Penny Continuation (Batch 222–224)
+
+- **`penny_continuation_v1`** (Batch 223, PR **#240** merged on `main`) is the evaluator; **Batch 224** adds bounded integration only (`evaluateBoundedPennyContinuationV1`) — **not** invoked by live `sync-screener-data`, Fly, Radar publish, or Five Pillars.
+- CS1 requires caller-supplied completed `velocityWindows`; Radar participation/tiers alone must not synthesize windows.
+- `sharesPerMinute10m` requires `verifiedSharesPerMinute10m` on the candidate — Radar `volume_velocity_5m` is diagnostic-only.
+- Combined Polygon+Radar rows require aligned symbols, session kind, and observation clocks; context `observationSessionKind` cannot mask overnight/cross-session truth.
+- Symbol observation clocks come from Polygon `updated` or Radar `provider_as_of`, never generation sync time.
+- Production surfacing (Radar emphasis, Inbox persistence, env flags) remains a **separate activation batch**.
+
 ## Scanner tab evaluation evidence (Batch 185)
 
 - Authenticated Screeners tabs require persisted **`tab_evaluation_evidence`** on `screener_feed_state`. When null, client may attach **`publication_confirmed`** evidence (published row counts only) — not a substitute for provider universe evaluation or verified zero-match claims.

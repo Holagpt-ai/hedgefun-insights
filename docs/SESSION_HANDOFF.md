@@ -1,10 +1,16 @@
-# Session handoff — Batch 223 Penny Continuation backend engine V1, November 11, 2026 ET
+# Session handoff — Batch 224 Penny Continuation integration V1, November 11, 2026 ET
 
-**Source:** GitHub `main` **`38ef764ab4754e454a5227ce987f5bab83718cb9`**.
+**Source:** GitHub `main` **`3f904970348a11e4fec28e1d86222cbaede2e5e7`** (includes merged Batch 223).
 
-**Batch 223:** Deno implementation of **`penny_continuation_v1`** under `supabase/functions/_shared/screeners/penny-continuation-*.ts` per approved Batch 222 contract — eligibility, CS1–CS5 (3-of-5), per-symbol freshness, volume-first rank, lifecycle cooldown/idempotency, AM Inbox badge builder. **`batch223-penny-continuation_test.ts`** (15) in screener Deno CI. **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
+**Batch 224:** Controlled backend integration for **`penny_continuation_v1`** — adapter alignment (symbol/session/observation sync), `verifiedSharesPerMinute10m` (10m gate; Radar 5m diagnostic-only), `evaluateBoundedPennyContinuationV1`. **`batch224-penny-continuation-integration_test.ts`** (19) in screener Deno CI. **PR #241.** **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
 
-**Next:** Batch 223 PR + owner review; separate activation batch for Radar/Inbox surfacing.
+**Batch 223 (merged):** PR **#240** — engine `penny_continuation_v1` on `main`. **GitHub integration only** — not production-deployed or feature-activated.
+
+**Next:** Batch 224 PR + owner review; separate activation batch for Radar emphasis, Inbox persistence, and env-gated production invocation.
+
+## Archived handoff — Batch 223 Penny Continuation backend engine V1
+
+**Merged:** PR **#240** · Modules `penny-continuation-*.ts`, Deno `batch223-penny-continuation_test.ts`. **No live wiring.**
 
 ## Archived handoff — Batch 222 Penny Continuation contract V1
 
