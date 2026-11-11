@@ -251,6 +251,8 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 
 - **`penny_continuation_v1`** (Batch 223, PR **#240** merged on `main`) is the evaluator; **Batch 224** adds bounded integration only (`evaluateBoundedPennyContinuationV1`) — **not** invoked by live `sync-screener-data`, Fly, Radar publish, or Five Pillars.
 - CS1 requires caller-supplied completed `velocityWindows`; Radar participation/tiers alone must not synthesize windows.
+- `sharesPerMinute10m` requires `verifiedSharesPerMinute10m` on the candidate — Radar `volume_velocity_5m` is diagnostic-only.
+- Combined Polygon+Radar rows require aligned symbols, session kind, and observation clocks; context `observationSessionKind` cannot mask overnight/cross-session truth.
 - Symbol observation clocks come from Polygon `updated` or Radar `provider_as_of`, never generation sync time.
 - Production surfacing (Radar emphasis, Inbox persistence, env flags) remains a **separate activation batch**.
 

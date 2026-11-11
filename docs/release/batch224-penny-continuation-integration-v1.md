@@ -19,7 +19,14 @@
 import { evaluateBoundedPennyContinuationV1 } from "./penny-continuation-integration-v1.ts";
 ```
 
-Callers supply an explicit candidate list (`PennyContinuationDiscoveredCandidate[]`), integration context (generation sync, delay policy, session date), and optional `verifiedVelocityWindows` for CS1. The layer adapts evidence, runs `evaluatePennyContinuationV1`, applies `rankPennyContinuationCandidates`, and may emit optional AM Inbox badge payloads. Volume-first ordering preserved.
+Callers supply an explicit candidate list (`PennyContinuationDiscoveredCandidate[]`), integration context (generation sync, delay policy, session date), optional `verifiedVelocityWindows` for CS1, and optional `verifiedSharesPerMinute10m` (10-minute shares/minute — **not** inferred from Radar `volume_velocity_5m`). The layer adapts evidence, runs `evaluatePennyContinuationV1`, applies `rankPennyContinuationCandidates`, and may emit optional AM Inbox badge payloads. Volume-first ordering preserved.
+
+### Alignment safeguards (Batch 224 corrections)
+
+- Symbol parity: candidate symbol must match Polygon `ticker` and Radar `symbol` when both are present.
+- Session: Radar `session_kind` must align with provider observation session derived from Polygon `updated` (PM/RTH/AH); `observationSessionKind` on context **cannot** override provider truth (rejects overnight/cross-session masking).
+- Radar structure evidence (VWAP/HOD/accel events) only when `provider_as_of` is within `PENNY_MAX_OBSERVATION_AGE_MS` of Polygon observation; otherwise adapter fails closed (`RADAR_POLYGON_OBSERVATION_DESYNC`) or suppresses optional fields.
+- Radar 5m velocity is exposed in adapter `diagnostics.volumeVelocity5mSharesPerMinute` only — never the 10m eligibility field.
 
 ## Data boundaries
 
@@ -34,7 +41,7 @@ Callers supply an explicit candidate list (`PennyContinuationDiscoveredCandidate
 
 ## Tests
 
-`batch224-penny-continuation-integration_test.ts` (15) — registered in `screener-deno-regressions.yml`.
+`batch224-penny-continuation-integration_test.ts` (19) — registered in `screener-deno-regressions.yml`.
 
 ## Activation gate
 

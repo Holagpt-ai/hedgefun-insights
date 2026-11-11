@@ -30,7 +30,10 @@ export type PennyIntegrationAdapterReason =
   | "MISSING_OBSERVATION_TS"
   | "PRIOR_CLOSE_CONFLICT"
   | "SESSION_DATE_CONFLICT"
-  | "RADAR_SESSION_MISMATCH"
+  | "SESSION_KIND_MISMATCH"
+  | "SYMBOL_MISMATCH"
+  | "RADAR_POLYGON_OBSERVATION_DESYNC"
+  | "OBSERVATION_SESSION_OVERRIDE_REJECTED"
   | "OVERNIGHT_OBSERVATION_UNSUPPORTED";
 
 export interface PennyContinuationIntegrationContext {
@@ -46,8 +49,8 @@ export interface PennyContinuationIntegrationContext {
   syncNowMs?: number;
   extendedSession?: boolean;
   /**
-   * When set, tags observation session for eligibility (e.g. overnight fail-closed).
-   * Does not replace symbol observation timestamp.
+   * Legacy callers may set this for tests; adapter rejects when it disagrees with
+   * provider-derived observation session (cannot mask overnight or cross-session).
    */
   observationSessionKind?: ObservationSessionKind;
 }
@@ -61,6 +64,8 @@ export interface PennyContinuationDiscoveredCandidate {
    * Radar persistence does not supply these — omit when unverified.
    */
   verifiedVelocityWindows?: PennyContinuationInput["velocityWindows"];
+  /** Independently verified 10-minute shares/minute — not inferred from 5m Radar fields. */
+  verifiedSharesPerMinute10m?: number | null;
   spreadPct?: number | null;
   catalystVerified?: PennyContinuationInput["catalystVerified"];
   catalystAgeHours?: number | null;
@@ -70,9 +75,16 @@ export interface PennyContinuationDiscoveredCandidate {
   instrumentType?: string | null;
 }
 
+export interface PennyContinuationAdapterDiagnostics {
+  /** Radar 5m shares/minute — diagnostic only, not used for eligibility. */
+  volumeVelocity5mSharesPerMinute: number | null;
+  radarStructureEvidenceAligned: boolean;
+}
+
 export interface PennyContinuationAdapterOutcome {
   input: PennyContinuationInput | null;
   adapterReasons: PennyIntegrationAdapterReason[];
+  diagnostics?: PennyContinuationAdapterDiagnostics;
 }
 
 export interface PennyContinuationIntegrationRejectionSummary {

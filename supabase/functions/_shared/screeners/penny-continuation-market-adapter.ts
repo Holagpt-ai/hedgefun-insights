@@ -3,14 +3,20 @@
  * Never substitutes generation sync time for symbol observation time.
  */
 
+import { PENNY_MAX_OBSERVATION_AGE_MS } from "../config/penny-continuation.config.ts";
 import { OVERNIGHT_SCANNER_PIPELINE_READY } from "../markets/equity-session-control.ts";
+import type { RadarV22SessionKind } from "../radar-v22/persistence-v2.ts";
 import {
   buildSnapshotFromPolygonTicker,
   gapPercentFromVerifiedInputs,
   overlayVerifiedPreviousCloseOnTicker,
   type VerifiedPreviousCloseOverlay,
 } from "./normalized-market-snapshot.ts";
-import { extractPennyFactsFromRadarV22Row } from "./penny-continuation-radar-evidence.ts";
+import {
+  extractPennyFactsFromRadarV22Row,
+  pennyRadarFactsWithStructureSuppressed,
+  type PennyContinuationRadarFacts,
+} from "./penny-continuation-radar-evidence.ts";
 import type {
   PennyContinuationAdapterOutcome,
   PennyContinuationDiscoveredCandidate,
@@ -18,6 +24,7 @@ import type {
   PennyIntegrationAdapterReason,
 } from "./penny-continuation-integration-types.ts";
 import type { PennyContinuationInput } from "./penny-continuation-types.ts";
+import { isFiniteNumber } from "./screener-contract-lite.ts";
 import {
   changePercentVsPriorRegularClose,
   currentSessionReferencePrice,
@@ -29,10 +36,16 @@ import {
   type PolygonTicker,
   type TabSelectionOpts,
 } from "./selection.ts";
-import { qualificationObservationKind } from "./session-sync-context.ts";
+import {
+  isOvernightObservationKind,
+  qualificationObservationKind,
+  type ObservationSessionKind,
+} from "./session-sync-context.ts";
 import { computeSignedMovePercentVsPriorClose } from "./penny-continuation-eligibility.ts";
 
 const PRIOR_CLOSE_RELATIVE_TOLERANCE = 0.02;
+/** Radar structure evidence must align with Polygon observation within Penny slack. */
+const RADAR_POLYGON_STRUCTURE_SYNC_MS = PENNY_MAX_OBSERVATION_AGE_MS;
 
 function pushReason(
   reasons: PennyIntegrationAdapterReason[],
@@ -73,6 +86,67 @@ function priorClosesConflict(
   return rel > PRIOR_CLOSE_RELATIVE_TOLERANCE;
 }
 
+function radarSessionToObservationKind(
+  kind: RadarV22SessionKind,
+): Exclude<ObservationSessionKind, "overnight"> | null {
+  switch (kind) {
+    case "pre-market":
+      return "pre-market";
+    case "market":
+      return "market";
+    case "after-hours":
+      return "after-hours";
+    case "closed":
+      return "closed";
+    default:
+      return null;
+  }
+}
+
+function polygonExtendedMatchesRadarSession(
+  extendedSession: boolean,
+  radarKind: RadarV22SessionKind,
+): boolean {
+  if (radarKind === "market") return extendedSession === false;
+  if (radarKind === "pre-market" || radarKind === "after-hours") {
+    return extendedSession === true;
+  }
+  return true;
+}
+
+function observationKindsCompatible(
+  derived: ObservationSessionKind | null,
+  radarKind: RadarV22SessionKind,
+): boolean {
+  const radarMapped = radarSessionToObservationKind(radarKind);
+  if (derived === null || radarMapped === null) return true;
+  if (derived === "overnight" || radarMapped === "closed") return false;
+  return derived === radarMapped;
+}
+
+function resolveRadarFactsForPolygonPair(
+  radar: PennyContinuationRadarFacts,
+  polygonObsMs: number,
+): { facts: PennyContinuationRadarFacts; aligned: boolean; desync: boolean } {
+  const radarMs = radar.providerAsOfMs;
+  if (radarMs === null) {
+    return {
+      facts: pennyRadarFactsWithStructureSuppressed(radar),
+      aligned: false,
+      desync: false,
+    };
+  }
+  const delta = polygonObsMs - radarMs;
+  if (delta < 0 || delta > RADAR_POLYGON_STRUCTURE_SYNC_MS) {
+    return {
+      facts: pennyRadarFactsWithStructureSuppressed(radar),
+      aligned: false,
+      desync: delta > RADAR_POLYGON_STRUCTURE_SYNC_MS || delta < 0,
+    };
+  }
+  return { facts: radar, aligned: true, desync: false };
+}
+
 export function adaptDiscoveredCandidateToPennyInput(
   candidate: PennyContinuationDiscoveredCandidate,
   ctx: PennyContinuationIntegrationContext,
@@ -90,17 +164,31 @@ export function adaptDiscoveredCandidateToPennyInput(
     nowMs: syncNowMs,
   };
 
-  const radar = candidate.radarRow
+  let ticker: PolygonTicker | null = candidate.polygonTicker ?? null;
+  if (ticker) {
+    const polySym = normalizeSymbol(ticker.ticker);
+    if (polySym !== null && polySym !== symbol) {
+      pushReason(adapterReasons, "SYMBOL_MISMATCH");
+    }
+  }
+  if (candidate.radarRow) {
+    const radarSym = normalizeSymbol(candidate.radarRow.symbol);
+    if (radarSym !== null && radarSym !== symbol) {
+      pushReason(adapterReasons, "SYMBOL_MISMATCH");
+    }
+  }
+
+  let radarRaw = candidate.radarRow
     ? extractPennyFactsFromRadarV22Row(candidate.radarRow)
     : null;
 
-  if (radar && radar.tradingDate !== ctx.sessionDate) {
+  if (radarRaw && radarRaw.tradingDate !== ctx.sessionDate) {
     pushReason(adapterReasons, "SESSION_DATE_CONFLICT");
   }
-  let ticker: PolygonTicker | null = candidate.polygonTicker ?? null;
-  if (ticker && radar?.previousRegularClose) {
+
+  if (ticker && radarRaw?.previousRegularClose) {
     const overlay = buildVerifiedOverlay(
-      radar.previousRegularClose,
+      radarRaw.previousRegularClose,
       symbol,
       candidate.radarRow?.prior_session_volume ?? null,
     );
@@ -109,7 +197,7 @@ export function adaptDiscoveredCandidateToPennyInput(
     }
   }
 
-  if (!ticker && !radar) {
+  if (!ticker && !radarRaw) {
     pushReason(adapterReasons, "MISSING_MARKET_EVIDENCE");
     return { input: null, adapterReasons };
   }
@@ -118,18 +206,89 @@ export function adaptDiscoveredCandidateToPennyInput(
     ? parseProviderAsOf(ticker.updated, syncNowMs)
     : null;
   const polygonObsMs = observationMsFromIso(polygonObsIso);
-  const radarObsMs = radar?.providerAsOfMs ?? null;
+  const radarObsMs = radarRaw?.providerAsOfMs ?? null;
+
   const symbolObservationMs = polygonObsMs ?? radarObsMs;
-  const observedAt = polygonObsIso ?? radar?.providerAsOfIso ?? null;
+  const observedAt = polygonObsIso ?? radarRaw?.providerAsOfIso ?? null;
 
   if (symbolObservationMs === null || observedAt === null) {
     pushReason(adapterReasons, "MISSING_OBSERVATION_TS");
     return { input: null, adapterReasons };
   }
 
-  const polygonPrev = ticker ? previousRegularClose(ticker) : null;
-  if (priorClosesConflict(polygonPrev, radar?.previousRegularClose ?? null)) {
-    pushReason(adapterReasons, "PRIOR_CLOSE_CONFLICT");
+  const derivedObservationKind = qualificationObservationKind(
+    symbolObservationMs,
+    syncNowMs,
+    null,
+    OVERNIGHT_SCANNER_PIPELINE_READY,
+  );
+
+  if (ctx.observationSessionKind !== undefined) {
+    if (
+      derivedObservationKind === null ||
+      ctx.observationSessionKind !== derivedObservationKind
+    ) {
+      pushReason(adapterReasons, "OBSERVATION_SESSION_OVERRIDE_REJECTED");
+    }
+  }
+
+  if (
+    derivedObservationKind !== null &&
+    isOvernightObservationKind(derivedObservationKind)
+  ) {
+    pushReason(adapterReasons, "OVERNIGHT_OBSERVATION_UNSUPPORTED");
+  }
+
+  let radarStructureAligned = true;
+  let volumeVelocity5m: number | null = radarRaw?.volumeVelocity5mSharesPerMinute ?? null;
+
+  if (ticker && radarRaw) {
+    const polygonPrev = previousRegularClose(ticker);
+    if (priorClosesConflict(polygonPrev, radarRaw.previousRegularClose)) {
+      pushReason(adapterReasons, "PRIOR_CLOSE_CONFLICT");
+    }
+
+    const extendedForPolygon = extendedQuoteSemanticsForTicker(ticker, tabOpts);
+    if (extendedForPolygon === null) {
+      pushReason(adapterReasons, "MISSING_MARKET_EVIDENCE");
+    } else if (
+      !polygonExtendedMatchesRadarSession(extendedForPolygon, radarRaw.sessionKind)
+    ) {
+      pushReason(adapterReasons, "SESSION_KIND_MISMATCH");
+    }
+    if (!observationKindsCompatible(derivedObservationKind, radarRaw.sessionKind)) {
+      pushReason(adapterReasons, "SESSION_KIND_MISMATCH");
+    }
+
+    if (polygonObsMs !== null) {
+      const resolved = resolveRadarFactsForPolygonPair(radarRaw, polygonObsMs);
+      radarRaw = resolved.facts;
+      radarStructureAligned = resolved.aligned;
+      volumeVelocity5m = resolved.facts.volumeVelocity5mSharesPerMinute;
+      if (resolved.desync) {
+        pushReason(adapterReasons, "RADAR_POLYGON_OBSERVATION_DESYNC");
+      }
+    }
+  } else if (ticker) {
+    const polygonPrev = previousRegularClose(ticker);
+    if (polygonPrev === null) {
+      /* eligibility may fail later */
+    }
+  } else if (radarRaw) {
+    if (!observationKindsCompatible(derivedObservationKind, radarRaw.sessionKind)) {
+      pushReason(adapterReasons, "SESSION_KIND_MISMATCH");
+    }
+  }
+
+  if (adapterReasons.length > 0) {
+    return {
+      input: null,
+      adapterReasons,
+      diagnostics: {
+        volumeVelocity5mSharesPerMinute: volumeVelocity5m,
+        radarStructureEvidenceAligned: radarStructureAligned,
+      },
+    };
   }
 
   const extended =
@@ -137,8 +296,14 @@ export function adaptDiscoveredCandidateToPennyInput(
       ? extendedQuoteSemanticsForTicker(ticker, tabOpts)
       : ctx.extendedSession ?? false;
   if (extended === null) {
-    pushReason(adapterReasons, "MISSING_MARKET_EVIDENCE");
-    return { input: null, adapterReasons };
+    return {
+      input: null,
+      adapterReasons: ["MISSING_MARKET_EVIDENCE"],
+      diagnostics: {
+        volumeVelocity5mSharesPerMinute: volumeVelocity5m,
+        radarStructureEvidenceAligned: radarStructureAligned,
+      },
+    };
   }
 
   const snapshot = ticker
@@ -150,21 +315,18 @@ export function adaptDiscoveredCandidateToPennyInput(
     })
     : null;
 
-  const price = snapshot?.price ?? radar?.price ?? null;
+  const price = snapshot?.price ?? radarRaw?.price ?? null;
   const previousRegularCloseValue = snapshot?.previousClose ??
-    radar?.previousRegularClose ??
+    radarRaw?.previousRegularClose ??
     null;
 
-  const derivedObservationKind = qualificationObservationKind(
-    symbolObservationMs,
-    syncNowMs,
-    null,
-    OVERNIGHT_SCANNER_PIPELINE_READY,
-  );
-  const observationKind = ctx.observationSessionKind ?? derivedObservationKind ?? null;
+  const observationKind = derivedObservationKind;
 
-  const sessionVolume = snapshot?.volume ?? radar?.sessionVolumeShares ?? null;
-  const dollarVolume = snapshot?.dollarVolume ?? radar?.dollarVolume ?? null;
+  const sessionVolume = snapshot?.volume ?? radarRaw?.sessionVolumeShares ?? null;
+  const dollarVolume = snapshot?.dollarVolume ??
+    (price !== null && sessionVolume !== null ? price * sessionVolume : null) ??
+    radarRaw?.dollarVolume ??
+    null;
 
   const refPrice = ticker
     ? currentSessionReferencePrice(ticker, extended)
@@ -190,7 +352,12 @@ export function adaptDiscoveredCandidateToPennyInput(
     ? velocityWindows.slice(-3).map((w) => w.tier)
     : null;
 
-  const sharesPerMinute10m = radar?.sharesPerMinute10m ?? null;
+  const sharesPerMinute10m = isFiniteNumber(candidate.verifiedSharesPerMinute10m) &&
+      candidate.verifiedSharesPerMinute10m >= 0
+    ? candidate.verifiedSharesPerMinute10m
+    : null;
+
+  const radar = radarRaw;
 
   const input: PennyContinuationInput = {
     symbol,
@@ -227,7 +394,7 @@ export function adaptDiscoveredCandidateToPennyInput(
     freshness: {
       evaluationClockMs: ctx.evaluationClockMs,
       symbolObservationMs,
-      providerAsOfMs: radarObsMs ?? polygonObsMs,
+      providerAsOfMs: polygonObsMs ?? radarObsMs,
       generationSyncMs: ctx.generationSyncMs,
       generationSyncIso: ctx.generationSyncIso,
       verifiedExpectedProviderDelayMs: ctx.verifiedExpectedProviderDelayMs,
@@ -236,9 +403,12 @@ export function adaptDiscoveredCandidateToPennyInput(
     observationGenerationId: ctx.observationGenerationId ?? null,
   };
 
-  if (adapterReasons.length > 0) {
-    return { input: null, adapterReasons };
-  }
-
-  return { input, adapterReasons: [] };
+  return {
+    input,
+    adapterReasons: [],
+    diagnostics: {
+      volumeVelocity5mSharesPerMinute: volumeVelocity5m,
+      radarStructureEvidenceAligned: radarStructureAligned,
+    },
+  };
 }

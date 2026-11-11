@@ -1,8 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 224 — Penny Continuation integration corrections, PR #241)
+
+- 10m velocity only via `verifiedSharesPerMinute10m`; Radar 5m diagnostic-only. Symbol/session alignment, Radar–Polygon observation sync, rejection of session-kind overrides. Deno **19** integration tests.
+
 ## 2026-11-11 (Batch 224 — Penny Continuation controlled backend integration V1)
 
-- Bounded integration layer `penny_continuation_integration_v1`: Polygon + Radar V2.2 adapter, `evaluateBoundedPennyContinuationV1`, optional AM Inbox badges. Deno `batch224-penny-continuation-integration_test.ts` (15). Batch 223 PR **#240** on `main` — **no production activation, Edge, or SQL.**
+- Bounded integration layer `penny_continuation_integration_v1`: Polygon + Radar V2.2 adapter, `evaluateBoundedPennyContinuationV1`, optional AM Inbox badges. Deno `batch224-penny-continuation-integration_test.ts`. Batch 223 PR **#240** on `main` — **no production activation, Edge, or SQL.**
 
 ## 2026-11-11 (Batch 223 — Penny Continuation safety corrections, PR #240)
 

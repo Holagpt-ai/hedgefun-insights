@@ -2,7 +2,7 @@
 
 **Source:** GitHub `main` **`3f904970348a11e4fec28e1d86222cbaede2e5e7`** (includes merged Batch 223).
 
-**Batch 224:** Controlled backend integration for **`penny_continuation_v1`** — `penny-continuation-market-adapter.ts`, `penny-continuation-radar-evidence.ts`, `penny-continuation-integration-v1.ts` (`evaluateBoundedPennyContinuationV1`). Maps verified Polygon screener snapshots + Radar V2.2 candidate rows to engine input; bounded candidate list only (cap 200); optional AM Inbox badge payloads. **`batch224-penny-continuation-integration_test.ts`** (15) in screener Deno CI. **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
+**Batch 224:** Controlled backend integration for **`penny_continuation_v1`** — adapter alignment (symbol/session/observation sync), `verifiedSharesPerMinute10m` (10m gate; Radar 5m diagnostic-only), `evaluateBoundedPennyContinuationV1`. **`batch224-penny-continuation-integration_test.ts`** (19) in screener Deno CI. **PR #241.** **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
 
 **Batch 223 (merged):** PR **#240** — engine `penny_continuation_v1` on `main`. **GitHub integration only** — not production-deployed or feature-activated.
 

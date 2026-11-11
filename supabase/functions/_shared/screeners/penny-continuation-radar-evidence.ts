@@ -52,7 +52,8 @@ export interface PennyContinuationRadarFacts {
   holdingVwapAfterReclaim: ContinuationTriState | null;
   volumeAccelerationPct: number | null;
   timeAdjustedRvol: number | null;
-  sharesPerMinute10m: number | null;
+  /** Diagnostic only — 5m window; never mapped to Penny 10m eligibility. */
+  volumeVelocity5mSharesPerMinute: number | null;
   radarHasReAcceleration: ContinuationTriState | null;
   radarHasSecondLeg: ContinuationTriState | null;
   providerAsOfMs: number | null;
@@ -119,7 +120,7 @@ export function extractPennyFactsFromRadarV22Row(
       : isFiniteNumber(row.rvol_5m)
       ? row.rvol_5m
       : null,
-    sharesPerMinute10m: velocity5m,
+    volumeVelocity5mSharesPerMinute: velocity5m,
     radarHasReAcceleration: triFromBool(
       engineEvents.has("RE_ACCELERATION") || lifecycle.includes("RE_ACCELER"),
     ),
@@ -130,5 +131,24 @@ export function extractPennyFactsFromRadarV22Row(
     providerAsOfIso,
     tradingDate: row.trading_date,
     sessionKind: row.session_kind,
+  };
+}
+
+/** Strip optional Radar structure/momentum fields when observation clocks diverge. */
+export function pennyRadarFactsWithStructureSuppressed(
+  facts: PennyContinuationRadarFacts,
+): PennyContinuationRadarFacts {
+  return {
+    ...facts,
+    distanceFromHodPct: null,
+    sessionHigh: null,
+    priceVsSessionHighDropPct: null,
+    vwap: null,
+    aboveVwap: null,
+    holdingVwapAfterReclaim: null,
+    volumeAccelerationPct: null,
+    timeAdjustedRvol: null,
+    radarHasReAcceleration: null,
+    radarHasSecondLeg: null,
   };
 }

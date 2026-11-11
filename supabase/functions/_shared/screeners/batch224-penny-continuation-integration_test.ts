@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   PENNY_DOCUMENTED_PROVIDER_DELAY_MS,
+  PENNY_MIN_SHARES_PER_MINUTE,
 } from "../config/penny-continuation.config.ts";
-import { OVERNIGHT_SCANNER_PIPELINE_READY } from "../markets/equity-session-control.ts";
 import type { RadarV22CandidateRow } from "../radar-v22/persistence-v2.ts";
 import { adaptDiscoveredCandidateToPennyInput } from "./penny-continuation-market-adapter.ts";
 import {
@@ -25,6 +25,7 @@ import {
 const NOW = Date.parse("2026-11-11T15:00:00.000Z");
 const SESSION = "2026-11-11";
 const GEN_MS = NOW - 2_000;
+const POLYGON_OBS_ISO = new Date(NOW - 5_000).toISOString();
 
 function integrationCtx(
   overrides: Partial<PennyContinuationIntegrationContext> = {},
@@ -42,13 +43,15 @@ function integrationCtx(
 }
 
 function polygonTicker(overrides: Partial<PolygonTicker> = {}): PolygonTicker {
+  const { updated, ...rest } = overrides;
+  const updatedNs = updated ?? (NOW - 5_000) * 1_000_000;
   return {
     ticker: "PNY",
-    updated: NOW * 1_000_000,
+    updated: updatedNs,
     day: { c: 0.85, h: 0.9, l: 0.7, v: 2_000_000, o: 0.78 },
     prevDay: { c: 0.787, v: 1_000_000 },
     lastTrade: { p: 0.85 },
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -61,7 +64,7 @@ function radarRow(overrides: Partial<RadarV22CandidateRow> = {}): RadarV22Candid
     lifecycle: "ACTIVE",
     signal_status: "EXPLOSIVE",
     last_price: 0.85,
-    last_price_at: new Date(NOW).toISOString(),
+    last_price_at: POLYGON_OBS_ISO,
     move_15s_pct: null,
     move_60s_pct: null,
     volume_5s: 0,
@@ -94,7 +97,7 @@ function radarRow(overrides: Partial<RadarV22CandidateRow> = {}): RadarV22Candid
     last_acceleration_at: new Date(NOW - 60_000).toISOString(),
     promoted_at: null,
     lifecycle_entered_at: null,
-    provider_as_of: new Date(NOW - 5_000).toISOString(),
+    provider_as_of: overrides.provider_as_of ?? POLYGON_OBS_ISO,
     primary_scanner_event: null,
     primary_scanner_event_at: null,
     scanner_events: [],
@@ -132,15 +135,118 @@ function verifiedVelocityWindows() {
   ];
 }
 
-Deno.test("adapter — polygon observation timestamp not generation sync", () => {
+function qualifyingCandidate(
+  overrides: Partial<Parameters<typeof evaluateBoundedPennyContinuationV1>[0][0]> = {},
+) {
+  return {
+    symbol: "PNY",
+    polygonTicker: polygonTicker(),
+    radarRow: radarRow(),
+    spreadPct: 1,
+    verifiedVelocityWindows: verifiedVelocityWindows(),
+    verifiedSharesPerMinute10m: 40_000,
+    catalystVerified: "TRUE" as const,
+    catalystAgeHours: 12,
+    ...overrides,
+  };
+}
+
+Deno.test("integration — matching Polygon and Radar qualifies end-to-end", () => {
+  clearPennyContinuationLifecycleState();
+  const out = evaluateBoundedPennyContinuationV1(
+    [qualifyingCandidate()],
+    integrationCtx(),
+    { includeBadges: true },
+  );
+  assertEquals(out.rankedQualified.length, 1);
+  assertEquals(out.rankedQualified[0].continuationQualified, true);
+  assertEquals(out.rankedQualified[0].corePassCount, 5);
+  assertEquals(out.badges.length, 1);
+  assertEquals(out.badges[0]?.symbol, "PNY");
+  assertEquals(out.badges[0]?.kind, "penny_continuation_v1");
+});
+
+Deno.test("adapter — verified ten-minute velocity accepted for eligibility", () => {
   const adapted = adaptDiscoveredCandidateToPennyInput(
-    { symbol: "PNY", polygonTicker: polygonTicker(), spreadPct: 1 },
+    qualifyingCandidate(),
     integrationCtx(),
   );
   assert(adapted.input);
-  assertEquals(adapted.input.freshness.symbolObservationMs, NOW);
+  assertEquals(adapted.input.sharesPerMinute10m, 40_000);
+  assertEquals(adapted.diagnostics?.volumeVelocity5mSharesPerMinute, 40_000);
+});
+
+Deno.test("integration — five-minute Radar velocity alone fails ten-minute gate", () => {
+  clearPennyContinuationLifecycleState();
+  const out = evaluateBoundedPennyContinuationV1([{
+    ...qualifyingCandidate(),
+    verifiedSharesPerMinute10m: undefined,
+  }], integrationCtx());
+  const rej = out.rejections.find((r) => r.symbol === "PNY");
+  assert(rej?.result);
+  assertEquals(rej.result.continuationQualified, false);
+  assert(rej.result.reasons.includes("VELOCITY_LOW"));
+});
+
+Deno.test("adapter — conflicting polygon ticker symbol rejected", () => {
+  const adapted = adaptDiscoveredCandidateToPennyInput(
+    {
+      symbol: "PNY",
+      polygonTicker: polygonTicker({ ticker: "OTHER" }),
+      radarRow: radarRow(),
+    },
+    integrationCtx(),
+  );
+  assertEquals(adapted.input, null);
+  assert(adapted.adapterReasons.includes("SYMBOL_MISMATCH"));
+});
+
+Deno.test("adapter — same-date PM Radar vs RTH Polygon session mismatch", () => {
+  const adapted = adaptDiscoveredCandidateToPennyInput(
+    {
+      symbol: "PNY",
+      polygonTicker: polygonTicker(),
+      radarRow: radarRow({ session_kind: "pre-market" }),
+    },
+    integrationCtx(),
+  );
+  assertEquals(adapted.input, null);
+  assert(adapted.adapterReasons.includes("SESSION_KIND_MISMATCH"));
+});
+
+Deno.test("adapter — stale Radar with fresh Polygon observation desync", () => {
+  const adapted = adaptDiscoveredCandidateToPennyInput(
+    {
+      symbol: "PNY",
+      polygonTicker: polygonTicker(),
+      radarRow: radarRow({
+        provider_as_of: new Date(NOW - 600_000).toISOString(),
+      }),
+    },
+    integrationCtx(),
+  );
+  assertEquals(adapted.input, null);
+  assert(adapted.adapterReasons.includes("RADAR_POLYGON_OBSERVATION_DESYNC"));
+});
+
+Deno.test("integration — overnight caller override rejected", () => {
+  const out = evaluateBoundedPennyContinuationV1(
+    [qualifyingCandidate()],
+    integrationCtx({ observationSessionKind: "overnight" }),
+  );
+  assertEquals(out.rankedQualified.length, 0);
+  const rej = out.rejections.find((r) => r.symbol === "PNY");
+  assert(rej?.adapterReasons.includes("OBSERVATION_SESSION_OVERRIDE_REJECTED"));
+});
+
+Deno.test("adapter — polygon observation timestamp not generation sync", () => {
+  const adapted = adaptDiscoveredCandidateToPennyInput(
+    { symbol: "PNY", polygonTicker: polygonTicker(), spreadPct: 1, verifiedSharesPerMinute10m: 40_000 },
+    integrationCtx(),
+  );
+  assert(adapted.input);
+  assertEquals(adapted.input.freshness.symbolObservationMs, NOW - 5_000);
   assertEquals(adapted.input.freshness.generationSyncMs, GEN_MS);
-  assert(adapted.input.observedAt !== adapted.input.freshness.generationSyncIso);
 });
 
 Deno.test("adapter — missing observation fails closed", () => {
@@ -159,7 +265,7 @@ Deno.test("adapter — Five Pillars parity on volume and move", () => {
   const opts = { observationSessionFields: true, nowMs: NOW, extendedSession: false };
   const volCtx = volumeContextFromOpts(opts);
   const adapted = adaptDiscoveredCandidateToPennyInput(
-    { symbol: "PNY", polygonTicker: t, spreadPct: 1, verifiedVelocityWindows: verifiedVelocityWindows() },
+    qualifyingCandidate({ polygonTicker: t }),
     integrationCtx(),
   );
   assert(adapted.input);
@@ -171,34 +277,19 @@ Deno.test("adapter — Five Pillars parity on volume and move", () => {
   );
 });
 
-Deno.test("adapter — radar VWAP and continuation events map without inventing CS1", () => {
+Deno.test("adapter — radar VWAP maps when clocks align; no CS1 fabrication", () => {
   const facts = extractPennyFactsFromRadarV22Row(radarRow());
   assertEquals(facts.aboveVwap, "TRUE");
-  assertEquals(facts.radarHasReAcceleration, "TRUE");
-  assertEquals(facts.radarHasSecondLeg, "TRUE");
+  assertEquals(facts.volumeVelocity5mSharesPerMinute, 40_000);
 
   const adapted = adaptDiscoveredCandidateToPennyInput(
-    { symbol: "PNY", polygonTicker: polygonTicker(), radarRow: radarRow(), spreadPct: 1 },
+    qualifyingCandidate(),
     integrationCtx(),
   );
   assert(adapted.input);
-  assertEquals(adapted.input.velocityWindows, null);
+  assertEquals(adapted.input.velocityWindows?.length, 3);
   assertEquals(adapted.input.aboveVwap, "TRUE");
-});
-
-Deno.test("adapter — verified CS1 windows pass through when supplied", () => {
-  const windows = verifiedVelocityWindows();
-  const adapted = adaptDiscoveredCandidateToPennyInput(
-    {
-      symbol: "PNY",
-      polygonTicker: polygonTicker(),
-      spreadPct: 1,
-      verifiedVelocityWindows: windows,
-    },
-    integrationCtx(),
-  );
-  assert(adapted.input);
-  assertEquals(adapted.input.velocityWindows, windows);
+  assertEquals(adapted.diagnostics?.radarStructureEvidenceAligned, true);
 });
 
 Deno.test("adapter — prior close conflict between polygon and radar", () => {
@@ -214,72 +305,71 @@ Deno.test("adapter — prior close conflict between polygon and radar", () => {
   assert(adapted.adapterReasons.includes("PRIOR_CLOSE_CONFLICT"));
 });
 
-Deno.test("adapter — fifteen-minute delayed feed policy preserved", () => {
+Deno.test("adapter — fifteen-minute delayed feed preserved and qualifies", () => {
+  clearPennyContinuationLifecycleState();
   const obs = NOW - 600_000;
-  const adapted = adaptDiscoveredCandidateToPennyInput(
-    {
-      symbol: "PNY",
-      polygonTicker: polygonTicker({ updated: obs * 1_000_000 }),
-      spreadPct: 1,
-      verifiedVelocityWindows: verifiedVelocityWindows(),
-      catalystVerified: "TRUE",
-      catalystAgeHours: 12,
-    },
-    integrationCtx({
-      verifiedExpectedProviderDelayMs: PENNY_DOCUMENTED_PROVIDER_DELAY_MS,
-      dataDeliveryPolicy: "documented_delayed",
-    }),
-  );
-  assert(adapted.input);
   const out = evaluateBoundedPennyContinuationV1([{
-    symbol: "PNY",
+    ...qualifyingCandidate(),
     polygonTicker: polygonTicker({ updated: obs * 1_000_000 }),
-    spreadPct: 1,
-    verifiedVelocityWindows: verifiedVelocityWindows(),
-    catalystVerified: "TRUE",
-    catalystAgeHours: 12,
+    radarRow: radarRow({ provider_as_of: new Date(obs).toISOString() }),
   }], integrationCtx({
     verifiedExpectedProviderDelayMs: PENNY_DOCUMENTED_PROVIDER_DELAY_MS,
     dataDeliveryPolicy: "documented_delayed",
   }), { includeBadges: true });
-  assert(out.rankedQualified.length >= 0);
-  assertEquals(adapted.input.freshness.verifiedExpectedProviderDelayMs, PENNY_DOCUMENTED_PROVIDER_DELAY_MS);
+  assertEquals(out.rankedQualified.length, 1);
+  assertEquals(out.rankedQualified[0].continuationQualified, true);
+  assertEquals(out.rankedQualified[0].dataFreshnessLabel, "delayed");
 });
 
-Deno.test("integration — volume-first ordering", () => {
+Deno.test("integration — volume-first ordering with two qualifiers", () => {
   clearPennyContinuationLifecycleState();
   const highVol = polygonTicker({ ticker: "AAA", day: { c: 0.85, h: 0.9, l: 0.7, v: 5_000_000, o: 0.78 } });
   const lowVol = polygonTicker({ ticker: "BBB", day: { c: 0.85, h: 0.9, l: 0.7, v: 1_000_000, o: 0.78 } });
   const windows = verifiedVelocityWindows();
+  const base = {
+    spreadPct: 1,
+    verifiedVelocityWindows: windows,
+    verifiedSharesPerMinute10m: PENNY_MIN_SHARES_PER_MINUTE + 5_000,
+    catalystVerified: "TRUE" as const,
+    catalystAgeHours: 1,
+  };
+  const syncIso = POLYGON_OBS_ISO;
   const out = evaluateBoundedPennyContinuationV1([
-    { symbol: "BBB", polygonTicker: lowVol, spreadPct: 1, verifiedVelocityWindows: windows, catalystVerified: "TRUE", catalystAgeHours: 1 },
-    { symbol: "AAA", polygonTicker: highVol, spreadPct: 1, verifiedVelocityWindows: windows, catalystVerified: "TRUE", catalystAgeHours: 1 },
+    {
+      symbol: "BBB",
+      polygonTicker: lowVol,
+      radarRow: radarRow({ symbol: "BBB", provider_as_of: syncIso }),
+      ...base,
+    },
+    {
+      symbol: "AAA",
+      polygonTicker: highVol,
+      radarRow: radarRow({ symbol: "AAA", provider_as_of: syncIso }),
+      ...base,
+    },
   ], integrationCtx(), { includeBadges: true });
-  if (out.rankedQualified.length >= 2) {
-    assert(
-      (out.rankedQualified[0].rankKeys.sessionVolume ?? 0) >=
-        (out.rankedQualified[1].rankKeys.sessionVolume ?? 0),
-    );
-  }
+  assertEquals(out.rankedQualified.length, 2);
+  assert(
+    (out.rankedQualified[0].rankKeys.sessionVolume ?? 0) >=
+      (out.rankedQualified[1].rankKeys.sessionVolume ?? 0),
+  );
 });
 
 Deno.test("integration — duplicate symbols deduped", () => {
-  const t = polygonTicker();
   const out = evaluateBoundedPennyContinuationV1([
-    { symbol: "PNY", polygonTicker: t, spreadPct: 1, verifiedVelocityWindows: verifiedVelocityWindows() },
-    { symbol: "pny", polygonTicker: t, spreadPct: 1, verifiedVelocityWindows: verifiedVelocityWindows() },
+    qualifyingCandidate(),
+    qualifyingCandidate({ symbol: "pny" }),
   ], integrationCtx());
   assertEquals(out.duplicateSymbolsSkipped, ["PNY"]);
 });
 
-Deno.test("integration — stale symbol with fresh generation fails qualification", () => {
+Deno.test("integration — stale symbol observation fails qualification", () => {
   clearPennyContinuationLifecycleState();
   const staleObs = NOW - 500_000;
+  const { radarRow: _r, ...polygonOnly } = qualifyingCandidate();
   const out = evaluateBoundedPennyContinuationV1([{
-    symbol: "PNY",
+    ...polygonOnly,
     polygonTicker: polygonTicker({ updated: staleObs * 1_000_000 }),
-    spreadPct: 1,
-    verifiedVelocityWindows: verifiedVelocityWindows(),
   }], integrationCtx());
   const row = out.rejections.find((r) => r.symbol === "PNY");
   assert(row?.result);
@@ -289,15 +379,14 @@ Deno.test("integration — stale symbol with fresh generation fails qualificatio
 Deno.test("integration — missing CS1 windows yields non-qualification", () => {
   clearPennyContinuationLifecycleState();
   const out = evaluateBoundedPennyContinuationV1([{
-    symbol: "PNY",
-    polygonTicker: polygonTicker(),
+    ...qualifyingCandidate(),
+    verifiedVelocityWindows: undefined,
     radarRow: radarRow({
       radar_engine_events: [],
       vwap_side: "unknown",
       distance_from_hod_pct: 20,
       volume_acceleration_pct: 0,
     }),
-    spreadPct: 1,
     catalystVerified: "FALSE",
   }], integrationCtx());
   const rej = out.rejections.find((r) => r.symbol === "PNY");
@@ -306,31 +395,22 @@ Deno.test("integration — missing CS1 windows yields non-qualification", () => 
   assertEquals(rej.result.coreSignals.cs1, "UNKNOWN");
 });
 
-Deno.test("integration — AM Inbox badge optional payload", () => {
+Deno.test("integration — publication cooldown preserves qualification and badges", () => {
   clearPennyContinuationLifecycleState();
-  const out = evaluateBoundedPennyContinuationV1([{
-    symbol: "PNY",
-    polygonTicker: polygonTicker(),
-    radarRow: radarRow(),
-    spreadPct: 1,
-    verifiedVelocityWindows: verifiedVelocityWindows(),
-    catalystVerified: "TRUE",
-    catalystAgeHours: 1,
-  }], integrationCtx(), { includeBadges: true });
-  if (out.rankedQualified.length > 0) {
-    assertEquals(out.badges.length, out.rankedQualified.length);
-    assertEquals(out.badges[0]?.kind, "penny_continuation_v1");
-  }
-});
-
-Deno.test("integration — overnight pipeline disabled", () => {
-  assertEquals(OVERNIGHT_SCANNER_PIPELINE_READY, false);
-  const out = evaluateBoundedPennyContinuationV1(
-    [{ symbol: "PNY", polygonTicker: polygonTicker(), spreadPct: 1 }],
-    integrationCtx({ observationSessionKind: "overnight" }),
-  );
-  const rej = out.rejections.find((r) => r.symbol === "PNY");
-  assert(rej?.result?.reasons.includes("OVERNIGHT_VOLUME_UNVERIFIED"));
+  const candidate = qualifyingCandidate();
+  const first = evaluateBoundedPennyContinuationV1([candidate], integrationCtx(), {
+    enforcePublicationCooldown: true,
+    includeBadges: true,
+  });
+  const second = evaluateBoundedPennyContinuationV1([candidate], integrationCtx(), {
+    enforcePublicationCooldown: true,
+    includeBadges: true,
+  });
+  assertEquals(first.rankedQualified.length, 1);
+  assertEquals(second.rankedQualified.length, 1);
+  assertEquals(second.rankedQualified[0].publicationSuppressed, true);
+  assertEquals(second.rankedQualified[0].continuationQualified, true);
+  assertEquals(second.badges.length, 1);
 });
 
 Deno.test("integration — bounded cap enforced", () => {
@@ -343,28 +423,4 @@ Deno.test("integration — bounded cap enforced", () => {
   }));
   const capped = evaluateBoundedPennyContinuationV1(list, integrationCtx());
   assert(capped.rejections[0]?.adapterReasons.includes("CANDIDATE_LIST_EXCEEDS_CAP"));
-});
-
-Deno.test("integration — publication cooldown does not mutate sync handlers", () => {
-  clearPennyContinuationLifecycleState();
-  const candidate = {
-    symbol: "PNY",
-    polygonTicker: polygonTicker(),
-    spreadPct: 1,
-    verifiedVelocityWindows: verifiedVelocityWindows(),
-    catalystVerified: "TRUE" as const,
-    catalystAgeHours: 1,
-  };
-  const first = evaluateBoundedPennyContinuationV1([candidate], integrationCtx(), {
-    enforcePublicationCooldown: true,
-    includeBadges: true,
-  });
-  const second = evaluateBoundedPennyContinuationV1([candidate], integrationCtx(), {
-    enforcePublicationCooldown: true,
-    includeBadges: true,
-  });
-  if (first.rankedQualified.length > 0 && second.rankedQualified.length > 0) {
-    assertEquals(second.rankedQualified[0].publicationSuppressed, true);
-    assertEquals(second.badges.length, 1);
-  }
 });
