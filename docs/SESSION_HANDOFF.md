@@ -1,10 +1,22 @@
-# Session handoff — Batch 219.3A closed-session snapshot recovery, November 11, 2026 ET
+# Session handoff — Batch 219.3B NHL baseline UI consistency, November 11, 2026 ET
 
-**Source:** GitHub `main` **`f4452bfd46a93d7572c0611b600b1e38e71367e9`** (Batch 219/219.1/219.2 merged; Fly worker **v47**; RPC `20261110193000` applied).
+**Source:** GitHub `main` **`dc9305f59d46e208d9a96f6c3650b2da6a9e48da`** + Fly **v48** (219.3A deployed).
 
-**Batch 219.3A (ISS-044, P0):** Production read-only confirms live Radar V2 publishes, repaired RPC installed, archival triggers enabled, and both `radar_v22_closed_snapshot` / `radar_v22_carryover_snapshot` still **empty**. Nov 10 **7:55–8:15 PM ET** closed transition: Fly log buffer **did not retain** that window — no payload proof. Reproducible worker defect: `park_closed` cleared in-memory V2 before the empty closed replace (RPC `EXISTS` finds nothing to snapshot), and empty `soft_rth_ah` could wipe same-day AH rows earlier. Fix: `preParkFlush` + `publishRadarV2ClosedParkIfNeeded` (distinct generation/`synced_at` fence) + skip empty soft_rth_ah candidate wipe. Branch `cursor/batch219-3a-closed-snapshot-recovery`. **No merge/deploy/SQL.**
+**Batch 219.3B (ISS-045):** Owner-reported Nov 11 ~7:41 AM ET NHL tab showed **Baseline unavailable** while 7:40 AM publication had `nhl_baseline_loaded=true`, generation `1b65754e-…`, **12,118** quotes. **Root cause (code):** `screener-truth-state` used baseline failure copy for every NHL `generation_unavailable`, including `previous_during_live` session gate and generation validation retries — not only `nhl_baseline_status: unavailable`. Frontend-only truth-state fix + regressions. **No Fly/SQL/Edge.**
 
-**Next:** Owner review 219.3A PR; after merge — **Fly deploy only** of scanner-stream-worker; accept next weekday **20:00 ET** closed park writes non-empty `radar_v22_closed_snapshot` with `snapshot_kind='closed_session'`. Keep ISS-044 open until that acceptance. Do **not** reapply `20261110193000`.
+**ISS-044:** **OPEN** — pending weekday **20:00 ET** closed-snapshot acceptance (v48 live).
+
+**Next:** Owner review 219.3B PR → Vercel only; re-check NHL tab during pre-market with available baseline.
+
+## Archived handoff — Batch 219.3A Fly deploy, November 11, 2026 ET
+
+**Source:** GitHub `main` **`dc9305f59d46e208d9a96f6c3650b2da6a9e48da`** (Batch 219.3A PR **#235** merged).
+
+**Batch 219.3A Fly deploy (owner-authorized):** `stocksist-radar-v22-worker` release **v48** from git `dc9305f` via `flyctl deploy --config fly.radar.toml --remote-only`. Image `registry.fly.io/stocksist-radar-v22-worker:deployment-01M75N75WEW46WCQT8DAP9JFCC`, manifest digest `sha256:e42c03f29bc2f5a11fd5bc9c70c5f1e36207a8745ac1986cd6d9ac1c40711484`. Machine **`8e4192a73d09e8`** `iad` **started**; smoke checks passed; post-deploy `publish_candidates_v2` **HTTP 200** every ~5s with no `radar_persist_v2_failed` / **23505** in sampled logs. **Rollback reference:** v47 `deployment-01M73Z9VFR2SQ97S92HS9B06XX`. No SQL / Edge / cron / secrets / Vercel changes.
+
+**ISS-044:** **OPEN** until next weekday **20:00 ET** closed-session park produces a valid non-empty `radar_v22_closed_snapshot` when eligible candidates exist (`snapshot_kind='closed_session'`).
+
+**Next:** Read-only Lovable check after **20:00 ET** closed park on the next eligible weekday. Do **not** reapply `20261110193000`.
 
 ## Archived handoff — Batch 191 scanner acceptance, November 10, 2026 ET
 

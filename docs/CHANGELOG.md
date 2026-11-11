@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 219.3B — NHL baseline UI truth-state, ISS-045)
+
+- Stop mapping NHL `generation_unavailable` to **Baseline unavailable** when feed `nhl_baseline_status` is still `available` (session gate / validation failures).
+- Vitest: `screener-truth-state`, `screener-session`. Frontend only — **not deployed**. ISS-045 **OPEN** until Vercel acceptance.
+
+## 2026-11-11 (Batch 219.3A — Fly worker deploy, ISS-044)
+
+- Owner-authorized Fly deploy: `stocksist-radar-v22-worker` **v48** from `main` **`dc9305f`** (closed-session park flush worker fix). Rollback **v47** `deployment-01M73Z9VFR2SQ97S92HS9B06XX`. Post-deploy V2 `publish_candidates_v2` advancing in sampled logs. **ISS-044 OPEN** pending weekday 20:00 ET closed-snapshot acceptance.
+
 ## 2026-11-11 (Batch 219.3A — closed-session snapshot recovery, ISS-044)
 
 - Worker: capture last live V2 view as `preParkFlush` on `park_closed`; `publishRadarV2ClosedParkIfNeeded` flushes then empty closed with a newer generation/`synced_at` fence; skip empty `soft_rth_ah` candidate wipes (pending non-session events still flush).
