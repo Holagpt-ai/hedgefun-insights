@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isCatalystFeedInitialLoading } from "@/lib/catalyst/catalyst-feed-loading";
+import {
+  filterCatalystEventsToSymbolContext,
+  isCatalystFeedInitialLoading,
+} from "@/lib/catalyst/catalyst-feed-loading";
+import { clearCancelledEnrichmentInflight } from "@/lib/catalyst/catalyst-enrichment-request-tracking";
 import {
   catalystEnrichmentStableKey,
   catalystEnrichmentSymbolsFromFeed,
@@ -25,5 +29,29 @@ describe("Batch 220 catalyst loading helpers", () => {
     expect(symbols).toHaveLength(24);
     expect(symbols[0]).toBe("S0");
     expect(symbols[23]).toBe("S23");
+  });
+
+  it("never renders AAPL events under an active TSLA symbol context", () => {
+    const staleFromPriorQuery = [
+      { symbol: "AAPL", id: "a1" },
+      { symbol: "AAPL", id: "a2" },
+    ];
+    expect(filterCatalystEventsToSymbolContext(staleFromPriorQuery, "TSLA")).toEqual([]);
+    expect(filterCatalystEventsToSymbolContext(staleFromPriorQuery, null)).toEqual(
+      staleFromPriorQuery,
+    );
+  });
+
+  it("clears in-flight enrichment so cancelled symbols can load again", () => {
+    const inFlight = new Set(["NVDA", "TSLA"]);
+    const completed = new Set(["TSLA"]);
+    const interrupted = clearCancelledEnrichmentInflight(
+      ["NVDA", "TSLA"],
+      completed,
+      inFlight,
+    );
+    expect(interrupted).toEqual(["NVDA"]);
+    expect(inFlight.has("NVDA")).toBe(false);
+    expect(inFlight.has("TSLA")).toBe(true);
   });
 });

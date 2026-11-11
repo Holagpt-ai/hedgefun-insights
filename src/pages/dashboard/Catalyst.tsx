@@ -45,7 +45,10 @@ import {
   type CatalystRecencyFilter,
 } from "@/lib/catalyst/catalyst-filters";
 import { buildCatalystHistoricalSummary } from "@/lib/catalyst/catalyst-historical-facts";
-import { isCatalystFeedInitialLoading } from "@/lib/catalyst/catalyst-feed-loading";
+import {
+  filterCatalystEventsToSymbolContext,
+  isCatalystFeedInitialLoading,
+} from "@/lib/catalyst/catalyst-feed-loading";
 import { catalystEnrichmentSymbolsFromFeed } from "@/lib/catalyst/catalyst-enrichment-scheduling";
 import type { CatalystEvent } from "@/types/catalyst";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
@@ -167,8 +170,11 @@ export default function Catalyst() {
   }, [userState]);
 
   const events = useMemo<CatalystEvent[]>(
-    () => (rawEvents ?? []).filter((event) => isEligibleCatalystFeedEvent(event)),
-    [rawEvents],
+    () =>
+      filterCatalystEventsToSymbolContext(rawEvents ?? [], activeSymbol).filter((event) =>
+        isEligibleCatalystFeedEvent(event),
+      ),
+    [rawEvents, activeSymbol],
   );
   const feedInitialLoading = isCatalystFeedInitialLoading(isPending, rawEvents !== undefined);
 

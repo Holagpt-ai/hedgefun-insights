@@ -2,7 +2,7 @@
 
 **Source:** GitHub `main` **`c44b669d4d511d3a8f7683f0725dc07ee0071558`** (Batch 220 branch).
 
-**Batch 220:** Watchlist list shimmer no longer gates on analysis / request-status queries (`resolveWatchlistLoadingState` + `isListLoading`). Catalyst feed uses initial-fetch-only spinner (`isCatalystFeedInitialLoading` + react-query `placeholderData`); historical enrichment effect key is symbol-set stable (`catalystEnrichmentStableKey`) so client-side filter reorder does not re-request identical histories; `sessionNowMs` ticks once per minute instead of every render. Vitest: `watchlist-loading-state`, `batch220-loading-performance`. Frontend only — **not deployed**.
+**Batch 220:** Watchlist list shimmer no longer gates on analysis / request-status queries (`resolveWatchlistLoadingState` + `isListLoading`). Catalyst: initial-fetch-only spinner; **no** cross-ticker react-query placeholder; `filterCatalystEventsToSymbolContext` on `?symbol=`; stable enrichment key; in-flight enrichment cleared on cancel (not stuck in `requested`). Vitest: `watchlist-loading-state`, `batch220-loading-performance`, `useCatalystHistoricalContext.batch220`. Frontend only — **not deployed**.
 
 **ISS-044:** **OPEN** — Fly **v48**; weekday **20:00 ET** closed-snapshot acceptance.
 

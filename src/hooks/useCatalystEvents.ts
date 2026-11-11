@@ -38,7 +38,6 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
     queryKey: ["catalyst_events", symbol, recentDays, upcomingDays, limit, eventDateOrder],
     enabled,
     staleTime: 60_000,
-    placeholderData: (previous) => previous,
     queryFn: async () => {
       const nowMs = Date.now();
       // P1-R2 parity: event_date looks back through the recent window so

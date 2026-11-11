@@ -12,6 +12,7 @@ import {
   CATALYST_ENRICHMENT_SYMBOL_CAP,
   catalystEnrichmentStableKey,
 } from "@/lib/catalyst/catalyst-enrichment-scheduling";
+import { clearCancelledEnrichmentInflight } from "@/lib/catalyst/catalyst-enrichment-request-tracking";
 
 const CONCURRENCY = 3;
 
@@ -40,6 +41,7 @@ export function useCatalystHistoricalContext(symbols: readonly string[]): Cataly
   const [contexts, setContexts] = useState<Record<string, RepeatMoverContext | null>>({});
   const [loadingSymbols, setLoadingSymbols] = useState<Set<string>>(new Set());
   const requested = useRef<Set<string>>(new Set());
+  const inFlight = useRef<Set<string>>(new Set());
   const prioritySymbols = symbols.slice(0, CATALYST_ENRICHMENT_SYMBOL_CAP);
   const key = catalystEnrichmentStableKey(prioritySymbols);
 
@@ -49,11 +51,14 @@ export function useCatalystHistoricalContext(symbols: readonly string[]): Cataly
     );
     setLoadingSymbols((prev) => new Set([...prev].filter((s) => activeSymbols.has(s))));
 
-    const targets = [...activeSymbols].filter((s) => !requested.current.has(s));
+    const targets = [...activeSymbols].filter(
+      (s) => !requested.current.has(s) && !inFlight.current.has(s),
+    );
     if (targets.length === 0) return;
-    for (const symbol of targets) requested.current.add(symbol);
+    for (const symbol of targets) inFlight.current.add(symbol);
 
     let cancelled = false;
+    const completedThisRun = new Set<string>();
     setLoadingSymbols((prev) => {
       const next = new Set(prev);
       for (const symbol of targets) next.add(symbol);
@@ -76,7 +81,10 @@ export function useCatalystHistoricalContext(symbols: readonly string[]): Cataly
           const symbol = targets[index];
           if (!symbol) return;
           const context = await loadSymbolContext(symbol, accessToken);
+          inFlight.current.delete(symbol);
           if (cancelled) return;
+          completedThisRun.add(symbol);
+          requested.current.add(symbol);
           setContexts((prev) => ({ ...prev, [symbol]: context }));
           setLoadingSymbols((prev) => {
             const next = new Set(prev);
@@ -90,7 +98,21 @@ export function useCatalystHistoricalContext(symbols: readonly string[]): Cataly
       );
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      const interrupted = clearCancelledEnrichmentInflight(
+        targets,
+        completedThisRun,
+        inFlight.current,
+      );
+      if (interrupted.length > 0) {
+        setLoadingSymbols((prev) => {
+          const next = new Set(prev);
+          for (const symbol of interrupted) next.delete(symbol);
+          return next;
+        });
+      }
+    };
   }, [key]);
 
   return { contexts, loadingSymbols };
