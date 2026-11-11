@@ -1,10 +1,14 @@
-# Session handoff — Batch 222 Penny Continuation eligibility and scoring contract V1, November 11, 2026 ET
+# Session handoff — Batch 223 Penny Continuation backend engine V1, November 11, 2026 ET
 
-**Source:** GitHub `main` **`9931e7f5539c940a87ce6e00e3bea18ccd47fc3a`** (Batch 222 branch).
+**Source:** GitHub `main` **`38ef764ab4754e454a5227ce987f5bab83718cb9`**.
 
-**Batch 222:** Documentation-only design contract for **Penny Continuation V1** (`penny_continuation_v1`): reconciled price predicate (`> $0.0001`, strict `< $1.00`); provider-watermark freshness (120s) + `feedDelayMs` delayed labels + cache-generation guard; five core signals (**CS1–CS5**) with deterministic **3-of-5** (UNKNOWN non-qualifying); supplemental late-day/next-session labels excluded from count; long-bias **+3%** move gate; missing-spread → `SPREAD_UNAVAILABLE`; reproducible fixtures; AM Inbox **badge** (no new card); Five Pillars auto-inclusion **disabled**. All thresholds **PROPOSED — NOT APPROVED**. **No Edge/SQL/Fly/cron/deploy.**
+**Batch 223:** Deno implementation of **`penny_continuation_v1`** under `supabase/functions/_shared/screeners/penny-continuation-*.ts` per approved Batch 222 contract — eligibility, CS1–CS5 (3-of-5), per-symbol freshness, volume-first rank, lifecycle cooldown/idempotency, AM Inbox badge builder. **`batch223-penny-continuation_test.ts`** (15) in screener Deno CI. **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
 
-**Next:** Owner review **PR #239** (finalized contract) and sign off §5 + §4.2 → **Batch 200**. Batch 221 overnight remains separate.
+**Next:** Batch 223 PR + owner review; separate activation batch for Radar/Inbox surfacing.
+
+## Archived handoff — Batch 222 Penny Continuation contract V1
+
+**Merged:** PR **#239** · Contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md` (owner-approved thresholds for implementation).
 
 ## Archived handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
 
