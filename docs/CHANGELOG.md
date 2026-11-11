@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 223 — Penny Continuation backend engine V1)
+
+- Shared evaluator `penny_continuation_v1`: eligibility, CS1–CS5 / 3-of-5, per-symbol freshness (Batch 222), volume-first ranking, cooldown/idempotency, AM Inbox badge payload type. Deno: `batch223-penny-continuation_test.ts`. **No live integration, SQL, or deploy.**
+
 ## 2026-11-11 (Batch 222 — Penny Continuation freshness contract correction, PR #239)
 
 - §4.1: per-symbol freshness (no `max(symbol, generation)`); verified expected provider delay + 120s slack; live vs delayed policies; fixtures F16–F20.
