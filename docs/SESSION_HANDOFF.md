@@ -2,9 +2,9 @@
 
 **Source:** GitHub `main` **`9931e7f5539c940a87ce6e00e3bea18ccd47fc3a`** (Batch 222 branch).
 
-**Batch 222:** Documentation-only design contract for **Penny Continuation V1** (`penny_continuation_v1`): eligibility vs sustained-momentum qualification vs volume-first ranking; reuse map (penny panel, `continuation-v1.ts`, `session-volume.ts`, `selection.ts`); proposed threshold decision table (**PROPOSED — NOT APPROVED**); integration with Radar, Catalyst, late-session handoffs, AM Inbox, Watchlist; schemas, reason codes, pseudocode, fixtures, test matrix. **No Edge/SQL/Fly/cron/deploy/scanner threshold changes.**
+**Batch 222:** Documentation-only design contract for **Penny Continuation V1** (`penny_continuation_v1`): reconciled price predicate (`> $0.0001`, strict `< $1.00`); provider-watermark freshness (120s) + `feedDelayMs` delayed labels + cache-generation guard; five core signals (**CS1–CS5**) with deterministic **3-of-5** (UNKNOWN non-qualifying); supplemental late-day/next-session labels excluded from count; long-bias **+3%** move gate; missing-spread → `SPREAD_UNAVAILABLE`; reproducible fixtures; AM Inbox **badge** (no new card); Five Pillars auto-inclusion **disabled**. All thresholds **PROPOSED — NOT APPROVED**. **No Edge/SQL/Fly/cron/deploy.**
 
-**Next:** Owner review Batch 222 docs PR and approve §5 thresholds → unblock **Batch 200** implementation. Batch 221 overnight pipeline PR remains separate (`docs/release/batch221-overnight-scanner-pipeline-v1.md`, `OVERNIGHT_SCANNER_PIPELINE_READY=false`).
+**Next:** Owner review **PR #239** (finalized contract) and sign off §5 + §4.2 → **Batch 200**. Batch 221 overnight remains separate.
 
 ## Archived handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
 

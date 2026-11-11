@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-11 (Batch 222 — Penny Continuation eligibility and scoring contract V1)
+## 2026-11-11 (Batch 222 — Penny Continuation eligibility and scoring contract V1, finalized)
 
-- Design contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`: sub-$1 momentum-continuation engine (`penny_continuation_v1`) distinct from penny Radar panel and price-agnostic Continuation V1; eligibility, continuation signals, volume-first ranking, proposed threshold table (**NOT APPROVED**), integration ownership, fixtures and test matrix. Documentation only — **no implementation or deploy**.
+- Design contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`: sub-$1 momentum-continuation engine (`penny_continuation_v1`) distinct from penny Radar panel and price-agnostic Continuation V1; provider-watermark freshness (120s) and honest delay labels; reconciled price band; CS1–CS5 **3-of-5** continuation counting; long-bias move gate; spread-unknown behavior; reproducible fixtures; AM Inbox badge recommendation; Five Pillars auto-inclusion disabled. All thresholds **PROPOSED — NOT APPROVED**. Documentation only — **no implementation or deploy** (PR **#239**).
 
 ## 2026-11-11 (Batch 221 — Overnight scanner backend pipeline V1)
 
