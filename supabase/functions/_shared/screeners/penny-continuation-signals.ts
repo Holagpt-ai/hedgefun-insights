@@ -25,30 +25,33 @@ function isValidTier(tier: string): tier is PennyVelocityWindowTier {
 }
 
 export function evaluatePennyCoreSignalCS1(input: PennyContinuationInput): PennyCoreSignalState {
-  if (input.velocityWindows && input.velocityWindows.length >= 3) {
-    const windows = input.velocityWindows.slice(-3);
-    if (windows.length < 3) return "UNKNOWN";
-    for (const w of windows) {
-      if (!isValidTier(w.tier) || w.sessionDate !== input.sessionDate) return "UNKNOWN";
-      if (!Number.isFinite(w.windowEndMs)) return "UNKNOWN";
-    }
-    for (let i = 1; i < windows.length; i++) {
-      if (windows[i].windowEndMs <= windows[i - 1].windowEndMs) return "UNKNOWN";
-    }
-    const latest = windows[2].tier;
-    if (latest === "NONE") return "FAIL";
-    const strongModerate = windows.filter((w) => w.tier === "STRONG" || w.tier === "MODERATE").length;
-    if (strongModerate >= 2) return "PASS";
-    return "FAIL";
+  const windows = input.velocityWindows;
+  if (!windows || windows.length < 3) {
+    return "UNKNOWN";
   }
 
-  const tiers = input.velocityWindowTiers;
-  if (!tiers || tiers.length < 3) return "UNKNOWN";
-  const windows = tiers.slice(-3);
-  if (windows.some((t) => !isValidTier(t))) return "UNKNOWN";
-  const latest = windows[windows.length - 1];
+  const lastThree = windows.slice(-3);
+  if (lastThree.length !== 3) return "UNKNOWN";
+
+  const evaluationClockMs = input.freshness.evaluationClockMs;
+  const seenEnds = new Set<number>();
+
+  for (const w of lastThree) {
+    if (!isValidTier(w.tier) || w.sessionDate !== input.sessionDate) return "UNKNOWN";
+    if (!Number.isFinite(w.windowEndMs)) return "UNKNOWN";
+    if (w.completed === false) return "UNKNOWN";
+    if (w.windowEndMs > evaluationClockMs) return "UNKNOWN";
+    if (seenEnds.has(w.windowEndMs)) return "UNKNOWN";
+    seenEnds.add(w.windowEndMs);
+  }
+
+  for (let i = 1; i < lastThree.length; i++) {
+    if (lastThree[i].windowEndMs <= lastThree[i - 1].windowEndMs) return "UNKNOWN";
+  }
+
+  const latest = lastThree[2].tier;
   if (latest === "NONE") return "FAIL";
-  const strongModerate = windows.filter((w) => w === "STRONG" || w === "MODERATE").length;
+  const strongModerate = lastThree.filter((w) => w.tier === "STRONG" || w.tier === "MODERATE").length;
   if (strongModerate >= 2) return "PASS";
   return "FAIL";
 }

@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 223 — Penny Continuation safety corrections, PR #240)
+
+- Removed qualification result cache; fresh evaluation every call; `publicationSuppressed` vs `continuationQualified`; CS1 requires verified `velocityWindows`; strict dual generation sync. Deno **26** tests.
+
 ## 2026-11-11 (Batch 223 — Penny Continuation backend engine V1, review corrections)
 
 - Hardened lifecycle cache (expiry revalidation, session prune, bounded entries); publication cooldown separated from qualification; eligibility integrity (volume/move/dollar cross-check); freshness generation evidence + future skew; CS1 window session order + CS3 negative HOD. Deno **21** tests. **No live integration.**

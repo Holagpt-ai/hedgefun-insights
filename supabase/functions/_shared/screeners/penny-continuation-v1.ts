@@ -27,27 +27,18 @@ import type {
   PennySupplementalLabel,
 } from "./penny-continuation-types.ts";
 
-interface IdemCacheEntry {
-  sessionDate: string;
-  symbolObservationMs: number;
-  expiresAtMs: number;
-  result: PennyContinuationResult;
-}
-
-const publicationCooldownBySymbol = new Map<string, number>();
-const idemCache = new Map<string, IdemCacheEntry>();
+const lastPublicationMsByKey = new Map<string, number>();
 
 export function clearPennyContinuationLifecycleState(): void {
-  publicationCooldownBySymbol.clear();
-  idemCache.clear();
+  lastPublicationMsByKey.clear();
 }
 
 export interface PennyContinuationEvaluateOptions {
-  /** When true, suppresses repeat publication notifications within the 5-minute window only. */
+  /** Suppresses duplicate publication notifications within 5 minutes for the same idempotency key. */
   enforcePublicationCooldown?: boolean;
 }
 
-function idempotencyKey(input: PennyContinuationInput): string | null {
+export function buildPennyPublicationIdempotencyKey(input: PennyContinuationInput): string | null {
   const obs = input.freshness.symbolObservationMs;
   if (obs === null || !Number.isFinite(obs)) return null;
   const floor = Math.floor(obs / 60_000);
@@ -56,9 +47,7 @@ function idempotencyKey(input: PennyContinuationInput): string | null {
 }
 
 function buildStableRankingKey(input: PennyContinuationInput): string | null {
-  const obs = input.freshness.symbolObservationMs;
-  if (obs === null || !Number.isFinite(obs)) return null;
-  return `${input.sessionDate}:${input.symbol}:${PENNY_CONTINUATION_MODEL_VERSION}:${Math.floor(obs / 60_000)}`;
+  return buildPennyPublicationIdempotencyKey(input);
 }
 
 function supplementalLabels(input: PennyContinuationInput): PennySupplementalLabel[] {
@@ -68,34 +57,40 @@ function supplementalLabels(input: PennyContinuationInput): PennySupplementalLab
   return labels;
 }
 
-function pruneIdemCache(evaluationClockMs: number, sessionDate: string): void {
-  for (const [key, entry] of idemCache) {
-    if (entry.sessionDate !== sessionDate || entry.expiresAtMs < evaluationClockMs) {
-      idemCache.delete(key);
+function prunePublicationState(evaluationClockMs: number, sessionDate: string): void {
+  for (const [key, ts] of lastPublicationMsByKey) {
+    if (!key.startsWith(`${sessionDate}:`) || evaluationClockMs - ts > PENNY_REQUALIFY_COOLDOWN_MS) {
+      lastPublicationMsByKey.delete(key);
     }
   }
-  while (idemCache.size > PENNY_IDEM_CACHE_MAX_ENTRIES) {
-    const firstKey = idemCache.keys().next().value;
+  while (lastPublicationMsByKey.size > PENNY_IDEM_CACHE_MAX_ENTRIES) {
+    const firstKey = lastPublicationMsByKey.keys().next().value;
     if (firstKey === undefined) break;
-    idemCache.delete(firstKey);
+    lastPublicationMsByKey.delete(firstKey);
   }
 }
 
-function cacheEntryStillValid(
-  entry: IdemCacheEntry,
+function resolvePublicationSuppressed(
   input: PennyContinuationInput,
-  freshnessHardFail: boolean,
-  evaluationClockMs: number,
+  continuationQualified: boolean,
+  options?: PennyContinuationEvaluateOptions,
 ): boolean {
-  if (entry.sessionDate !== input.sessionDate) return false;
-  if (entry.expiresAtMs < evaluationClockMs) return false;
-  if (entry.symbolObservationMs !== input.freshness.symbolObservationMs) return false;
-  if (freshnessHardFail) return false;
-  if (entry.result.continuationQualified && freshnessHardFail) return false;
-  return true;
+  if (!options?.enforcePublicationCooldown || !continuationQualified) return false;
+  const idemKey = buildPennyPublicationIdempotencyKey(input);
+  if (!idemKey) return false;
+  const now = input.freshness.evaluationClockMs;
+  const last = lastPublicationMsByKey.get(idemKey);
+  if (last !== undefined && now - last < PENNY_REQUALIFY_COOLDOWN_MS) {
+    return true;
+  }
+  lastPublicationMsByKey.set(idemKey, now);
+  return false;
 }
 
-function evaluateFresh(input: PennyContinuationInput): PennyContinuationResult {
+function evaluateFresh(input: PennyContinuationInput): Omit<
+  PennyContinuationResult,
+  "publicationIdempotencyKey" | "publicationSuppressed"
+> {
   const symbol = input.symbol.trim().toUpperCase();
   const freshness = assessPennySymbolFreshness(input.freshness);
   const eligibility = evaluatePennyContinuationEligibility(input);
@@ -125,8 +120,7 @@ function evaluateFresh(input: PennyContinuationInput): PennyContinuationResult {
 
   const obsMs = input.freshness.symbolObservationMs;
   const allowedLag = freshness.allowedMaxLagMs ?? PENNY_MAX_OBSERVATION_AGE_MS;
-  const expiresAtMs = obsMs !== null ? obsMs + allowedLag : 0;
-  const expiresAt = obsMs !== null ? new Date(expiresAtMs).toISOString() : null;
+  const expiresAt = obsMs !== null ? new Date(obsMs + allowedLag).toISOString() : null;
 
   return {
     model_version: PENNY_CONTINUATION_MODEL_VERSION,
@@ -166,50 +160,22 @@ export function evaluatePennyContinuationV1(
   input: PennyContinuationInput,
   options?: PennyContinuationEvaluateOptions,
 ): PennyContinuationResult {
-  const symbol = input.symbol.trim().toUpperCase();
-  const evaluationClockMs = input.freshness.evaluationClockMs;
-  pruneIdemCache(evaluationClockMs, input.sessionDate);
-
-  const freshnessProbe = assessPennySymbolFreshness(input.freshness);
-  const idemKey = idempotencyKey(input);
-  if (idemKey) {
-    const cached = idemCache.get(idemKey);
-    if (cached && cacheEntryStillValid(cached, input, freshnessProbe.hardFail, evaluationClockMs)) {
-      return cached.result;
-    }
-    if (cached) idemCache.delete(idemKey);
-  }
-
-  const result = evaluateFresh(input);
-
-  if (options?.enforcePublicationCooldown) {
-    const lastPublication = publicationCooldownBySymbol.get(symbol);
-    if (
-      lastPublication !== undefined &&
-      evaluationClockMs - lastPublication < PENNY_REQUALIFY_COOLDOWN_MS
-    ) {
-      return {
-        ...result,
-        reasons: [...result.reasons, "REQUALIFY_COOLDOWN"],
-      };
-    }
-    if (result.continuationQualified) {
-      publicationCooldownBySymbol.set(symbol, evaluationClockMs);
-    }
-  }
-
-  const obsMs = input.freshness.symbolObservationMs;
-  if (idemKey && obsMs !== null) {
-    const allowedLag = freshnessProbe.allowedMaxLagMs ?? PENNY_MAX_OBSERVATION_AGE_MS;
-    idemCache.set(idemKey, {
-      sessionDate: input.sessionDate,
-      symbolObservationMs: obsMs,
-      expiresAtMs: obsMs + allowedLag,
-      result,
-    });
-  }
-
-  return result;
+  prunePublicationState(input.freshness.evaluationClockMs, input.sessionDate);
+  const core = evaluateFresh(input);
+  const publicationIdempotencyKey = buildPennyPublicationIdempotencyKey(input);
+  const publicationSuppressed = resolvePublicationSuppressed(
+    input,
+    core.continuationQualified,
+    options,
+  );
+  return {
+    ...core,
+    publicationIdempotencyKey,
+    publicationSuppressed,
+  };
 }
 
-export { buildPennyAmInboxBadgePayload } from "./penny-continuation-handoff.ts";
+export {
+  buildPennyAmInboxBadgePayload,
+  pennyContinuationMayEmitNotification,
+} from "./penny-continuation-handoff.ts";

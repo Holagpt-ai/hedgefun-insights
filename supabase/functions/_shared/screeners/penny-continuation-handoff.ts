@@ -8,10 +8,14 @@ import type {
   PennyContinuationResult,
 } from "./penny-continuation-types.ts";
 
+export function pennyContinuationMayEmitNotification(result: PennyContinuationResult): boolean {
+  return result.continuationQualified && !result.publicationSuppressed;
+}
+
 export function buildPennyAmInboxBadgePayload(
   result: PennyContinuationResult,
 ): PennyAmInboxBadgePayload | null {
-  if (!result.continuationQualified) return null;
+  if (!pennyContinuationMayEmitNotification(result)) return null;
   return {
     kind: "penny_continuation_v1",
     symbol: result.symbol,

@@ -81,6 +81,8 @@ export interface PennyContinuationInput {
     tier: PennyVelocityWindowTier;
     sessionDate: string;
     windowEndMs: number;
+    /** Must be true for CS1; incomplete windows are UNKNOWN. */
+    completed?: boolean;
   }> | null;
   volumeAccelerationPct: number | null;
   timeAdjustedRvol: number | null;
@@ -150,6 +152,9 @@ export interface PennyContinuationResult {
   supplementalLabels: PennySupplementalLabel[];
   reasons: PennyReasonCode[];
   stableRankingKey: string | null;
+  publicationIdempotencyKey: string | null;
+  /** True when `enforcePublicationCooldown` suppresses duplicate notifications (qualification unchanged). */
+  publicationSuppressed: boolean;
   expiresAt: string | null;
 }
 

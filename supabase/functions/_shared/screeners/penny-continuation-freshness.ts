@@ -43,13 +43,14 @@ export function assessPennySymbolFreshness(
 
   if (enforceLiveSessionGuards) {
     const parsedGen = generationSyncIso ? Date.parse(generationSyncIso) : NaN;
-    const genMs = Number.isFinite(generationSyncMs ?? NaN)
-      ? (generationSyncMs as number)
-      : parsedGen;
-    if (!Number.isFinite(genMs) || !generationSyncIso || !Number.isFinite(parsedGen)) {
+    if (
+      !Number.isFinite(generationSyncMs ?? NaN) ||
+      !generationSyncIso ||
+      !Number.isFinite(parsedGen)
+    ) {
       return fail(["GENERATION_EVIDENCE_UNAVAILABLE"]);
     }
-    if (Math.abs(genMs - parsedGen) > 5_000) {
+    if (Math.abs((generationSyncMs as number) - parsedGen) > 5_000) {
       return fail(["GENERATION_EVIDENCE_UNAVAILABLE"]);
     }
     if (

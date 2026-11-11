@@ -14,7 +14,7 @@
 | `penny-continuation-eligibility.ts` | Hard gates E1–E14 |
 | `penny-continuation-signals.ts` | CS1–CS5 + invalidators |
 | `penny-continuation-ranking.ts` | Score + sort keys |
-| `penny-continuation-v1.ts` | `evaluatePennyContinuationV1` (+ cooldown / idempotency) |
+| `penny-continuation-v1.ts` | `evaluatePennyContinuationV1` (always fresh qualify; publication cooldown + idempotency keys) |
 | `penny-continuation-handoff.ts` | AM Inbox badge payload (no UI) |
 
 ## Entrypoint
@@ -23,7 +23,7 @@
 import { evaluatePennyContinuationV1, rankPennyContinuationCandidates } from "./penny-continuation-v1.ts";
 ```
 
-Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` including `freshness` (aligned `generationSyncMs` + `generationSyncIso`, policy, delay, symbol observation ms). `enforcePublicationCooldown` affects notification dedupe only — qualification always re-evaluates. Idempotency cache is bounded (256) and revalidates freshness/expiry per hit.
+Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` including `freshness` (both `generationSyncMs` and `generationSyncIso` required and aligned), verified `velocityWindows` for CS1 (tiers-only is UNKNOWN), policy, delay, symbol observation ms. `evaluatePennyContinuationV1` **recomputes qualification every call**; `publicationSuppressed` + `buildPennyPublicationIdempotencyKey` handle notification dedupe only (`enforcePublicationCooldown`).
 
 ## Boundaries (this batch)
 
@@ -33,7 +33,7 @@ Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` inc
 
 ## Tests
 
-`batch223-penny-continuation_test.ts` (21 cases) — registered in `screener-deno-regressions.yml`.
+`batch223-penny-continuation_test.ts` (26 cases) — registered in `screener-deno-regressions.yml`.
 
 ## Activation gate
 

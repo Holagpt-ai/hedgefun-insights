@@ -6,7 +6,10 @@ import {
 import { OVERNIGHT_SCANNER_PIPELINE_READY } from "../markets/equity-session-control.ts";
 import { evaluatePennyContinuationEligibility, pennyPriceEligible } from "./penny-continuation-eligibility.ts";
 import { assessPennySymbolFreshness } from "./penny-continuation-freshness.ts";
-import { buildPennyAmInboxBadgePayload } from "./penny-continuation-handoff.ts";
+import {
+  buildPennyAmInboxBadgePayload,
+  pennyContinuationMayEmitNotification,
+} from "./penny-continuation-handoff.ts";
 import {
   comparePennyContinuationRank,
   rankPennyContinuationCandidates,
@@ -35,6 +38,14 @@ function freshNearRt(observationMs = NOW): PennyContinuationInput["freshness"] {
   };
 }
 
+function verifiedVelocityWindows() {
+  return [
+    { tier: "MODERATE" as const, sessionDate: "2026-11-11", windowEndMs: NOW - 180_000, completed: true },
+    { tier: "STRONG" as const, sessionDate: "2026-11-11", windowEndMs: NOW - 120_000, completed: true },
+    { tier: "STRONG" as const, sessionDate: "2026-11-11", windowEndMs: NOW - 60_000, completed: true },
+  ];
+}
+
 function baseInput(overrides: Partial<PennyContinuationInput> = {}): PennyContinuationInput {
   return {
     symbol: "ABCD",
@@ -52,6 +63,7 @@ function baseInput(overrides: Partial<PennyContinuationInput> = {}): PennyContin
     aboveVwap: "TRUE",
     holdingVwapAfterReclaim: "UNKNOWN",
     velocityWindowTiers: ["MODERATE", "STRONG", "STRONG"],
+    velocityWindows: verifiedVelocityWindows(),
     volumeAccelerationPct: 20,
     timeAdjustedRvol: 2.5,
     rvolConfidence: "HIGH",
@@ -103,7 +115,11 @@ Deno.test("CS1–CS5 signals and 3-of-5", () => {
 
   const twoOnly = evaluatePennyCoreSignals(
     baseInput({
-      velocityWindowTiers: ["NONE", "WEAK", "NONE"],
+      velocityWindows: [
+        { tier: "NONE", sessionDate: "2026-11-11", windowEndMs: NOW - 180_000, completed: true },
+        { tier: "WEAK", sessionDate: "2026-11-11", windowEndMs: NOW - 120_000, completed: true },
+        { tier: "NONE", sessionDate: "2026-11-11", windowEndMs: NOW - 60_000, completed: true },
+      ],
       aboveVwap: "FALSE",
       holdingVwapAfterReclaim: "FALSE",
       distanceFromHodPct: 20,
@@ -119,7 +135,7 @@ Deno.test("CS1–CS5 signals and 3-of-5", () => {
       radarHasReAcceleration: "UNKNOWN",
       volumeAccelerationPct: null,
       radarHasSecondLeg: "UNKNOWN",
-      velocityWindowTiers: ["MODERATE", "STRONG", "STRONG"],
+      velocityWindows: verifiedVelocityWindows(),
       distanceFromHodPct: 3,
       aboveVwap: "TRUE",
     }),
@@ -239,18 +255,15 @@ Deno.test("idempotent duplicate observation and fresh re-evaluation", () => {
 Deno.test("publication cooldown does not block qualification", () => {
   clearPennyContinuationLifecycleState();
   const a = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
-  const b = evaluatePennyContinuationV1(
-    baseInput({ observationGenerationId: "gen-2", freshness: freshNearRt(NOW - 10_000) }),
-    { enforcePublicationCooldown: true },
-  );
+  const b = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
   assertEquals(b.continuationQualified, true);
-  assert(b.reasons.includes("REQUALIFY_COOLDOWN"));
+  assertEquals(b.publicationSuppressed, true);
+  assertEquals(pennyContinuationMayEmitNotification(b), false);
 });
 
-Deno.test("cache invalidates when observation goes stale", () => {
+Deno.test("stale observation fails qualification on re-evaluation", () => {
   clearPennyContinuationLifecycleState();
-  const qualified = evaluatePennyContinuationV1(baseInput());
-  assertEquals(qualified.continuationQualified, true);
+  assertEquals(evaluatePennyContinuationV1(baseInput()).continuationQualified, true);
   const stale = evaluatePennyContinuationV1(
     baseInput({
       freshness: {
@@ -360,9 +373,9 @@ Deno.test("CS1 session-ordered windows and CS3 negative HOD", () => {
   const badSession = evaluatePennyCoreSignals(
     baseInput({
       velocityWindows: [
-        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 120_000 },
-        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 60_000 },
-        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW },
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 120_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 60_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 30_000, completed: true },
       ],
     }),
   );
@@ -370,4 +383,69 @@ Deno.test("CS1 session-ordered windows and CS3 negative HOD", () => {
 
   const negHod = evaluatePennyCoreSignals(baseInput({ distanceFromHodPct: -2 }));
   assertEquals(negHod.cs3, "FAIL");
+});
+
+Deno.test("safety — invalidation evidence within same observation minute", () => {
+  clearPennyContinuationLifecycleState();
+  const ok = evaluatePennyContinuationV1(baseInput());
+  assertEquals(ok.continuationQualified, true);
+  const invalidated = evaluatePennyContinuationV1(
+    baseInput({ catalystInvalidated: "TRUE", spreadPct: 1 }),
+  );
+  assertEquals(invalidated.continuationQualified, false);
+  assert(invalidated.reasons.includes("CATALYST_INVALIDATED"));
+});
+
+Deno.test("safety — CS1 tiers-only cannot PASS", () => {
+  const cs1 = evaluatePennyCoreSignals(
+    baseInput({ velocityWindows: null, velocityWindowTiers: ["MODERATE", "STRONG", "STRONG"] }),
+  );
+  assertEquals(cs1.cs1, "UNKNOWN");
+});
+
+Deno.test("safety — CS1 rejects future and incomplete windows", () => {
+  const future = evaluatePennyCoreSignals(
+    baseInput({
+      velocityWindows: [
+        { tier: "MODERATE", sessionDate: "2026-11-11", windowEndMs: NOW - 120_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW - 60_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW + 60_000, completed: true },
+      ],
+    }),
+  );
+  assertEquals(future.cs1, "UNKNOWN");
+
+  const incomplete = evaluatePennyCoreSignals(
+    baseInput({
+      velocityWindows: [
+        { tier: "MODERATE", sessionDate: "2026-11-11", windowEndMs: NOW - 120_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW - 60_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW - 30_000, completed: false },
+      ],
+    }),
+  );
+  assertEquals(incomplete.cs1, "UNKNOWN");
+});
+
+Deno.test("safety — duplicate notification suppression retains qualification", () => {
+  clearPennyContinuationLifecycleState();
+  const first = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
+  assertEquals(first.publicationSuppressed, false);
+  assertEquals(buildPennyAmInboxBadgePayload(first) !== null, true);
+  const second = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
+  assertEquals(second.continuationQualified, true);
+  assertEquals(second.publicationSuppressed, true);
+  assertEquals(buildPennyAmInboxBadgePayload(second), null);
+});
+
+Deno.test("safety — generation sync ms and iso both required", () => {
+  const badMs = assessPennySymbolFreshness({
+    evaluationClockMs: NOW,
+    symbolObservationMs: NOW,
+    generationSyncMs: Number.NaN,
+    generationSyncIso: new Date(NOW).toISOString(),
+    verifiedExpectedProviderDelayMs: 0,
+    dataDeliveryPolicy: "near_real_time",
+  });
+  assert(badMs.reasons.includes("GENERATION_EVIDENCE_UNAVAILABLE"));
 });
