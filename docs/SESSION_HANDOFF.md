@@ -1,10 +1,10 @@
-# Session handoff — Batch 219 Radar V2 recovery, November 10, 2026 ET
+# Session handoff — Batch 219.3A closed-session snapshot recovery, November 11, 2026 ET
 
-**Source:** GitHub `main` (post Batch 191 PR **#233** merge).
+**Source:** GitHub `main` **`f4452bfd46a93d7572c0611b600b1e38e71367e9`** (Batch 219/219.1/219.2 merged; Fly worker **v47**; RPC `20261110193000` applied).
 
-**Batch 219 / 219.1 / 219.2 (ISS-044, P0):** Worker + Ops fixes, cross-date delete-before-insert, **and** named-column closed-session snapshot copy in pending `20261110193000`. Owner-verified: PK `(symbol)`, 89 Nov 9 AH rows; Fly **`23505`**; production candidates **62** cols vs closed snapshot **64** cols with attnum 48/49 mismatch (`promotion_reason` vs `snapshot_kind`) — both snapshot tables **empty**. PR [#234](https://github.com/Holagpt-ai/hedgefun-insights/pull/234) — **not merged; migration not applied; no deploy.** Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
+**Batch 219.3A (ISS-044, P0):** Production read-only confirms live Radar V2 publishes, repaired RPC installed, archival triggers enabled, and both `radar_v22_closed_snapshot` / `radar_v22_carryover_snapshot` still **empty**. Nov 10 **7:55–8:15 PM ET** closed transition: Fly log buffer **did not retain** that window — no payload proof. Reproducible worker defect: `park_closed` cleared in-memory V2 before the empty closed replace (RPC `EXISTS` finds nothing to snapshot), and empty `soft_rth_ah` could wipe same-day AH rows earlier. Fix: `preParkFlush` + `publishRadarV2ClosedParkIfNeeded` (distinct generation/`synced_at` fence) + skip empty soft_rth_ah candidate wipe. Branch `cursor/batch219-3a-closed-snapshot-recovery`. **No merge/deploy/SQL.**
 
-**Next:** Owner review PR; after merge — **Lovable apply `20261110193000`** + **Fly worker deploy** + **Vercel** for Operations; verify `v2_synced_at` advances, closed-session snapshot populates, and `/admin/operations` degrades when V2 stale. Confirm `RADAR_PERSISTENCE_V2_ENABLED=true` on Fly if still stuck.
+**Next:** Owner review 219.3A PR; after merge — **Fly deploy only** of scanner-stream-worker; accept next weekday **20:00 ET** closed park writes non-empty `radar_v22_closed_snapshot` with `snapshot_kind='closed_session'`. Keep ISS-044 open until that acceptance. Do **not** reapply `20261110193000`.
 
 ## Archived handoff — Batch 191 scanner acceptance, November 10, 2026 ET
 
