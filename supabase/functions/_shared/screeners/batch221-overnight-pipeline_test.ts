@@ -21,10 +21,10 @@ import type { PolygonTicker } from "./selection.ts";
 import { gapPercentForTabContext } from "./selection.ts";
 import {
   afterHoursIncrementalVolume,
+  hasExplicitZeroSessionDayVolume,
   OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
   overnightSessionVolume,
   overnightVolumeProvenance,
-  resolveObservationSessionKind,
   sessionQualificationVolume,
 } from "./session-volume.ts";
 import {
@@ -148,6 +148,36 @@ Deno.test("Batch 221: missing day.v does not prove overnight-only min.av", () =>
     dayVPresent: false,
   });
   assertEquals(overnightSessionVolume(t, MON_OVERNIGHT, [], true), null);
+});
+
+Deno.test("Batch 221: hasExplicitZeroSessionDayVolume rejects coerced-zero shapes", () => {
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: 0 } }), true);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: "0" } }), true);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: "0.0" } }), true);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: null } }), false);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: false } }), false);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: "" } }), false);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: " " } }), false);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: { v: "false" } }), false);
+  assertEquals(hasExplicitZeroSessionDayVolume({ day: {} }), false);
+  assertEquals(
+    overnightSessionVolume(
+      overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 10_000, dayV: 0 }),
+      MON_OVERNIGHT,
+      [],
+      true,
+    ),
+    10_000,
+  );
+  assertEquals(
+    overnightSessionVolume(
+      { ...overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 10_000 }), day: { v: null } },
+      MON_OVERNIGHT,
+      [],
+      true,
+    ),
+    null,
+  );
 });
 
 Deno.test("Batch 221: overnight volume unavailable until provider session reset is verified", () => {

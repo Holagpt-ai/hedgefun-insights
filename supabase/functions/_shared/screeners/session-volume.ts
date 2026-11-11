@@ -95,12 +95,27 @@ export type OvernightVolumeProvenance = {
   providerSessionVolumeVerified: boolean;
 };
 
-function hasExplicitZeroSessionDayVolume(t: VolumeTicker): boolean {
+/** Provider-reported session `day.v` exactly zero — no coercion from null/false/empty string. */
+export function hasExplicitZeroSessionDayVolume(t: VolumeTicker): boolean {
   const day = t?.day;
   if (day === undefined || day === null || typeof day !== "object") return false;
   if (!Object.prototype.hasOwnProperty.call(day, "v")) return false;
-  const n = Number((day as { v: unknown }).v);
-  return Number.isFinite(n) && n === 0;
+  return isProviderExplicitNumericZero((day as { v: unknown }).v);
+}
+
+function isProviderExplicitNumericZero(value: unknown): boolean {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return false;
+  }
+  if (typeof value === "number") return Number.isFinite(value) && value === 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "" || trimmed.toLowerCase() === "false") return false;
+    if (trimmed === "0") return true;
+    if (/^0+\.0+$/.test(trimmed)) return true;
+    return false;
+  }
+  return false;
 }
 
 /**

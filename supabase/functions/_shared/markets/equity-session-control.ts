@@ -138,6 +138,15 @@ function isTradingDay(schedule: ResolvedSessionSchedule): boolean {
   return schedule.marketStatus !== "closed";
 }
 
+function overnightGeometricTradeDate(
+  parts: NonNullable<ReturnType<typeof easternParts>>,
+  msOfDay: number,
+): string | null {
+  if (msOfDay < OVERNIGHT_CLOSE_MS) return parts.date;
+  if (msOfDay >= OVERNIGHT_OPEN_MS) return addDaysIso(parts.date, 1);
+  return null;
+}
+
 /**
  * Geometric overnight window (21:00–04:00 ET) mapped to its trading cycle
  * date. Independent of 23×5 activation — used for observation volume semantics.
@@ -151,9 +160,7 @@ export function resolveOvernightCycleAt(
   const today = resolveSessionSchedule(parts.date, exceptions);
   const ms = parts.msOfDay;
 
-  let overnightTradeDate: string | null = null;
-  if (ms < OVERNIGHT_CLOSE_MS) overnightTradeDate = parts.date;
-  else if (ms >= OVERNIGHT_OPEN_MS) overnightTradeDate = addDaysIso(parts.date, 1);
+  const overnightTradeDate = overnightGeometricTradeDate(parts, ms);
 
   if (!overnightTradeDate) return null;
 
@@ -227,6 +234,26 @@ export function resolveEquitySession(input: ResolveEquitySessionInput): EquitySe
       scanEligible: false,
       skipReason: "overnight_not_activated",
     };
+  }
+
+  const overnightTarget = overnightGeometricTradeDate(parts, ms);
+  if (overnightTarget) {
+    const cycle = overnightTarget === parts.date
+      ? today
+      : resolveSessionSchedule(overnightTarget, input.exceptions);
+    const cycleDow = weekdayUtcNoon(overnightTarget) ?? 0;
+    const cycleIsWeekday = cycleDow >= 1 && cycleDow <= 5;
+    if (cycleIsWeekday && !isTradingDay(cycle)) {
+      return {
+        ...base,
+        holidayName: cycle.holidayName,
+        phase: "holiday_closure",
+        tradeDate: null,
+        legacySessionKind: "closed",
+        scanEligible: false,
+        skipReason: "holiday_closure",
+      };
+    }
   }
 
   // 3. Between 04:00 and 21:00 but outside today's sessions.
