@@ -76,8 +76,9 @@ jobs:
           set -euo pipefail
           PG_IMAGE=postgres:16-alpine
           docker pull "$PG_IMAGE"
-          install -d /usr/local/bin
-          cat > /usr/local/bin/psql << 'WRAP'
+          BIN_DIR="${RUNNER_TEMP}/pg-ci-bin"
+          mkdir -p "$BIN_DIR"
+          cat > "${BIN_DIR}/psql" << 'WRAP'
           #!/usr/bin/env bash
           set -euo pipefail
           ROOT="${GITHUB_WORKSPACE:-$PWD}"
@@ -86,8 +87,9 @@ jobs:
             -w "${ROOT}" \
             postgres:16-alpine psql "$@"
           WRAP
-          chmod +x /usr/local/bin/psql
-          psql --version
+          chmod +x "${BIN_DIR}/psql"
+          echo "${BIN_DIR}" >> "$GITHUB_PATH"
+          "${BIN_DIR}/psql" --version
       - name: Bootstrap disposable Postgres (Batch 190 migrations)
         run: node scripts/supabase/screener-sync-pg-test-setup.mjs
       - name: Bootstrap Radar V22 migrations (Batch 219.1)
