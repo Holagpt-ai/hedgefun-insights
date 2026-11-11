@@ -131,7 +131,7 @@ Treat screenshot observations as reported evidence until independently confirmed
 **Gate:** explicit product approval of requirements.  
 **Delivery artifact (Batch 222):** `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md` — owner must approve proposed §5 thresholds before Batch 200.
 
-#### Batch 200 — Penny Continuation V1 implementation (CONDITIONAL)
+#### Batch 200 — Penny Continuation V1 implementation (CONDITIONAL; engine + integration landed Batch 223–224 — activation still gated)
 
 **Priority:** Future P2 · **Owner:** Cursor coding/tests/PR; Lovable UI acceptance later. **Blocked until Batch 199 approved.**  
 **Work:** implement only unique continuation engine/display and handoffs; no duplicate generic penny scanner; preserve volume-first ranking and market-data honesty.  
