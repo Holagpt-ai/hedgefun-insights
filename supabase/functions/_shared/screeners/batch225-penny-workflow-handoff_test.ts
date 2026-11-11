@@ -180,6 +180,37 @@ Deno.test("Batch 225 — prior-session capture label", () => {
   );
 });
 
+Deno.test("Batch 225 — stale flag with continuationQualified true rejected", () => {
+  const integration = qualifiedIntegration();
+  const inconsistent: PennyContinuationResult = {
+    ...integration.rankedQualified[0],
+    continuationQualified: true,
+    qualifies: true,
+    dataFreshnessLabel: "stale",
+    reasons: [...integration.rankedQualified[0].reasons, "OBSERVATION_STALE"],
+  };
+  const handoff = projectPennyWorkflowHandoffFromResult(inconsistent, {
+    integration_version: integration.integration_version,
+    captureIso: integration.evaluatedAt,
+    integrationSessionDate: integration.sessionDate,
+  });
+  assertEquals(handoff, null);
+});
+
+Deno.test("Batch 225 — integration session conflict rejected", () => {
+  const integration = qualifiedIntegration();
+  const conflict: PennyContinuationResult = {
+    ...integration.rankedQualified[0],
+    sessionDate: "2026-11-10",
+  };
+  const handoff = projectPennyWorkflowHandoffFromResult(conflict, {
+    integration_version: integration.integration_version,
+    captureIso: integration.evaluatedAt,
+    integrationSessionDate: integration.sessionDate,
+  });
+  assertEquals(handoff, null);
+});
+
 Deno.test("Batch 225 — publication suppression preserved on handoff", () => {
   const integration = qualifiedIntegration();
   const suppressed = {

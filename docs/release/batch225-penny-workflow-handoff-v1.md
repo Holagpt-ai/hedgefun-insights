@@ -24,6 +24,12 @@ Input: `PennyContinuationIntegrationResult` from Batch 224. Output: deterministi
 
 Rules: match symbol + `sourceSessionDate`; one badge per candidate; honor AM expiry; publication suppression does not hide badge; no new cards or Five Pillars changes.
 
+### Badge integrity (PR #242 corrections)
+
+- Projection rejects stale/contradictory results even when `continuationQualified=true` (stale freshness, observation reasons, integration session mismatch).
+- Matcher validates badge kind/model, symbol, and `sessionDate` against handoff + AM Inbox row before attach.
+- Penny navigation uses **only** the AM Inbox row `securityId` — never session-storage workflow cache.
+
 ## Boundaries
 
 - No `sync-screener-data`, Fly, Radar publish, AM Inbox RPC/SQL, cron, feature flags, or React hook wiring.
@@ -31,8 +37,8 @@ Rules: match symbol + `sourceSessionDate`; one badge per candidate; honor AM exp
 
 ## Tests
 
-- Deno: `batch225-penny-workflow-handoff_test.ts` (4) — screener CI
-- Vitest: `batch225-penny-continuation-badge-match.test.ts` (9)
+- Deno: `batch225-penny-workflow-handoff_test.ts` (6) — screener CI
+- Vitest: `batch225-penny-continuation-badge-match.test.ts` (13)
 
 ## Activation still requires
 

@@ -5,6 +5,10 @@
 
 import { PENNY_CONTINUATION_MODEL_VERSION } from "../config/penny-continuation.config.ts";
 import type { PennyContinuationIntegrationResult } from "./penny-continuation-integration-types.ts";
+import {
+  pennyHandoffProjectionAllowed,
+  validatePennyAmInboxBadgePayload,
+} from "./penny-continuation-badge-integrity.ts";
 import { buildPennyAmInboxBadgePayload } from "./penny-continuation-handoff.ts";
 import type { PennyContinuationResult } from "./penny-continuation-types.ts";
 import { normalizeSymbol } from "./selection.ts";
@@ -48,12 +52,18 @@ export function projectPennyWorkflowHandoffFromResult(
   },
 ): PennyContinuationWorkflowHandoff | null {
   if (!result.continuationQualified) return null;
+  if (!pennyHandoffProjectionAllowed(result, input.integrationSessionDate)) {
+    return null;
+  }
   const symbol = normalizeSymbol(result.symbol);
   const sessionDate = result.sessionDate;
   if (!symbol || !sessionDate) return null;
 
   const badge = buildPennyAmInboxBadgePayload(result);
   if (!badge) return null;
+  if (!validatePennyAmInboxBadgePayload(badge, { symbol, sourceSessionDate: sessionDate })) {
+    return null;
+  }
 
   return {
     handoff_version: PENNY_CONTINUATION_WORKFLOW_HANDOFF_VERSION,

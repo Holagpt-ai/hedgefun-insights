@@ -9,7 +9,8 @@ import {
   pennyContinuationNavigatePath,
   pennyContinuationWorkflowRoutes,
 } from "@/lib/am-inbox/penny-continuation-workflow-navigation";
-import { amInboxNavigatePath } from "@/lib/am-inbox/am-inbox-workflow-handoff";
+import { buildHistoricalWorkflowContext } from "@/lib/historical-workflow/build-historical-workflow-context";
+import { persistHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 
 const SECURITY_ID = "22222222-2222-4222-8222-222222222222" as const;
 const SESSION = "2026-11-11";
@@ -161,16 +162,67 @@ describe("Batch 225 penny continuation badge match", () => {
     expect(result.attachments).toHaveLength(0);
   });
 
-  it("preserves verified securityId for workflow navigation only", () => {
-    const routes = pennyContinuationWorkflowRoutes(inboxTarget());
-    expect(routes?.catalyst).toContain("securityId=");
-    const unverified = pennyContinuationNavigatePath("catalyst", {
+  it("rejects mismatched badge session date vs handoff", () => {
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [
+        handoff({
+          badge: {
+            ...handoff().badge!,
+            sessionDate: "2026-11-10",
+          },
+        }),
+      ],
+      candidates: [inboxTarget()],
+      amSessionDate: SESSION,
+    });
+    expect(result.attachments).toHaveLength(0);
+  });
+
+  it("rejects stale handoff freshness for badge attach", () => {
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [handoff({ dataFreshnessLabel: "stale" })],
+      candidates: [inboxTarget()],
+      amSessionDate: SESSION,
+    });
+    expect(result.attachments).toHaveLength(0);
+  });
+
+  it("prior-session capture still matches on next AM session when active", () => {
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [handoff({ qualificationEvidenceKind: "prior_session_capture" })],
+      candidates: [inboxTarget()],
+      amSessionDate: NEXT,
+    });
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments[0].qualificationEvidenceKind).toBe("prior_session_capture");
+  });
+
+  it("symbol-only navigation ignores cached workflow securityId", () => {
+    const STALE_ID = "99999999-9999-4999-8999-999999999999" as const;
+    persistHistoricalWorkflowContext(
+      buildHistoricalWorkflowContext({
+        symbol: "PNY",
+        securityId: STALE_ID,
+        sourceSurface: "inbox",
+      }),
+    );
+    const routes = pennyContinuationWorkflowRoutes({
       symbol: "PNY",
       securityId: null,
     });
-    const verified = pennyContinuationNavigatePath("catalyst", inboxTarget());
-    expect(unverified).not.toContain(SECURITY_ID);
-    expect(verified).toContain(SECURITY_ID);
-    expect(amInboxNavigatePath("catalyst", "PNY", null)).toBe(unverified);
+    expect(routes?.catalyst).toContain("symbol=PNY");
+    expect(routes?.catalyst).not.toContain(STALE_ID);
+    const path = pennyContinuationNavigatePath("catalyst", {
+      symbol: "PNY",
+      securityId: null,
+    });
+    expect(path).not.toContain(STALE_ID);
+  });
+
+  it("uses verified securityId from AM Inbox row when present", () => {
+    const routes = pennyContinuationWorkflowRoutes(inboxTarget());
+    expect(routes?.catalyst).toContain(SECURITY_ID);
+    const path = pennyContinuationNavigatePath("catalyst", inboxTarget());
+    expect(path).toContain(SECURITY_ID);
   });
 });

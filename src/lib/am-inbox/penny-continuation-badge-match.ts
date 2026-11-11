@@ -2,6 +2,10 @@
  * Optional AM Inbox badge matcher — not wired to live fetching or rendering.
  */
 
+import {
+  pennyBadgeMatchesAmInboxCandidate,
+  validatePennyBadgeForHandoff,
+} from "@/lib/am-inbox/penny-continuation-badge-integrity";
 import type {
   AmInboxPennyBadgeMatchTarget,
   PennyContinuationBadgeAttachment,
@@ -47,7 +51,11 @@ export function matchPennyContinuationBadgesToAmInbox(input: {
 
   for (const handoff of input.handoffs) {
     const key = handoffKey(handoff);
-    if (!handoff.continuationQualified || !handoff.badge) {
+    if (
+      !handoff.continuationQualified ||
+      !handoff.badge ||
+      !validatePennyBadgeForHandoff(handoff.badge, handoff)
+    ) {
       unmatchedHandoffKeys.push(key);
       continue;
     }
@@ -73,7 +81,7 @@ export function matchPennyContinuationBadgesToAmInbox(input: {
       return true;
     });
 
-    if (!match) {
+    if (!match || !pennyBadgeMatchesAmInboxCandidate(handoff, match)) {
       unmatchedHandoffKeys.push(key);
       continue;
     }

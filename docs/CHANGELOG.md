@@ -1,8 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 225 — workflow handoff badge integrity, PR #242)
+
+- Stale/session-conflict rejection in projection; badge symbol/date/model validation in matcher; Penny navigation without stale session-storage `securityId`. Deno 6 + Vitest 13.
+
 ## 2026-11-11 (Batch 225 — Penny Continuation workflow handoff V1)
 
-- Versioned projection from Batch 224 integration → AM Inbox workflow handoffs (`penny_continuation_workflow_handoff_v1`); client `matchPennyContinuationBadgesToAmInbox` (9 Vitest) + Deno projection tests (4). **No persistence, UI wiring, or production activation.**
+- Versioned projection from Batch 224 integration → AM Inbox workflow handoffs (`penny_continuation_workflow_handoff_v1`); client `matchPennyContinuationBadgesToAmInbox`. **No persistence, UI wiring, or production activation.**
 
 ## 2026-11-11 (Batch 224 merged — Penny Continuation integration, PR #241)
 
