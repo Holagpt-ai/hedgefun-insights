@@ -153,7 +153,7 @@ export interface PennyContinuationResult {
   reasons: PennyReasonCode[];
   stableRankingKey: string | null;
   publicationIdempotencyKey: string | null;
-  /** True when `enforcePublicationCooldown` suppresses duplicate notifications (qualification unchanged). */
+  /** True when `enforcePublicationCooldown` suppresses repeat notification emission for symbol+session (badge may still show). */
   publicationSuppressed: boolean;
   expiresAt: string | null;
 }

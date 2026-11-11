@@ -435,7 +435,37 @@ Deno.test("safety — duplicate notification suppression retains qualification",
   const second = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
   assertEquals(second.continuationQualified, true);
   assertEquals(second.publicationSuppressed, true);
-  assertEquals(buildPennyAmInboxBadgePayload(second), null);
+  assertEquals(buildPennyAmInboxBadgePayload(second) !== null, true);
+  assertEquals(pennyContinuationMayEmitNotification(second), false);
+});
+
+Deno.test("safety — session publication cooldown spans new observation minute and generation", () => {
+  clearPennyContinuationLifecycleState();
+  evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
+  const shifted = evaluatePennyContinuationV1(
+    baseInput({
+      observationGenerationId: "gen-shifted",
+      freshness: freshNearRt(NOW - 15_000),
+    }),
+    { enforcePublicationCooldown: true },
+  );
+  assertEquals(shifted.continuationQualified, true);
+  assertEquals(shifted.publicationSuppressed, true);
+  assert(shifted.publicationIdempotencyKey !== null);
+  assertEquals(buildPennyAmInboxBadgePayload(shifted) !== null, true);
+});
+
+Deno.test("safety — CS1 requires explicit completed true on each window", () => {
+  const missingCompleted = evaluatePennyCoreSignals(
+    baseInput({
+      velocityWindows: [
+        { tier: "MODERATE", sessionDate: "2026-11-11", windowEndMs: NOW - 180_000 },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW - 120_000, completed: true },
+        { tier: "STRONG", sessionDate: "2026-11-11", windowEndMs: NOW - 60_000, completed: true },
+      ],
+    }),
+  );
+  assertEquals(missingCompleted.cs1, "UNKNOWN");
 });
 
 Deno.test("safety — generation sync ms and iso both required", () => {

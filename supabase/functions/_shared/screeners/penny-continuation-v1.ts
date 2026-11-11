@@ -34,8 +34,12 @@ export function clearPennyContinuationLifecycleState(): void {
 }
 
 export interface PennyContinuationEvaluateOptions {
-  /** Suppresses duplicate publication notifications within 5 minutes for the same idempotency key. */
+  /** Suppresses repeat notification emission within 5 minutes per symbol + session (qualification unchanged). */
   enforcePublicationCooldown?: boolean;
+}
+
+function sessionPublicationCooldownKey(symbol: string, sessionDate: string): string {
+  return `${sessionDate}:${symbol.trim().toUpperCase()}`;
 }
 
 export function buildPennyPublicationIdempotencyKey(input: PennyContinuationInput): string | null {
@@ -72,18 +76,18 @@ function prunePublicationState(evaluationClockMs: number, sessionDate: string): 
 
 function resolvePublicationSuppressed(
   input: PennyContinuationInput,
+  symbol: string,
   continuationQualified: boolean,
   options?: PennyContinuationEvaluateOptions,
 ): boolean {
   if (!options?.enforcePublicationCooldown || !continuationQualified) return false;
-  const idemKey = buildPennyPublicationIdempotencyKey(input);
-  if (!idemKey) return false;
+  const sessionKey = sessionPublicationCooldownKey(symbol, input.sessionDate);
   const now = input.freshness.evaluationClockMs;
-  const last = lastPublicationMsByKey.get(idemKey);
+  const last = lastPublicationMsByKey.get(sessionKey);
   if (last !== undefined && now - last < PENNY_REQUALIFY_COOLDOWN_MS) {
     return true;
   }
-  lastPublicationMsByKey.set(idemKey, now);
+  lastPublicationMsByKey.set(sessionKey, now);
   return false;
 }
 
@@ -165,6 +169,7 @@ export function evaluatePennyContinuationV1(
   const publicationIdempotencyKey = buildPennyPublicationIdempotencyKey(input);
   const publicationSuppressed = resolvePublicationSuppressed(
     input,
+    core.symbol,
     core.continuationQualified,
     options,
   );

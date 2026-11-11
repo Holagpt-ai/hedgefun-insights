@@ -39,7 +39,7 @@ export function evaluatePennyCoreSignalCS1(input: PennyContinuationInput): Penny
   for (const w of lastThree) {
     if (!isValidTier(w.tier) || w.sessionDate !== input.sessionDate) return "UNKNOWN";
     if (!Number.isFinite(w.windowEndMs)) return "UNKNOWN";
-    if (w.completed === false) return "UNKNOWN";
+    if (w.completed !== true) return "UNKNOWN";
     if (w.windowEndMs > evaluationClockMs) return "UNKNOWN";
     if (seenEnds.has(w.windowEndMs)) return "UNKNOWN";
     seenEnds.add(w.windowEndMs);

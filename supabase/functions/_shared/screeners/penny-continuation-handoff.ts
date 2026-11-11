@@ -8,6 +8,7 @@ import type {
   PennyContinuationResult,
 } from "./penny-continuation-types.ts";
 
+/** Whether a downstream notifier may emit another alert (honors publication cooldown). */
 export function pennyContinuationMayEmitNotification(result: PennyContinuationResult): boolean {
   return result.continuationQualified && !result.publicationSuppressed;
 }
@@ -15,7 +16,7 @@ export function pennyContinuationMayEmitNotification(result: PennyContinuationRe
 export function buildPennyAmInboxBadgePayload(
   result: PennyContinuationResult,
 ): PennyAmInboxBadgePayload | null {
-  if (!pennyContinuationMayEmitNotification(result)) return null;
+  if (!result.continuationQualified) return null;
   return {
     kind: "penny_continuation_v1",
     symbol: result.symbol,
