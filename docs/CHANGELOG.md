@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 222 — Penny Continuation freshness contract correction, PR #239)
+
+- §4.1: per-symbol freshness (no `max(symbol, generation)`); verified expected provider delay + 120s slack; live vs delayed policies; fixtures F16–F20.
+
 ## 2026-11-11 (Batch 222 — Penny Continuation eligibility and scoring contract V1, finalized)
 
 - Design contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`: sub-$1 momentum-continuation engine (`penny_continuation_v1`) distinct from penny Radar panel and price-agnostic Continuation V1; provider-watermark freshness (120s) and honest delay labels; reconciled price band; CS1–CS5 **3-of-5** continuation counting; long-bias move gate; spread-unknown behavior; reproducible fixtures; AM Inbox badge recommendation; Five Pillars auto-inclusion disabled. All thresholds **PROPOSED — NOT APPROVED**. Documentation only — **no implementation or deploy** (PR **#239**).

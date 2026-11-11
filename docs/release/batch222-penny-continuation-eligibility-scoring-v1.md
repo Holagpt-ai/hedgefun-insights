@@ -64,8 +64,8 @@ All gates are **fail-closed**. Missing essential evidence → `qualifies: false`
 | E10 Instrument | Exclude types in continuation exclude list (ETFs test, warrants test) | `CONTINUATION_EXCLUDED_INSTRUMENT_TYPES` pattern |
 | E11 Session calendar | Respect equity session control; no overnight volume unless pipeline ready | Batch 215/221 |
 | E12 Not duplicate volume | Same snapshot must not count AH incremental as premarket overnight | `sessionQualificationVolume` |
-| E13 Observation freshness | Provider watermark within **120s** of evaluation clock on current surveillance date (§4.1) | `provider_as_of_max`, generation `synced_at`, `resolveVerifiedObservationMs` |
-| E14 Live generation guard | Feed generation must align `current` for live session (`assessScreenerGenerationSession`); cached prior-date snapshots **must not** surface as live continuation | `screener-session.ts` |
+| E13 Observation freshness | Per-symbol observation lag within **verified expected provider delay + 120s** tolerance (§4.1); **never** inferred from generation sync alone | `resolveVerifiedObservationMs`, verified delay policy |
+| E14 Live generation guard | Generation `synced_at` / `provider_as_of` aligns `current` for live session (`assessScreenerGenerationSession`); prior-date generation **must not** surface as live continuation | `screener-session.ts` |
 
 **Price predicate (reconciled, PROPOSED — NOT APPROVED):**
 
@@ -99,8 +99,8 @@ Section §5 rows 1–2 express the same rule: minimum `> $0.0001`, maximum stric
 ```text
 function evaluatePennyContinuationEligibility(input: PennyContinuationInput, ctx: EvalContext): EligibilityResult
   if !pennyPriceEligible(input.price) return disqualify("PRICE_OUT_OF_BAND")
-  freshness ← assessObservationFreshness(input, ctx)  // §4.1
-  if freshness.hardFail return freshness.reason  // OBSERVATION_STALE | CACHE_GENERATION_STALE | MISSING_WATERMARK
+  freshness ← assessSymbolObservationFreshness(input, ctx)  // §4.1 — per-symbol only
+  if freshness.hardFail return freshness.reason  // OBSERVATION_STALE | CACHE_GENERATION_STALE | PROVIDER_DELAY_UNKNOWN | SYMBOL_OBSERVATION_SESSION_MISMATCH
   if !verifiedObservationTimestamp(input) return unavailable("MISSING_OBSERVATION_TS")
   vol ← sessionQualificationVolume(input.ticker, volumeContextFromMeta(...))
   if vol == null return unavailable("SESSION_VOLUME_UNAVAILABLE")
@@ -122,46 +122,96 @@ function evaluatePennyContinuationEligibility(input: PennyContinuationInput, ctx
 
 Continuation is **separate** from eligibility: a symbol may be **eligible** but **not** a continuation candidate.
 
-### 4.1 Observation freshness, provider watermark, and honest delay labels
+### 4.1 Observation freshness, delivery policy, and honest delay labels
 
 **PROPOSED — NOT APPROVED**
 
-Freshness is evaluated against a **verified provider watermark**, not wall-clock alone on a cached row.
+Ticker continuation freshness is **per-symbol**. A **newer generation sync cannot make an old ticker observation fresh.** Generation alignment and symbol observation age are evaluated **separately**, then combined fail-closed.
 
-**Definitions:**
+**Five clocks (never merged via `max()`):**
 
-| Term | Meaning |
-| --- | --- |
-| `evaluationClockMs` | Sync or worker invocation clock (same role as screener `nowMs`). |
-| `symbolObservationMs` | `resolveVerifiedObservationMs(ticker, evaluationClockMs, ctx)` for the price/volume fields used. |
-| `generationWatermarkMs` | Parsed `provider_as_of_max` or generation `synced_at` for the active feed/screener generation. |
-| `providerWatermarkMs` | `max(symbolObservationMs, generationWatermarkMs)` when both are finite; else the single finite value; else **null**. |
+| Field | Role | Typical source |
+| --- | --- | --- |
+| **`symbolObservationMs`** | When this symbol’s price/volume fields were last observed | `resolveVerifiedObservationMs(ticker, evaluationClockMs, ctx)` |
+| **`providerAsOfMs`** | Provider-reported as-of for the snapshot/batch carrying the symbol | Row or batch `provider_as_of` / `provider_as_of_max` (generation scope) |
+| **`generationSyncMs`** | When Stocksist synchronized the active generation | Generation `synced_at` |
+| **`verifiedExpectedProviderDelayMs`** | **Documented, verified** expected delivery delay for the active feed mode (not guessed) | Feed config / ops manifest / provider contract — **null if unverified** |
+| **`evaluationClockMs`** | Invocation clock for eligibility | Sync or worker `nowMs` |
 
-**Hard freshness gate (eligibility E13):**
-
-```text
-MAX_OBSERVATION_AGE_MS = 120_000   // PROPOSED — NOT APPROVED
-
-if providerWatermarkMs == null → unavailable("MISSING_WATERMARK")
-if assessScreenerGenerationSession({ nowMs: evaluationClockMs, referenceIso: generationSyncedAt }) == "previous_during_live"
-  → disqualify or unavailable("CACHE_GENERATION_STALE")  // old cached snapshot must not present as live
-if surveillanceDate(providerWatermarkMs) != surveillanceDate(evaluationClockMs) during live session
-  → CACHE_GENERATION_STALE
-if evaluationClockMs - providerWatermarkMs > MAX_OBSERVATION_AGE_MS
-  → OBSERVATION_STALE (fail closed for live continuation)
-```
-
-**Feed delay (telemetry / UI, separate from hard gate):**
+**Derived (per symbol):**
 
 ```text
-feedDelayMs = evaluationClockMs - symbolObservationMs   // when symbolObservationMs finite, else null
+observedLagMs = evaluationClockMs - symbolObservationMs           // when symbolObservationMs finite
+providerBatchLagMs = evaluationClockMs - providerAsOfMs           // telemetry only; does not refresh symbol
+generationSyncLagMs = evaluationClockMs - generationSyncMs        // generation health only
 ```
 
-- When `feedDelayMs` is known and `0 < feedDelayMs <= MAX_OBSERVATION_AGE_MS`, the symbol may still qualify but surfaces an honest **delayed data** label (same philosophy as mover/screener delayed stamps—not a fabricated live time).
-- When `feedDelayMs > MAX_OBSERVATION_AGE_MS`, hard gate fires **before** continuation counting.
-- Stale **cached** generations from a prior surveillance date during a **live** consumer session never receive live continuation qualification even if row `% move` looks attractive.
+**Invariant:** `providerWatermarkMs`, `max(symbolObservationMs, generationSyncMs)`, or any cross-clock `max()` **must not** be used as the ticker freshness timestamp.
 
-**Expiry / requalification:** After `OBSERVATION_STALE` or `CACHE_GENERATION_STALE`, requalification requires a new provider watermark on the **same** `sessionDate` after cooldown (§5 row 12).
+#### 4.1.1 Generation and session guards (E14, unchanged philosophy)
+
+```text
+if assessScreenerGenerationSession({
+  nowMs: evaluationClockMs,
+  referenceIso: iso(generationSyncMs)  // or generation provider_as_of
+}) == "previous_during_live"
+  → CACHE_GENERATION_STALE   // prior-session cached generation
+
+if symbolObservationMs != null
+   and surveillanceDate(symbolObservationMs) != surveillanceDate(evaluationClockMs)
+   during live consumer session
+  → SYMBOL_OBSERVATION_SESSION_MISMATCH   // prior-session cached ticker on current generation
+```
+
+Preserve **`PROVIDER_FUTURE_SKEW_MS`** on `symbolObservationMs` (E2): futures fail closed via existing `resolveVerifiedObservationMs` rules.
+
+#### 4.1.2 Verified delivery delay and tolerance (**PROPOSED — NOT APPROVED**)
+
+```text
+MAX_OBSERVATION_AGE_MS = 120_000   // slack beyond verified expected delay — NOT APPROVED
+
+dataDeliveryPolicy ∈ { "near_real_time", "documented_delayed" } | null
+
+if verifiedExpectedProviderDelayMs == null OR dataDeliveryPolicy == null
+  → unavailable("PROVIDER_DELAY_UNKNOWN")   // do not guess delay
+
+allowedMaxLagMs = verifiedExpectedProviderDelayMs + MAX_OBSERVATION_AGE_MS
+
+if symbolObservationMs == null → unavailable("MISSING_OBSERVATION_TS")
+if observedLagMs > allowedMaxLagMs → OBSERVATION_STALE
+```
+
+The **120s tolerance applies on top of verified expected delay**, not as a blind wall-clock ceiling:
+
+- **Near-real-time policy:** `verifiedExpectedProviderDelayMs` documents normal feed latency (often `0` or a small verified bound). Qualification uses `observedLagMs <= allowedMaxLagMs`.
+- **Documented delayed policy:** supports existing delayed feeds (e.g. **15-minute** documented delay = `900_000` ms). Same formula; observation may lag by the full documented delay plus **120s** slack.
+
+#### 4.1.3 Live vs delayed labels (never mislabel)
+
+Requires `observedLagMs <= allowedMaxLagMs` (else `OBSERVATION_STALE` already applied in §4.1.2):
+
+```text
+if observedLagMs <= verifiedExpectedProviderDelayMs
+  AND dataDeliveryPolicy == "near_real_time"
+  → dataFreshnessLabel = "live"
+
+else if observedLagMs <= allowedMaxLagMs
+  AND dataDeliveryPolicy == "near_real_time"
+  → dataFreshnessLabel = "delayed"   // within slack; must not be labeled live
+
+else if observedLagMs <= allowedMaxLagMs
+  AND dataDeliveryPolicy == "documented_delayed"
+  → dataFreshnessLabel = "delayed"   // never live on delayed feeds
+```
+
+- **Never** assign `dataFreshnessLabel = "live"` when `observedLagMs > verifiedExpectedProviderDelayMs`.
+- Observations with lag **greater than** `verifiedExpectedProviderDelayMs` but within `allowedMaxLagMs` qualify only when policy permits (**near_real_time** → `delayed` label; **documented_delayed** → `delayed` label). They **must not** use the `documented_delayed` path while `near_real_time` is active for a feed that is not documented as delayed.
+- **Unknown** expected delay → `PROVIDER_DELAY_UNKNOWN`; no invented slack.
+- UI **`stale`** is for hard-fail freshness outcomes, not qualifying delayed rows.
+
+**Telemetry:** `feedDelayMs` mirrors `observedLagMs` for UI copy; `providerBatchLagMs` and `generationSyncLagMs` are diagnostic only and **do not** satisfy E13.
+
+**Expiry / requalification:** After `OBSERVATION_STALE`, `CACHE_GENERATION_STALE`, or `SYMBOL_OBSERVATION_SESSION_MISMATCH`, requalification requires a fresh **symbol** observation on the **same** `sessionDate` after cooldown (§5 row 12).
 
 ### 4.2 Core continuation signals — five signals, 3-of-5 (**PROPOSED — NOT APPROVED**)
 
@@ -231,7 +281,7 @@ function evaluatePennyContinuation(input, ctx): PennyContinuationResult
 | 11 | **Float turnover** | Score only if float verified; min **0.5×** float for tier A | **Rank** | No float → component omitted (coverage ↓). |
 | 12 | **Requalification cooldown** | **5 minutes** same symbol | **Engine** | Prevent thrash on same snapshot generation. |
 | 13 | **Invalidation** | VWAP break + **-2%** from session high | **Engine** | Hard drop from continuation set until reset. |
-| 14 | **Observation max age (`MAX_OBSERVATION_AGE_MS`)** | **120 seconds** behind **`providerWatermarkMs`** | **Engine** | §4.1; distinct from `feedDelayMs` telemetry and delayed-data labels. |
+| 14 | **Observation slack (`MAX_OBSERVATION_AGE_MS`)** | **120 seconds** beyond **`verifiedExpectedProviderDelayMs`** on **`symbolObservationMs`** | **Engine** | §4.1; not a standalone wall-clock cap; generation sync does not refresh tickers. |
 | 15 | **Core continuation rule** | **3-of-5** on **CS1–CS5**; UNKNOWN non-qualifying | **Engine** | §4.2; SL1/SL2 excluded from count. |
 
 Every row requires **owner approval** before Batch 200 encodes constants.
@@ -294,7 +344,12 @@ interface PennyContinuationInput {
   radarHasSecondLeg: TriState;
   observationSessionKind: string | null;
   instrumentType: string | null;
-  providerWatermarkMs: number | null;
+  symbolObservationMs: number | null;
+  providerAsOfMs: number | null;
+  generationSyncMs: number | null;
+  verifiedExpectedProviderDelayMs: number | null;
+  dataDeliveryPolicy: "near_real_time" | "documented_delayed" | null;
+  observedLagMs: number | null;
   feedDelayMs: number | null;
   coreSignals: {
     cs1: "PASS" | "FAIL" | "UNKNOWN";
@@ -331,7 +386,7 @@ interface PennyContinuationResult {
 
 ### Reason codes (stable)
 
-`PRICE_OUT_OF_BAND`, `SESSION_VOLUME_UNAVAILABLE`, `SESSION_VOLUME_LOW`, `DOLLAR_VOLUME_LOW`, `MOVE_UNAVAILABLE`, `MOVE_TOO_SMALL`, `SPLIT_SCALE_GUARD`, `SPREAD_WIDE`, `SPREAD_UNAVAILABLE`, `VELOCITY_LOW`, `MISSING_WATERMARK`, `MISSING_OBSERVATION_TS`, `OBSERVATION_STALE`, `CACHE_GENERATION_STALE`, `CONTINUATION_SIGNALS_INSUFFICIENT`, `HOD_TOO_FAR`, `VWAP_BROKEN`, `CATALYST_INVALIDATED`, `DATA_UNAVAILABLE`, `FLOAT_UNAVAILABLE`.
+`PRICE_OUT_OF_BAND`, `SESSION_VOLUME_UNAVAILABLE`, `SESSION_VOLUME_LOW`, `DOLLAR_VOLUME_LOW`, `MOVE_UNAVAILABLE`, `MOVE_TOO_SMALL`, `SPLIT_SCALE_GUARD`, `SPREAD_WIDE`, `SPREAD_UNAVAILABLE`, `VELOCITY_LOW`, `PROVIDER_DELAY_UNKNOWN`, `MISSING_OBSERVATION_TS`, `OBSERVATION_STALE`, `CACHE_GENERATION_STALE`, `SYMBOL_OBSERVATION_SESSION_MISMATCH`, `CONTINUATION_SIGNALS_INSUFFICIENT`, `HOD_TOO_FAR`, `VWAP_BROKEN`, `CATALYST_INVALIDATED`, `DATA_UNAVAILABLE`, `FLOAT_UNAVAILABLE`.
 
 ---
 
@@ -378,7 +433,7 @@ Each fixture lists **inputs sufficient to reproduce** the expected outcome under
 
 | ID | Inputs (summary) | Expected |
 | --- | --- | --- |
-| F01 | `price=0.85`, `prevClose=0.787`, `move=+8%`, `sessionVol=2_000_000`, `dollarVol=1.7M`, `sh/min=40_000`, `spreadPct=1.0`, `providerWatermarkMs=now-30s`, generation **current**, `velocityWindows=[MODERATE,STRONG,STRONG]`, `aboveVwap=TRUE`, `distanceFromHodPct=3`, `radarHasReAcceleration=TRUE`, `radarHasSecondLeg=TRUE` | `qualifies=true`, `continuationQualified=true`, `corePassCount=5`, `dataFreshnessLabel=delayed` if `feedDelayMs=30s` |
+| F01 | Same economics as before; `symbolObservationMs=now-30s`, `generationSyncMs=now-5s`, `verifiedExpectedProviderDelayMs=0`, `policy=near_real_time`, generation **current**; CS1–CS5 all PASS | `qualifies=true`, `continuationQualified=true`, `corePassCount=5`, `dataFreshnessLabel=delayed` (30s > 0 documented bound; **not** `live`) |
 | F02 | `price=1.01` | `PRICE_OUT_OF_BAND` |
 | F02b | `price=1.00` exactly | `PRICE_OUT_OF_BAND` (strict `< $1.00`) |
 | F03 | `price=0.50`, `sessionVol=50_000`, `move=+25%` | `SESSION_VOLUME_LOW` |
@@ -393,9 +448,14 @@ Each fixture lists **inputs sufficient to reproduce** the expected outcome under
 | F10 | Same symbol re-eval inside 5m | Cooldown / dedupe; no double publish |
 | F11 | `catalystAgeHours=96` | Rank penalty only; not core signal fail |
 | F12 | `floatVerified=false` | `coveragePct < 100`; no fabricated turnover |
-| F13 | `providerWatermarkMs=now-150s` | `OBSERVATION_STALE` |
-| F14 | Live session; generation **previous_during_live** | `CACHE_GENERATION_STALE` |
+| F13 | `symbolObservationMs=now-150s`, `verifiedExpectedProviderDelayMs=0`, `policy=near_real_time` | `OBSERVATION_STALE` (150s > 0 + 120s slack) |
+| F14 | Live session; `generationSyncMs` **previous_during_live**; fresh `symbolObservationMs` | `CACHE_GENERATION_STALE` (generation guard; symbol age irrelevant) |
 | F15 | `move=-5%` (signed) | `MOVE_TOO_SMALL` (long-bias gate) |
+| F16 | Generation **current** (`generationSyncMs=now-10s`); `symbolObservationMs=now-400s`, `verifiedExpectedProviderDelayMs=0`, `policy=near_real_time` | `OBSERVATION_STALE` — fresh generation **does not** refresh stale ticker |
+| F17 | `policy=documented_delayed`, `verifiedExpectedProviderDelayMs=900_000` (15m), `symbolObservationMs=now-14m30s` | `qualifies=true`, `dataFreshnessLabel=delayed`, continuation per core signals |
+| F18 | Same as F17 but `symbolObservationMs=now-16m` | `OBSERVATION_STALE` (beyond 15m + 120s) |
+| F19 | Current generation; `symbolObservationMs` on **prior** surveillance date | `SYMBOL_OBSERVATION_SESSION_MISMATCH` |
+| F20 | `verifiedExpectedProviderDelayMs=null` or `dataDeliveryPolicy=null` | `PROVIDER_DELAY_UNKNOWN` |
 
 **Test types (Batch 200):** Deno unit (eligibility + CS1–CS5 + freshness), selection parity (volume-first order), Vitest handoff URL builders, optional Postgres RPC contract tests.
 
@@ -422,4 +482,4 @@ All items remain **PROPOSED — NOT APPROVED** until explicit sign-off.
 - `supabase/functions/_shared/screeners/continuation-v1.ts`
 - `src/features/day-trade-radar-v2/multi-radar.ts` (`qualifiesPennyPrice`)
 
-**Batch 222 delivers this contract only (including PR #239 finalization pass).** Implementation is **Batch 200**, blocked on owner threshold approval.
+**Batch 222 delivers this contract only (including PR #239 freshness correction).** Implementation is **Batch 200**, blocked on owner threshold approval.
