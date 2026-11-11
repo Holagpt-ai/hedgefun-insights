@@ -1,4 +1,12 @@
-# Session handoff — Batch 220 Catalyst + Watchlist loading performance V1, November 11, 2026 ET
+# Session handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
+
+**Source:** GitHub `main` **`c3519ffd2bd7e9545fbca502e8b88f13505f8ebb`** (Batch 221 branch).
+
+**Batch 221:** Overnight observation/volume semantics (`overnightSessionVolume`, `resolveOvernightCycleAt`, `equityTradeDateForVolume`, `resolveScannerObservationSessionFields`). AH cumulative never maps to overnight; `prevDay.c` gap reference preserved. **`OVERNIGHT_SCANNER_PIPELINE_READY` stays `false`** — no cron/secrets/deploy. Deno: `batch221-overnight-pipeline_test.ts` (12) + existing session-volume / equity-session-control suites.
+
+**Next:** Owner review Batch 221 PR. Activation still requires exchange date + provider confirmation + owner env + pipeline flag flip + Edge deploy (see `docs/release/batch221-overnight-scanner-pipeline-v1.md`).
+
+## Archived handoff — Batch 220 Catalyst + Watchlist loading performance V1, November 11, 2026 ET
 
 **Source:** GitHub `main` **`c44b669d4d511d3a8f7683f0725dc07ee0071558`** (Batch 220 branch).
 

@@ -29,6 +29,7 @@ import { reconcileStrandedPublishedGeneration } from "../_shared/screeners/sync-
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
   isExtendedSyncSession,
+  resolveScannerObservationSessionFields,
   resolveSyncSessionKind,
 } from "../_shared/screeners/session-sync-context.ts";
 import {
@@ -36,7 +37,6 @@ import {
   read23x5Activation,
   resolveEquitySession,
 } from "../_shared/markets/equity-session-control.ts";
-import { isLiveSurveillanceSessionKind } from "../_shared/screeners/screener-session.ts";
 import {
   allHaveProviderAsOf,
   finalizeMainUniverseSelections,
@@ -1334,7 +1334,7 @@ async function handleStagedSyncScreenerData(
   }
 
   const sessionKind = resolveSyncSessionKind(nowMs);
-  const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
+  const observationSessionFields = resolveScannerObservationSessionFields(nowMs, null);
   if (observationSessionFields) {
     const previousCloseOverlay = await loadRadarPreviousCloseOverlay(sb);
     if (previousCloseOverlay.size > 0) {
@@ -1442,7 +1442,7 @@ export async function handleSyncScreenerData(
   const nowMs = (deps.nowMs ?? (() => Date.now()))();
   const sessionKind = resolveSyncSessionKind(nowMs);
   const extendedSession = isExtendedSyncSession(sessionKind);
-  const observationSessionFields = isLiveSurveillanceSessionKind(sessionKind);
+  const observationSessionFields = resolveScannerObservationSessionFields(nowMs, null);
 
   if (observationSessionFields) {
     const sbEarly = deps.createClient(supabaseUrl, serviceRole);

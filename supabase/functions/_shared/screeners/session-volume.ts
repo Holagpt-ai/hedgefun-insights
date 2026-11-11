@@ -4,8 +4,17 @@
  * not the sync execution clock alone.
  */
 
-import { resolveSyncSessionKind, type SyncSessionKind } from "./session-sync-context.ts";
-import { surveillanceTradingDateFromMs } from "./screener-session.ts";
+import {
+  OVERNIGHT_SCANNER_PIPELINE_READY,
+} from "../markets/equity-session-control.ts";
+import type { CalendarExceptionRow } from "../markets/session-schedule.ts";
+import {
+  qualificationObservationKind,
+  resolveObservationSessionKindAt,
+  syncAllowsOvernightObservationVolume,
+  type ObservationSessionKind,
+} from "./session-sync-context.ts";
+import { equityTradeDateForVolume } from "./screener-session.ts";
 
 export type VolumeTicker = {
   updated?: unknown;
@@ -66,7 +75,78 @@ export type SessionVolumeContext = {
   observationSessionVolume?: boolean;
   nowMs?: number;
   cache?: SessionVolumeCache;
+  calendarExceptions?: CalendarExceptionRow[] | null;
+  /** Mirrors `OVERNIGHT_SCANNER_PIPELINE_READY`; off in production until owner activation. */
+  overnightPipelineReady?: boolean;
 };
+
+/**
+ * Owner-confirmed: Polygon/Massive resets session `day.v` at overnight open and
+ * `min.av` is overnight-only cumulative. Until verified, overnight volume stays
+ * unavailable (explicit `day.v === 0` is necessary but not sufficient).
+ */
+export const OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED = false;
+
+export type OvernightVolumeProvenance = {
+  observationSessionKind: "overnight";
+  observationMs: number;
+  tradeDate: string;
+  source: "min.av";
+  providerSessionVolumeVerified: boolean;
+};
+
+/** Provider-reported session `day.v` exactly zero — no coercion from null/false/empty string. */
+export function hasExplicitZeroSessionDayVolume(t: VolumeTicker): boolean {
+  const day = t?.day;
+  if (day === undefined || day === null || typeof day !== "object") return false;
+  if (!Object.prototype.hasOwnProperty.call(day, "v")) return false;
+  return isProviderExplicitNumericZero((day as { v: unknown }).v);
+}
+
+function isProviderExplicitNumericZero(value: unknown): boolean {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return false;
+  }
+  if (typeof value === "number") return Number.isFinite(value) && value === 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "" || trimmed.toLowerCase() === "false") return false;
+    if (trimmed === "0") return true;
+    if (/^0+\.0+$/.test(trimmed)) return true;
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Overnight cumulative volume — unavailable until provider session-reset is owner-verified.
+ * Rejects positive `day.v` (after-hours / RTH carry-forward). Never infers reset from
+ * missing `day.v` alone.
+ */
+export function overnightSessionVolume(
+  t: VolumeTicker,
+  observationMs: number | null,
+  exceptions: CalendarExceptionRow[] | null = null,
+  providerSessionVolumeVerified: boolean = OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
+): number | null {
+  if (!providerSessionVolumeVerified) return null;
+  if (observationMs === null) return null;
+  if (resolveObservationSessionKindAt(observationMs, exceptions) !== "overnight") {
+    return null;
+  }
+  const minMs = t.min?.t !== undefined && t.min?.t !== null
+    ? parseProviderTimestampMs(t.min.t, observationMs)
+    : null;
+  if (
+    minMs === null ||
+    resolveObservationSessionKindAt(minMs, exceptions) !== "overnight"
+  ) {
+    return null;
+  }
+  if (!hasExplicitZeroSessionDayVolume(t)) return null;
+  if (positiveFinite(t?.day?.v) !== null) return null;
+  return positiveFinite(t?.min?.av);
+}
 
 function usesObservationVolumeResolution(ctx: SessionVolumeContext): boolean {
   return ctx.observationSessionVolume === true || ctx.extendedSession === true;
@@ -152,6 +232,7 @@ export function parseProviderTimestampMs(
 function resolveVerifiedObservationMsUncached(
   t: VolumeTicker,
   nowMs: number,
+  ctx?: SessionVolumeContext,
 ): number | null {
   const minMs = t.min?.t !== undefined && t.min?.t !== null
     ? parseProviderTimestampMs(t.min.t, nowMs)
@@ -160,9 +241,10 @@ function resolveVerifiedObservationMsUncached(
     ? parseUpdatedFieldToMs(t.updated, nowMs)
     : null;
 
+  const exceptions = ctx?.calendarExceptions ?? null;
   if (minMs !== null && updatedMs !== null) {
-    const kindMin = resolveSyncSessionKind(minMs);
-    const kindUpdated = resolveSyncSessionKind(updatedMs);
+    const kindMin = resolveObservationSessionKindAt(minMs, exceptions);
+    const kindUpdated = resolveObservationSessionKindAt(updatedMs, exceptions);
     if (kindMin !== kindUpdated) return null;
   }
 
@@ -185,39 +267,70 @@ export function resolveVerifiedObservationMs(
     if (cache.observationMs.has(t)) {
       return cache.observationMs.get(t)!;
     }
-    const resolved = resolveVerifiedObservationMsUncached(t, nowMs);
+    const resolved = resolveVerifiedObservationMsUncached(t, nowMs, ctx);
     cache.observationMs.set(t, resolved);
     return resolved;
   }
-  return resolveVerifiedObservationMsUncached(t, nowMs);
+  return resolveVerifiedObservationMsUncached(t, nowMs, ctx);
 }
 
 export function resolveObservationSessionKind(
   t: VolumeTicker,
   nowMs: number,
   ctx?: SessionVolumeContext,
-): SyncSessionKind | null {
+): ObservationSessionKind | null {
   const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
-  return resolveSyncSessionKind(observationMs);
+  return resolveObservationSessionKindAt(
+    observationMs,
+    ctx?.calendarExceptions ?? null,
+  );
+}
+
+export function overnightVolumeProvenance(
+  t: VolumeTicker,
+  syncNowMs: number,
+  ctx?: SessionVolumeContext,
+): OvernightVolumeProvenance | null {
+  const observationMs = resolveVerifiedObservationMs(t, syncNowMs, ctx);
+  if (observationMs === null) return null;
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const kind = resolveObservationSessionKindAt(observationMs, exceptions);
+  if (kind !== "overnight") return null;
+  const vol = overnightSessionVolume(t, observationMs, exceptions);
+  if (vol === null) return null;
+  const tradeDate = equityTradeDateForVolume(observationMs, exceptions);
+  if (tradeDate === null) return null;
+  return {
+    observationSessionKind: "overnight",
+    observationMs,
+    tradeDate,
+    source: "min.av",
+    providerSessionVolumeVerified: OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
+  };
 }
 
 function volumeForObservationSession(
   t: VolumeTicker,
-  kind: SyncSessionKind,
+  kind: ObservationSessionKind,
 ): number | null {
   if (kind === "pre-market") return premarketAccumulatedVolume(t);
   if (kind === "market") return regularSessionVolume(t);
   if (kind === "after-hours") return afterHoursIncrementalVolume(t);
+  if (kind === "overnight") {
+    return overnightSessionVolume(t, null, null);
+  }
   return null;
 }
 
 function isCurrentSurveillanceObservation(
   observationMs: number,
   syncNowMs: number,
+  ctx?: SessionVolumeContext,
 ): boolean {
-  const syncDate = surveillanceTradingDateFromMs(syncNowMs);
-  const obsDate = surveillanceTradingDateFromMs(observationMs);
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const syncDate = equityTradeDateForVolume(syncNowMs, exceptions);
+  const obsDate = equityTradeDateForVolume(observationMs, exceptions);
   return syncDate !== null && obsDate !== null && syncDate === obsDate;
 }
 
@@ -236,10 +349,26 @@ export function extendedQuoteSemanticsForObservation(
   if (useCache && cache.extendedQuoteSemantics.has(t)) {
     return cache.extendedQuoteSemantics.get(t)!;
   }
-  const kind = resolveObservationSessionKind(t, nowMs, ctx);
-  const result = kind === null
+  const pipelineReady = ctx?.overnightPipelineReady ?? OVERNIGHT_SCANNER_PIPELINE_READY;
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
+  if (observationMs === null) {
+    const result = null;
+    if (useCache) cache.extendedQuoteSemantics.set(t, result);
+    return result;
+  }
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const effectiveKind = qualificationObservationKind(
+    observationMs,
+    nowMs,
+    exceptions,
+    pipelineReady,
+  );
+  const result = effectiveKind === null
     ? null
-    : kind === "pre-market" || kind === "after-hours";
+    : effectiveKind === "pre-market" ||
+      effectiveKind === "after-hours" ||
+      (effectiveKind === "overnight" &&
+        syncAllowsOvernightObservationVolume(nowMs, exceptions, pipelineReady));
   if (useCache) cache.extendedQuoteSemantics.set(t, result);
   return result;
 }
@@ -255,9 +384,20 @@ function sessionQualificationVolumeUncached(
 
   const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
   if (observationMs === null) return null;
-  if (!isCurrentSurveillanceObservation(observationMs, nowMs)) return null;
+  if (!isCurrentSurveillanceObservation(observationMs, nowMs, ctx)) return null;
 
-  const kind = resolveSyncSessionKind(observationMs);
+  const pipelineReady = ctx.overnightPipelineReady ?? OVERNIGHT_SCANNER_PIPELINE_READY;
+  const exceptions = ctx.calendarExceptions ?? null;
+  const kind = qualificationObservationKind(
+    observationMs,
+    nowMs,
+    exceptions,
+    pipelineReady,
+  );
+  if (kind === null) return null;
+  if (kind === "overnight") {
+    return overnightSessionVolume(t, observationMs, exceptions);
+  }
   return volumeForObservationSession(t, kind);
 }
 

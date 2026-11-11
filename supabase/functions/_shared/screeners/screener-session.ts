@@ -12,8 +12,10 @@ import {
   isIsoDate,
   MS_PER_HOUR,
   PREMARKET_START_MS,
+  type CalendarExceptionRow,
   type SessionKind,
 } from "../markets/session-schedule.ts";
+import { resolveOvernightCycleAt } from "../markets/equity-session-control.ts";
 import {
   resolveSyncSessionKind,
 } from "./session-sync-context.ts";
@@ -39,6 +41,18 @@ export function surveillanceTradingDateFromMs(nowMs: number): string | null {
   if (!parts) return null;
   if (parts.msOfDay >= PREMARKET_START_MS) return parts.date;
   return previousIsoDate(parts.date);
+}
+
+/** Volume / observation trade cycle (overnight maps to equity `tradeDate`). */
+export function equityTradeDateForVolume(
+  nowMs: number,
+  exceptions: CalendarExceptionRow[] | null = null,
+): string | null {
+  const overnight = resolveOvernightCycleAt(nowMs, exceptions);
+  if (overnight && resolveSyncSessionKind(nowMs) === "closed") {
+    return overnight.tradeDate;
+  }
+  return surveillanceTradingDateFromMs(nowMs);
 }
 
 export function isLiveSurveillanceSessionKind(kind: SessionKind): boolean {

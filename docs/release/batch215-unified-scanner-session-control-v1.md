@@ -38,7 +38,7 @@ The two-week parity test (15-minute steps, null calendar) proves that before act
 1. **Confirmed exchange readiness.** Set `STOCKSIST_EQUITY_23X5_EXCHANGE_EFFECTIVE_DATE` to the confirmed first overnight trade date in ET `YYYY-MM-DD` form. For a Sunday Dec 6, 2026 21:00 opening, that is `2026-12-07`, because the overnight session belongs to Monday's cycle.
 2. **Supported market data.** Set `STOCKSIST_EQUITY_23X5_PROVIDER_OVERNIGHT_CONFIRMED=true` only after verifying that Polygon/Massive delivers overnight trades and aggregates for the subscribed tier.
 3. **Owner authorization.** `STOCKSIST_EQUITY_23X5_OWNER_AUTHORIZED=true`, set in Lovable Cloud Edge secrets by the owner.
-4. **Overnight scanner pipeline batch (code).** Add overnight session-volume and qualification semantics: `session-volume.ts`, `session-sync-context.ts`, Gappers prior-close reference, and tab evidence. Then flip `OVERNIGHT_SCANNER_PIPELINE_READY` with tests showing that prior after-hours volume is never reported as overnight activity.
+4. **Overnight scanner pipeline batch (code).** **Batch 221** added overnight session-volume and qualification semantics in `session-volume.ts`, `session-sync-context.ts`, and `equityTradeDateForVolume`. Flip `OVERNIGHT_SCANNER_PIPELINE_READY` only after owner activation prerequisites — see `docs/release/batch221-overnight-scanner-pipeline-v1.md`.
 5. Deploy `sync-screener-data` through Lovable Cloud after review, and run an overnight acceptance window.
 
 Flags are parsed strictly: only the exact string `true` and an ISO date count. The calendar date alone never activates anything.
