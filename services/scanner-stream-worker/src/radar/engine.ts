@@ -119,6 +119,12 @@ export type EvaluateResult = {
   subsessionEpoch: number;
   /** In-memory Persistence V2 snapshot. Not written unless the V2 flag is on. */
   persistenceV2: PersistenceV2View;
+  /**
+   * Last live V2 candidate set captured at AH→closed (or live→closed) park.
+   * Published immediately before the empty closed replace so the RPC can copy
+   * same-day rows into radar_v22_closed_snapshot. Null when nothing to flush.
+   */
+  preParkFlush: PersistenceV2View | null;
 };
 
 export function persistableGeneration(result: EvaluateResult): {
@@ -293,6 +299,7 @@ export function createRadarEngine(opts: {
     liveSurveillance: boolean;
     persistEmpty?: boolean;
     clearV2?: boolean;
+    preParkFlush?: PersistenceV2View | null;
   }): EvaluateResult {
     if (opts.clearV2) {
       lastV2Candidates = [];
@@ -314,6 +321,7 @@ export function createRadarEngine(opts: {
       liveSurveillance: opts.liveSurveillance,
       persistEmpty: opts.persistEmpty ?? false,
       subsessionEpoch,
+      preParkFlush: opts.preParkFlush ?? null,
       persistenceV2: {
         tradingDate: opts.surveillanceDate,
         sessionKind,
@@ -1115,6 +1123,29 @@ export function createRadarEngine(opts: {
     if (!live) {
       const wasLive = lastSessionKind !== null &&
         isLiveSurveillanceKind(lastSessionKind);
+      const flushKind = wasLive && lastSessionKind &&
+          isRadarV22SessionKind(lastSessionKind)
+        ? lastSessionKind
+        : null;
+      const preParkFlush: PersistenceV2View | null =
+        wasLive && flushKind && lastV2Candidates.length > 0
+          ? {
+            tradingDate: lastSurveillanceDate ?? surveillanceDate,
+            sessionKind: flushKind,
+            liveSurveillance: true,
+            sessionTransition: null,
+            sentinelEnabled: config.sentinelEnabled,
+            feedStale: false,
+            lastReceiveAt: lastReceiveMs !== null
+              ? isoFromMs(lastReceiveMs)
+              : null,
+            lastProviderEventAt: frozen?.lastProviderEventAt ??
+              (lastEventEndMs !== null ? isoFromMs(lastEventEndMs) : null),
+            candidates: lastV2Candidates.map((row) => ({ ...row })),
+            archived: lastV2Archived.map((row) => ({ ...row })),
+            scannerFirings: lastV2ScannerFirings.map((row) => ({ ...row })),
+          }
+          : null;
       lastSessionKind = kind;
       const nowIso = isoFromMs(wallNowMs) ?? "";
       frozen = {
@@ -1132,6 +1163,7 @@ export function createRadarEngine(opts: {
         liveSurveillance: false,
         persistEmpty,
         clearV2: true,
+        preParkFlush,
       });
     }
 

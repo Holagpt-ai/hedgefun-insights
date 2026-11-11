@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 219.3A — closed-session snapshot recovery, ISS-044)
+
+- Worker: capture last live V2 view as `preParkFlush` on `park_closed`; `publishRadarV2ClosedParkIfNeeded` flushes then empty closed with a newer generation/`synced_at` fence; skip empty `soft_rth_ah` candidate wipes (pending non-session events still flush).
+- Deno regressions in `persist_v2_test.ts`. No SQL/cron/deploy. ISS-044 remains **OPEN** until production closed-session acceptance. Runbook `docs/release/batch219-radar-v2-recovery-v1.md`.
+
 ## 2026-11-10 (Batch 219.2 — Radar V2 closed-session snapshot integrity, ISS-044)
 
 - Same pending RPC `20261110193000`: closed-session snapshot copy uses **named columns** instead of `SELECT c.*`. Production physical order diverges (candidates col 48 `promotion_reason` vs snapshot col 48 `snapshot_kind`); positional insert aborted closed/carryover copies (both tables empty). Cross-date 219.1 delete-before-insert preserved.

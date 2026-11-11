@@ -16,6 +16,7 @@ import {
   fingerprintRadarV2Generation,
   mapCandidateRow,
   monotonicProviderEventAt,
+  publishRadarV2ClosedParkIfNeeded,
   publishRadarV2Generation,
   publishRadarV2IfNeeded,
   RADAR_V22_CANDIDATE_CAP,
@@ -441,6 +442,13 @@ Deno.test("7-13, 32-34. engine PM/RTH/AH geometry, partial, freshness, resets", 
   const closed = engine.evaluate(ET.mon2000, GEN);
   assertEquals(closed.sessionKind, "closed");
   assertEquals(closed.persistenceV2.candidates.length, 0);
+  assert(closed.preParkFlush);
+  assertEquals(closed.preParkFlush.sessionKind, "after-hours");
+  assertEquals(closed.preParkFlush.candidates.length > 0, true);
+  assertEquals(
+    closed.preParkFlush.candidates.some((row) => row.symbol === "AAA"),
+    true,
+  );
 
   const reset = engine.evaluate(ET.tue0400, GEN);
   assertEquals(reset.sessionReset, true);
@@ -1787,5 +1795,98 @@ Deno.test("publishRadarV2IfNeeded keeps pending through V2 failure then transiti
   assertEquals(flushed !== "skipped" && flushed.ok, true);
   assertEquals(gate.eventQueue.pendingCount(), 0);
   assertEquals(rpcCalls, 3);
+});
+
+Deno.test("219.3A: park_closed flushes last live candidates before empty closed", async () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.firstAh, 80_000, 10, 11, 9), ET.firstAh);
+  engine.evaluate(ET.firstAh + 50, GEN);
+  const closed = engine.evaluate(ET.mon2000, GEN);
+  assertEquals(closed.sessionTransition, "park_closed");
+  assert(closed.preParkFlush);
+  assertEquals(closed.preParkFlush.sessionKind, "after-hours");
+  assertEquals(closed.persistenceV2.candidates.length, 0);
+
+  const payloads: ReplaceRadarV2Args[] = [];
+  const rpc: RadarV2RpcFn = async (input) => {
+    payloads.push(input);
+    return { error: null };
+  };
+  const out = await publishRadarV2ClosedParkIfNeeded({
+    flagEnabled: true,
+    result: closed,
+    gate: createRadarV2WriteGate(),
+    wallNowMs: ET.mon2000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(out, { ok: true, applied: true });
+  assertEquals(payloads.length, 2);
+  assertEquals(payloads[0]?.p_session_kind, "after-hours");
+  assertEquals((payloads[0]?.p_candidates.length ?? 0) > 0, true);
+  assertEquals(payloads[0]?.p_generation_id, GEN);
+  assertEquals(payloads[1]?.p_session_kind, "closed");
+  assertEquals(payloads[1]?.p_candidates.length, 0);
+  assertEquals(payloads[0]?.p_trading_date, payloads[1]?.p_trading_date);
+  assert(payloads[1]?.p_generation_id !== payloads[0]?.p_generation_id);
+  assert(payloads[1]!.p_synced_at > payloads[0]!.p_synced_at);
+});
+
+Deno.test("219.3A: failed pre-park flush does not publish empty closed wipe", async () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.firstAh, 80_000, 10, 11, 9), ET.firstAh);
+  engine.evaluate(ET.firstAh + 50, GEN);
+  const closed = engine.evaluate(ET.mon2000, GEN);
+  assert(closed.preParkFlush);
+
+  let calls = 0;
+  const rpc: RadarV2RpcFn = async () => {
+    calls += 1;
+    return { error: { message: "boom" } };
+  };
+  const out = await publishRadarV2ClosedParkIfNeeded({
+    flagEnabled: true,
+    result: closed,
+    gate: createRadarV2WriteGate(),
+    wallNowMs: ET.mon2000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(out, { ok: false, code: "persist_failed" });
+  assertEquals(calls, 1);
+});
+
+Deno.test("219.3A: empty soft_rth_ah without events skips V2 wipe", async () => {
+  const out = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: {
+      staleTransition: false,
+      liveSurveillance: true,
+      sessionReset: false,
+      persistEmpty: true,
+      sessionKind: "after-hours",
+      sessionTransition: "soft_rth_ah",
+      feedStale: true,
+      persistenceV2: v2View([], {
+        sessionKind: "after-hours",
+        sessionTransition: "soft_rth_ah",
+        feedStale: true,
+        candidates: [],
+      }),
+    },
+    gate: createRadarV2WriteGate(),
+    wallNowMs: ET.firstAh,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc: async () => {
+      throw new Error("must not publish empty soft_rth_ah wipe");
+    },
+  });
+  assertEquals(out, "skipped");
 });
 

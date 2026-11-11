@@ -16,6 +16,7 @@ import {
 } from "./persist.ts";
 import {
   createRadarV2WriteGate,
+  publishRadarV2ClosedParkIfNeeded,
   publishRadarV2IfNeeded,
   type RadarV2RpcFn,
 } from "./persist_v2.ts";
@@ -203,6 +204,29 @@ export function startRadarV22(opts: {
     };
   }
 
+  async function publishV2ForResult(
+    result: EvaluateResult,
+    generationId: string,
+    syncedAt: string,
+    wallNow: number,
+  ) {
+    const publishOpts = {
+      flagEnabled: opts.env.radarPersistenceV2Enabled,
+      result,
+      gate: v2Gate,
+      wallNowMs: wallNow,
+      checkpointMs: opts.env.radarPersistenceV2CheckpointMs,
+      generationId,
+      syncedAt,
+      rpc: rpcV2,
+      nowMs,
+    };
+    if (result.sessionTransition === "park_closed") {
+      return await publishRadarV2ClosedParkIfNeeded(publishOpts);
+    }
+    return await publishRadarV2IfNeeded(publishOpts);
+  }
+
   function pushHealth(status: RadarHealthSnapshot["status"]): void {
     opts.health.applyRadar(healthSnapshot(status));
   }
@@ -239,17 +263,7 @@ export function startRadarV22(opts: {
         p_last_provider_event_at: result.board.lastProviderEventAt,
         p_synced_at: syncedAt,
       });
-      const v2 = await publishRadarV2IfNeeded({
-        flagEnabled: opts.env.radarPersistenceV2Enabled,
-        result,
-        gate: v2Gate,
-        wallNowMs: wallNow,
-        checkpointMs: opts.env.radarPersistenceV2CheckpointMs,
-        generationId,
-        syncedAt,
-        rpc: rpcV2,
-        nowMs,
-      });
+      const v2 = await publishV2ForResult(result, generationId, syncedAt, wallNow);
       if (v2 !== "skipped" && !v2.ok) {
         notePersistFailure(v2.code ?? "persist_failed");
         log("error", "radar_persist_v2_failed", { code: v2.code });
@@ -314,17 +328,7 @@ export function startRadarV22(opts: {
       }
     }
 
-    const v2 = await publishRadarV2IfNeeded({
-      flagEnabled: opts.env.radarPersistenceV2Enabled,
-      result,
-      gate: v2Gate,
-      wallNowMs: wallNow,
-      checkpointMs: opts.env.radarPersistenceV2CheckpointMs,
-      generationId,
-      syncedAt,
-      rpc: rpcV2,
-      nowMs,
-    });
+    const v2 = await publishV2ForResult(result, generationId, syncedAt, wallNow);
     if (v2 !== "skipped" && !v2.ok) {
       notePersistFailure(v2.code ?? "persist_failed");
       log("error", "radar_persist_v2_failed", { code: v2.code });
