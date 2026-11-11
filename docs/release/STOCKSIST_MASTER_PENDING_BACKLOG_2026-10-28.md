@@ -128,7 +128,8 @@ Treat screenshot observations as reported evidence until independently confirmed
 
 **Priority:** P2 / future enhancement · **Owner:** Cursor produces design contract; owner signs off thresholds.  
 **Work:** Differentiate existing Penny Stocks price-band (including under $1) from **new sub-$1 continuation-momentum eligibility and scoring**, relative/session volume, price/freshness, liquidity, floats where proven, prior-day/after-hours context, stage transition, scanner tab presentation and Inbox/ticker handoffs. Inventory overlap with current price-agnostic continuation. **Thresholds, scoring and exact UI are not yet established; no implementation during spec.**  
-**Gate:** explicit product approval of requirements.
+**Gate:** explicit product approval of requirements.  
+**Delivery artifact (Batch 222):** `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md` — owner must approve proposed §5 thresholds before Batch 200.
 
 #### Batch 200 — Penny Continuation V1 implementation (CONDITIONAL)
 
