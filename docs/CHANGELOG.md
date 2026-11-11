@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 225 — Penny Continuation workflow handoff V1)
+
+- Versioned projection from Batch 224 integration → AM Inbox workflow handoffs (`penny_continuation_workflow_handoff_v1`); client `matchPennyContinuationBadgesToAmInbox` (9 Vitest) + Deno projection tests (4). **No persistence, UI wiring, or production activation.**
+
+## 2026-11-11 (Batch 224 merged — Penny Continuation integration, PR #241)
+
+- Merged at **`74960a51e590d2c363213cd806643783c873db4b`** on `main` **`8b7082e0a8bef24aa9ccdc5c6ca2fa70473042a2`**. Alignment + 10m velocity provenance; **not production-activated.**
+
 ## 2026-11-11 (Batch 224 — Penny Continuation integration corrections, PR #241)
 
 - 10m velocity only via `verifiedSharesPerMinute10m`; Radar 5m diagnostic-only. Symbol/session alignment, Radar–Polygon observation sync, rejection of session-kind overrides. Deno **19** integration tests.

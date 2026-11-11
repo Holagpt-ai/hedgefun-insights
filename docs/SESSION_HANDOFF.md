@@ -1,12 +1,16 @@
-# Session handoff — Batch 224 Penny Continuation integration V1, November 11, 2026 ET
+# Session handoff — Batch 225 Penny Continuation workflow handoff V1, November 11, 2026 ET
 
-**Source:** GitHub `main` **`3f904970348a11e4fec28e1d86222cbaede2e5e7`** (includes merged Batch 223).
+**Source:** GitHub `main` **`8b7082e0a8bef24aa9ccdc5c6ca2fa70473042a2`**.
 
-**Batch 224:** Controlled backend integration for **`penny_continuation_v1`** — adapter alignment (symbol/session/observation sync), `verifiedSharesPerMinute10m` (10m gate; Radar 5m diagnostic-only), `evaluateBoundedPennyContinuationV1`. **`batch224-penny-continuation-integration_test.ts`** (19) in screener Deno CI. **PR #241.** **Not wired** to live publication, SQL, cron, Fly, or Five Pillars. **Production activation unauthorized.**
+**Batch 225:** Workflow projection `penny_continuation_workflow_handoff_v1` (projectPennyWorkflowHandoffsFromIntegration) from Batch 224 results; client `matchPennyContinuationBadgesToAmInbox` + navigation reuse. Vitest (9) + Deno (4). **Not wired** to AM Inbox persistence, hooks, or UI.
 
-**Batch 223 (merged):** PR **#240** — engine `penny_continuation_v1` on `main`. **GitHub integration only** — not production-deployed or feature-activated.
+**Batch 224 (merged):** PR **#241** @ `74960a51e590d2c363213cd806643783c873db4b`. Integration layer on `main`. **Not production-activated.**
 
-**Next:** Batch 224 PR + owner review; separate activation batch for Radar emphasis, Inbox persistence, and env-gated production invocation.
+**Next:** Batch 225 PR review; activation batch for persistence and surfacing.
+
+## Archived handoff — Batch 224 Penny Continuation integration V1
+
+**Merged:** PR **#241** · `evaluateBoundedPennyContinuationV1` + adapter alignment. Deno **19** tests. **No live wiring.**
 
 ## Archived handoff — Batch 223 Penny Continuation backend engine V1
 
