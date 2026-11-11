@@ -1091,6 +1091,16 @@ export async function publishRadarV2IfNeeded(opts: {
       sessionReset: opts.result.sessionReset,
     });
     if (!decision.shouldWrite) return "skipped";
+    // Empty soft_rth_ah replaces would delete same-day AH rows without a
+    // closed-session snapshot. Keep DB rows until park_closed archives them.
+    // Allow the write only when non-session events still need a flush.
+    if (
+      transition === "soft_rth_ah" &&
+      args.p_candidates.length === 0 &&
+      !eventBatch.some((event) => event.symbol !== SESSION_EVENT_SYMBOL)
+    ) {
+      return "skipped";
+    }
     const result = await publishRadarV2Generation(opts.rpc, args);
     if (result.ok && result.applied !== false) {
       const persistedKeys = eventBatch.map(eventKey);
@@ -1104,5 +1114,77 @@ export async function publishRadarV2IfNeeded(opts: {
     opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
     return { ok: false, code: "persist_failed" };
   }
+}
+
+/**
+ * Closed-session park: optionally flush the last live candidate generation,
+ * then publish the empty closed replace that triggers RPC snapshot copy.
+ *
+ * Flush and empty-closed must use distinct generation ids and a strictly
+ * later p_synced_at. Reusing the same fence keys returns already_current and
+ * skips the closed-session snapshot branch.
+ */
+export async function publishRadarV2ClosedParkIfNeeded(opts: {
+  flagEnabled: boolean;
+  result: RadarV2PublishEligibility & {
+    persistenceV2: PersistenceV2View;
+    sessionTransition: SessionTransition | null;
+    preParkFlush: PersistenceV2View | null;
+  };
+  gate: RadarV2WriteGate;
+  wallNowMs: number;
+  checkpointMs: number;
+  generationId: string;
+  syncedAt: string;
+  rpc: RadarV2RpcFn;
+  nowMs?: () => number;
+  newId?: () => string;
+}): Promise<"skipped" | PublishRadarResult> {
+  if (!shouldPublishRadarV2(opts.flagEnabled, opts.result)) {
+    return "skipped";
+  }
+  const flush = opts.result.preParkFlush;
+  let closedOpts = opts;
+  if (flush && flush.candidates.length > 0) {
+    try {
+      const flushArgs = replaceArgsFromView({
+        generationId: opts.generationId,
+        syncedAt: opts.syncedAt,
+        view: flush,
+      });
+      flushArgs.p_candidates = flushArgs.p_candidates.map((row) => ({
+        ...row,
+        generation_id: opts.generationId,
+        updated_at: opts.syncedAt,
+      }));
+      const flushDecision = opts.gate.decide({
+        wallNowMs: opts.wallNowMs,
+        checkpointMs: opts.checkpointMs,
+        tradingDate: flushArgs.p_trading_date,
+        sessionKind: flushArgs.p_session_kind,
+        candidates: flushArgs.p_candidates,
+        events: flushArgs.p_events,
+        sessionTransition: "park_closed",
+        sessionReset: false,
+      });
+      const flushResult = await publishRadarV2Generation(opts.rpc, flushArgs);
+      if (!flushResult.ok || flushResult.applied === false) {
+        opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
+        return flushResult;
+      }
+      opts.gate.markSuccess(flushDecision, opts.wallNowMs, flushDecision.eventKeys);
+      const closedGenerationId = (opts.newId ?? (() => crypto.randomUUID()))();
+      const closedSyncedAt = new Date(opts.wallNowMs + 1).toISOString();
+      closedOpts = {
+        ...opts,
+        generationId: closedGenerationId,
+        syncedAt: closedSyncedAt,
+      };
+    } catch {
+      opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
+      return { ok: false, code: "persist_failed" };
+    }
+  }
+  return publishRadarV2IfNeeded(closedOpts);
 }
 
