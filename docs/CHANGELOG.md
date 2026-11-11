@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 220 — Catalyst + Watchlist loading performance V1)
+
+- Watchlist: decouple symbol-list loading from analysis and request-status queries (`isListLoading`); rows render with honest per-row pending/failure states.
+- Catalyst: initial feed spinner only on first `catalyst_events` fetch (no cross-ticker `placeholderData`); symbol-scoped feed guard on `?symbol=` navigation; stable historical-enrichment cache key (sorted symbol set, 24-cap unchanged); in-flight enrichment cleared on cancel so symbols are not stuck loading; minute-bucket `sessionNowMs` for sort/session labels.
+- Vitest: `watchlist-loading-state`, `batch220-loading-performance`. Frontend only — **not deployed**.
+
 ## 2026-11-11 (Batch 219.3B — NHL baseline UI truth-state, ISS-045)
 
 - Stop mapping NHL `generation_unavailable` to **Baseline unavailable** when feed `nhl_baseline_status` is still `available` (session gate / validation failures).
