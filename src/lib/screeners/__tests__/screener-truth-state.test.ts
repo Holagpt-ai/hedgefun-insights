@@ -482,6 +482,20 @@ describe("screener truth-state resolver", () => {
       nhlBaselineStatus: "unavailable",
     });
     expect(truth.reason).toBe("baseline_unavailable");
+    expect(truth.title).toBe("Baseline unavailable");
+  });
+
+  it("new highs/lows: generation unavailable with baseline available does not blame baseline", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "unavailable",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+    });
+    expect(truth.reason).toBe("generation_unavailable");
+    expect(truth.title).toBe("Screener unavailable");
+    expect(truth.title).not.toBe("Baseline unavailable");
   });
 
   it("new highs/lows: row count alone cannot override baseline status", () => {

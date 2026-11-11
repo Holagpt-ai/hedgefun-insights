@@ -229,9 +229,7 @@ function copyForReason(
       return evidenceMissingCopy();
     }
     case "generation_unavailable":
-      return tabId === NHL_TAB_ID
-        ? nhlUnavailableCopy()
-        : { title: UNAVAILABLE_TITLE, explanation: UNAVAILABLE_EXPLANATION };
+      return { title: UNAVAILABLE_TITLE, explanation: UNAVAILABLE_EXPLANATION };
     case "generation_stale":
       return {
         title: "Stale delayed snapshot",
