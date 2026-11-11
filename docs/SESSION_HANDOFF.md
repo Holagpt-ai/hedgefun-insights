@@ -1,4 +1,12 @@
-# Session handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
+# Session handoff — Batch 222 Penny Continuation eligibility and scoring contract V1, November 11, 2026 ET
+
+**Source:** GitHub `main` **`9931e7f5539c940a87ce6e00e3bea18ccd47fc3a`** (Batch 222 branch).
+
+**Batch 222:** Documentation-only design contract for **Penny Continuation V1** (`penny_continuation_v1`): reconciled price predicate (`> $0.0001`, strict `< $1.00`); provider-watermark freshness (120s) + `feedDelayMs` delayed labels + cache-generation guard; five core signals (**CS1–CS5**) with deterministic **3-of-5** (UNKNOWN non-qualifying); supplemental late-day/next-session labels excluded from count; long-bias **+3%** move gate; missing-spread → `SPREAD_UNAVAILABLE`; reproducible fixtures; AM Inbox **badge** (no new card); Five Pillars auto-inclusion **disabled**. All thresholds **PROPOSED — NOT APPROVED**. **No Edge/SQL/Fly/cron/deploy.**
+
+**Next:** Owner review **PR #239** (finalized contract) and sign off §5 + §4.2 → **Batch 200**. Batch 221 overnight remains separate.
+
+## Archived handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
 
 **Source:** GitHub `main` **`c3519ffd2bd7e9545fbca502e8b88f13505f8ebb`** (Batch 221 branch).
 

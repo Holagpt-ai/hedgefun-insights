@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 222 — Penny Continuation freshness contract correction, PR #239)
+
+- §4.1: per-symbol freshness (no `max(symbol, generation)`); verified expected provider delay + 120s slack; live vs delayed policies; fixtures F16–F20.
+
+## 2026-11-11 (Batch 222 — Penny Continuation eligibility and scoring contract V1, finalized)
+
+- Design contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`: sub-$1 momentum-continuation engine (`penny_continuation_v1`) distinct from penny Radar panel and price-agnostic Continuation V1; provider-watermark freshness (120s) and honest delay labels; reconciled price band; CS1–CS5 **3-of-5** continuation counting; long-bias move gate; spread-unknown behavior; reproducible fixtures; AM Inbox badge recommendation; Five Pillars auto-inclusion disabled. All thresholds **PROPOSED — NOT APPROVED**. Documentation only — **no implementation or deploy** (PR **#239**).
+
 ## 2026-11-11 (Batch 221 — Overnight scanner backend pipeline V1)
 
 - Backend overnight observation/volume semantics for 23×5-ready scanner (`session-volume.ts`, `session-sync-context.ts`, `resolveOvernightCycleAt`, handler observation gate). Qualification gates overnight stamps behind pipeline readiness and sync-window boundaries; `OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED` stays **false**. `OVERNIGHT_SCANNER_PIPELINE_READY` remains **false**. Runbook `docs/release/batch221-overnight-scanner-pipeline-v1.md`. **Not deployed.**
