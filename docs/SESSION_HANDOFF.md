@@ -1,4 +1,12 @@
-# Session handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
+# Session handoff — Batch 222 Penny Continuation eligibility and scoring contract V1, November 11, 2026 ET
+
+**Source:** GitHub `main` **`9931e7f5539c940a87ce6e00e3bea18ccd47fc3a`** (Batch 222 branch).
+
+**Batch 222:** Documentation-only design contract for **Penny Continuation V1** (`penny_continuation_v1`): eligibility vs sustained-momentum qualification vs volume-first ranking; reuse map (penny panel, `continuation-v1.ts`, `session-volume.ts`, `selection.ts`); proposed threshold decision table (**PROPOSED — NOT APPROVED**); integration with Radar, Catalyst, late-session handoffs, AM Inbox, Watchlist; schemas, reason codes, pseudocode, fixtures, test matrix. **No Edge/SQL/Fly/cron/deploy/scanner threshold changes.**
+
+**Next:** Owner review Batch 222 docs PR and approve §5 thresholds → unblock **Batch 200** implementation. Batch 221 overnight pipeline PR remains separate (`docs/release/batch221-overnight-scanner-pipeline-v1.md`, `OVERNIGHT_SCANNER_PIPELINE_READY=false`).
+
+## Archived handoff — Batch 221 Overnight scanner backend pipeline V1, November 11, 2026 ET
 
 **Source:** GitHub `main` **`c3519ffd2bd7e9545fbca502e8b88f13505f8ebb`** (Batch 221 branch).
 

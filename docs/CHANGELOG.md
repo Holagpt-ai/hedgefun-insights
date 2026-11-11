@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-11 (Batch 222 — Penny Continuation eligibility and scoring contract V1)
+
+- Design contract `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`: sub-$1 momentum-continuation engine (`penny_continuation_v1`) distinct from penny Radar panel and price-agnostic Continuation V1; eligibility, continuation signals, volume-first ranking, proposed threshold table (**NOT APPROVED**), integration ownership, fixtures and test matrix. Documentation only — **no implementation or deploy**.
+
 ## 2026-11-11 (Batch 221 — Overnight scanner backend pipeline V1)
 
 - Backend overnight observation/volume semantics for 23×5-ready scanner (`session-volume.ts`, `session-sync-context.ts`, `resolveOvernightCycleAt`, handler observation gate). Qualification gates overnight stamps behind pipeline readiness and sync-window boundaries; `OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED` stays **false**. `OVERNIGHT_SCANNER_PIPELINE_READY` remains **false**. Runbook `docs/release/batch221-overnight-scanner-pipeline-v1.md`. **Not deployed.**

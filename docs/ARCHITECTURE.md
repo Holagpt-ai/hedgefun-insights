@@ -84,6 +84,8 @@ Volume-first ranking and Radar promotion stay on market momentum. The Fly scanne
 
 **Session gate (Batch 215):** the staged `cron` action starts a new generation only when `resolveEquitySession` (`_shared/markets/equity-session-control.ts`, plus the `market_session_calendar` exceptions) is scan-eligible. Cleanup, reconcile, resume, `continue`, and `finalize` are never gated. The 23×5 overnight phase is modeled but disabled by default. **Batch 221** adds overnight volume/observation semantics while `OVERNIGHT_SCANNER_PIPELINE_READY` stays false. Runbooks: `docs/release/batch215-unified-scanner-session-control-v1.md`, `docs/release/batch221-overnight-scanner-pipeline-v1.md`.
 
+**Penny Continuation V1 (Batch 222 design only):** the Radar **penny panel** (`qualifiesPennyPrice` in `multi-radar.ts`) is a price-band discovery filter only. **Late-session Continuation V1** (`continuation-v1.ts`) scores price-agnostic carry-forward regimes for AM Inbox. The proposed **Penny Continuation** engine (`engine id` `penny_continuation_v1`) is a distinct sub-$1 momentum-continuation eligibility and ranking contract; it reuses session volume, RVOL confidence, and catalyst provenance patterns but does **not** change Five Pillars thresholds or scanner publication. All numeric gates are **PROPOSED — NOT APPROVED** until owner sign-off; implementation is Batch 200. Contract: `docs/release/batch222-penny-continuation-eligibility-scoring-v1.md`.
+
 Verified catalyst copy on Screeners, Day Trade Radar, and the Catalyst tab uses:
 
 - `src/lib/catalyst/enrichment.ts` for per-symbol selection, SEC freshness gates, and invalidated-row exclusion.
