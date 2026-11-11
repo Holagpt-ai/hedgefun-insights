@@ -11,14 +11,17 @@ import {
   surveillanceTradingDateFromMs,
 } from "./screener-session.ts";
 import {
+  qualificationObservationKind,
   resolveObservationSessionKindAt,
   resolveScannerObservationSessionFields,
   resolveSyncSessionKind,
+  syncAllowsOvernightObservationVolume,
 } from "./session-sync-context.ts";
 import type { PolygonTicker } from "./selection.ts";
 import { gapPercentForTabContext } from "./selection.ts";
 import {
   afterHoursIncrementalVolume,
+  OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
   overnightSessionVolume,
   overnightVolumeProvenance,
   resolveObservationSessionKind,
@@ -38,6 +41,8 @@ const ACTIVE: Equity23x5Activation = {
 const SUNDAY_OPEN = Date.parse("2026-11-09T02:00:00Z"); // Sun 2026-11-08 21:00 EST → Mon cycle
 const MON_OVERNIGHT = Date.parse("2026-11-10T05:00:00Z"); // Mon 00:00 EST
 const MON_PREMARKET = Date.parse("2026-11-10T09:00:00Z"); // Mon 04:00 EST
+const SYNC_0405_ET = Date.parse("2026-11-10T09:05:00.000Z"); // Mon 04:05 EST
+const OBS_0359_ET = Date.parse("2026-11-10T08:59:00.000Z"); // Mon 03:59 EST
 const FRI_CLOSE = Date.parse("2026-11-14T01:30:00Z"); // Fri 20:30 EST maintenance
 const SAT_NOON = Date.parse("2026-11-14T17:00:00Z");
 
@@ -45,12 +50,24 @@ function overnightTicker(partial: {
   obsMs: number;
   minAv: number;
   dayV?: number;
+  dayVPresent?: boolean;
   prevClose?: number;
 }): PolygonTicker {
+  const day: { v: unknown; c: number } = { c: 0, v: partial.dayV ?? 0 };
+  if (partial.dayVPresent === false) {
+    return {
+      ticker: "AAPL",
+      updated: partial.obsMs * 1_000_000,
+      day: { c: 0 },
+      min: { av: partial.minAv, t: partial.obsMs, c: 101 },
+      prevDay: { c: partial.prevClose ?? 100, v: 1_000_000 },
+      lastTrade: { p: 101, t: partial.obsMs },
+    };
+  }
   return {
     ticker: "AAPL",
     updated: partial.obsMs * 1_000_000,
-    day: { v: partial.dayV ?? 0, c: 0 },
+    day,
     min: { av: partial.minAv, t: partial.obsMs, c: 101 },
     prevDay: { c: partial.prevClose ?? 100, v: 1_000_000 },
     lastTrade: { p: 101, t: partial.obsMs },
@@ -62,6 +79,32 @@ Deno.test("Batch 221: Sunday 21:00 ET observation belongs to Monday trade date",
   assertEquals(cycle?.tradeDate, "2026-11-09");
   assertEquals(equityTradeDateForVolume(SUNDAY_OPEN, []), "2026-11-09");
   assertEquals(resolveObservationSessionKindAt(SUNDAY_OPEN, []), "overnight");
+});
+
+Deno.test("Batch 221: 04:05 premarket sync rejects 03:59 overnight observation volume", () => {
+  assertEquals(resolveSyncSessionKind(SYNC_0405_ET), "pre-market");
+  assertEquals(resolveObservationSessionKindAt(OBS_0359_ET, []), "overnight");
+  assertEquals(
+    qualificationObservationKind(OBS_0359_ET, SYNC_0405_ET, [], false),
+    null,
+  );
+  const t = overnightTicker({ obsMs: OBS_0359_ET, minAv: 500_000, dayV: 0 });
+  assertEquals(
+    sessionQualificationVolume(t, {
+      observationSessionVolume: true,
+      nowMs: SYNC_0405_ET,
+      overnightPipelineReady: false,
+    }),
+    null,
+  );
+  assertEquals(
+    sessionQualificationVolume(t, {
+      observationSessionVolume: true,
+      nowMs: SYNC_0405_ET,
+      overnightPipelineReady: true,
+    }),
+    null,
+  );
 });
 
 Deno.test("Batch 221: midnight rollover keeps the same Monday cycle", () => {
@@ -89,7 +132,7 @@ Deno.test("Batch 221: after-hours cumulative is never overnight volume", () => {
   const ahMs = Date.parse("2026-10-28T20:20:00.000Z"); // 4:20 PM ET after-hours
   const t = overnightTicker({ obsMs: ahMs, minAv: 50_400_000, dayV: 50_000_000 });
   assertEquals(afterHoursIncrementalVolume(t), 400_000);
-  assertEquals(overnightSessionVolume(t), null);
+  assertEquals(overnightSessionVolume(t, ahMs, [], true), null);
   const ahKind = resolveObservationSessionKindAt(ahMs, []);
   assertEquals(ahKind, "after-hours");
   assertEquals(
@@ -98,15 +141,41 @@ Deno.test("Batch 221: after-hours cumulative is never overnight volume", () => {
   );
 });
 
-Deno.test("Batch 221: overnight volume requires zero day.v and positive min.av", () => {
-  const t = overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 125_000 });
-  assertEquals(overnightSessionVolume(t), 125_000);
-  const ctx = { observationSessionVolume: true, nowMs: MON_OVERNIGHT };
-  assertEquals(sessionQualificationVolume(t, ctx), 125_000);
-  assertEquals(resolveObservationSessionKind(t, MON_OVERNIGHT, ctx), "overnight");
-  const provenance = overnightVolumeProvenance(t, MON_OVERNIGHT, ctx);
-  assertEquals(provenance?.tradeDate, "2026-11-10");
-  assertEquals(provenance?.source, "min.av");
+Deno.test("Batch 221: missing day.v does not prove overnight-only min.av", () => {
+  const t = overnightTicker({
+    obsMs: MON_OVERNIGHT,
+    minAv: 125_000,
+    dayVPresent: false,
+  });
+  assertEquals(overnightSessionVolume(t, MON_OVERNIGHT, [], true), null);
+});
+
+Deno.test("Batch 221: overnight volume unavailable until provider session reset is verified", () => {
+  assertEquals(OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED, false);
+  const t = overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 125_000, dayV: 0 });
+  assertEquals(overnightSessionVolume(t, MON_OVERNIGHT, []), null);
+  const ctx = {
+    observationSessionVolume: true,
+    nowMs: MON_OVERNIGHT,
+    overnightPipelineReady: true,
+  };
+  assertEquals(sessionQualificationVolume(t, ctx), null);
+  assertEquals(syncAllowsOvernightObservationVolume(MON_OVERNIGHT, [], true), true);
+  assertEquals(overnightVolumeProvenance(t, MON_OVERNIGHT, ctx), null);
+});
+
+Deno.test("Batch 221: verified-provider fixture path rejects AH carry-forward", () => {
+  const t = overnightTicker({
+    obsMs: MON_OVERNIGHT,
+    minAv: 50_400_000,
+    dayV: 50_000_000,
+  });
+  assertEquals(overnightSessionVolume(t, MON_OVERNIGHT, [], true), null);
+});
+
+Deno.test("Batch 221: verified-provider fixture accepts explicit zero day.v in overnight", () => {
+  const t = overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 125_000, dayV: 0 });
+  assertEquals(overnightSessionVolume(t, MON_OVERNIGHT, [], true), 125_000);
 });
 
 Deno.test("Batch 221: stale observation on a prior trade date is unavailable", () => {
@@ -134,15 +203,31 @@ Deno.test("Batch 221: premarket/RTH/AH session volumes unchanged", () => {
   assertEquals(regularSessionVolume(rth), 9_000);
   assertEquals(resolveSyncSessionKind(pm), "pre-market");
   assertEquals(equityTradeDateForVolume(pm, []), surveillanceTradingDateFromMs(pm));
+  assertEquals(
+    sessionQualificationVolume(t, { observationSessionVolume: true, nowMs: pm }),
+    1_000,
+  );
 });
 
-Deno.test("Batch 221: overnight gappers use prevDay.c only", () => {
-  const t = overnightTicker({ obsMs: MON_OVERNIGHT, minAv: 80_000, prevClose: 50 });
+Deno.test("Batch 221: Sunday night does not qualify premarket volume with pipeline disabled", () => {
+  const t = overnightTicker({ obsMs: SUNDAY_OPEN, minAv: 200_000, dayV: 0 });
+  assertEquals(
+    sessionQualificationVolume(t, {
+      observationSessionVolume: true,
+      nowMs: MON_PREMARKET,
+      overnightPipelineReady: false,
+    }),
+    null,
+  );
+});
+
+Deno.test("Batch 221: overnight gappers unavailable on stale overnight stamp at premarket", () => {
+  const t = overnightTicker({ obsMs: OBS_0359_ET, minAv: 80_000, prevClose: 50 });
   const gap = gapPercentForTabContext(t, {
     observationSessionFields: true,
-    nowMs: MON_OVERNIGHT,
+    nowMs: SYNC_0405_ET,
   });
-  assertEquals(gap !== null && gap > 0, true);
+  assertEquals(gap, null);
 });
 
 Deno.test("Batch 221: production scan gate stays off while pipeline flag is false", () => {

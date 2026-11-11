@@ -20,7 +20,8 @@
 
 ## Provider prerequisites (deployment dependencies — not claimed verified)
 
-- Polygon/Massive must supply trustworthy overnight `min.t` / `min.av` with `day.v` reset (or zero) at overnight open so AH totals are not reused.
+- Polygon/Massive must supply a **session-scoped overnight cumulative** (or a provable session reset at overnight open). **`day.v === 0` alone is not treated as proof** — `OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED` stays **`false`** until owner attestation.
+- Overnight qualification requires **`overnightPipelineReady`**, sync clock in the geometric overnight window, and matching observation timestamps (`qualificationObservationKind`). A **03:59 ET overnight** stamp cannot qualify during a **04:05 ET premarket** sync.
 - Owner must confirm overnight coverage for the subscribed tier before step 2 above.
 
 ## Verification

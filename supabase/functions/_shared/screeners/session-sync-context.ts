@@ -68,3 +68,35 @@ export function resolveScannerObservationSessionFields(
   if (!overnightPipelineReady) return false;
   return resolveObservationSessionKindAt(nowMs, exceptions) === "overnight";
 }
+
+/** True only when the sync clock is in the geometric overnight window (not premarket/RTH/AH). */
+export function syncAllowsOvernightObservationVolume(
+  syncNowMs: number,
+  exceptions: CalendarExceptionRow[] | null = null,
+  overnightPipelineReady: boolean = OVERNIGHT_SCANNER_PIPELINE_READY,
+): boolean {
+  if (!overnightPipelineReady) return false;
+  if (resolveSyncSessionKind(syncNowMs) !== "closed") return false;
+  return resolveOvernightCycleAt(syncNowMs, exceptions) !== null;
+}
+
+/**
+ * Observation kind used for qualification — overnight requires pipeline readiness
+ * and an overnight sync clock (03:59 obs cannot qualify at 04:05 premarket).
+ */
+export function qualificationObservationKind(
+  observationMs: number,
+  syncNowMs: number,
+  exceptions: CalendarExceptionRow[] | null = null,
+  overnightPipelineReady: boolean = OVERNIGHT_SCANNER_PIPELINE_READY,
+): ObservationSessionKind | null {
+  const obsKind = resolveObservationSessionKindAt(observationMs, exceptions);
+  if (obsKind === "overnight") {
+    if (!syncAllowsOvernightObservationVolume(syncNowMs, exceptions, overnightPipelineReady)) {
+      return null;
+    }
+    return "overnight";
+  }
+  if (obsKind === "closed") return null;
+  return obsKind;
+}

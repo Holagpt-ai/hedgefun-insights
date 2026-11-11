@@ -4,10 +4,14 @@
  * not the sync execution clock alone.
  */
 
+import {
+  OVERNIGHT_SCANNER_PIPELINE_READY,
+} from "../markets/equity-session-control.ts";
 import type { CalendarExceptionRow } from "../markets/session-schedule.ts";
 import {
+  qualificationObservationKind,
   resolveObservationSessionKindAt,
-  resolveSyncSessionKind,
+  syncAllowsOvernightObservationVolume,
   type ObservationSessionKind,
 } from "./session-sync-context.ts";
 import { equityTradeDateForVolume } from "./screener-session.ts";
@@ -72,22 +76,61 @@ export type SessionVolumeContext = {
   nowMs?: number;
   cache?: SessionVolumeCache;
   calendarExceptions?: CalendarExceptionRow[] | null;
+  /** Mirrors `OVERNIGHT_SCANNER_PIPELINE_READY`; off in production until owner activation. */
+  overnightPipelineReady?: boolean;
 };
+
+/**
+ * Owner-confirmed: Polygon/Massive resets session `day.v` at overnight open and
+ * `min.av` is overnight-only cumulative. Until verified, overnight volume stays
+ * unavailable (explicit `day.v === 0` is necessary but not sufficient).
+ */
+export const OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED = false;
 
 export type OvernightVolumeProvenance = {
   observationSessionKind: "overnight";
   observationMs: number;
   tradeDate: string;
   source: "min.av";
+  providerSessionVolumeVerified: boolean;
 };
 
-/** True when min.av exists and day.v is not a positive prior-session cumulative. */
-export function overnightSessionVolume(t: VolumeTicker): number | null {
-  const accumulated = positiveFinite(t?.min?.av);
-  if (accumulated === null) return null;
-  const regularTotal = positiveFinite(t?.day?.v);
-  if (regularTotal !== null) return null;
-  return accumulated;
+function hasExplicitZeroSessionDayVolume(t: VolumeTicker): boolean {
+  const day = t?.day;
+  if (day === undefined || day === null || typeof day !== "object") return false;
+  if (!Object.prototype.hasOwnProperty.call(day, "v")) return false;
+  const n = Number((day as { v: unknown }).v);
+  return Number.isFinite(n) && n === 0;
+}
+
+/**
+ * Overnight cumulative volume — unavailable until provider session-reset is owner-verified.
+ * Rejects positive `day.v` (after-hours / RTH carry-forward). Never infers reset from
+ * missing `day.v` alone.
+ */
+export function overnightSessionVolume(
+  t: VolumeTicker,
+  observationMs: number | null,
+  exceptions: CalendarExceptionRow[] | null = null,
+  providerSessionVolumeVerified: boolean = OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
+): number | null {
+  if (!providerSessionVolumeVerified) return null;
+  if (observationMs === null) return null;
+  if (resolveObservationSessionKindAt(observationMs, exceptions) !== "overnight") {
+    return null;
+  }
+  const minMs = t.min?.t !== undefined && t.min?.t !== null
+    ? parseProviderTimestampMs(t.min.t, observationMs)
+    : null;
+  if (
+    minMs === null ||
+    resolveObservationSessionKindAt(minMs, exceptions) !== "overnight"
+  ) {
+    return null;
+  }
+  if (!hasExplicitZeroSessionDayVolume(t)) return null;
+  if (positiveFinite(t?.day?.v) !== null) return null;
+  return positiveFinite(t?.min?.av);
 }
 
 function usesObservationVolumeResolution(ctx: SessionVolumeContext): boolean {
@@ -239,7 +282,8 @@ export function overnightVolumeProvenance(
   const exceptions = ctx?.calendarExceptions ?? null;
   const kind = resolveObservationSessionKindAt(observationMs, exceptions);
   if (kind !== "overnight") return null;
-  if (overnightSessionVolume(t) === null) return null;
+  const vol = overnightSessionVolume(t, observationMs, exceptions);
+  if (vol === null) return null;
   const tradeDate = equityTradeDateForVolume(observationMs, exceptions);
   if (tradeDate === null) return null;
   return {
@@ -247,6 +291,7 @@ export function overnightVolumeProvenance(
     observationMs,
     tradeDate,
     source: "min.av",
+    providerSessionVolumeVerified: OVERNIGHT_PROVIDER_SESSION_VOLUME_VERIFIED,
   };
 }
 
@@ -257,7 +302,9 @@ function volumeForObservationSession(
   if (kind === "pre-market") return premarketAccumulatedVolume(t);
   if (kind === "market") return regularSessionVolume(t);
   if (kind === "after-hours") return afterHoursIncrementalVolume(t);
-  if (kind === "overnight") return overnightSessionVolume(t);
+  if (kind === "overnight") {
+    return overnightSessionVolume(t, null, null);
+  }
   return null;
 }
 
@@ -287,10 +334,26 @@ export function extendedQuoteSemanticsForObservation(
   if (useCache && cache.extendedQuoteSemantics.has(t)) {
     return cache.extendedQuoteSemantics.get(t)!;
   }
-  const kind = resolveObservationSessionKind(t, nowMs, ctx);
-  const result = kind === null
+  const pipelineReady = ctx?.overnightPipelineReady ?? OVERNIGHT_SCANNER_PIPELINE_READY;
+  const observationMs = resolveVerifiedObservationMs(t, nowMs, ctx);
+  if (observationMs === null) {
+    const result = null;
+    if (useCache) cache.extendedQuoteSemantics.set(t, result);
+    return result;
+  }
+  const exceptions = ctx?.calendarExceptions ?? null;
+  const effectiveKind = qualificationObservationKind(
+    observationMs,
+    nowMs,
+    exceptions,
+    pipelineReady,
+  );
+  const result = effectiveKind === null
     ? null
-    : kind === "pre-market" || kind === "after-hours" || kind === "overnight";
+    : effectiveKind === "pre-market" ||
+      effectiveKind === "after-hours" ||
+      (effectiveKind === "overnight" &&
+        syncAllowsOvernightObservationVolume(nowMs, exceptions, pipelineReady));
   if (useCache) cache.extendedQuoteSemantics.set(t, result);
   return result;
 }
@@ -308,10 +371,18 @@ function sessionQualificationVolumeUncached(
   if (observationMs === null) return null;
   if (!isCurrentSurveillanceObservation(observationMs, nowMs, ctx)) return null;
 
-  const kind = resolveObservationSessionKindAt(
+  const pipelineReady = ctx.overnightPipelineReady ?? OVERNIGHT_SCANNER_PIPELINE_READY;
+  const exceptions = ctx.calendarExceptions ?? null;
+  const kind = qualificationObservationKind(
     observationMs,
-    ctx.calendarExceptions ?? null,
+    nowMs,
+    exceptions,
+    pipelineReady,
   );
+  if (kind === null) return null;
+  if (kind === "overnight") {
+    return overnightSessionVolume(t, observationMs, exceptions);
+  }
   return volumeForObservationSession(t, kind);
 }
 
