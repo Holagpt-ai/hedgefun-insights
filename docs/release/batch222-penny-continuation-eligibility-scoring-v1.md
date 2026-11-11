@@ -453,7 +453,7 @@ Each fixture lists **inputs sufficient to reproduce** the expected outcome under
 | F15 | `move=-5%` (signed) | `MOVE_TOO_SMALL` (long-bias gate) |
 | F16 | Generation **current** (`generationSyncMs=now-10s`); `symbolObservationMs=now-400s`, `verifiedExpectedProviderDelayMs=0`, `policy=near_real_time` | `OBSERVATION_STALE` — fresh generation **does not** refresh stale ticker |
 | F17 | `policy=documented_delayed`, `verifiedExpectedProviderDelayMs=900_000` (15m), `symbolObservationMs=now-14m30s` | `qualifies=true`, `dataFreshnessLabel=delayed`, continuation per core signals |
-| F18 | Same as F17 but `symbolObservationMs=now-16m` | `OBSERVATION_STALE` (beyond 15m + 120s) |
+| F18 | Same as F17 but `symbolObservationMs=now-18m` | `OBSERVATION_STALE` (18m > 17m allowed: 15m delay + 120s slack) |
 | F19 | Current generation; `symbolObservationMs` on **prior** surveillance date | `SYMBOL_OBSERVATION_SESSION_MISMATCH` |
 | F20 | `verifiedExpectedProviderDelayMs=null` or `dataDeliveryPolicy=null` | `PROVIDER_DELAY_UNKNOWN` |
 
