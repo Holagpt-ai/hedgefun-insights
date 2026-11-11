@@ -35,6 +35,7 @@ import {
   watchlistSymbolsPlaceholder,
   watchlistSymbolsQueryKey,
 } from "@/lib/watchlist-v2/watchlist-query-isolation";
+import { resolveWatchlistLoadingState } from "@/lib/watchlist-v2/watchlist-loading-state";
 
 export interface V2Row {
   ticker: string;
@@ -426,11 +427,20 @@ export function useWatchlistV2() {
   const watchlistQueryFailed = watchlistQuery.isError;
   const analysisQueryFailed = symbols.length > 0 && analysisQuery.isError;
 
+  const { isListLoading, isSecondaryLoading, isLoading } = resolveWatchlistLoadingState({
+    hasUser: !!userId,
+    symbolsListPending: watchlistQuery.isPending,
+    symbolsListFetched: watchlistQuery.isFetched,
+    symbolCount: symbols.length,
+    analysisPending: analysisQuery.isPending,
+    requestsPending: requestsQuery.isPending,
+  });
+
   return {
     isAuthenticated: !!userId,
-    isLoading:
-      watchlistQuery.isLoading ||
-      (symbols.length > 0 && (analysisQuery.isLoading || requestsQuery.isLoading)),
+    isListLoading,
+    isSecondaryLoading,
+    isLoading,
     watchlistQueryFailed,
     analysisQueryFailed,
     rows,
