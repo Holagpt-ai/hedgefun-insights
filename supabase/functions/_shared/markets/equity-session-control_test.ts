@@ -26,6 +26,17 @@ function at(iso: string, activation: Equity23x5Activation = EQUITY_23X5_DISABLED
   return s;
 }
 
+const MLK_2026: CalendarExceptionRow[] = [
+  {
+    session_date: "2026-01-19",
+    market_status: "closed",
+    regular_open_et: "09:30:00",
+    regular_close_et: "16:00:00",
+    after_hours_end_et: "20:00:00",
+    holiday_name: "Martin Luther King Jr. Day",
+  },
+];
+
 const THANKSGIVING_2026: CalendarExceptionRow[] = [
   {
     session_date: "2026-11-26",
@@ -172,6 +183,14 @@ Deno.test("Batch 215 23x5: daylight-saving transitions use local ET wall time", 
   assertEquals(spring.tradeDate, "2027-03-15");
   assertEquals(at("2027-03-15T00:59:00Z", ACTIVE).phase, "weekend_closure");
   assertEquals(at("2027-03-15T08:00:00Z", ACTIVE).phase, "pre-market"); // Mon 04:00 EDT
+});
+
+Deno.test("Batch 221: Sunday 21:00 ET is holiday_closure when Monday is an exchange holiday", () => {
+  const sundayNight = at("2026-01-19T02:00:00Z", EQUITY_23X5_DISABLED, MLK_2026);
+  assertEquals(sundayNight.phase, "holiday_closure");
+  assertEquals(sundayNight.skipReason, "holiday_closure");
+  assertEquals(sundayNight.holidayName, "Martin Luther King Jr. Day");
+  assertEquals(sundayNight.scanEligible, false);
 });
 
 Deno.test("Batch 215: holidays and early closes from the exception calendar", () => {

@@ -76,11 +76,10 @@ export const EQUITY_23X5_DISABLED: Equity23x5Activation = {
 };
 
 /**
- * Overnight session-volume / qualification semantics are not implemented in
- * the scanner pipeline yet (`session-volume.ts` knows premarket / regular /
- * after-hours only). Until a reviewed batch adds them, an activated overnight
- * phase is classified and reported but does not start generations, so prior
- * after-hours volume can never be republished as overnight activity.
+ * Batch 221 implemented overnight volume / observation semantics in
+ * `session-volume.ts` and `session-sync-context.ts`. Production scanning stays
+ * off until owner activation **and** this flag is flipped after provider +
+ * exchange prerequisites (never in code alone).
  */
 export const OVERNIGHT_SCANNER_PIPELINE_READY = false;
 
@@ -139,6 +138,42 @@ function isTradingDay(schedule: ResolvedSessionSchedule): boolean {
   return schedule.marketStatus !== "closed";
 }
 
+function overnightGeometricTradeDate(
+  parts: NonNullable<ReturnType<typeof easternParts>>,
+  msOfDay: number,
+): string | null {
+  if (msOfDay < OVERNIGHT_CLOSE_MS) return parts.date;
+  if (msOfDay >= OVERNIGHT_OPEN_MS) return addDaysIso(parts.date, 1);
+  return null;
+}
+
+/**
+ * Geometric overnight window (21:00–04:00 ET) mapped to its trading cycle
+ * date. Independent of 23×5 activation — used for observation volume semantics.
+ */
+export function resolveOvernightCycleAt(
+  nowMs: number,
+  exceptions: CalendarExceptionRow[] | null,
+): { tradeDate: string; etDate: string } | null {
+  const parts = easternParts(nowMs);
+  if (!parts) return null;
+  const today = resolveSessionSchedule(parts.date, exceptions);
+  const ms = parts.msOfDay;
+
+  const overnightTradeDate = overnightGeometricTradeDate(parts, ms);
+
+  if (!overnightTradeDate) return null;
+
+  const cycle = overnightTradeDate === parts.date
+    ? today
+    : resolveSessionSchedule(overnightTradeDate, exceptions);
+  const cycleDow = weekdayUtcNoon(overnightTradeDate) ?? 0;
+  const cycleIsWeekday = cycleDow >= 1 && cycleDow <= 5;
+  if (!cycleIsWeekday || !isTradingDay(cycle)) return null;
+
+  return { tradeDate: overnightTradeDate, etDate: parts.date };
+}
+
 export interface ResolveEquitySessionInput {
   nowMs: number;
   /** `null` = calendar unavailable (weekday holidays then cannot be confirmed). */
@@ -176,50 +211,49 @@ export function resolveEquitySession(input: ResolveEquitySessionInput): EquitySe
     };
   }
 
-  // 2. Overnight candidates: before 04:00 belongs to today's cycle; from
-  //    21:00 belongs to tomorrow's cycle.
-  let overnightTradeDate: string | null = null;
-  if (ms < OVERNIGHT_CLOSE_MS) overnightTradeDate = parts.date;
-  else if (ms >= OVERNIGHT_OPEN_MS) overnightTradeDate = addDaysIso(parts.date, 1);
-
-  if (overnightTradeDate) {
-    const cycle = overnightTradeDate === parts.date
-      ? today
-      : resolveSessionSchedule(overnightTradeDate, input.exceptions);
-    const cycleDow = weekdayUtcNoon(overnightTradeDate) ?? 0;
-    const cycleIsWeekday = cycleDow >= 1 && cycleDow <= 5;
-    if (cycleIsWeekday && isTradingDay(cycle)) {
-      if (isOvernightActiveFor(activation, overnightTradeDate)) {
-        return {
-          ...base,
-          holidayName: cycle.holidayName,
-          phase: "overnight",
-          tradeDate: overnightTradeDate,
-          legacySessionKind: "closed",
-          scanEligible: pipelineReady,
-          skipReason: pipelineReady ? null : "overnight_pipeline_not_ready",
-        };
-      }
+  const overnightCycle = resolveOvernightCycleAt(input.nowMs, input.exceptions);
+  if (overnightCycle) {
+    const overnightTradeDate = overnightCycle.tradeDate;
+    const cycle = resolveSessionSchedule(overnightTradeDate, input.exceptions);
+    if (isOvernightActiveFor(activation, overnightTradeDate)) {
       return {
         ...base,
-        phase: "overnight_inactive",
-        tradeDate: null,
+        holidayName: cycle.holidayName,
+        phase: "overnight",
+        tradeDate: overnightTradeDate,
         legacySessionKind: "closed",
-        scanEligible: false,
-        skipReason: "overnight_not_activated",
+        scanEligible: pipelineReady,
+        skipReason: pipelineReady ? null : "overnight_pipeline_not_ready",
       };
     }
-    // Next cycle is a weekend or a holiday: no overnight session.
-    const closure = cycleIsWeekday ? "holiday_closure" : "weekend_closure";
     return {
       ...base,
-      holidayName: cycleIsWeekday ? cycle.holidayName : base.holidayName,
-      phase: closure,
+      phase: "overnight_inactive",
       tradeDate: null,
       legacySessionKind: "closed",
       scanEligible: false,
-      skipReason: closure,
+      skipReason: "overnight_not_activated",
     };
+  }
+
+  const overnightTarget = overnightGeometricTradeDate(parts, ms);
+  if (overnightTarget) {
+    const cycle = overnightTarget === parts.date
+      ? today
+      : resolveSessionSchedule(overnightTarget, input.exceptions);
+    const cycleDow = weekdayUtcNoon(overnightTarget) ?? 0;
+    const cycleIsWeekday = cycleDow >= 1 && cycleDow <= 5;
+    if (cycleIsWeekday && !isTradingDay(cycle)) {
+      return {
+        ...base,
+        holidayName: cycle.holidayName,
+        phase: "holiday_closure",
+        tradeDate: null,
+        legacySessionKind: "closed",
+        scanEligible: false,
+        skipReason: "holiday_closure",
+      };
+    }
   }
 
   // 3. Between 04:00 and 21:00 but outside today's sessions.
