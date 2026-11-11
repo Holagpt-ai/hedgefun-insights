@@ -1,5 +1,6 @@
 import { CONTINUATION_EXCLUDED_INSTRUMENT_TYPES } from "../config/continuation.config.ts";
 import {
+  PENNY_DOLLAR_VOLUME_RELATIVE_TOLERANCE,
   PENNY_MAX_ELIGIBLE_PRICE,
   PENNY_MAX_SPREAD_PCT,
   PENNY_MIN_DOLLAR_VOLUME,
@@ -20,6 +21,29 @@ import type {
 export function pennyPriceEligible(price: number | null | undefined): boolean {
   if (!isPositiveFinite(price)) return false;
   return price! > PENNY_MIN_ELIGIBLE_PRICE && price! < PENNY_MAX_ELIGIBLE_PRICE;
+}
+
+export function computeSignedMovePercentVsPriorClose(
+  price: number,
+  previousRegularClose: number,
+): number | null {
+  if (!isPositiveFinite(price) || !isPositiveFinite(previousRegularClose)) return null;
+  return ((price - previousRegularClose) / previousRegularClose) * 100;
+}
+
+function verifiedSessionVolume(vol: number | null): vol is number {
+  return vol !== null && Number.isFinite(vol) && vol >= 0;
+}
+
+function dollarVolumeMatchesPriceShares(
+  price: number,
+  sessionShares: number,
+  dollarVolume: number,
+): boolean {
+  const expected = price * sessionShares;
+  if (!Number.isFinite(expected) || expected <= 0) return false;
+  const relativeError = Math.abs(dollarVolume - expected) / expected;
+  return relativeError <= PENNY_DOLLAR_VOLUME_RELATIVE_TOLERANCE;
 }
 
 export function evaluatePennyContinuationEligibility(
@@ -60,21 +84,39 @@ export function evaluatePennyContinuationEligibility(
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
 
-  if (
-    input.observationSessionKind === "overnight" &&
-    !OVERNIGHT_SCANNER_PIPELINE_READY
-  ) {
+  if (input.observationSessionKind === "overnight" && !OVERNIGHT_SCANNER_PIPELINE_READY) {
     reasons.push("OVERNIGHT_VOLUME_UNVERIFIED");
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
 
   const sessionVol = input.sessionVolumeShares;
-  if (sessionVol === null) {
-    reasons.push("SESSION_VOLUME_UNAVAILABLE");
+  if (!verifiedSessionVolume(sessionVol)) {
+    reasons.push(sessionVol === null ? "SESSION_VOLUME_UNAVAILABLE" : "INVALID_SESSION_VOLUME");
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
   if (sessionVol < PENNY_MIN_SESSION_SHARES) {
     reasons.push("SESSION_VOLUME_LOW");
+    return { passed: false, reasons, spreadUnavailable, coveragePenalty };
+  }
+
+  const prevClose = input.previousRegularClose;
+  if (!isPositiveFinite(prevClose)) {
+    reasons.push("PRIOR_CLOSE_UNAVAILABLE");
+    return { passed: false, reasons, spreadUnavailable, coveragePenalty };
+  }
+
+  const computedMove = computeSignedMovePercentVsPriorClose(input.price!, prevClose!);
+  const move = input.movePercentVsPriorClose;
+  if (computedMove === null || move === null || !Number.isFinite(move)) {
+    reasons.push(move === null ? "MOVE_UNAVAILABLE" : "INVALID_MOVE");
+    return { passed: false, reasons, spreadUnavailable, coveragePenalty };
+  }
+  if (Math.abs(computedMove - move) > 0.05) {
+    reasons.push("INVALID_MOVE");
+    return { passed: false, reasons, spreadUnavailable, coveragePenalty };
+  }
+  if (move < PENNY_MIN_MOVE_PCT) {
+    reasons.push("MOVE_TOO_SMALL");
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
 
@@ -83,14 +125,8 @@ export function evaluatePennyContinuationEligibility(
     reasons.push("DOLLAR_VOLUME_LOW");
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
-
-  const move = input.movePercentVsPriorClose;
-  if (move === null) {
-    reasons.push("MOVE_UNAVAILABLE");
-    return { passed: false, reasons, spreadUnavailable, coveragePenalty };
-  }
-  if (move < PENNY_MIN_MOVE_PCT) {
-    reasons.push("MOVE_TOO_SMALL");
+  if (!dollarVolumeMatchesPriceShares(input.price!, sessionVol, dollar)) {
+    reasons.push("DOLLAR_VOLUME_INCONSISTENT");
     return { passed: false, reasons, spreadUnavailable, coveragePenalty };
   }
 

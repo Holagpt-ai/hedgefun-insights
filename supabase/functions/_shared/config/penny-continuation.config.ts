@@ -32,6 +32,12 @@ export const PENNY_FLOAT_TURNOVER_TIER_A = 0.5;
 export const PENNY_DOCUMENTED_PROVIDER_DELAY_MS = 900_000;
 export const PENNY_CORE_SIGNALS_REQUIRED = 3;
 
+/** Relative tolerance when cross-checking supplied dollar volume vs price × shares. */
+export const PENNY_DOLLAR_VOLUME_RELATIVE_TOLERANCE = 0.02;
+
+/** Max entries retained in the in-process idempotency cache (per isolate). */
+export const PENNY_IDEM_CACHE_MAX_ENTRIES = 256;
+
 export const PENNY_SCORE_WEIGHTS = {
   sharesPerMinute: 30,
   sessionVolume: 25,

@@ -24,10 +24,12 @@ import {
 const NOW = Date.parse("2026-11-11T15:00:00.000Z");
 
 function freshNearRt(observationMs = NOW): PennyContinuationInput["freshness"] {
+  const generationSyncMs = NOW - 2_000;
   return {
     evaluationClockMs: NOW,
     symbolObservationMs: observationMs,
-    generationSyncIso: new Date(NOW - 2_000).toISOString(),
+    generationSyncMs,
+    generationSyncIso: new Date(generationSyncMs).toISOString(),
     verifiedExpectedProviderDelayMs: 0,
     dataDeliveryPolicy: "near_real_time",
   };
@@ -78,7 +80,9 @@ Deno.test("eligibility — liquidity and signed move", () => {
   assertEquals(lowVol.passed, false);
   assert(lowVol.reasons.includes("SESSION_VOLUME_LOW"));
 
-  const down = evaluatePennyContinuationEligibility(baseInput({ movePercentVsPriorClose: -5 }));
+  const down = evaluatePennyContinuationEligibility(
+    baseInput({ price: 0.74765, movePercentVsPriorClose: -5, dollarVolume: 0.74765 * 2_000_000 }),
+  );
   assertEquals(down.passed, false);
   assert(down.reasons.includes("MOVE_TOO_SMALL"));
 
@@ -125,7 +129,7 @@ Deno.test("CS1–CS5 signals and 3-of-5", () => {
 
 Deno.test("continuation qualification end-to-end", () => {
   clearPennyContinuationLifecycleState();
-  const ok = evaluatePennyContinuationV1(baseInput(), { skipCooldown: true });
+  const ok = evaluatePennyContinuationV1(baseInput());
   assertEquals(ok.qualifies, true);
   assertEquals(ok.continuationQualified, true);
   assertEquals(ok.corePassCount, 5);
@@ -134,7 +138,7 @@ Deno.test("continuation qualification end-to-end", () => {
   const fail = evaluatePennyContinuationV1(
     baseInput({
       observationGenerationId: "gen-fail",
-      freshness: { ...freshNearRt(), symbolObservationMs: NOW + 60_000 },
+      freshness: freshNearRt(NOW - 60_000),
       velocityWindowTiers: ["NONE", "WEAK", "NONE"],
       aboveVwap: "FALSE",
       holdingVwapAfterReclaim: "FALSE",
@@ -143,17 +147,18 @@ Deno.test("continuation qualification end-to-end", () => {
       volumeAccelerationPct: 1,
       radarHasSecondLeg: "FALSE",
     }),
-    { skipCooldown: true },
   );
   assertEquals(fail.continuationQualified, false);
   assert(fail.reasons.includes("CONTINUATION_SIGNALS_INSUFFICIENT"));
 });
 
 Deno.test("freshness — stale ticker on fresh generation", () => {
+  const genMs = NOW - 2_000;
   const staleSym = assessPennySymbolFreshness({
     evaluationClockMs: NOW,
     symbolObservationMs: NOW - 400_000,
-    generationSyncIso: new Date(NOW - 2_000).toISOString(),
+    generationSyncMs: genMs,
+    generationSyncIso: new Date(genMs).toISOString(),
     verifiedExpectedProviderDelayMs: 0,
     dataDeliveryPolicy: "near_real_time",
   });
@@ -200,29 +205,75 @@ Deno.test("volume-first ranking — percent move cannot beat liquidity", () => {
   clearPennyContinuationLifecycleState();
   const liquid = evaluatePennyContinuationV1(
     baseInput({ symbol: "HIGHVOL", sharesPerMinute10m: 50_000, movePercentVsPriorClose: 5 }),
-    { skipCooldown: true },
   );
   const pop = evaluatePennyContinuationV1(
     baseInput({
       symbol: "LOWVOL",
       sharesPerMinute10m: 26_000,
       sessionVolumeShares: 600_000,
-      movePercentVsPriorClose: 40,
+      dollarVolume: 510_000,
+      movePercentVsPriorClose: 5,
     }),
-    { skipCooldown: true },
   );
   const ordered = rankPennyContinuationCandidates([pop, liquid]);
   assertEquals(ordered[0]?.symbol, "HIGHVOL");
   assert(comparePennyContinuationRank(liquid, pop) < 0);
 });
 
-Deno.test("cooldown and idempotent generation key", () => {
+Deno.test("idempotent duplicate observation and fresh re-evaluation", () => {
   clearPennyContinuationLifecycleState();
-  const first = evaluatePennyContinuationV1(baseInput(), { skipCooldown: true });
-  const second = evaluatePennyContinuationV1(baseInput());
-  assertEquals(second.stableRankingKey, first.stableRankingKey);
-  const cooled = evaluatePennyContinuationV1(baseInput({ observationGenerationId: "gen-2" }));
-  assert(cooled.reasons.includes("REQUALIFY_COOLDOWN"));
+  const first = evaluatePennyContinuationV1(baseInput());
+  const duplicate = evaluatePennyContinuationV1(baseInput());
+  assertEquals(duplicate.continuationQualified, first.continuationQualified);
+  assertEquals(duplicate.stableRankingKey, first.stableRankingKey);
+
+  const freshObs = evaluatePennyContinuationV1(
+    baseInput({
+      observationGenerationId: "gen-2",
+      freshness: freshNearRt(NOW - 5_000),
+    }),
+  );
+  assertEquals(freshObs.continuationQualified, true);
+});
+
+Deno.test("publication cooldown does not block qualification", () => {
+  clearPennyContinuationLifecycleState();
+  const a = evaluatePennyContinuationV1(baseInput(), { enforcePublicationCooldown: true });
+  const b = evaluatePennyContinuationV1(
+    baseInput({ observationGenerationId: "gen-2", freshness: freshNearRt(NOW - 10_000) }),
+    { enforcePublicationCooldown: true },
+  );
+  assertEquals(b.continuationQualified, true);
+  assert(b.reasons.includes("REQUALIFY_COOLDOWN"));
+});
+
+Deno.test("cache invalidates when observation goes stale", () => {
+  clearPennyContinuationLifecycleState();
+  const qualified = evaluatePennyContinuationV1(baseInput());
+  assertEquals(qualified.continuationQualified, true);
+  const stale = evaluatePennyContinuationV1(
+    baseInput({
+      freshness: {
+        ...freshNearRt(NOW - 500_000),
+        generationSyncMs: NOW - 2_000,
+        generationSyncIso: new Date(NOW - 2_000).toISOString(),
+      },
+    }),
+  );
+  assertEquals(stale.continuationQualified, false);
+  assert(stale.reasons.includes("OBSERVATION_STALE"));
+});
+
+Deno.test("session rollover evicts prior-session cache", () => {
+  clearPennyContinuationLifecycleState();
+  evaluatePennyContinuationV1(baseInput({ sessionDate: "2026-11-10" }));
+  const nextDay = evaluatePennyContinuationV1(
+    baseInput({
+      sessionDate: "2026-11-11",
+      observationGenerationId: "gen-next",
+    }),
+  );
+  assertEquals(nextDay.continuationQualified, true);
 });
 
 Deno.test("overnight pipeline disabled", () => {
@@ -235,7 +286,7 @@ Deno.test("overnight pipeline disabled", () => {
 
 Deno.test("AM inbox badge payload", () => {
   clearPennyContinuationLifecycleState();
-  const r = evaluatePennyContinuationV1(baseInput(), { skipCooldown: true });
+  const r = evaluatePennyContinuationV1(baseInput());
   const badge = buildPennyAmInboxBadgePayload(r);
   assertEquals(badge?.kind, "penny_continuation_v1");
   assertEquals(badge?.corePassCount, 5);
@@ -244,7 +295,6 @@ Deno.test("AM inbox badge payload", () => {
 Deno.test("near-real-time delayed label — not live when lag > 0", () => {
   const r = evaluatePennyContinuationV1(
     baseInput({ freshness: freshNearRt(NOW - 30_000) }),
-    { skipCooldown: true },
   );
   assertEquals(r.dataFreshnessLabel, "delayed");
   assertEquals(r.qualifies, true);
@@ -252,4 +302,72 @@ Deno.test("near-real-time delayed label — not live when lag > 0", () => {
 
 Deno.test("observation slack constant matches contract", () => {
   assertEquals(PENNY_MAX_OBSERVATION_AGE_MS, 120_000);
+});
+
+Deno.test("eligibility — invalid session volume and move", () => {
+  assert(
+    evaluatePennyContinuationEligibility(baseInput({ sessionVolumeShares: Number.NaN })).reasons.includes(
+      "INVALID_SESSION_VOLUME",
+    ),
+  );
+  assert(
+    evaluatePennyContinuationEligibility(baseInput({ movePercentVsPriorClose: Number.POSITIVE_INFINITY })).reasons
+      .includes("INVALID_MOVE"),
+  );
+  assert(
+    evaluatePennyContinuationEligibility(baseInput({ previousRegularClose: null })).reasons.includes(
+      "PRIOR_CLOSE_UNAVAILABLE",
+    ),
+  );
+  assert(
+    evaluatePennyContinuationEligibility(baseInput({ dollarVolume: 999_999 })).reasons.includes(
+      "DOLLAR_VOLUME_INCONSISTENT",
+    ),
+  );
+});
+
+Deno.test("freshness — generation evidence and future observation", () => {
+  const f = assessPennySymbolFreshness({
+    evaluationClockMs: NOW,
+    symbolObservationMs: NOW + 6 * 60_000,
+    generationSyncMs: NOW,
+    generationSyncIso: new Date(NOW).toISOString(),
+    verifiedExpectedProviderDelayMs: 0,
+    dataDeliveryPolicy: "near_real_time",
+  });
+  assert(f.reasons.includes("INVALID_OBSERVATION_TS"));
+
+  const noGen = assessPennySymbolFreshness({
+    evaluationClockMs: NOW,
+    symbolObservationMs: NOW,
+    verifiedExpectedProviderDelayMs: 0,
+    dataDeliveryPolicy: "near_real_time",
+  });
+  assert(noGen.reasons.includes("GENERATION_EVIDENCE_UNAVAILABLE"));
+
+  const negDelay = assessPennySymbolFreshness({
+    evaluationClockMs: NOW,
+    symbolObservationMs: NOW,
+    generationSyncMs: NOW,
+    generationSyncIso: new Date(NOW).toISOString(),
+    verifiedExpectedProviderDelayMs: -1,
+    dataDeliveryPolicy: "near_real_time",
+  });
+  assert(negDelay.reasons.includes("PROVIDER_DELAY_UNKNOWN"));
+});
+
+Deno.test("CS1 session-ordered windows and CS3 negative HOD", () => {
+  const badSession = evaluatePennyCoreSignals(
+    baseInput({
+      velocityWindows: [
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 120_000 },
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW - 60_000 },
+        { tier: "STRONG", sessionDate: "2026-11-10", windowEndMs: NOW },
+      ],
+    }),
+  );
+  assertEquals(badSession.cs1, "UNKNOWN");
+
+  const negHod = evaluatePennyCoreSignals(baseInput({ distanceFromHodPct: -2 }));
+  assertEquals(negHod.cs3, "FAIL");
 });

@@ -23,7 +23,7 @@
 import { evaluatePennyContinuationV1, rankPennyContinuationCandidates } from "./penny-continuation-v1.ts";
 ```
 
-Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` including `freshness` (policy + delay + symbol observation ms).
+Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` including `freshness` (aligned `generationSyncMs` + `generationSyncIso`, policy, delay, symbol observation ms). `enforcePublicationCooldown` affects notification dedupe only — qualification always re-evaluates. Idempotency cache is bounded (256) and revalidates freshness/expiry per hit.
 
 ## Boundaries (this batch)
 
@@ -33,7 +33,7 @@ Callers supply normalized Radar/Polygon evidence on `PennyContinuationInput` inc
 
 ## Tests
 
-`batch223-penny-continuation_test.ts` — registered in `screener-deno-regressions.yml`.
+`batch223-penny-continuation_test.ts` (21 cases) — registered in `screener-deno-regressions.yml`.
 
 ## Activation gate
 

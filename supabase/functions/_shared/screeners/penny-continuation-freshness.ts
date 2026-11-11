@@ -1,6 +1,6 @@
 import { PENNY_MAX_OBSERVATION_AGE_MS } from "../config/penny-continuation.config.ts";
-import { assessScreenerGenerationSession } from "./screener-session.ts";
-import { surveillanceTradingDateFromMs } from "./screener-session.ts";
+import { PROVIDER_FUTURE_SKEW_MS } from "./session-volume.ts";
+import { assessScreenerGenerationSession, surveillanceTradingDateFromMs } from "./screener-session.ts";
 import type {
   PennyContinuationFreshnessInput,
   PennyDataFreshnessLabel,
@@ -16,57 +16,58 @@ export interface PennyFreshnessAssessment {
   dataFreshnessLabel: PennyDataFreshnessLabel;
 }
 
+function isValidDelayMs(value: number | null): value is number {
+  return value !== null && Number.isFinite(value) && value >= 0;
+}
+
 export function assessPennySymbolFreshness(
   input: PennyContinuationFreshnessInput,
 ): PennyFreshnessAssessment {
-  const reasons: PennyReasonCode[] = [];
   const {
     evaluationClockMs,
     symbolObservationMs,
     verifiedExpectedProviderDelayMs,
     dataDeliveryPolicy,
     generationSyncIso,
+    generationSyncMs,
     enforceLiveSessionGuards = true,
   } = input;
 
-  if (verifiedExpectedProviderDelayMs === null || dataDeliveryPolicy === null) {
-    return {
-      hardFail: true,
-      reasons: ["PROVIDER_DELAY_UNKNOWN"],
-      observedLagMs: null,
-      feedDelayMs: null,
-      allowedMaxLagMs: null,
-      dataFreshnessLabel: "stale",
-    };
+  if (!Number.isFinite(evaluationClockMs)) {
+    return fail(["DATA_UNAVAILABLE"]);
   }
 
-  if (
-    enforceLiveSessionGuards &&
-    generationSyncIso &&
-    assessScreenerGenerationSession({
-      nowMs: evaluationClockMs,
-      referenceIso: generationSyncIso,
-    }) === "previous_during_live"
-  ) {
-    return {
-      hardFail: true,
-      reasons: ["CACHE_GENERATION_STALE"],
-      observedLagMs: null,
-      feedDelayMs: null,
-      allowedMaxLagMs: null,
-      dataFreshnessLabel: "stale",
-    };
+  if (!isValidDelayMs(verifiedExpectedProviderDelayMs) || dataDeliveryPolicy === null) {
+    return fail(["PROVIDER_DELAY_UNKNOWN"]);
   }
 
-  if (symbolObservationMs === null) {
-    return {
-      hardFail: true,
-      reasons: ["MISSING_OBSERVATION_TS"],
-      observedLagMs: null,
-      feedDelayMs: null,
-      allowedMaxLagMs: null,
-      dataFreshnessLabel: "stale",
-    };
+  if (enforceLiveSessionGuards) {
+    const parsedGen = generationSyncIso ? Date.parse(generationSyncIso) : NaN;
+    const genMs = Number.isFinite(generationSyncMs ?? NaN)
+      ? (generationSyncMs as number)
+      : parsedGen;
+    if (!Number.isFinite(genMs) || !generationSyncIso || !Number.isFinite(parsedGen)) {
+      return fail(["GENERATION_EVIDENCE_UNAVAILABLE"]);
+    }
+    if (Math.abs(genMs - parsedGen) > 5_000) {
+      return fail(["GENERATION_EVIDENCE_UNAVAILABLE"]);
+    }
+    if (
+      assessScreenerGenerationSession({
+        nowMs: evaluationClockMs,
+        referenceIso: generationSyncIso,
+      }) === "previous_during_live"
+    ) {
+      return fail(["CACHE_GENERATION_STALE"]);
+    }
+  }
+
+  if (symbolObservationMs === null || !Number.isFinite(symbolObservationMs)) {
+    return fail(["MISSING_OBSERVATION_TS"]);
+  }
+
+  if (symbolObservationMs > evaluationClockMs + PROVIDER_FUTURE_SKEW_MS) {
+    return fail(["INVALID_OBSERVATION_TS"]);
   }
 
   if (enforceLiveSessionGuards) {
@@ -90,6 +91,10 @@ export function assessPennySymbolFreshness(
 
   const observedLagMs = evaluationClockMs - symbolObservationMs;
   const allowedMaxLagMs = verifiedExpectedProviderDelayMs + PENNY_MAX_OBSERVATION_AGE_MS;
+
+  if (observedLagMs < 0) {
+    return fail(["INVALID_OBSERVATION_TS"]);
+  }
 
   if (observedLagMs > allowedMaxLagMs) {
     return {
@@ -116,10 +121,21 @@ export function assessPennySymbolFreshness(
 
   return {
     hardFail: false,
-    reasons,
+    reasons: [],
     observedLagMs,
     feedDelayMs: observedLagMs,
     allowedMaxLagMs,
     dataFreshnessLabel,
+  };
+}
+
+function fail(reasons: PennyReasonCode[]): PennyFreshnessAssessment {
+  return {
+    hardFail: true,
+    reasons,
+    observedLagMs: null,
+    feedDelayMs: null,
+    allowedMaxLagMs: null,
+    dataFreshnessLabel: "stale",
   };
 }

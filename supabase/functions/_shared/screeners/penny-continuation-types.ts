@@ -30,7 +30,13 @@ export type PennyReasonCode =
   | "CONTINUATION_INVALIDATED"
   | "OVERNIGHT_VOLUME_UNVERIFIED"
   | "REQUALIFY_COOLDOWN"
-  | "DATA_UNAVAILABLE";
+  | "DATA_UNAVAILABLE"
+  | "INVALID_SESSION_VOLUME"
+  | "INVALID_MOVE"
+  | "DOLLAR_VOLUME_INCONSISTENT"
+  | "PRIOR_CLOSE_UNAVAILABLE"
+  | "GENERATION_EVIDENCE_UNAVAILABLE"
+  | "INVALID_OBSERVATION_TS";
 
 export type PennyDataFreshnessLabel = "live" | "delayed" | "stale" | null;
 
@@ -70,6 +76,12 @@ export interface PennyContinuationInput {
   holdingVwapAfterReclaim: ContinuationTriState | null;
   lateSessionBroken?: ContinuationTriState | null;
   velocityWindowTiers: PennyVelocityWindowTier[] | null;
+  /** When set, CS1 requires three completed windows on `sessionDate` in ascending `windowEndMs` order. */
+  velocityWindows?: Array<{
+    tier: PennyVelocityWindowTier;
+    sessionDate: string;
+    windowEndMs: number;
+  }> | null;
   volumeAccelerationPct: number | null;
   timeAdjustedRvol: number | null;
   rvolConfidence?: "HIGH" | "MEDIUM" | "LOW" | "UNAVAILABLE";

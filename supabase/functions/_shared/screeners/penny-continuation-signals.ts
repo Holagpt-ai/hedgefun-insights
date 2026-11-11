@@ -11,17 +11,41 @@ import type {
   PennyCoreSignalState,
   PennyCoreSignals,
   PennyReasonCode,
+  PennyVelocityWindowTier,
 } from "./penny-continuation-types.ts";
+
+const VELOCITY_TIERS = new Set<PennyVelocityWindowTier>(["STRONG", "MODERATE", "WEAK", "NONE"]);
 
 function tri(value: ContinuationTriState | null | undefined): ContinuationTriState {
   return value ?? "UNKNOWN";
 }
 
-export function evaluatePennyCoreSignalCS1(
-  velocityWindowTiers: PennyContinuationInput["velocityWindowTiers"],
-): PennyCoreSignalState {
-  if (!velocityWindowTiers || velocityWindowTiers.length < 3) return "UNKNOWN";
-  const windows = velocityWindowTiers.slice(-3);
+function isValidTier(tier: string): tier is PennyVelocityWindowTier {
+  return VELOCITY_TIERS.has(tier as PennyVelocityWindowTier);
+}
+
+export function evaluatePennyCoreSignalCS1(input: PennyContinuationInput): PennyCoreSignalState {
+  if (input.velocityWindows && input.velocityWindows.length >= 3) {
+    const windows = input.velocityWindows.slice(-3);
+    if (windows.length < 3) return "UNKNOWN";
+    for (const w of windows) {
+      if (!isValidTier(w.tier) || w.sessionDate !== input.sessionDate) return "UNKNOWN";
+      if (!Number.isFinite(w.windowEndMs)) return "UNKNOWN";
+    }
+    for (let i = 1; i < windows.length; i++) {
+      if (windows[i].windowEndMs <= windows[i - 1].windowEndMs) return "UNKNOWN";
+    }
+    const latest = windows[2].tier;
+    if (latest === "NONE") return "FAIL";
+    const strongModerate = windows.filter((w) => w.tier === "STRONG" || w.tier === "MODERATE").length;
+    if (strongModerate >= 2) return "PASS";
+    return "FAIL";
+  }
+
+  const tiers = input.velocityWindowTiers;
+  if (!tiers || tiers.length < 3) return "UNKNOWN";
+  const windows = tiers.slice(-3);
+  if (windows.some((t) => !isValidTier(t))) return "UNKNOWN";
   const latest = windows[windows.length - 1];
   if (latest === "NONE") return "FAIL";
   const strongModerate = windows.filter((w) => w === "STRONG" || w === "MODERATE").length;
@@ -42,6 +66,7 @@ export function evaluatePennyCoreSignalCS3(
   distanceFromHodPct: number | null,
 ): PennyCoreSignalState {
   if (!isFiniteNumber(distanceFromHodPct)) return "UNKNOWN";
+  if (distanceFromHodPct < 0) return "FAIL";
   if (distanceFromHodPct <= PENNY_HOD_SIGNAL_MAX_PCT) return "PASS";
   return "FAIL";
 }
@@ -68,7 +93,7 @@ export function evaluatePennyCoreSignalCS5(
 
 export function evaluatePennyCoreSignals(input: PennyContinuationInput): PennyCoreSignals {
   return {
-    cs1: evaluatePennyCoreSignalCS1(input.velocityWindowTiers),
+    cs1: evaluatePennyCoreSignalCS1(input),
     cs2: evaluatePennyCoreSignalCS2(input),
     cs3: evaluatePennyCoreSignalCS3(input.distanceFromHodPct),
     cs4: evaluatePennyCoreSignalCS4(input),
