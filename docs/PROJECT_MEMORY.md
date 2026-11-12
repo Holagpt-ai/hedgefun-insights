@@ -2,6 +2,12 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 12, 2026 (Batch 227 / post–Batch 226 merge)
+
+- **GitHub `main`:** **`6a969e9457909444adce6f582172e40e3f9eee0e`** — Batch **226** Penny persistence/read **merged** (PR **#244**, files only; **not** SQL/Edge activated).
+- **Scanner acceptance:** Latest **owner-verified** publication ledger remains **Nov 10 ~1:30 PM ET** (Batch **191**). **Nov 11–12** sessions **NOT VERIFIED** in repo at Batch 227 close. **ISS-034** / **ISS-024** **OPEN**. **ISS-045** code on `main` (219.3B); **Vercel UI NOT VERIFIED**. **ISS-044** **OPEN** pending **20:00 ET** closed snapshot. Runbook: `docs/release/batch227-scanner-p0-acceptance-v1.md`.
+- **Docs PR #243:** continuity intent **superseded** by Batch 227 handoff — **do not merge #243** without owner review; **do not close automatically**.
+
 ## Verified live checkpoint — November 10, 2026 (~1:30 PM ET, Batch 191 / PR #233)
 
 - **Publication ledger (owner-verified, Lovable read-only DB):** ET session totals Nov **6/9/10** — see `docs/release/batch191-scanner-acceptance-v1.md`. Nov **10** RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted; **Nov 10 AH not accepted**.
@@ -254,7 +260,7 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - `sharesPerMinute10m` requires `verifiedSharesPerMinute10m` on the candidate — Radar `volume_velocity_5m` is diagnostic-only.
 - Combined Polygon+Radar rows require aligned symbols, session kind, and observation clocks; context `observationSessionKind` cannot mask overnight/cross-session truth.
 - Batch **225** projects integration output to `penny_continuation_workflow_handoff_v1` and provides a **client-only** AM Inbox badge matcher — not wired to RPC, hooks, or render paths.
-- Batch **226** (when merged) adds **Penny-only** SQL/RPC contracts and read adapters with generation fencing and revocation — files only until Lovable applies migration and owner authorizes publisher + UI activation.
+- Batch **226** (merged PR **#244**) adds **Penny-only** SQL/RPC contracts and read adapters with generation fencing and revocation — files only until Lovable applies migration and owner authorizes publisher + UI activation.
 - Handoff projection and badge matching **fail closed** on stale evidence, session mismatch, or badge/handoff symbol-date drift; Penny workflow navigation never reads cached `securityId` when the AM Inbox row has none.
 - Symbol observation clocks come from Polygon `updated` or Radar `provider_as_of`, never generation sync time.
 - Production surfacing (Radar emphasis, Inbox persistence, env flags) remains a **separate activation batch**.

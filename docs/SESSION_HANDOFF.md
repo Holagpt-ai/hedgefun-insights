@@ -1,16 +1,20 @@
-# Session handoff — Batch 226 Penny persistence & read V1, November 12, 2026 ET
+# Session handoff — Batch 227 P0 scanner acceptance, November 12, 2026 ET
 
-**Source:** GitHub `main` **`736831e910b0ca57a8ecdb75f900cce8418b0510`** (Batch 225 PR **#242** merged).
+**Source:** GitHub `main` **`6a969e9457909444adce6f582172e40e3f9eee0e`** (Batch **226** PR **#244** squash-merged).
 
-**Batch 226:** Penny-only table/RPC migration (files only), `capture-penny-continuation-handoffs.ts`, radar-bridge Penny actions, client `fetchActivePennyContinuationHandoffs` + `mapPersistedPennyHandoffRows`. Generation sync fencing on upsert; revoke + bounded list. Deno **5** + Vitest **3**. **Not applied** in production; **no** publisher cron, hooks, or AM Inbox UI.
+**Batch 227:** Read-only P0 acceptance reconciliation — **ISS-034**, **ISS-024**, **ISS-044**, **ISS-045**. Runbook `docs/release/batch227-scanner-p0-acceptance-v1.md` with Lovable query pack. **No source fixes** (219.3B ISS-045 already on `main`; Vercel acceptance pending). **PR #243** continuity docs **superseded** by this handoff — **left OPEN** for owner close only. **No deploy.**
 
-**Batch 225 (merged):** Workflow handoff + badge integrity + navigation. **Not production-activated.**
+**Batch 226 (merged):** Penny persistence/read **files only** — migration + RPCs, pair-scoped read, fail-closed upsert. **Not production-activated.**
 
-**Next:** PR review; Lovable migration apply; owner-approved publisher + UI activation batch.
+**Next:** Owner runs Batch 227 queries (Nov 11–12 ledger + feed + ISS-044 snapshot); Vercel for ISS-045; Batch 191 Layers C/D when authorized.
+
+## Archived handoff — Batch 226 Penny persistence & read V1
+
+**Merged:** PR **#244** @ **`6a969e9457909444adce6f582172e40e3f9eee0e`**. Files-only; Lovable migration + publisher/UI activation deferred.
 
 ## Archived handoff — Batch 225 Penny Continuation workflow handoff V1
 
-**Merged:** PR **#242** · Workflow projection + client badge matcher. **No persistence on main until Batch 226 apply.**
+**Merged:** PR **#242** · Workflow projection + client badge matcher.
 
 ## Archived handoff — Batch 224 Penny Continuation integration V1
 

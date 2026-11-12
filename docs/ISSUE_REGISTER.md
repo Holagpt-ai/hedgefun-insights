@@ -2,6 +2,8 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
+**Post-Batch 227 reconciliation (Nov 12, docs only, `main=6a969e94`):** Batch **226** merged. **No new scanner source fix.** **ISS-034/024/044/045** status unchanged — Nov **11–12** production ledger **NOT VERIFIED** here. **ISS-045** awaits Vercel only. Prepared queries: `docs/release/batch227-scanner-p0-acceptance-v1.md`. Open docs PR **#243** **superseded** by Batch 227 continuity — leave **OPEN** until owner closes.
+
 **Post-Batch 191 ledger attestation (Nov 10 ~1:30 PM ET, PR #233):** Owner-verified job ledger (Lovable read-only): Nov **6/9/10** PM/RTH/AH publication counts in runbook; Nov **10** RTH **43** pubs (**7/7** + publish RPC), **4** aborts; feed **107** rows, six tabs **`evaluated`**, Gappers **0** unresolved, NHL **available**. **Nov 10 AH not accepted.** **ISS-034** / **ISS-024** **OPEN** — historical per-tab evaluation + authenticated UI not verified (`docs/release/batch191-scanner-acceptance-v1.md`).
 
 **Post-Batch 217 merge, Nov 9 (historical):** PR #230 merged at `main=79260fbb`; Vercel check passed. Preview-auth #231 later merged to `main`. **ISS-040 OPEN**; **ISS-025** authenticated UI **NOT VERIFIED**.
