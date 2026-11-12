@@ -34,7 +34,7 @@ export async function fetchPennyContinuationHandoffsForCandidates(
 ): Promise<PennyContinuationWorkflowHandoff[]> {
   const normalized = normalizePairs(pairs);
   if (!amSessionDate || !normalized) return [];
-  const { data, error } = await (supabase.rpc as unknown as (
+  const { data, error } = await (supabase.rpc.bind(supabase) as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: Error | null }>)(
