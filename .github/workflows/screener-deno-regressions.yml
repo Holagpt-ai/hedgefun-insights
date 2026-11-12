@@ -14,7 +14,11 @@ on:
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20261112103000_penny_continuation_workflow_handoffs_v1.sql"
       - "supabase/migrations/20260813180000_equities_session_calendar.sql"
+      - "supabase/tests/penny-handoff-pg/**"
+      - "supabase/functions/_shared/am-inbox/penny-continuation-handoff-*"
+      - "supabase/functions/radar-worker-bridge/penny-continuation-handoff-handlers.ts"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
   push:
@@ -31,7 +35,11 @@ on:
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20261112103000_penny_continuation_workflow_handoffs_v1.sql"
       - "supabase/migrations/20260813180000_equities_session_calendar.sql"
+      - "supabase/tests/penny-handoff-pg/**"
+      - "supabase/functions/_shared/am-inbox/penny-continuation-handoff-*"
+      - "supabase/functions/radar-worker-bridge/penny-continuation-handoff-handlers.ts"
       - "src/lib/screeners/**"
       - ".github/workflows/screener-deno-regressions.yml"
 
@@ -149,6 +157,8 @@ jobs:
           supabase/functions/_shared/screeners/batch223-penny-continuation_test.ts
           supabase/functions/_shared/screeners/batch224-penny-continuation-integration_test.ts
           supabase/functions/_shared/screeners/batch225-penny-workflow-handoff_test.ts
+          supabase/functions/_shared/screeners/batch226-penny-persistence_test.ts
+          supabase/functions/_shared/screeners/batch226-penny-persistence-postgres_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts
           supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts
