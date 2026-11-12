@@ -36,6 +36,7 @@ import {
   watchlistSymbolsQueryKey,
 } from "@/lib/watchlist-v2/watchlist-query-isolation";
 import { resolveWatchlistLoadingState } from "@/lib/watchlist-v2/watchlist-loading-state";
+import { invalidateWatchlistClientCaches } from "@/lib/watchlist-v2/invalidate-watchlist-caches";
 
 export interface V2Row {
   ticker: string;
@@ -378,7 +379,7 @@ export function useWatchlistV2() {
       return upper;
     },
     onSuccess: (upper) => {
-      qc.invalidateQueries({ queryKey: ["watchlist-v2"] });
+      invalidateWatchlistClientCaches(qc, userId);
       toast.success(`${upper} added`, { description: "Analysis pending." });
     },
     onError: (err: unknown, symbol) => {
@@ -405,7 +406,7 @@ export function useWatchlistV2() {
       return upper;
     },
     onSuccess: (upper) => {
-      qc.invalidateQueries({ queryKey: ["watchlist-v2"] });
+      invalidateWatchlistClientCaches(qc, userId);
       toast.success(`${upper} removed`);
     },
   });

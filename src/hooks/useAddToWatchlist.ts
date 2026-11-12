@@ -8,6 +8,7 @@ import {
   persistHistoricalWorkflowContext,
   readHistoricalWorkflowContext,
 } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { invalidateWatchlistClientCaches } from "@/lib/watchlist-v2/invalidate-watchlist-caches";
 
 /**
  * Shared watchlist add helper. Mirrors the exact insert pattern used by
@@ -67,10 +68,7 @@ export function useAddToWatchlist() {
       if (workflow) {
         persistHistoricalWorkflowContext(mergeWorkflowSource(workflow, "watchlist"));
       }
-      queryClient.invalidateQueries({ queryKey: ["watchlist"] });
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ["watchlist", user.id] });
-      }
+      invalidateWatchlistClientCaches(queryClient, user?.id);
       toast.success(`${upper} added to watchlist`);
     },
     onError: (err: unknown, symbol) => {

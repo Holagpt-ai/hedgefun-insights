@@ -1,4 +1,14 @@
-# Session handoff — Batch 230 AM Inbox continuation (November 12, 2026 ~2:40 PM ET)
+# Session handoff — Batch 232 Watchlist reliability (November 12, 2026 ~3:35 PM ET)
+
+**Baseline:** GitHub `main` **`d4c77d1f45f7c484bb43123cd8f7ca7ae9fd751e`**.
+
+**Batch 232:** Watchlist V2 cache invalidation on alternate add paths; row workflow links via `workflowSymbolRoutes` + Action Center. Runbook `batch232-watchlist-reliability-v1.md`. **PR pending** — owner review; **not merged**; **no deploy**.
+
+**Recorded acceptance:** Batch **231** scanner ledger (owner-verified): **502** published jobs **Nov 10–12**, complete chunks/publish RPCs, NHL baseline loaded; **Layer C** per-tab job evidence **not verifiable** from DB alone. Batch **232** audit: cold load, RLS, delayed/stale UX **pass** in git; **3 client defects fixed**. Authenticated Watchlist checklist **NOT VERIFIED**.
+
+---
+
+## Archived handoff — Batch 230 AM Inbox continuation (November 12, 2026 ~2:40 PM ET)
 
 **Baseline:** GitHub `main` **`34e8fb739b5b5ff2103c43c7c3ce72662429554a`** (Batch **229** merged).
 

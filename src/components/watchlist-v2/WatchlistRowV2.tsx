@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { touchWorkflowHandoff, workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 import { appendWatchlistDelayDisclosure } from "@/lib/watchlist-v2/watchlist-market-disclosure";
@@ -40,6 +41,7 @@ import {
   BrainCircuit,
   BookOpen,
   Flame,
+  LayoutDashboard,
   LineChart,
   Radar,
   RefreshCw,
@@ -190,6 +192,8 @@ export function WatchlistRowV2({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
+  const workflowRoutes = useMemo(() => workflowSymbolRoutes(row.ticker), [row.ticker]);
+  const touchWorkflow = () => touchWorkflowHandoff(row.ticker, "watchlist");
   const tokens = densityTokens(density);
   const dir = directionBadge(row.direction, row.failureReason);
   const DirIcon = dir.Icon;
@@ -799,40 +803,50 @@ export function WatchlistRowV2({
           {/* Workflow actions — primary on mobile live in drawer when dense */}
           <div className="md:col-span-3 flex flex-wrap gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/ai?symbol=${encodeURIComponent(row.ticker)}`}>
+              <Link to={workflowRoutes?.ai ?? `#`} onClick={touchWorkflow}>
                 <BrainCircuit className="h-3.5 w-3.5 mr-1.5" /> AI Analyst
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/catalyst?symbol=${encodeURIComponent(row.ticker)}`}>
+              <Link to={workflowRoutes?.catalyst ?? `#`} onClick={touchWorkflow}>
                 <Flame className="h-3.5 w-3.5 mr-1.5" /> Catalyst
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/journal?symbol=${encodeURIComponent(row.ticker)}`}>
+              <Link to={workflowRoutes?.journal ?? `#`} onClick={touchWorkflow}>
                 <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Journal
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/screeners?symbol=${encodeURIComponent(row.ticker)}`}>
+              <Link to={workflowRoutes?.screeners ?? `#`} onClick={touchWorkflow}>
                 <Radar className="h-3.5 w-3.5 mr-1.5" /> Screeners
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/alerts?symbol=${encodeURIComponent(row.ticker)}`}>
+              <Link
+                to={`/dashboard/alerts?symbol=${encodeURIComponent(row.ticker)}`}
+                onClick={touchWorkflow}
+              >
                 <Bell className="h-3.5 w-3.5 mr-1.5" /> Alert
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/chart/${encodeURIComponent(row.ticker)}`}>
+              <Link to={workflowRoutes?.chart ?? `#`} onClick={touchWorkflow}>
                 <LineChart className="h-3.5 w-3.5 mr-1.5" /> Chart
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/stocks/${tickerToSlug(row.ticker)}`}>
+              <Link to={workflowRoutes?.stock ?? `#`} onClick={touchWorkflow}>
                 <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Stock page
               </Link>
             </Button>
+            {workflowRoutes?.actionCenter ? (
+              <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
+                <Link to={workflowRoutes.actionCenter} onClick={touchWorkflow}>
+                  <LayoutDashboard className="h-3.5 w-3.5 mr-1.5" /> Action Center
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </div>
       )}
