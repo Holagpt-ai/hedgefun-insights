@@ -253,6 +253,8 @@ Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTE
 - CS1 requires caller-supplied completed `velocityWindows`; Radar participation/tiers alone must not synthesize windows.
 - `sharesPerMinute10m` requires `verifiedSharesPerMinute10m` on the candidate — Radar `volume_velocity_5m` is diagnostic-only.
 - Combined Polygon+Radar rows require aligned symbols, session kind, and observation clocks; context `observationSessionKind` cannot mask overnight/cross-session truth.
+- Batch **225** projects integration output to `penny_continuation_workflow_handoff_v1` and provides a **client-only** AM Inbox badge matcher — not wired to RPC, hooks, or render paths.
+- Handoff projection and badge matching **fail closed** on stale evidence, session mismatch, or badge/handoff symbol-date drift; Penny workflow navigation never reads cached `securityId` when the AM Inbox row has none.
 - Symbol observation clocks come from Polygon `updated` or Radar `provider_as_of`, never generation sync time.
 - Production surfacing (Radar emphasis, Inbox persistence, env flags) remains a **separate activation batch**.
 
