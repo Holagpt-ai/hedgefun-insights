@@ -13,12 +13,19 @@ import { VolumeLeaders } from "@/components/action-center/VolumeLeaders";
 import { CatalystWatch } from "@/components/action-center/CatalystWatch";
 import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot";
 import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
-import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
+import { ScannerHandoffBanner } from "@/components/scanner-intelligence/ScannerHandoffBanner";
 import { selectActionCenterHandoffRows } from "@/lib/action-center/handoff-context";
 import {
   formatMarketEvidenceContextLine,
   readMarketEvidenceHandoff,
 } from "@/lib/daily-intelligence/market-evidence-handoff";
+import {
+  actionCenterWorkflowTileHref,
+  readActionCenterHandoffQuery,
+} from "@/lib/action-center/workflow-tile-routes";
+import { handoffIdentity, historicalWorkflowMatchesRequest } from "@/lib/historical-workflow/historical-handoff-identity";
+import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { touchWorkflowHandoff } from "@/lib/historical-workflow/workflow-symbol-routes";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -86,7 +93,16 @@ export default function ActionCenter() {
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
   const [searchParams] = useSearchParams();
-  const handoff = readScannerHandoffQuery(searchParams);
+  const handoff = readActionCenterHandoffQuery(searchParams);
+  const handoffSymbol = handoff?.symbol ?? null;
+  const touchWorkflowFromActionCenter = () => {
+    if (!handoffSymbol) return;
+    const identity = handoffIdentity(handoffSymbol, handoff?.securityId ?? null);
+    if (!identity) return;
+    const session = readHistoricalWorkflowContext(handoffSymbol);
+    if (session && !historicalWorkflowMatchesRequest(identity, session)) return;
+    touchWorkflowHandoff(handoffSymbol, "action_center");
+  };
 
   const leaderSymbols = useMemo(
     () => ac.leaders.map((l) => l.symbol.toUpperCase()),
@@ -110,12 +126,12 @@ export default function ActionCenter() {
 
       <ScannerHandoffBanner
         matched={
-          handoff === null
+          handoffSymbol === null
             ? null
             : ac.loading.alerts || ac.loading.leaders
               ? null
-              : ac.feed.some((item) => item.symbol.toUpperCase() === handoff.symbol) ||
-                ac.leaders.some((row) => row.symbol.toUpperCase() === handoff.symbol)
+              : ac.feed.some((item) => item.symbol.toUpperCase() === handoffSymbol) ||
+                ac.leaders.some((row) => row.symbol.toUpperCase() === handoffSymbol)
         }
       />
       <HandoffContext
@@ -201,7 +217,11 @@ export default function ActionCenter() {
       <section aria-label="Catalyst Watch">
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h2 className="text-lg font-semibold">Catalyst Watch</h2>
-          <Link to="/dashboard/catalyst" className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1">
+          <Link
+            to={actionCenterWorkflowTileHref("/dashboard/catalyst", handoff)}
+            onClick={touchWorkflowFromActionCenter}
+            className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1"
+          >
             View Catalyst <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -228,7 +248,8 @@ export default function ActionCenter() {
           {WORKFLOW_LINKS.map((w) => (
             <Link
               key={w.route}
-              to={w.route}
+              to={actionCenterWorkflowTileHref(w.route, handoff)}
+              onClick={handoffSymbol ? touchWorkflowFromActionCenter : undefined}
               className="text-left rounded-xl border bg-card p-4 hover:border-accent-blue hover:bg-accent-blue-light/30 transition-colors flex flex-col gap-1"
             >
               <div className="flex items-center justify-between">

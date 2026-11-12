@@ -2,6 +2,11 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 12, 2026 (Batch 233 Journal + Action Center)
+
+- **GitHub `main`:** **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** PR **#250** merged).
+- **Batch 233 (PR pending):** **ISS-048** — Action Center workflow tiles + Journal Screeners handoff — **fixed in git**, not deployed. Journal **188** / handoff **173** contracts **pass** in CI-local tests; authenticated acceptance **NOT VERIFIED**.
+
 ## Verified live checkpoint — November 12, 2026 (Batch 232 Watchlist + Batch 231 scanner ledger)
 
 - **GitHub `main`:** **`d4c77d1f45f7c484bb43123cd8f7ca7ae9fd751e`** (Batch **230**/**229** on earlier commits; Batch **232** branches from this SHA).

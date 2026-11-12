@@ -47,6 +47,39 @@ describe("Action Center generic workflow tiles", () => {
     expect(snapshot.getAttribute("href")).toBe("/dashboard/watchlist");
   });
 
+  it("parameterizes Continue Workflow tiles when opened with ?symbol=", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/action-center?symbol=NVDA"]}>
+        <ActionCenter />
+      </MemoryRouter>,
+    );
+    const journal = screen.getByRole("link", {
+      name: /journal\s+log what worked/i,
+    }) as HTMLAnchorElement;
+    expect(journal.getAttribute("href")).toContain("symbol=NVDA");
+    const watchlist = screen.getByRole("link", {
+      name: /watchlist\s+check the names/i,
+    }) as HTMLAnchorElement;
+    expect(watchlist.getAttribute("href")).toContain("symbol=NVDA");
+  });
+
+  it("preserves URL securityId on workflow tiles when session storage is empty", () => {
+    sessionStorage.clear();
+    const sec = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    render(
+      <MemoryRouter
+        initialEntries={[`/dashboard/action-center?symbol=NVDA&securityId=${encodeURIComponent(sec)}`]}
+      >
+        <ActionCenter />
+      </MemoryRouter>,
+    );
+    const journal = screen.getByRole("link", {
+      name: /journal\s+log what worked/i,
+    }) as HTMLAnchorElement;
+    expect(journal.getAttribute("href")).toContain("symbol=NVDA");
+    expect(journal.getAttribute("href")).toContain(`securityId=${encodeURIComponent(sec)}`);
+  });
+
   it("uses Current Summary and does not claim a live command hub", () => {
     render(
       <MemoryRouter>

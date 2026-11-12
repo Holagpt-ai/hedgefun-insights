@@ -26,12 +26,7 @@ export function JournalTradeWorkflowLinks({ symbol }: { symbol: string }) {
       <Link to={routes.watchlist} onClick={touch} className={chipClass} aria-label={`Watchlist for ${routes.symbol}`}>
         <Star className="h-3 w-3" /> Watchlist
       </Link>
-      <Link
-        to={`/dashboard/screeners?symbol=${encodeURIComponent(routes.symbol)}`}
-        onClick={touch}
-        className={chipClass}
-        aria-label="Screeners"
-      >
+      <Link to={routes.screeners} onClick={touch} className={chipClass} aria-label="Screeners">
         <SlidersHorizontal className="h-3 w-3" /> Screeners
       </Link>
       <Link to={routes.actionCenter} onClick={touch} className={chipClass} aria-label="Action Center">
