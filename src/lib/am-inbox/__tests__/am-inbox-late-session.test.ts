@@ -312,6 +312,9 @@ describe("AM Inbox late-session handoff V1", () => {
     const withId = amInboxWorkflowRoutes("ID", SECURITY_ID);
     expect(withId?.ai).toContain("securityId=");
     expect(amInboxNavigatePath("journal", "ID", SECURITY_ID)).toContain("symbol=ID");
+    expect(amInboxNavigatePath("screeners", "ID", SECURITY_ID)).toContain("symbol=ID");
+    expect(amInboxNavigatePath("action_center", "ID", SECURITY_ID)).toContain("symbol=ID");
+    expect(amInboxNavigatePath("screeners", "ID", SECURITY_ID)).not.toBe("/dashboard/screeners");
   });
 
   it("collapses same-symbol late-session handoffs into one grouped card", () => {

@@ -1,12 +1,16 @@
 import { useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { validateWorkspace } from "@/lib/pre-market/builders";
 import { mergeWorkspaceLastKnownGood } from "@/lib/pre-market/last-known-good";
 import type { PreMarketWorkspaceResponse } from "@/types/pre-market";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 const REFRESH_MS = 60_000;
+
+/** Bounded first-load wait — mirrors late-session handoff timeout (ISS-025). */
+export const PRE_MARKET_WORKSPACE_FETCH_TIMEOUT_MS = 25_000;
 
 export interface UsePreMarketWorkspaceResult {
   /** Last successful, contract-validated payload (kept during background refetch). */
@@ -24,6 +28,26 @@ export interface UsePreMarketWorkspaceResult {
   isAuthenticated: boolean;
 }
 
+export async function fetchPreMarketWorkspace(
+  queryClient: QueryClient,
+  queryKey: readonly ["pre-market-workspace", string | null],
+): Promise<PreMarketWorkspaceResponse> {
+  return withTimeout(
+    (async () => {
+      const { data, error } = await supabase.functions.invoke("get-pre-market-workspace", {
+        body: {},
+      });
+      if (error) throw new Error("WORKSPACE_UNAVAILABLE");
+      const validated = validateWorkspace(data);
+      if (!validated) throw new Error("WORKSPACE_CONTRACT_INVALID");
+      const previous = queryClient.getQueryData<PreMarketWorkspaceResponse>(queryKey);
+      return mergeWorkspaceLastKnownGood(previous ?? null, validated);
+    })(),
+    PRE_MARKET_WORKSPACE_FETCH_TIMEOUT_MS,
+    "get-pre-market-workspace",
+  );
+}
+
 export function usePreMarketWorkspace(): UsePreMarketWorkspaceResult {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -39,16 +63,7 @@ export function usePreMarketWorkspace(): UsePreMarketWorkspaceResult {
     refetchOnWindowFocus: true,
     staleTime: 30_000,
     retry: 1,
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-pre-market-workspace", {
-        body: {},
-      });
-      if (error) throw new Error("WORKSPACE_UNAVAILABLE");
-      const validated = validateWorkspace(data);
-      if (!validated) throw new Error("WORKSPACE_CONTRACT_INVALID");
-      const previous = queryClient.getQueryData<PreMarketWorkspaceResponse>(queryKey);
-      return mergeWorkspaceLastKnownGood(previous ?? null, validated);
-    },
+    queryFn: () => fetchPreMarketWorkspace(queryClient, queryKey),
   });
 
   const retry = useCallback(() => {
