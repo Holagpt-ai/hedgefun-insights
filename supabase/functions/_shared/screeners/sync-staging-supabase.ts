@@ -174,6 +174,22 @@ export class SupabaseSyncStagingStore implements SyncStagingStore {
     return best;
   }
 
+  async findExpiredFinalizeLeaseJobs(
+    nowMs: number,
+  ): Promise<StagedGenerationJob[]> {
+    const nowIso = new Date(nowMs).toISOString();
+    const res = await this.sb
+      .from(TABLE)
+      .select(STAGING_JOB_PREFLIGHT_SELECT)
+      .eq("status", "finalizing")
+      .is("publish_rows_inserted", null)
+      .not("finalize_lease_expires_at", "is", null)
+      .lt("finalize_lease_expires_at", nowIso)
+      .limit(16);
+    if (res.error || !res.data) return [];
+    return (res.data as StagingJobRow[]).map((row) => jobFromRow(row));
+  }
+
   async releaseFinalizeLeasesForRetry(
     input: ReleaseFinalizeLeaseCas,
   ): Promise<boolean> {

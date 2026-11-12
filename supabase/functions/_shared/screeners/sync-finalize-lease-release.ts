@@ -2,7 +2,8 @@ import type { SyncStagingStore } from "./sync-staging-memory.ts";
 
 export type ReleaseFinalizeLeaseAuthorization =
   | "in_process_finalize_exception"
-  | "dispatch_finalize_failed";
+  | "dispatch_finalize_failed"
+  | "expired_finalize_lease";
 
 export type ReleaseFinalizeLeaseCas = {
   jobId: string;
