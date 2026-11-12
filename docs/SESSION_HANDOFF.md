@@ -1,16 +1,22 @@
-# Session handoff — Batch 226 Penny persistence & read V1, November 12, 2026 ET
+# Session handoff — Batch 227 P0 scanner acceptance, November 12, 2026 ET
 
-**Source:** GitHub `main` **`736831e910b0ca57a8ecdb75f900cce8418b0510`** (Batch 225 PR **#242** merged).
+**Source:** GitHub `main` **`6a969e9457909444adce6f582172e40e3f9eee0e`** (Batch **226** PR **#244** squash-merged).
 
-**Batch 226:** Penny-only table/RPC migration (files only), `capture-penny-continuation-handoffs.ts`, radar-bridge Penny actions, client `fetchActivePennyContinuationHandoffs` + `mapPersistedPennyHandoffRows`. Generation sync fencing on upsert; revoke + bounded list. Deno **5** + Vitest **3**. **Not applied** in production; **no** publisher cron, hooks, or AM Inbox UI.
+**Batch 227 (PR #245):** P0 acceptance docs — **read-only Lovable evidence Nov 11–12 ~11:00 AM ET** recorded in runbook. **ISS-034/024/044/045 remain OPEN.** **No source fixes.** **Vercel production deployment identity NOT VERIFIED.** **PR #243** superseded in intent — **left OPEN**. **No deploy.**
 
-**Batch 225 (merged):** Workflow handoff + badge integrity + navigation. **Not production-activated.**
+**Verified snapshot (Nov 12 ~11:00 AM ET):** Ledger — Nov **11** PM **66/0**, RTH **71/2**, AH **48/0**; Nov **12** PM **66/0**, RTH **16/1** (partial). Feed **104** rows, six tabs **`evaluated`**, Gappers **0**, NHL **available**. Radar closed snapshot **0**; candidates **176** (Nov 12). Opening aborts: **09:30** `finalize_stage:claim_finalize_lease` (Nov 11–12); **Nov 11 09:45** `prior_generation_retained`. **Nov 10 Batch 191 ledger preserved** (AH not accepted).
 
-**Next:** PR review; Lovable migration apply; owner-approved publisher + UI activation batch.
+**Batch 226 (merged):** Penny persistence/read **files only** — **not production-activated.**
+
+**Next:** Nov **12** full RTH/AH ledger sign-off; **ISS-044** **20:00 ET** closed park when eligible; verify **Vercel prod SHA** + ISS-045 UI; Batch **191** Layers **C/D**.
+
+## Archived handoff — Batch 226 Penny persistence & read V1
+
+**Merged:** PR **#244** @ **`6a969e9457909444adce6f582172e40e3f9eee0e`**. Files-only; Lovable migration + publisher/UI activation deferred.
 
 ## Archived handoff — Batch 225 Penny Continuation workflow handoff V1
 
-**Merged:** PR **#242** · Workflow projection + client badge matcher. **No persistence on main until Batch 226 apply.**
+**Merged:** PR **#242** · Workflow projection + client badge matcher.
 
 ## Archived handoff — Batch 224 Penny Continuation integration V1
 
