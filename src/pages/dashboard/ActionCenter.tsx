@@ -19,6 +19,8 @@ import {
   formatMarketEvidenceContextLine,
   readMarketEvidenceHandoff,
 } from "@/lib/daily-intelligence/market-evidence-handoff";
+import { actionCenterWorkflowTileHref } from "@/lib/action-center/workflow-tile-routes";
+import { touchWorkflowHandoff } from "@/lib/historical-workflow/workflow-symbol-routes";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -87,6 +89,10 @@ export default function ActionCenter() {
   const ac = useActionCenter();
   const [searchParams] = useSearchParams();
   const handoff = readScannerHandoffQuery(searchParams);
+  const handoffSymbol = handoff?.symbol ?? null;
+  const touchWorkflowFromActionCenter = () => {
+    if (handoffSymbol) touchWorkflowHandoff(handoffSymbol, "action_center");
+  };
 
   const leaderSymbols = useMemo(
     () => ac.leaders.map((l) => l.symbol.toUpperCase()),
@@ -201,7 +207,11 @@ export default function ActionCenter() {
       <section aria-label="Catalyst Watch">
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h2 className="text-lg font-semibold">Catalyst Watch</h2>
-          <Link to="/dashboard/catalyst" className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1">
+          <Link
+            to={actionCenterWorkflowTileHref("/dashboard/catalyst", handoffSymbol)}
+            onClick={touchWorkflowFromActionCenter}
+            className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1"
+          >
             View Catalyst <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -228,7 +238,8 @@ export default function ActionCenter() {
           {WORKFLOW_LINKS.map((w) => (
             <Link
               key={w.route}
-              to={w.route}
+              to={actionCenterWorkflowTileHref(w.route, handoffSymbol)}
+              onClick={handoffSymbol ? touchWorkflowFromActionCenter : undefined}
               className="text-left rounded-xl border bg-card p-4 hover:border-accent-blue hover:bg-accent-blue-light/30 transition-colors flex flex-col gap-1"
             >
               <div className="flex items-center justify-between">

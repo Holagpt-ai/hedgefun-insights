@@ -1,10 +1,20 @@
-# Session handoff — Batch 232 Watchlist reliability (November 12, 2026 ~3:35 PM ET)
+# Session handoff — Batch 233 Journal & Action Center workflow (November 12, 2026 ~4:45 PM ET)
+
+**Baseline:** GitHub `main` **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** merged).
+
+**Batch 233:** Action Center Continue Workflow tiles preserve handoff symbol/`securityId`; Journal trade Screeners link uses `routes.screeners`. Runbook `batch233-journal-action-center-reliability-v1.md`. **PR pending** — owner review; **not merged**; **no deploy**.
+
+**Recorded acceptance:** Batch **188** / **173** / **16** contracts **pass** in git; **2 workflow defects fixed** (**ISS-048**). Authenticated Journal + Action Center checklist **NOT VERIFIED**.
+
+---
+
+## Archived handoff — Batch 232 Watchlist reliability (November 12, 2026 ~3:35 PM ET)
 
 **Baseline:** GitHub `main` **`d4c77d1f45f7c484bb43123cd8f7ca7ae9fd751e`**.
 
-**Batch 232:** Watchlist V2 cache invalidation on alternate add paths; row workflow links via `workflowSymbolRoutes` + Action Center. Runbook `batch232-watchlist-reliability-v1.md`. **PR #250** @ **`92f30eb2`** — owner review; **not merged**; **no deploy**.
+**Batch 232:** Watchlist V2 cache invalidation on alternate add paths; row workflow links via `workflowSymbolRoutes` + Action Center. Runbook `batch232-watchlist-reliability-v1.md`. **PR #250** merged @ **`c8a1296f`**.
 
-**Recorded acceptance:** Batch **231** scanner ledger (owner-verified): **502** published jobs **Nov 10–12**, complete chunks/publish RPCs, NHL baseline loaded; **Layer C** per-tab job evidence **not verifiable** from DB alone. Batch **232** audit: cold load, RLS, delayed/stale UX **pass** in git; **3 client defects fixed**. Authenticated Watchlist checklist **NOT VERIFIED**.
+**Recorded acceptance:** Batch **231** scanner ledger **502** jobs Nov 10–12; Batch **232** **ISS-047** fixed in git. Authenticated Watchlist checklist **NOT VERIFIED**.
 
 ---
 

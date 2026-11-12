@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 233 — Journal & Action Center workflow, PR pending)
+
+- `actionCenterWorkflowTileHref` keeps ticker (and session `securityId`) on Continue Workflow tiles and Catalyst header when Action Center opens with `?symbol=`.
+- `JournalTradeWorkflowLinks` Screeners uses `workflowSymbolRoutes.screeners`. Journal batch **188** + handoff batch **173** regressions **pass**. Authenticated UI **NOT VERIFIED**.
+
 ## 2026-11-12 (Batch 232 — Watchlist V2 reliability, PR #250)
 
 - Shared `invalidateWatchlistClientCaches` after watchlist inserts from `useAddToWatchlist`, `StockCtaButtons`, and `useWatchlistV2` mutations so **watchlist-v2** refetches without full page reload.
