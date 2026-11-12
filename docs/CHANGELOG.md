@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 229 — Catalyst upcoming earnings counter, PR pending)
+
+- Dedicated summary queries for **Upcoming Earnings** and **Reported in Last 24h** (no longer derived from 500-row asc feed). ET date/time rules, `provider_reported` only. **ISS-046** opened. **Vercel** deploy required for production fix; no backend changes.
+
 ## 2026-11-12 (Batch 228 — controlled Lovable Edge deployment)
 
 - Owner explicitly approved **one-time Git-snapshot-only rollback exception** because previous Edge revision/rollback pointer unavailable. Git source fallback: `e7a3eaeeceec1310e941d263dd5df63fd3b76998` (new deploy needed; **not exact previous binary**).

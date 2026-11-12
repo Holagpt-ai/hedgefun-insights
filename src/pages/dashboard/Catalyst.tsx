@@ -13,12 +13,15 @@ import {
   useToggleCatalystReviewed,
   useCatalystLastSync,
 } from "@/hooks/useCatalystEvents";
+import {
+  useCatalystPublishedLast24Count,
+  useCatalystUpcomingEarningsCount,
+} from "@/hooks/useCatalystSummaryCounts";
 import { useCatalystHistoricalContext } from "@/hooks/useCatalystHistoricalContext";
 import { CatalystEventRow } from "@/components/catalyst/CatalystEventRow";
 import { CatalystDetailPanel } from "@/components/catalyst/CatalystDetailPanel";
 import {
   type WorkflowFilter,
-  isFuture,
   isRecent,
   normalizeSymbol,
 } from "@/lib/catalyst/parsers";
@@ -124,12 +127,20 @@ export default function Catalyst() {
   const [searchInput, setSearchInput] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
+  const catalystUpcomingDays = 30;
   const { data: rawEvents, isPending, error } = useCatalystEvents({
     symbol: activeSymbol,
     recentDays: 3,
-    upcomingDays: 30,
+    upcomingDays: catalystUpcomingDays,
     limit: 500,
     eventDateOrder: activeSymbol ? "desc" : "asc",
+  });
+  const { data: upcomingEarningsCount } = useCatalystUpcomingEarningsCount({
+    symbol: activeSymbol,
+    upcomingDays: catalystUpcomingDays,
+  });
+  const { data: last24Count } = useCatalystPublishedLast24Count({
+    symbol: activeSymbol,
   });
   const { data: userState } = useCatalystUserState();
   const { data: lastSync } = useCatalystLastSync();
@@ -245,16 +256,23 @@ export default function Catalyst() {
   );
 
   const summary = useMemo(() => {
-    const upcomingEarnings = events.filter(
-      (e) => e.event_type === "earnings" && isFuture(e, sessionNowMs),
-    ).length;
     const recentCompany = events.filter(
       (e) => e.event_type !== "earnings" && isRecent(e, sessionNowMs, 72),
     ).length;
     const watchlistCatalysts = watchlistCatalystCounts(events, watchlistSymbols);
-    const last24 = events.filter((e) => isRecent(e, sessionNowMs, 24)).length;
-    return { upcomingEarnings, recentCompany, watchlistCatalysts, last24 };
-  }, [events, watchlistSymbols, sessionNowMs]);
+    const upcomingEarnings = upcomingEarningsCount?.error
+      ? null
+      : (upcomingEarningsCount?.count ?? null);
+    const upcomingEarningsCapped = upcomingEarningsCount?.truncated === true;
+    const last24 = last24Count?.error ? null : (last24Count?.count ?? null);
+    return {
+      upcomingEarnings,
+      upcomingEarningsCapped,
+      recentCompany,
+      watchlistCatalysts,
+      last24,
+    };
+  }, [events, watchlistSymbols, sessionNowMs, upcomingEarningsCount, last24Count]);
 
   const clearSymbolFilter = () => {
     const next = new URLSearchParams(searchParams);
@@ -338,7 +356,13 @@ export default function Catalyst() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <SummaryCard label="Upcoming Earnings" value={summary.upcomingEarnings} />
+        <SummaryCard
+          label="Upcoming Earnings"
+          value={summary.upcomingEarnings}
+          sublabel={
+            summary.upcomingEarningsCapped ? "at least (scan capped)" : undefined
+          }
+        />
         <SummaryCard label="Recent Company Events" value={summary.recentCompany} />
         <SummaryCard
           label={WATCHLIST_SUMMARY_LABEL}
