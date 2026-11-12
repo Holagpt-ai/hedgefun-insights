@@ -10988,38 +10988,11 @@ export type Database = {
         Returns: number
       }
       penny_continuation_handoff_list_active_v1: {
-        Args: { p_am_session_date: string; p_limit?: number }
-        Returns: {
-          badge_payload: Json
-          capture_at: string
-          continuation_qualified: boolean
-          created_at: string
-          generation_sync_at: string
-          generation_sync_ms: number
-          handoff_version: string
-          id: string
-          integration_version: string
-          model_version: string
-          observation_generation_id: string
-          publication_idempotency_key: string
-          publication_suppressed: boolean
-          qualification_evidence_kind: string
-          rank_snapshot: Json
-          revoked_at: string | null
-          security_id: string | null
-          source_session_date: string
-          symbol: string
-          symbol_observation_at: string | null
-          updated_at: string
-          valid_from_session_date: string
-          valid_through_session_date: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "penny_continuation_workflow_handoffs"
-          isOneToOne: false
-          isSetofReturn: true
+        Args: {
+          p_am_session_date: string
+          p_pairs: Json
         }
+        Returns: Json
       }
       penny_continuation_handoff_revoke_v1: {
         Args: { p_source_session_date: string; p_symbol: string }

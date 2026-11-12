@@ -44,11 +44,11 @@ CREATE INDEX IF NOT EXISTS penny_cont_handoffs_source_session_idx
 
 ALTER TABLE public.penny_continuation_workflow_handoffs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY penny_cont_handoffs_select_authenticated
-  ON public.penny_continuation_workflow_handoffs
-  FOR SELECT
-  TO authenticated
-  USING (revoked_at IS NULL);
+-- Direct authenticated reads are denied; use penny_continuation_handoff_list_active_v1 only.
+REVOKE ALL ON TABLE public.penny_continuation_workflow_handoffs FROM PUBLIC;
+REVOKE ALL ON TABLE public.penny_continuation_workflow_handoffs FROM authenticated;
+REVOKE ALL ON TABLE public.penny_continuation_workflow_handoffs FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.penny_continuation_workflow_handoffs TO service_role;
 
 COMMENT ON TABLE public.penny_continuation_workflow_handoffs IS
   'Versioned Penny Continuation AM Inbox workflow handoffs. Evidence-only; not a ranking store.';
@@ -57,42 +57,122 @@ CREATE OR REPLACE FUNCTION public.penny_continuation_handoff_upsert_v1(p_row jso
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_symbol text;
   v_session date;
   v_gen_ms bigint;
+  v_gen_at timestamptz;
   v_idem text;
+  v_evidence_kind text;
+  v_valid_from date;
+  v_valid_through date;
+  v_capture_at timestamptz;
+  v_obs_at timestamptz;
+  v_badge jsonb;
   v_existing record;
+  v_row_count integer;
+  v_cont_qualified boolean;
 BEGIN
-  IF p_row IS NULL THEN
+  IF p_row IS NULL OR jsonb_typeof(p_row) <> 'object' THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
 
   v_symbol := upper(trim(coalesce(p_row->>'symbol', '')));
-  IF v_symbol = '' THEN
+  IF v_symbol = '' OR length(v_symbol) > 16 THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
 
-  IF p_row->>'source_session_date' IS NULL OR p_row->>'publication_idempotency_key' IS NULL THEN
+  IF p_row->>'source_session_date' IS NULL
+     OR p_row->>'source_session_date' !~ '^\d{4}-\d{2}-\d{2}$' THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
-
   v_session := (p_row->>'source_session_date')::date;
+
+  IF p_row->>'handoff_version' IS DISTINCT FROM 'penny_continuation_workflow_handoff_v1'
+     OR p_row->>'integration_version' IS DISTINCT FROM 'penny_continuation_integration_v1'
+     OR p_row->>'model_version' IS DISTINCT FROM 'penny_continuation_v1' THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+
+  IF NOT (p_row ? 'continuation_qualified') THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+  BEGIN
+    v_cont_qualified := (p_row->>'continuation_qualified')::boolean;
+  EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END;
+  IF v_cont_qualified IS NOT TRUE THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+
   v_idem := nullif(trim(p_row->>'publication_idempotency_key'), '');
-  IF v_idem IS NULL THEN
+  IF v_idem IS NULL OR length(v_idem) > 512 THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+  IF position(v_symbol in v_idem) < 1 OR position((v_session::text) in v_idem) < 1 THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
 
-  v_gen_ms := nullif(p_row->>'generation_sync_ms', '')::bigint;
-  IF v_gen_ms IS NULL OR v_gen_ms < 0 THEN
+  BEGIN
+    v_gen_ms := nullif(p_row->>'generation_sync_ms', '')::bigint;
+    v_gen_at := (p_row->>'generation_sync_at')::timestamptz;
+    v_capture_at := (p_row->>'capture_at')::timestamptz;
+    v_obs_at := nullif(p_row->>'symbol_observation_at', '')::timestamptz;
+    v_valid_from := (p_row->>'valid_from_session_date')::date;
+    v_valid_through := (p_row->>'valid_through_session_date')::date;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END;
+
+  IF v_gen_ms IS NULL OR v_gen_ms < 0 OR v_gen_at IS NULL OR v_capture_at IS NULL THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+  IF abs((extract(epoch from v_gen_at) * 1000)::bigint - v_gen_ms) > 5000 THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+  IF v_obs_at IS NOT NULL AND v_obs_at > v_capture_at THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
 
-  SELECT *
+  v_evidence_kind := nullif(trim(p_row->>'qualification_evidence_kind'), '');
+  IF v_evidence_kind IS NULL OR v_evidence_kind NOT IN ('live_market', 'prior_session_capture') THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+
+  IF v_valid_from IS NULL OR v_valid_through IS NULL OR v_valid_from > v_valid_through THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+  IF v_evidence_kind = 'live_market' THEN
+    IF v_valid_from <> v_session OR v_valid_through <> v_session THEN
+      RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+    END IF;
+  ELSE
+    IF v_valid_from <= v_session OR v_valid_through <> v_valid_from THEN
+      RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+    END IF;
+  END IF;
+
+  v_badge := p_row->'badge_payload';
+  IF v_badge IS NULL
+     OR jsonb_typeof(v_badge) <> 'object'
+     OR v_badge->>'kind' IS DISTINCT FROM 'penny_continuation_v1'
+     OR v_badge->>'model_version' IS DISTINCT FROM 'penny_continuation_v1'
+     OR (v_badge->>'continuationQualified')::boolean IS NOT TRUE
+     OR upper(trim(coalesce(v_badge->>'symbol', ''))) <> v_symbol
+     OR v_badge->>'sessionDate' IS DISTINCT FROM (v_session::text)
+     OR (
+       v_badge->>'dataFreshnessLabel' IS NOT NULL
+       AND v_badge->>'dataFreshnessLabel' NOT IN ('live', 'delayed', 'stale')
+     ) THEN
+    RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
+  END IF;
+
+  SELECT h.*
     INTO v_existing
-  FROM public.penny_continuation_workflow_handoffs h
+  FROM public.penny_continuation_workflow_handoffs AS h
   WHERE h.symbol = v_symbol
     AND h.source_session_date = v_session
   FOR UPDATE;
@@ -103,7 +183,7 @@ BEGIN
     END IF;
     IF v_existing.publication_idempotency_key = v_idem
        AND v_existing.generation_sync_ms = v_gen_ms THEN
-      RETURN jsonb_build_object('applied', true, 'reason', 'already_current');
+      RETURN jsonb_build_object('applied', false, 'reason', 'already_current');
     END IF;
     IF v_gen_ms < v_existing.generation_sync_ms THEN
       RETURN jsonb_build_object('applied', false, 'reason', 'stale_generation');
@@ -139,21 +219,21 @@ BEGIN
     nullif(p_row->>'security_id', '')::uuid,
     v_symbol,
     v_session,
-    (p_row->>'capture_at')::timestamptz,
-    nullif(p_row->>'symbol_observation_at', '')::timestamptz,
+    v_capture_at,
+    v_obs_at,
     p_row->>'handoff_version',
     p_row->>'integration_version',
     p_row->>'model_version',
     v_idem,
     coalesce(nullif(p_row->>'observation_generation_id', ''), 'na'),
     v_gen_ms,
-    (p_row->>'generation_sync_at')::timestamptz,
-    coalesce((p_row->>'continuation_qualified')::boolean, true),
+    v_gen_at,
+    true,
     coalesce((p_row->>'publication_suppressed')::boolean, false),
-    p_row->>'qualification_evidence_kind',
-    (p_row->>'valid_from_session_date')::date,
-    (p_row->>'valid_through_session_date')::date,
-    coalesce(p_row->'badge_payload', '{}'::jsonb),
+    v_evidence_kind,
+    v_valid_from,
+    v_valid_through,
+    v_badge,
     coalesce(p_row->'rank_snapshot', '{}'::jsonb),
     now()
   )
@@ -185,7 +265,8 @@ BEGIN
       )
     );
 
-  IF NOT FOUND AND v_existing.id IS NOT NULL THEN
+  GET DIAGNOSTICS v_row_count = ROW_COUNT;
+  IF v_row_count = 0 THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'stale_generation');
   END IF;
 
@@ -198,21 +279,85 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.penny_continuation_handoff_list_active_v1(
   p_am_session_date date,
-  p_limit integer DEFAULT 200
+  p_pairs jsonb
 )
-RETURNS SETOF public.penny_continuation_workflow_handoffs
-LANGUAGE sql
+RETURNS jsonb
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
-  SELECT h.*
-  FROM public.penny_continuation_workflow_handoffs h
+DECLARE
+  v_array_len integer;
+  v_valid_count integer;
+  v_distinct_count integer;
+  v_items jsonb;
+BEGIN
+  IF p_am_session_date IS NULL OR p_pairs IS NULL OR jsonb_typeof(p_pairs) <> 'array' THEN
+    RETURN jsonb_build_object(
+      'projection_version', 'penny_continuation_handoff_read_v1',
+      'error', 'invalid_pairs'
+    );
+  END IF;
+
+  v_array_len := jsonb_array_length(p_pairs);
+  IF v_array_len < 1 OR v_array_len > 64 THEN
+    RETURN jsonb_build_object(
+      'projection_version', 'penny_continuation_handoff_read_v1',
+      'error', 'invalid_pairs'
+    );
+  END IF;
+
+  SELECT count(*)::integer,
+         count(DISTINCT (upper(trim(elem->>'symbol')), elem->>'source_session_date'))::integer
+    INTO v_valid_count, v_distinct_count
+  FROM jsonb_array_elements(p_pairs) AS elem
+  WHERE upper(trim(coalesce(elem->>'symbol', ''))) <> ''
+    AND elem->>'source_session_date' ~ '^\d{4}-\d{2}-\d{2}$';
+
+  IF v_valid_count <> v_array_len OR v_distinct_count <> v_valid_count THEN
+    RETURN jsonb_build_object(
+      'projection_version', 'penny_continuation_handoff_read_v1',
+      'error', 'invalid_pairs'
+    );
+  END IF;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'projection_version', 'penny_continuation_handoff_read_v1',
+        'handoff_version', h.handoff_version,
+        'integration_version', h.integration_version,
+        'model_version', h.model_version,
+        'symbol', h.symbol,
+        'source_session_date', h.source_session_date,
+        'capture_at', h.capture_at,
+        'symbol_observation_at', h.symbol_observation_at,
+        'publication_idempotency_key', h.publication_idempotency_key,
+        'publication_suppressed', h.publication_suppressed,
+        'qualification_evidence_kind', h.qualification_evidence_kind,
+        'continuation_qualified', h.continuation_qualified,
+        'badge_payload', h.badge_payload,
+        'rank_snapshot', h.rank_snapshot
+      )
+      ORDER BY h.updated_at DESC
+    ),
+    '[]'::jsonb
+  )
+    INTO v_items
+  FROM jsonb_array_elements(p_pairs) AS elem
+  INNER JOIN public.penny_continuation_workflow_handoffs AS h
+    ON h.symbol = upper(trim(elem->>'symbol'))
+    AND h.source_session_date = (elem->>'source_session_date')::date
   WHERE h.revoked_at IS NULL
     AND p_am_session_date >= h.valid_from_session_date
-    AND p_am_session_date <= h.valid_through_session_date
-  ORDER BY h.updated_at DESC, h.symbol ASC
-  LIMIT LEAST(GREATEST(coalesce(p_limit, 200), 1), 500);
+    AND p_am_session_date <= h.valid_through_session_date;
+
+  RETURN jsonb_build_object(
+    'projection_version', 'penny_continuation_handoff_read_v1',
+    'items', v_items
+  );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.penny_continuation_handoff_revoke_v1(
@@ -222,7 +367,7 @@ CREATE OR REPLACE FUNCTION public.penny_continuation_handoff_revoke_v1(
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_symbol text := upper(trim(coalesce(p_symbol, '')));
@@ -231,11 +376,11 @@ BEGIN
   IF v_symbol = '' OR p_source_session_date IS NULL THEN
     RETURN false;
   END IF;
-  UPDATE public.penny_continuation_workflow_handoffs
+  UPDATE public.penny_continuation_workflow_handoffs AS h
   SET revoked_at = now(), updated_at = now()
-  WHERE symbol = v_symbol
-    AND source_session_date = p_source_session_date
-    AND revoked_at IS NULL;
+  WHERE h.symbol = v_symbol
+    AND h.source_session_date = p_source_session_date
+    AND h.revoked_at IS NULL;
   GET DIAGNOSTICS v_updated = ROW_COUNT;
   RETURN v_updated > 0;
 END;
@@ -245,22 +390,22 @@ CREATE OR REPLACE FUNCTION public.penny_continuation_handoff_expire_stale_v1(p_a
 RETURNS integer
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog, public
 AS $$
   WITH deleted AS (
-    DELETE FROM public.penny_continuation_workflow_handoffs
-    WHERE valid_through_session_date < p_as_of_session_date
+    DELETE FROM public.penny_continuation_workflow_handoffs AS h
+    WHERE h.valid_through_session_date < p_as_of_session_date
     RETURNING 1
   )
   SELECT count(*)::integer FROM deleted;
 $$;
 
 REVOKE ALL ON FUNCTION public.penny_continuation_handoff_upsert_v1(jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.penny_continuation_handoff_list_active_v1(date, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.penny_continuation_handoff_list_active_v1(date, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.penny_continuation_handoff_revoke_v1(text, date) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.penny_continuation_handoff_expire_stale_v1(date) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.penny_continuation_handoff_upsert_v1(jsonb) TO service_role;
-GRANT EXECUTE ON FUNCTION public.penny_continuation_handoff_list_active_v1(date, integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.penny_continuation_handoff_list_active_v1(date, jsonb) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.penny_continuation_handoff_revoke_v1(text, date) TO service_role;
 GRANT EXECUTE ON FUNCTION public.penny_continuation_handoff_expire_stale_v1(date) TO service_role;

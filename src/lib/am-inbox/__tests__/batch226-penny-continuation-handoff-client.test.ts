@@ -1,43 +1,38 @@
 import { describe, expect, it } from "vitest";
-import {
-  mapPersistedPennyHandoffRow,
-  mapPersistedPennyHandoffRows,
-  type PersistedPennyContinuationHandoffRow,
-} from "@/lib/am-inbox/penny-continuation-handoff-persistence";
+import type { ContinuationCategory } from "@/config/continuation.config";
 import { matchPennyContinuationBadgesToAmInbox } from "@/lib/am-inbox/penny-continuation-badge-match";
+import {
+  mapPennyHandoffReadProjection,
+  mapPennyHandoffReadProjections,
+  type PennyContinuationHandoffReadProjection,
+} from "@/lib/am-inbox/penny-continuation-handoff-persistence";
 import type { AmInboxPennyBadgeMatchTarget } from "@/lib/am-inbox/penny-continuation-workflow-types";
 
 const SESSION = "2026-11-11";
 
-function persistedRow(
-  overrides: Partial<PersistedPennyContinuationHandoffRow> = {},
-): PersistedPennyContinuationHandoffRow {
+function readProjection(
+  overrides: Partial<PennyContinuationHandoffReadProjection> = {},
+): PennyContinuationHandoffReadProjection {
   return {
-    id: "11111111-1111-4111-8111-111111111111",
-    security_id: null,
+    projection_version: "penny_continuation_handoff_read_v1",
+    handoff_version: "penny_continuation_workflow_handoff_v1",
+    integration_version: "penny_continuation_integration_v1",
+    model_version: "penny_continuation_v1",
     symbol: "PNY",
     source_session_date: SESSION,
     capture_at: "2026-11-11T15:00:00.000Z",
     symbol_observation_at: "2026-11-11T14:59:55.000Z",
-    handoff_version: "penny_continuation_workflow_handoff_v1",
-    integration_version: "penny_continuation_integration_v1",
-    model_version: "penny_continuation_v1",
     publication_idempotency_key: `${SESSION}:PNY:penny_continuation_v1:gen:1`,
-    observation_generation_id: "gen",
-    generation_sync_ms: 1_700_000_000_000,
-    generation_sync_at: "2023-11-14T22:13:20.000Z",
-    continuation_qualified: true,
     publication_suppressed: false,
     qualification_evidence_kind: "live_market",
-    valid_from_session_date: SESSION,
-    valid_through_session_date: SESSION,
+    continuation_qualified: true,
     badge_payload: {
       kind: "penny_continuation_v1",
       symbol: "PNY",
       sessionDate: SESSION,
       continuationQualified: true,
       corePassCount: 4,
-      dataFreshnessLabel: "live",
+      dataFreshnessLabel: "delayed",
       score: 80,
       supplementalLabels: [],
       model_version: "penny_continuation_v1",
@@ -45,7 +40,6 @@ function persistedRow(
     rank_snapshot: {
       core_pass_count: 4,
       score: 80,
-      data_freshness_label: "live",
       rank_keys: {
         sharesPerMinute: 30_000,
         sessionVolume: 1_000_000,
@@ -53,38 +47,37 @@ function persistedRow(
       },
       supplemental_labels: [],
     },
-    revoked_at: null,
     ...overrides,
   };
 }
 
 describe("batch226 penny persistence client", () => {
-  it("maps persisted row to workflow handoff", () => {
-    const mapped = mapPersistedPennyHandoffRow(persistedRow());
+  it("maps read projection to workflow handoff", () => {
+    const mapped = mapPennyHandoffReadProjection(readProjection());
     expect(mapped?.symbol).toBe("PNY");
-    expect(mapped?.publicationIdempotencyKey).toContain("gen");
+    expect(mapped?.dataFreshnessLabel).toBe("delayed");
   });
 
-  it("drops revoked rows", () => {
+  it("drops unqualified projections", () => {
     expect(
-      mapPersistedPennyHandoffRow(
-        persistedRow({ revoked_at: "2026-11-11T16:00:00.000Z" }),
+      mapPennyHandoffReadProjection(
+        readProjection({ continuation_qualified: false }),
       ),
     ).toBeNull();
-    expect(mapPersistedPennyHandoffRows([
-      persistedRow(),
-      persistedRow({ revoked_at: "2026-11-11T16:00:00.000Z" }),
+    expect(mapPennyHandoffReadProjections([
+      readProjection(),
+      readProjection({ continuation_qualified: false }),
     ])).toHaveLength(1);
   });
 
-  it("feeds badge matcher after map", () => {
-    const handoffs = mapPersistedPennyHandoffRows([persistedRow()]);
+  it("feeds badge matcher from projections", () => {
+    const handoffs = mapPennyHandoffReadProjections([readProjection()]);
     const target: AmInboxPennyBadgeMatchTarget = {
       candidateKey: "c1",
       symbol: "PNY",
       sourceSessionDate: SESSION,
       expiryState: "active",
-      sourceCategories: ["POWER_HOUR_MOMENTUM"],
+      sourceCategories: ["POWER_HOUR_MOMENTUM"] as readonly ContinuationCategory[],
       securityId: null,
     };
     const result = matchPennyContinuationBadgesToAmInbox({

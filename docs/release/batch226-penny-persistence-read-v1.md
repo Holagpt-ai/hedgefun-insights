@@ -21,7 +21,7 @@ Add an additive Penny-specific persistence and authenticated read path for Batch
 ## Security model
 
 - **Upsert / revoke / expire:** `service_role` only (`REVOKE` from `PUBLIC`).
-- **List active:** `authenticated` + `service_role`; RLS allows `SELECT` when `revoked_at IS NULL`.
+- **List active:** `authenticated` + `service_role`; requires explicit `(symbol, source_session_date)` pair list (max **64**); returns versioned projection `penny_continuation_handoff_read_v1` (not table rows). Direct `SELECT` on the table is revoked for `authenticated`/`anon`.
 - **Stale generation:** upsert returns `{ applied: false, reason: 'stale_generation' }` when `generation_sync_ms` regresses.
 - **Revocation:** `penny_continuation_handoff_revoke_v1` sets `revoked_at`; further upserts return `revoked`.
 - **Bounded reads:** `list_active_v1` caps at **500** rows (default **200**).

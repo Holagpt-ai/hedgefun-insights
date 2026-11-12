@@ -94,3 +94,74 @@ export function mapPersistedPennyHandoffRows(
   }
   return out;
 }
+
+/** Narrow RPC read projection (not a full table row). */
+export type PennyContinuationHandoffReadProjection = {
+  projection_version: string;
+  handoff_version: string;
+  integration_version: string;
+  model_version: string;
+  symbol: string;
+  source_session_date: string;
+  capture_at: string;
+  symbol_observation_at: string | null;
+  publication_idempotency_key: string;
+  publication_suppressed: boolean;
+  qualification_evidence_kind: PennyQualificationEvidenceKind;
+  continuation_qualified: boolean;
+  badge_payload: PennyAmInboxBadgePayload;
+  rank_snapshot: PersistedPennyContinuationHandoffRow["rank_snapshot"];
+};
+
+function rankKeysFromSnapshot(
+  snap: PennyContinuationHandoffReadProjection["rank_snapshot"],
+): PennyContinuationWorkflowHandoff["rankKeys"] {
+  const keys = snap?.rank_keys;
+  if (keys && typeof keys === "object") {
+    return {
+      sharesPerMinute: keys.sharesPerMinute ?? null,
+      sessionVolume: keys.sessionVolume ?? null,
+      dollarVolume: keys.dollarVolume ?? null,
+    };
+  }
+  return { sharesPerMinute: null, sessionVolume: null, dollarVolume: null };
+}
+
+export function mapPennyHandoffReadProjection(
+  row: PennyContinuationHandoffReadProjection,
+): PennyContinuationWorkflowHandoff | null {
+  const badge = readBadgePayload(row.badge_payload);
+  if (!badge || row.continuation_qualified !== true) return null;
+  const snap = row.rank_snapshot ?? {};
+  return {
+    handoff_version: PENNY_CONTINUATION_WORKFLOW_HANDOFF_VERSION,
+    integration_version: row.integration_version,
+    model_version: row.model_version,
+    symbol: row.symbol.trim().toUpperCase(),
+    sourceSessionDate: row.source_session_date,
+    symbolObservationIso: row.symbol_observation_at,
+    captureIso: row.capture_at,
+    continuationQualified: true,
+    corePassCount: snap.core_pass_count ?? badge.corePassCount,
+    score: snap.score ?? badge.score ?? null,
+    rankKeys: rankKeysFromSnapshot(row.rank_snapshot),
+    dataFreshnessLabel: snap.data_freshness_label ?? badge.dataFreshnessLabel ?? null,
+    supplementalLabels: snap.supplemental_labels ?? badge.supplementalLabels ?? [],
+    publicationIdempotencyKey: row.publication_idempotency_key,
+    publicationSuppressed: row.publication_suppressed,
+    badge,
+    qualificationEvidenceKind: row.qualification_evidence_kind,
+    stableRankingKey: snap.stable_ranking_key ?? null,
+  };
+}
+
+export function mapPennyHandoffReadProjections(
+  rows: readonly PennyContinuationHandoffReadProjection[],
+): PennyContinuationWorkflowHandoff[] {
+  const out: PennyContinuationWorkflowHandoff[] = [];
+  for (const row of rows) {
+    const mapped = mapPennyHandoffReadProjection(row);
+    if (mapped) out.push(mapped);
+  }
+  return out;
+}

@@ -4,6 +4,8 @@ import {
   buildPennyContinuationHandoffUpsertRowsFromBundle,
 } from "../am-inbox/capture-penny-continuation-handoffs.ts";
 import { computePennyHandoffValidWindow } from "../am-inbox/penny-continuation-workflow-expiry.ts";
+import { normalizePennyHandoffReadPairs } from "../am-inbox/penny-continuation-handoff-read-pairs.ts";
+import { validatePennyHandoffUpsertPayload } from "../am-inbox/penny-continuation-handoff-upsert-validation.ts";
 import type { PennyContinuationWorkflowHandoff } from "./penny-continuation-workflow-handoff-types.ts";
 
 const SESSION = "2026-11-11";
@@ -93,6 +95,31 @@ Deno.test("batch226 build upsert rejects missing generation metadata", () => {
     generationSyncIso: "bad",
   });
   assertEquals(row, null);
+});
+
+Deno.test("batch226 built upsert row passes bridge validation", () => {
+  const row = buildPennyContinuationHandoffUpsertRow(qualifiedHandoff(), {
+    observationGenerationId: "gen-a",
+    generationSyncMs: 1_700_000_000_000,
+    generationSyncIso: new Date(1_700_000_000_000).toISOString(),
+  });
+  assert(row);
+  assert(validatePennyHandoffUpsertPayload(row as unknown as Record<string, unknown>));
+});
+
+Deno.test("batch226 read pairs reject empty and duplicates", () => {
+  assertEquals(normalizePennyHandoffReadPairs([]), null);
+  assertEquals(
+    normalizePennyHandoffReadPairs([
+      { symbol: "PNY", source_session_date: SESSION },
+      { symbol: "PNY", source_session_date: SESSION },
+    ]),
+    null,
+  );
+  const ok = normalizePennyHandoffReadPairs([
+    { symbol: "pny", source_session_date: SESSION },
+  ]);
+  assertEquals(ok?.[0].symbol, "PNY");
 });
 
 Deno.test("batch226 bundle projects only qualified rows", () => {

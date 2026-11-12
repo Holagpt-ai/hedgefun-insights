@@ -4,6 +4,8 @@ import {
   PENNY_CONTINUATION_HANDOFF_REVOKE_RPC,
   PENNY_CONTINUATION_HANDOFF_UPSERT_RPC,
 } from "../_shared/config/penny-continuation-persistence.config.ts";
+import { normalizePennyHandoffReadPairs } from "../_shared/am-inbox/penny-continuation-handoff-read-pairs.ts";
+import { validatePennyHandoffUpsertPayload } from "../_shared/am-inbox/penny-continuation-handoff-upsert-validation.ts";
 import type { RadarBridgeAction } from "./actions.ts";
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -20,10 +22,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readHandoffRow(body: Record<string, unknown>): Record<string, unknown> | null {
   const row = body.row ?? body.p_row;
   if (!isRecord(row)) return null;
-  if (typeof row.symbol !== "string" || !row.symbol.trim()) return null;
-  if (typeof row.source_session_date !== "string") return null;
-  if (typeof row.publication_idempotency_key !== "string") return null;
-  return row;
+  return validatePennyHandoffUpsertPayload(row) ? row : null;
 }
 
 function readIsoDate(value: unknown): string | null {
@@ -31,14 +30,8 @@ function readIsoDate(value: unknown): string | null {
   return value.trim();
 }
 
-function readLimit(value: unknown): number | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    if (Number.isFinite(n)) return Math.floor(n);
-  }
-  return undefined;
+function readPairs(body: Record<string, unknown>): unknown {
+  return body.pairs ?? body.p_pair_requests ?? body.p_pairs;
 }
 
 export async function handlePennyContinuationHandoffAction(
@@ -54,11 +47,12 @@ export async function handlePennyContinuationHandoffAction(
     }
     case "penny_continuation_handoff_list_active": {
       const amDate = readIsoDate(body.am_session_date ?? body.p_am_session_date);
-      if (!amDate) return jsonResponse({ error: "invalid_body" }, 400);
-      const limit = readLimit(body.limit ?? body.p_limit);
-      const args: Record<string, unknown> = { p_am_session_date: amDate };
-      if (limit !== undefined) args.p_limit = limit;
-      return await rpc(PENNY_CONTINUATION_HANDOFF_LIST_ACTIVE_RPC, args);
+      const pairs = normalizePennyHandoffReadPairs(readPairs(body));
+      if (!amDate || !pairs) return jsonResponse({ error: "invalid_body" }, 400);
+      return await rpc(PENNY_CONTINUATION_HANDOFF_LIST_ACTIVE_RPC, {
+        p_am_session_date: amDate,
+        p_pairs: pairs,
+      });
     }
     case "penny_continuation_handoff_revoke": {
       const symbol = body.symbol ?? body.p_symbol;
