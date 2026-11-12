@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 228 — controlled Lovable Edge deployment)
+
+- Owner explicitly approved **one-time Git-snapshot-only rollback exception** because previous Edge revision/rollback pointer unavailable. Git source fallback: `e7a3eaeeceec1310e941d263dd5df63fd3b76998` (new deploy needed; **not exact previous binary**).
+- Lovable Cloud reported **successful one-function** `sync-screener-data` deploy at 12:18:24–12:18:34 PM ET. Approved GitHub main `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def`, editor source `09266183e352b6a21f61acbd10d23ce91b2016f8`, submitted source/settings fingerprint `07656eebf28569838df72838ea1f5c2026344167eb157b2728b25291bcbe3e29`. OPTIONS HTTP 200; platform Edge version IDs before/after unavailable. No cross-function, DB, Fly, cron, secrets, frontend publish or activation changes.
+- Read-only 12:19 ET: feed available with 107 rows; last natural publish 12:15 ET **predated deployment**. **ISS-034 still OPEN**, Nov 13 09:30 ET acceptance pending. Auto-regenerated Lovable Penny DB typings/preview type mismatch tracked separately; Penny remains inactive.
+
 ## 2026-11-12 (Batch 228 — opening-bell finalize reliability, PR #246)
 
 - Edge: release expired finalize leases before stale-job abort; resume gating; marker after CAS claim. **StagingTableClient** PostgREST filter typing (`.is`/`.not`/`.lt`). CI: `batch228-*_test.ts` (memory, supabase mock, postgres). **Nov 10 AH** ledger **48/0**. **Requires** Lovable deploy `sync-screener-data`. **ISS-034 OPEN.**
