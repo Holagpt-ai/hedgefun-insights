@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## 2026-11-12 (Batch 233 — Journal & Action Center workflow, PR pending)
+## 2026-11-12 (Batch 233 — Journal & Action Center workflow, PR #251)
 
 - `actionCenterWorkflowTileHref` keeps ticker (and session `securityId`) on Continue Workflow tiles and Catalyst header when Action Center opens with `?symbol=`.
 - `JournalTradeWorkflowLinks` Screeners uses `workflowSymbolRoutes.screeners`. Journal batch **188** + handoff batch **173** regressions **pass**. Authenticated UI **NOT VERIFIED**.

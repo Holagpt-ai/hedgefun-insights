@@ -2,7 +2,7 @@
 
 **Baseline:** GitHub `main` **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** merged).
 
-**Batch 233:** Action Center Continue Workflow tiles preserve handoff symbol/`securityId`; Journal trade Screeners link uses `routes.screeners`. Runbook `batch233-journal-action-center-reliability-v1.md`. **PR pending** — owner review; **not merged**; **no deploy**.
+**Batch 233:** Action Center Continue Workflow tiles preserve handoff symbol/`securityId`; Journal trade Screeners link uses `routes.screeners`. Runbook `batch233-journal-action-center-reliability-v1.md`. **PR #251** @ **`b74d62cc`** — owner review; **not merged**; **no deploy**.
 
 **Recorded acceptance:** Batch **188** / **173** / **16** contracts **pass** in git; **2 workflow defects fixed** (**ISS-048**). Authenticated Journal + Action Center checklist **NOT VERIFIED**.
 
