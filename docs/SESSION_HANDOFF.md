@@ -1,10 +1,16 @@
-# Session handoff — Batch 229 Catalyst earnings counter (November 12, 2026 ~1:20 PM ET)
+# Session handoff — Batch 230 AM Inbox continuation (November 12, 2026 ~2:40 PM ET)
 
-**Branch:** `cursor/batch229-catalyst-earnings-count` · baseline **`7d5c80fe8a082f5ee2c66b3baeef11b836ae1558`**.
+**Baseline:** GitHub `main` **`34e8fb739b5b5ff2103c43c7c3ce72662429554a`** (Batch **229** merged).
 
-**Batch 229:** Catalyst summary counts decoupled from 500-row asc feed (**ISS-046**); review pass adds `time_of_day` windows, ET horizon, `id` tie-break pagination, honest loading/error UI. Runbook `batch229-catalyst-earnings-count-v1.md`. **PR #248** — owner review; **not merged** (see latest head SHA on PR).
+**Batch 230:** ISS-025 targeted fixes — bounded `get-pre-market-workspace` (**25 s**); symbol-aware `amInboxNavigatePath` for Screeners/Action Center. Runbook `batch230-am-inbox-continuation-v1.md`. **PR #249** @ **`7a716a82c9340cac27cfa333ff19076a2627b683`** — owner review; **not merged**.
 
-**Production dependency:** **Vercel** after merge (no Supabase/Edge). **ISS-034** Nov 13 09:30 acceptance unchanged.
+**Recorded acceptance:** Batch **229** authenticated Catalyst UI Nov **12** — **Upcoming Earnings 821**, **Reported in Last 24h 791**. **ISS-046** UI **verified** (production); **ISS-025** **OPEN** until authenticated AM Inbox checklist in runbook.
+
+---
+
+## Archived handoff — Batch 229 Catalyst earnings counter (November 12, 2026)
+
+**Merged:** PR **#248** @ **`34e8fb73`**. Catalyst summary counts + review corrections deployed path on `main`.
 
 ---
 

@@ -1,8 +1,4 @@
-import {
-  buildInboxWorkflowNavigatePath,
-  touchWorkflowHandoff,
-  workflowSymbolRoutes,
-} from "@/lib/historical-workflow/workflow-symbol-routes";
+import { touchWorkflowHandoff, workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import type { SecurityId } from "@/types/security-identity";
 
 export function amInboxWorkflowRoutes(symbol: string, securityId?: SecurityId | null) {
@@ -14,28 +10,23 @@ export function amInboxNavigatePath(
   symbol: string,
   securityId?: SecurityId | null,
 ): string | null {
-  if (surface === "action_center") {
-    touchWorkflowHandoff(symbol, "inbox");
-    return "/dashboard/action-center";
-  }
   touchWorkflowHandoff(symbol, "inbox");
-  if (securityId) {
-    const routes = workflowSymbolRoutes(symbol, { securityId });
-    if (!routes) return buildInboxWorkflowNavigatePath(surface === "screeners" ? "screeners" : surface, symbol);
-    switch (surface) {
-      case "ai":
-        return routes.ai;
-      case "catalyst":
-        return routes.catalyst;
-      case "journal":
-        return routes.journal;
-      case "watchlist":
-        return routes.watchlist;
-      case "screeners":
-        return "/dashboard/screeners";
-      default:
-        return null;
-    }
+  const routes = workflowSymbolRoutes(symbol, { securityId: securityId ?? null });
+  if (!routes) return null;
+  switch (surface) {
+    case "ai":
+      return routes.ai;
+    case "catalyst":
+      return routes.catalyst;
+    case "journal":
+      return routes.journal;
+    case "watchlist":
+      return routes.watchlist;
+    case "screeners":
+      return routes.screeners;
+    case "action_center":
+      return routes.actionCenter;
+    default:
+      return null;
   }
-  return buildInboxWorkflowNavigatePath(surface === "screeners" ? "screeners" : surface, symbol);
 }

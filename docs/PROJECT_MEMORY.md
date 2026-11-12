@@ -2,6 +2,12 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 12, 2026 (Batch 229 Catalyst + Batch 230 AM Inbox)
+
+- **GitHub `main`:** **`34e8fb739b5b5ff2103c43c7c3ce72662429554a`** — Batch **229** PR **#248** merged (Catalyst earnings summary).
+- **Authenticated Catalyst UI (owner-reported Nov 12):** **Upcoming Earnings 821**, **Reported in Last 24h 791** — **ISS-046 UI verified**. Do not re-litigate Batch 229 counter work.
+- **ISS-025 OPEN:** AM Inbox continuation authenticated visual acceptance **NOT VERIFIED**; Batch **230** adds workspace timeout + navigation helper fixes only (`batch230-am-inbox-continuation-v1.md`).
+
 ## Verified controlled production deploy — November 12, 2026 ~12:18 ET (Batch 228)
 
 - **GitHub main:** `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def` (PR **#246** merged); **Lovable editor source:** `09266183e352b6a21f61acbd10d23ce91b2016f8` (scanner entrypoint, handler and shared runtime imports checked against main).
