@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-11 (GitHub source closeout — Batches 222–225)
+
+- **Batch 225 PR #242 merged** after required GitHub checks passed: PR head `02202d5d05b605c68f9a1f78ad9e92db459d89ab` → squash main `736831e910b0ca57a8ecdb75f900cce8418b0510`. Versioned handoff + AM Inbox badge matcher, stale/session/badge-identity guards and verified-only security ID navigation are **complete in Git source**, not production activated.
+- Preceding merged source batches: **222** contract PR #239; **223** evaluator PR #240 → `3f904970`; **224** integration PR #241 → `8b7082e0`. Next source-only work **Batch 226** Penny persistence/read contract; no PR created at this checkpoint. No SQL/Edge/Fly/cron/secrets/flags activated by these merges.
+
+
 ## 2026-11-11 (Batch 225 — workflow handoff badge integrity, PR #242)
 
 - Stale/session-conflict rejection in projection; badge symbol/date/model validation in matcher; Penny navigation without stale session-storage `securityId`. Deno 6 + Vitest 13.
