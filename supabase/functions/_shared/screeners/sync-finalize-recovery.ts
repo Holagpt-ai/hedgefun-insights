@@ -1,6 +1,7 @@
 import {
   isDefinitiveContinueDispatchFailure,
   releaseFinalizeLeaseCas,
+  type ReleaseFinalizeLeaseCas,
 } from "./sync-finalize-lease-release.ts";
 import { reconcileStrandedPublishedGeneration } from "./sync-staging-post-publish-reconcile.ts";
 import type { SyncStagingStore } from "./sync-staging-memory.ts";
@@ -109,6 +110,31 @@ export async function prepareStagedFinalizeRetry(
   }
 
   return out;
+}
+
+/**
+ * Release stranded finalize leases that expired without a publish record so
+ * expire_screener_sync_stale_jobs_v1 does not abort the generation before cron
+ * can redispatch finalize (opening-bell recovery; Batch 228).
+ */
+export async function releaseExpiredFinalizeLeasesBeforeAbort(
+  store: SyncStagingStore,
+  nowMs: number,
+): Promise<number> {
+  const stranded = await store.findExpiredFinalizeLeaseJobs(nowMs);
+  let released = 0;
+  for (const job of stranded) {
+    if (!job.finalizeLeaseToken) continue;
+    const input: ReleaseFinalizeLeaseCas = {
+      jobId: job.id,
+      nowMs,
+      expectedStateVersion: job.stateVersion,
+      expectedFinalizeLeaseToken: job.finalizeLeaseToken,
+      authorization: "expired_finalize_lease",
+    };
+    if (await releaseFinalizeLeaseCas(store, input)) released += 1;
+  }
+  return released;
 }
 
 const CONTINUE_DISPATCH_ERROR_RE = /^[a-z0-9_]{1,120}$/;

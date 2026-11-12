@@ -128,6 +128,7 @@ export interface SyncStagingStore {
   releaseFinalizeLeasesForRetry(
     input: ReleaseFinalizeLeaseCas,
   ): Promise<boolean>;
+  findExpiredFinalizeLeaseJobs(nowMs: number): Promise<StagedGenerationJob[]>;
   findPostPublishReconcileCandidate(
     nowMs: number,
   ): Promise<StagedGenerationJob | null>;
@@ -187,6 +188,21 @@ export class MemorySyncStagingStore implements SyncStagingStore {
       if (!best || job.createdAtMs > best.createdAtMs) best = job;
     }
     return best ? cloneJob(best) : null;
+  }
+
+  async findExpiredFinalizeLeaseJobs(
+    nowMs: number,
+  ): Promise<StagedGenerationJob[]> {
+    const out: StagedGenerationJob[] = [];
+    for (const job of this.jobs.values()) {
+      if (job.status !== "finalizing") continue;
+      if (job.publishRowsInserted !== null) continue;
+      if (job.finalizeLeaseExpiresMs === null) continue;
+      if (job.finalizeLeaseExpiresMs > nowMs) continue;
+      if (!job.finalizeLeaseToken) continue;
+      out.push(cloneJob(job));
+    }
+    return out;
   }
 
   async findPostPublishReconcileCandidate(

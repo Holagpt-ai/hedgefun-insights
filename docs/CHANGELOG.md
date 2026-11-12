@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 228 — opening-bell finalize reliability, PR #246)
+
+- Edge: release expired finalize leases before stale-job abort; resume gating; marker after CAS claim. **StagingTableClient** PostgREST filter typing (`.is`/`.not`/`.lt`). CI: `batch228-*_test.ts` (memory, supabase mock, postgres). **Nov 10 AH** ledger **48/0**. **Requires** Lovable deploy `sync-screener-data`. **ISS-034 OPEN.**
+
 ## 2026-11-12 (Batch 227 — final documentation correction, PR #245)
 
 - Record owner-verified **Nov 11–12** read-only Lovable evidence (ledger, feed, Radar checkpoint); fix runbook Query **A** (ET date bounds, 04:00–20:00 session buckets) and Query **D** (`captured_at`, `count(*)`). Preserve Nov **10** Batch **191** attestation. **Vercel prod identity unverified.** **No scanner code.**

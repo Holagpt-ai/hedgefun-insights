@@ -1,3 +1,4 @@
+import { isFinalizeStageMarker } from "./sync-finalize-diagnostics.ts";
 import { finalizeLeaseActive, leaseActive } from "./sync-staging-cas.ts";
 import {
   SCREENER_SYNC_JOB_TTL_MS,
@@ -20,7 +21,14 @@ export function stagedJobNeedsResume(
     return true;
   }
   if (nowMs - job.createdAtMs > jobTtlMs) return false;
-  if (job.continueLastError !== null && job.continueLastError.length > 0) {
+  if (job.continueLastError != null && job.continueLastError.length > 0) {
+    if (
+      job.status === "finalizing" &&
+      finalizeLeaseActive(job, nowMs) &&
+      isFinalizeStageMarker(job.continueLastError)
+    ) {
+      return false;
+    }
     return true;
   }
   if (job.status === "finalizing") {

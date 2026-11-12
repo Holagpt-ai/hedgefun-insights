@@ -35,6 +35,7 @@
 | **Nov 9** | After-hours | **48** | **0** |
 | **Nov 10** | Premarket | **66** | **0** |
 | **Nov 10** | Regular (through **1:30 PM ET**) | **43** | **4** |
+| **Nov 10** | After-hours | **48** | **0** |
 
 ### Verified abort / failure detail
 
@@ -43,7 +44,7 @@
 | **Nov 6 regular** | **25** aborts **`prior_generation_retained`**, **one** other abort (mechanism not expanded in this attestation) |
 | **Nov 9 regular** | **One** confirmed **`http_546`** finalize resource-limit failure |
 | **Nov 10 regular (opening)** | **09:30** — abort; mechanism **not conclusively established**. **09:45 / 09:50 / 09:55** — **confirmed `prior_generation_retained`** (not `http_546`) |
-| **Nov 10 after-hours** | **NOT accepted** in this batch — session incomplete / records not signed off at attestation time |
+| **Nov 10 after-hours** | **Ledger accepted Batch 228** — **48** published, **0** aborted; **48/48** chunk+publish RPC. **Authenticated UI Layers C/D** still **NOT VERIFIED**. |
 
 ### November 10 regular session — pipeline (published jobs only)
 
