@@ -159,6 +159,9 @@ jobs:
           supabase/functions/_shared/screeners/batch225-penny-workflow-handoff_test.ts
           supabase/functions/_shared/screeners/batch226-penny-persistence_test.ts
           supabase/functions/_shared/screeners/batch226-penny-persistence-postgres_test.ts
+          supabase/functions/_shared/screeners/batch228-opening-bell-finalize_test.ts
+          supabase/functions/_shared/screeners/batch228-opening-bell-finalize-supabase_test.ts
+          supabase/functions/_shared/screeners/batch228-opening-bell-finalize-postgres_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts
           supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts

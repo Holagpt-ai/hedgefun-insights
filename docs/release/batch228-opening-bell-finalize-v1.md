@@ -25,7 +25,7 @@
 
 | Finding | Status |
 | --- | --- |
-| Stranded finalize after isolate loss leaves **`finalize_lease_expires_at`** set (**12 min** lease) | **Confirmed** (code + Batch **190.6** lease-expiry abort path) |
+| Stranded finalize (no publish RPC; lease held until TTL) leaves **`finalize_lease_expires_at`** set (**12 min** lease) | **Confirmed** (code + production null-`abort_reason` aborts; **Edge isolate kill / CPU NOT VERIFIED**) |
 | `expire_screener_sync_stale_jobs_v1` aborts finalizing jobs when **`finalize_lease_expires_at < now`** and **`publish_rows_inserted IS NULL`** with **`abort_reason` NULL** | **Confirmed** (`batch190-6-abort-diagnostics-v1.md`) — matches production null-reason aborts |
 | Cron ran **`abortExpired` before** any lease release, discarding **7/7** work instead of redispatching finalize | **Confirmed race** in handler + orchestrator ordering |
 | `stagedJobNeedsResume` treated **`finalize_stage:*`** as dispatch failure while lease still active → duplicate finalize pressure at the open | **Confirmed** (resume unit tests) |

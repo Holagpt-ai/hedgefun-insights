@@ -30,28 +30,20 @@ import {
 } from "./sync-finalize-diagnostics.ts";
 import type { ReconcileStagedPublishResult } from "./sync-staging-post-publish-reconcile.ts";
 
+/** PostgREST select filter chain (bounded reads only — always terminate with `.limit`). */
+export type StagingSelectFilterChain = {
+  eq: (col: string, val: string) => StagingSelectFilterChain;
+  is: (col: string, val: null) => StagingSelectFilterChain;
+  not: (col: string, op: "is", val: null) => StagingSelectFilterChain;
+  lt: (col: string, val: string) => StagingSelectFilterChain;
+  gt: (col: string, val: string) => StagingSelectFilterChain;
+  in: (col: string, vals: string[]) => StagingSelectFilterChain;
+  limit: (n: number) => Promise<StagingQueryResult>;
+};
+
 export type StagingTableClient = {
   from: (table: string) => {
-    select: (cols: string) => {
-      eq: (
-        col: string,
-        val: string,
-      ) => {
-        gt?: (
-          col2: string,
-          val2: string,
-        ) => {
-          limit: (n: number) => Promise<StagingQueryResult>;
-        };
-        in?: (
-          col2: string,
-          vals: string[],
-        ) => {
-          limit: (n: number) => Promise<StagingQueryResult>;
-        };
-        limit: (n: number) => Promise<StagingQueryResult>;
-      };
-    };
+    select: (cols: string) => StagingSelectFilterChain;
     insert: (row: Record<string, unknown>) => Promise<{
       error: { message: string; code?: string } | null;
     }>;
