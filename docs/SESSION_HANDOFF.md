@@ -2,7 +2,7 @@
 
 **Baseline:** GitHub `main` **`34e8fb739b5b5ff2103c43c7c3ce72662429554a`** (Batch **229** merged).
 
-**Batch 230:** ISS-025 targeted fixes — bounded `get-pre-market-workspace` (**25 s**); symbol-aware `amInboxNavigatePath` for Screeners/Action Center. Runbook `batch230-am-inbox-continuation-v1.md`. **PR pending** owner review.
+**Batch 230:** ISS-025 targeted fixes — bounded `get-pre-market-workspace` (**25 s**); symbol-aware `amInboxNavigatePath` for Screeners/Action Center. Runbook `batch230-am-inbox-continuation-v1.md`. **PR #249** @ **`7a716a82c9340cac27cfa333ff19076a2627b683`** — owner review; **not merged**.
 
 **Recorded acceptance:** Batch **229** authenticated Catalyst UI Nov **12** — **Upcoming Earnings 821**, **Reported in Last 24h 791**. **ISS-046** UI **verified** (production); **ISS-025** **OPEN** until authenticated AM Inbox checklist in runbook.
 
