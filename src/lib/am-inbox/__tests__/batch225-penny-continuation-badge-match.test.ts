@@ -5,6 +5,7 @@ import type {
   AmInboxPennyBadgeMatchTarget,
   PennyContinuationWorkflowHandoff,
 } from "@/lib/am-inbox/penny-continuation-workflow-types";
+import { firstAmSessionDateAfterSource } from "@/lib/am-inbox/late-session-expiry";
 import {
   pennyContinuationNavigatePath,
   pennyContinuationWorkflowRoutes,
@@ -134,10 +135,72 @@ describe("Batch 225 penny continuation badge match", () => {
     expect(result.attachments[0].qualificationEvidenceKind).toBe("prior_session_capture");
   });
 
-  it("rejects live-market handoff on mismatched AM session", () => {
+  it("rejects live-market handoff on mismatched AM session without next_session_carry", () => {
     const result = matchPennyContinuationBadgesToAmInbox({
       handoffs: [handoff({ qualificationEvidenceKind: "live_market" })],
       candidates: [inboxTarget()],
+      amSessionDate: NEXT,
+    });
+    expect(result.attachments).toHaveLength(0);
+  });
+
+  it("accepts live_market next_session_carry on the next valid trading session", () => {
+    const carryHandoff = handoff({
+      qualificationEvidenceKind: "live_market",
+      supplementalLabels: ["next_session_carry"],
+      badge: {
+        ...handoff().badge!,
+        supplementalLabels: ["next_session_carry"],
+      },
+    });
+    const carryAm = firstAmSessionDateAfterSource(SESSION);
+    expect(carryAm).toBe(NEXT);
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [carryHandoff],
+      candidates: [inboxTarget()],
+      amSessionDate: NEXT,
+    });
+    expect(result.attachments).toHaveLength(1);
+  });
+
+  it("keeps same-session live_market attach on source AM session", () => {
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [handoff({ qualificationEvidenceKind: "live_market" })],
+      candidates: [inboxTarget()],
+      amSessionDate: SESSION,
+    });
+    expect(result.attachments).toHaveLength(1);
+  });
+
+  it("rejects live_market next_session_carry beyond the permitted carry AM session", () => {
+    const carryAm = firstAmSessionDateAfterSource(SESSION);
+    const afterCarry = firstAmSessionDateAfterSource(carryAm);
+    const carryHandoff = handoff({
+      supplementalLabels: ["next_session_carry"],
+      badge: {
+        ...handoff().badge!,
+        supplementalLabels: ["next_session_carry"],
+      },
+    });
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [carryHandoff],
+      candidates: [inboxTarget()],
+      amSessionDate: afterCarry,
+    });
+    expect(result.attachments).toHaveLength(0);
+  });
+
+  it("rejects live_market next_session_carry when candidate row is expired", () => {
+    const carryHandoff = handoff({
+      supplementalLabels: ["next_session_carry"],
+      badge: {
+        ...handoff().badge!,
+        supplementalLabels: ["next_session_carry"],
+      },
+    });
+    const result = matchPennyContinuationBadgesToAmInbox({
+      handoffs: [carryHandoff],
+      candidates: [inboxTarget({ expiryState: "expired" })],
       amSessionDate: NEXT,
     });
     expect(result.attachments).toHaveLength(0);

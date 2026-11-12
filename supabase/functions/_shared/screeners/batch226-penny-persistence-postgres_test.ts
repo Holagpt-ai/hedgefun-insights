@@ -243,7 +243,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "batch226 pg concurrent newer write wins and stale is rejected",
+  name: "batch226 pg sequential newer write wins and stale is rejected",
   sanitizeOps: false,
   sanitizeResources: false,
 }, async () => {
