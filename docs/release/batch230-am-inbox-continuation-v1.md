@@ -26,7 +26,7 @@
 ## Source fixes
 
 1. **`am-inbox-workflow-handoff.ts`** — `amInboxNavigatePath` now always returns symbol-aware Screeners and Action Center URLs (matches `workflowSymbolRoutes`).
-2. **`usePreMarketWorkspace.ts`** — `fetchPreMarketWorkspace` + `PRE_MARKET_WORKSPACE_FETCH_TIMEOUT_MS` (**25 s**, same bound as handoff RPC).
+2. **`usePreMarketWorkspace.ts`** — `fetchPreMarketWorkspace` + `PRE_MARKET_WORKSPACE_FETCH_TIMEOUT_MS` (**25 s**, same bound as handoff RPC). React Query **does not retry** `AsyncTimeoutError` (first-load unavailable within **~25 s**, not **~51 s**). **One retry** remains for ordinary transient Edge/contract failures (~50 s worst case only for non-timeout errors). Background refresh failures keep the last good payload (`isStaleUpdateFailed`).
 
 ## Verification (local)
 
@@ -39,7 +39,7 @@ npm run build
 ## Authenticated production steps still required (do not close ISS-025)
 
 1. Sign in on **Vercel production** (confirm deployment SHA vs merged PR).
-2. Open **AM Inbox** during **pre-market**; confirm Late-Session Continuation exits loading within **~25 s** on success or error (not infinite spinner).
+2. Open **AM Inbox** during **pre-market**; confirm workspace/continuation exit loading within **~25 s** on timeout (workspace does not auto-retry stalled Edge calls); not infinite spinner.
 3. With Nov-scale data: default **6** cards, **View All** paging **40**, volume-first ordering.
 4. Spot-check categories: Power-Hour Momentum, After-Hours Continuation, Strong Close Near HOD, Day-Two Watch — correct labels, source session dates, expired rows omitted on Monday AM.
 5. From a continuation card, open **Screeners**, **Catalyst**, **Watchlist**, **AI Analyst**, **Journal**, **Action Center** — URLs include `?symbol=` (and `securityId` when present).

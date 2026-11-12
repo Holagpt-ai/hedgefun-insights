@@ -5,12 +5,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { validateWorkspace } from "@/lib/pre-market/builders";
 import { mergeWorkspaceLastKnownGood } from "@/lib/pre-market/last-known-good";
 import type { PreMarketWorkspaceResponse } from "@/types/pre-market";
-import { withTimeout } from "@/lib/async/with-timeout";
+import { AsyncTimeoutError, withTimeout } from "@/lib/async/with-timeout";
 
 const REFRESH_MS = 60_000;
 
 /** Bounded first-load wait — mirrors late-session handoff timeout (ISS-025). */
 export const PRE_MARKET_WORKSPACE_FETCH_TIMEOUT_MS = 25_000;
+
+/** One retry for transient failures; never retry a bounded timeout (avoids ~51s first load). */
+export function shouldRetryPreMarketWorkspace(failureCount: number, error: unknown): boolean {
+  if (error instanceof AsyncTimeoutError) return false;
+  return failureCount < 1;
+}
 
 export interface UsePreMarketWorkspaceResult {
   /** Last successful, contract-validated payload (kept during background refetch). */
@@ -62,7 +68,7 @@ export function usePreMarketWorkspace(): UsePreMarketWorkspaceResult {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     staleTime: 30_000,
-    retry: 1,
+    retry: shouldRetryPreMarketWorkspace,
     queryFn: () => fetchPreMarketWorkspace(queryClient, queryKey),
   });
 
