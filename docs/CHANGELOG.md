@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 230 — AM Inbox continuation, PR pending)
+
+- Bounded `get-pre-market-workspace` fetch (**25 s**); `amInboxNavigatePath` symbol-aware Screeners/Action Center. ISS-025 **OPEN** pending authenticated AM Inbox checklist. Recorded Batch **229** Catalyst UI **821** / **791**.
+
 ## 2026-11-12 (Batch 229 — Catalyst upcoming earnings counter, PR #248 review corrections)
 
 - `time_of_day` / explicit `event_time` reporting-window classification; ET calendar horizon; stable `event_date`+`id` pagination; Last 24h `published_at` upper bound; summary loading/unavailable UI.
