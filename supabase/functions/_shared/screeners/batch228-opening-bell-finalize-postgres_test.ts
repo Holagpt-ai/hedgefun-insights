@@ -78,15 +78,20 @@ Deno.test({
       assertEquals(payload.aborted_count, 0);
 
       const row = await client.queryObject<Record<string, unknown>>(
-        `SELECT id, status, publish_rows_inserted, finalize_lease_token,
-                finalize_lease_expires_at, state_version
+        `SELECT id, sync_run_id, status, observation, all_tickers, gainers, losers,
+                chunk_size, next_chunk_index, total_chunks, merged_artifacts,
+                lease_token, lease_expires_at, nhl_baseline_loaded, nhl_baseline_snapshot,
+                state_version, continue_last_at, continue_last_error,
+                finalize_lease_token, finalize_lease_expires_at,
+                publish_rows_inserted, publish_rpc_recorded_at,
+                abort_reason, abort_evidence, created_at, updated_at
          FROM public.screener_sync_generation_jobs WHERE id = $1`,
         [jobId],
       );
       assertEquals(row.rows[0]?.status, "finalizing");
       assertEquals(row.rows[0]?.publish_rows_inserted, null);
       assertEquals(row.rows[0]?.finalize_lease_token, null);
-      const job = jobFromRow(row.rows[0] as never);
+      const job = jobFromRow(row.rows[0] as import("./sync-staging-serialize.ts").StagingJobRow);
       assertEquals(stagedJobNeedsResume(job, Date.now()), true);
     });
   },
