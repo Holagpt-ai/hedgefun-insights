@@ -1,4 +1,16 @@
-# Session handoff — Batch 228 opening-bell finalize reliability, November 12, 2026 ET
+# Session handoff — Batch 228 deployed (November 12, 2026 ~12:19 ET)
+
+**Latest verified GitHub main:** `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def` (PR #246 merged). Lovable forward synced; current editor source `09266183e352b6a21f61acbd10d23ce91b2016f8` (scanner runtime matches main).
+
+**Owner-approved one-time rollback exception:** Old Edge platform version/revision unavailable. Git-source-only rollback fallback `e7a3eaeeceec1310e941d263dd5df63fd3b76998` would require a separate controlled single-function redeploy and is not an exact previous binary.
+
+**Deployment:** Lovable Cloud reported success for exactly **`sync-screener-data`** between **12:18:24–12:18:34 PM ET**, source/settings fingerprint `07656eebf28569838df72838ea1f5c2026344167eb157b2728b25291bcbe3e29`; OPTIONS HTTP 200. Neither previous nor new platform Edge version ID is obtainable. No SQL, other Edge, Fly, cron, secrets, frontend publish, Penny/overnight activation. Read-only database at 12:19:39 ET: last published generation 12:15:10 ET (pre-deploy), 107 rows; does **not** establish deployed version or opening-bell recovery.
+
+**Continuity:** ISS-034 still OPEN. Next acceptance is natural Friday **November 13 09:30 ET** job: verify 7/7, publish RPC, lease recovery and abort outcomes, then Batch 191 C/D as scheduled. After deployment Lovable regenerated `types.ts` from current DB without Penny RPC types; Penny client restored to main; preview typecheck remains a separate deferred issue, with no Penny activation. PR #243 remains superseded/open; do not merge automatically.
+
+---
+
+## Archived pre-deployment handoff — Batch 228 opening-bell finalize reliability, November 12, 2026 ET
 
 **Source:** GitHub `main` **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (Batch **227** PR **#245** merged).
 
