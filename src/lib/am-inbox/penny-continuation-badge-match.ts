@@ -6,6 +6,7 @@ import {
   pennyBadgeMatchesAmInboxCandidate,
   validatePennyBadgeForHandoff,
 } from "@/lib/am-inbox/penny-continuation-badge-integrity";
+import { firstAmSessionDateAfterSource } from "@/lib/am-inbox/late-session-expiry";
 import type {
   AmInboxPennyBadgeMatchTarget,
   PennyContinuationBadgeAttachment,
@@ -22,6 +23,14 @@ function handoffKey(handoff: PennyContinuationWorkflowHandoff): string {
   return `${handoff.sourceSessionDate}:${handoff.symbol}:${idem}`;
 }
 
+function handoffHasVerifiedNextSessionCarry(
+  handoff: PennyContinuationWorkflowHandoff,
+): boolean {
+  if (handoff.supplementalLabels.includes("next_session_carry")) return true;
+  if (handoff.badge?.supplementalLabels.includes("next_session_carry")) return true;
+  return false;
+}
+
 function liveEvidenceAllowedForAmSession(
   handoff: PennyContinuationWorkflowHandoff,
   amSessionDate: string,
@@ -29,7 +38,17 @@ function liveEvidenceAllowedForAmSession(
   if (handoff.qualificationEvidenceKind === "prior_session_capture") {
     return true;
   }
-  return handoff.sourceSessionDate === amSessionDate;
+  if (handoff.qualificationEvidenceKind !== "live_market") {
+    return false;
+  }
+  if (handoff.sourceSessionDate === amSessionDate) {
+    return true;
+  }
+  if (!handoffHasVerifiedNextSessionCarry(handoff)) {
+    return false;
+  }
+  const carryAmSession = firstAmSessionDateAfterSource(handoff.sourceSessionDate);
+  return amSessionDate === carryAmSession;
 }
 
 /**
