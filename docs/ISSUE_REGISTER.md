@@ -2,6 +2,8 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
+**Post-Batch 232 (Nov 12 PM ET, Watchlist, PR pending, base `d4c77d1f`):** **ISS-047** — V2 stale after alternate add paths + row workflow links missing `securityId` — **fixed in git** (not deployed). Cold load / trust / RLS contracts **pass** in audit. **Authenticated Watchlist UI NOT VERIFIED**. Runbook: `batch232-watchlist-reliability-v1.md`. Batch **231** ledger **502** jobs Nov 10–12 recorded; Layer C per-tab job evidence **NOT VERIFIED**.
+
 **Post-Batch 230 (Nov 12 PM ET, AM Inbox, PR pending, base `34e8fb73`):** ISS-025 audit — continuation RPC/path **pass** at Nov 9 scale; fixes: workspace **25 s** timeout, `amInboxNavigatePath` symbol handoffs. **Authenticated AM Inbox UI NOT VERIFIED** — **ISS-025 OPEN**. Runbook: `batch230-am-inbox-continuation-v1.md`.
 
 **Post-Batch 229 acceptance (Nov 12, authenticated Catalyst UI):** **Upcoming Earnings 821**, **Reported in Last 24h 791** after PR **#248** deploy. **ISS-046** — **UI VERIFIED** on production; counter defect **closed in git**.
@@ -42,6 +44,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ISS-024 | P0 | Tab evidence / Gappers inputs | **Layer B** Nov **12 ~11:00 AM:** **104** rows, six tabs **`evaluated`**, Gappers **0** unresolved, NHL **available** (Day Trade Radar **4**, others **20**). Nov **10 ~1:30 PM** attestation **preserved**. **Per-generation tab evidence history** and authenticated UI **NOT VERIFIED** (Layers C/D). **OPEN**. |
 | **ISS-025** | **P0** | AM Inbox continuation loading | **OPEN for authenticated UI.** Nov 9 RPC scale **pass** in git; Batch **230** adds workspace fetch timeout + navigation helper fix. **Authenticated AM Inbox checklist NOT VERIFIED** (`batch230-am-inbox-continuation-v1.md`). |
 | **ISS-046** | P1 | Catalyst **Upcoming Earnings** summary shows **0** while DB has future earnings | **FIXED + UI VERIFIED (Nov 12).** Authenticated production: **821** upcoming / **791** last 24h. PR **#248** on `main`. |
+| **ISS-047** | P1 | Watchlist V2 stale after alternate add paths; row workflow links omit session `securityId` | **FIXED in git (Batch 232, not deployed).** `invalidateWatchlistClientCaches`; `WatchlistRowV2` uses `workflowSymbolRoutes`. Authenticated Watchlist checklist **NOT VERIFIED** (`batch232-watchlist-reliability-v1.md`). |
 | ISS-036 | P1 | Extreme / unreliable volume acceleration display | Batch **196.1** merged (`797cc615`) and Fly **v46** deployed 2026-11-04. Worker `/health` **running**, Polygon subscribed. Live acceleration-value acceptance **NOT VERIFIED** (no sampled rows this window). |
 | ISS-032 | P2 | Journal terminal-error loading | Fixed on `main` (Batch **188**) → **Batch 193** acceptance. |
 | ISS-026 | P1 | Earnings ranking / Edge | Batch **187** merged; Edge activation **UNVERIFIED** → **Batch 194**. |
