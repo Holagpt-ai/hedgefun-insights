@@ -2,6 +2,14 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Current GitHub source checkpoint — November 11, 2026 ET (Batch 225 merged)
+
+- **Verified canonical GitHub main:** `736831e910b0ca57a8ecdb75f900cce8418b0510` (squash merge of **PR #242**, Batch 225, 20:04 ET November 11). Prior merged batches: **222** spec / PR #239; **223** engine / PR #240 → `3f904970348a11e4fec28e1d86222cbaede2e5e7`; **224** adapter / PR #241 → `8b7082e0a8bef24aa9ccdc5c6ca2fa70473042a2`; **225** handoff / PR #242 → `736831e9`.
+- **Batch 225 shipped in Git source:** `penny_continuation_workflow_handoff_v1` projection, optional AM Inbox badge matcher, badge integrity / stale + cross-session guards, symbol-only fallback navigation without cached foreign security ID. Final PR #242 head `02202d5d05b605c68f9a1f78ad9e92db459d89ab`; required GitHub Deno and Vercel checks **passed** before merge. **No active runtime caller, migration, UI, persistent read/write, Fly/Edge deployment or feature activation** was authorized.
+- **Next implementation (not started): Batch 226 — Penny Continuation Controlled Persistence & Read Integration V1.** Cursor prompt prepared. Additive Penny-only sidecar + bounded, role-scoped, versioned persistence/read contracts, idempotent and stale-safe semantics, DTO and inactive client adapter; test in source only. **Open PR for owner review; no merge or production SQL/Edge/Fly/cron/secrets/flags.** Do not overload existing `late_session_continuation_handoffs` or change `late_session_handoff_list_active_v1` behavior.
+- **Launch prerequisites still unresolved:** ISS-034/ISS-024 repeated-session scanner/tab evidence acceptance, ISS-025 authenticated AM Inbox UI acceptance, ISS-040 GitHub→Lovable unattended source-sync acceptance, ISS-044 closed-snapshot acceptance, plus separate Penny persistence/deployment/read/UI gates. **GitHub main is not proof of Lovable Cloud, Fly or Vercel runtime identity.** November 29 public target remains at risk. Overnight pipeline `OVERNIGHT_SCANNER_PIPELINE_READY` remains **false**; exchange/provider eligibility and owner activation remain mandatory. AI Trader, broker, billing, major feed upgrades remain deferred.
+
+
 ## Verified live checkpoint — November 10, 2026 (~1:30 PM ET, Batch 191 / PR #233)
 
 - **Publication ledger (owner-verified, Lovable read-only DB):** ET session totals Nov **6/9/10** — see `docs/release/batch191-scanner-acceptance-v1.md`. Nov **10** RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted; **Nov 10 AH not accepted**.

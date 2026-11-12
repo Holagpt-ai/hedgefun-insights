@@ -1,12 +1,16 @@
-# Session handoff — Batch 225 Penny Continuation workflow handoff V1, November 11, 2026 ET
+# Session handoff — Batch 225 merged; Batch 226 next, November 11, 2026 ET
 
-**Source:** GitHub `main` **`8b7082e0a8bef24aa9ccdc5c6ca2fa70473042a2`**.
+**Canonical GitHub main verified:** `736831e910b0ca57a8ecdb75f900cce8418b0510` (Batch 225 PR **#242** squash merged; original PR head `02202d5d05b605c68f9a1f78ad9e92db459d89ab`). Earlier merged: Batch **222** PR #239 (contract); **223** PR #240 (engine, main `3f904970`); **224** PR #241 (adapter, main `8b7082e0`).
 
-**Batch 225:** Workflow projection `penny_continuation_workflow_handoff_v1` (projectPennyWorkflowHandoffsFromIntegration) from Batch 224 results; client `matchPennyContinuationBadgesToAmInbox` + navigation reuse. Vitest (9) + Deno (4). **Not wired** to AM Inbox persistence, hooks, or UI.
+**Batch 225 source complete:** versioned `penny_continuation_workflow_handoff_v1` projection + optional AM Inbox badge matcher / symbol-aware routing. Verified safety additions: reject stale/session-conflict qualification, badge kind/model/ticker/date validation, verified AM Inbox security ID only (no cached session-storage leakage). Deno **6** and Vitest **13** local tests reported; required GitHub screener Deno + Vercel checks passed. **No production persistence/read/UI wiring or activation.**
 
-**Batch 224 (merged):** PR **#241** @ `74960a51e590d2c363213cd806643783c873db4b`. Integration layer on `main`. **Not production-activated.**
+**Next — Cursor Batch 226 (not started, no PR as of this checkpoint):** Controlled Persistence & Read Integration V1. Prepare additive Penny-specific sidecar table and migration **source only**, strict service-role write and bounded authenticated read contracts, idempotency/rollback/invalidation, versioned DTO + inactive client adapter, tests and continuity documents. Open one PR and stop. Keep live `late_session_continuation_handoffs`, `late_session_handoff_list_active_v1`, scanner, Radar, Five Pillars, AM Inbox hooks and production flags unchanged. **No SQL migration apply, merge, Edge/Fly deploy, cron/secrets or activation.**
 
-**Next:** Batch 225 PR review; activation batch for persistence and surfacing.
+**Outstanding independent launch gates:** ISS-034 / ISS-024 repeated RTH/AH and tab evidence; ISS-025 authenticated AM Inbox UI; ISS-040 source sync acceptance; ISS-044 Radar closed-snapshot acceptance. November 29 launch target at risk. Overnight pipeline is disabled and needs exchange/provider verification plus separate owner authorization. Git merge is not deployed-runtime proof.
+
+## Archived handoff — Batch 225 Penny Continuation workflow handoff V1
+
+**Merged:** PR #242 → `736831e910b0ca57a8ecdb75f900cce8418b0510`. See `docs/release/batch225-penny-workflow-handoff-v1.md`; tests Deno 6 / Vitest 13; production activation deferred.
 
 ## Archived handoff — Batch 224 Penny Continuation integration V1
 
