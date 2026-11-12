@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 229 — Catalyst upcoming earnings counter, PR #248 review corrections)
+
+- `time_of_day` / explicit `event_time` reporting-window classification; ET calendar horizon; stable `event_date`+`id` pagination; Last 24h `published_at` upper bound; summary loading/unavailable UI.
+
 ## 2026-11-12 (Batch 229 — Catalyst upcoming earnings counter, PR pending)
 
 - Dedicated summary queries for **Upcoming Earnings** and **Reported in Last 24h** (no longer derived from 500-row asc feed). ET date/time rules, `provider_reported` only. **ISS-046** opened. **Vercel** deploy required for production fix; no backend changes.

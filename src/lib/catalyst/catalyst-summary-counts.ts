@@ -5,20 +5,25 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CatalystEvent } from "@/types/catalyst";
+import type { CatalystEvent, CatalystTimeOfDay } from "@/types/catalyst";
 import {
-  catalystEventsFetchWindow,
+  etMidnightMs,
   etStartOfDayMs,
   scheduledMomentMs,
 } from "@/lib/catalyst/parsers";
-
-const DAY_MS = 86_400_000;
+import {
+  NORMAL_AFTER_HOURS_END_MS,
+  NORMAL_REGULAR_CLOSE_MS,
+  NORMAL_REGULAR_OPEN_MS,
+} from "@/lib/equities-session-calendar";
+import { easternParts } from "@/lib/market-session";
 
 /** Hard cap on rows scanned for client-side upcoming classification (fail-closed bound). */
 export const CATALYST_UPCOMING_EARNINGS_SCAN_CAP = 5_000;
+export const CATALYST_UPCOMING_EARNINGS_PAGE_SIZE = 1_000;
 
 const UPCOMING_EARNINGS_SCAN_FIELDS =
-  "id, event_type, event_time, event_date, published_at, verification_state";
+  "id, event_type, event_time, event_date, time_of_day, published_at, verification_state";
 
 export function etCalendarDateFromMs(nowMs: number): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -33,17 +38,79 @@ export function etCalendarDateFromMs(nowMs: number): string {
   return `${y}-${mo}-${d}`;
 }
 
+/** Add whole ET calendar days to a YYYY-MM-DD key (DST-safe via noon stepping). */
+export function addEtCalendarDays(dateEt: string, days: number): string {
+  const midnight = etMidnightMs(dateEt);
+  if (midnight === null) return dateEt;
+  const noon = midnight + 12 * 3_600_000;
+  return etCalendarDateFromMs(noon + days * 86_400_000);
+}
+
+export function upcomingEarningsHorizonEndEt(nowMs: number, upcomingDays: number): string {
+  const today = etCalendarDateFromMs(nowMs);
+  return addEtCalendarDays(today, upcomingDays);
+}
+
+export function isEventDateWithinUpcomingHorizon(
+  eventDate: string,
+  nowMs: number,
+  upcomingDays: number,
+): boolean {
+  const today = etCalendarDateFromMs(nowMs);
+  const lastInclusive = upcomingEarningsHorizonEndEt(nowMs, upcomingDays);
+  return eventDate >= today && eventDate <= lastInclusive;
+}
+
 export type UpcomingEarningsRow = Pick<
   CatalystEvent,
-  "event_type" | "event_time" | "event_date" | "published_at" | "verification_state"
+  | "id"
+  | "event_type"
+  | "event_time"
+  | "event_date"
+  | "time_of_day"
+  | "published_at"
+  | "verification_state"
 >;
 
 /**
+ * True while the provider-scheduled reporting window for today's ET calendar row
+ * has not ended. Never uses `published_at` and never infers that earnings were
+ * released merely because a window elapsed.
+ */
+export function isEarningsReportingWindowStillOpen(
+  row: Pick<UpcomingEarningsRow, "event_date" | "event_time" | "time_of_day">,
+  nowMs: number,
+): boolean {
+  const eventDate = row.event_date;
+  if (!eventDate) return false;
+  const today = etCalendarDateFromMs(nowMs);
+  if (eventDate > today) return true;
+  if (eventDate < today) return false;
+
+  if (row.event_time) {
+    const t = Date.parse(row.event_time);
+    return Number.isFinite(t) && t > nowMs;
+  }
+
+  const parts = easternParts(nowMs);
+  if (!parts) return false;
+
+  const tod: CatalystTimeOfDay | null = row.time_of_day ?? null;
+  switch (tod) {
+    case "before_open":
+      return parts.msOfDay < NORMAL_REGULAR_OPEN_MS;
+    case "after_close":
+      return parts.msOfDay < NORMAL_AFTER_HOURS_END_MS;
+    case "during":
+      return parts.msOfDay < NORMAL_REGULAR_CLOSE_MS;
+    case "unknown":
+    default:
+      return true;
+  }
+}
+
+/**
  * Scheduled upcoming earnings within `upcomingDays` ET calendar horizon.
- * Uses `scheduledMomentMs` only (never published_at) so announcement timestamps
- * cannot demote a future `event_date`. Date-only rows on today's ET calendar day
- * remain upcoming for the full session (incl. after-close). Timed rows use `nowMs`
- * as the lower bound.
  */
 export function isUpcomingEarningsSummaryRow(
   row: UpcomingEarningsRow,
@@ -52,13 +119,10 @@ export function isUpcomingEarningsSummaryRow(
 ): boolean {
   if (row.event_type !== "earnings") return false;
   if (row.verification_state !== "provider_reported") return false;
-  const scheduled = scheduledMomentMs(row);
-  if (scheduled === null) return false;
-
-  const todayStart = etStartOfDayMs(nowMs);
-  const upcomingEnd = todayStart + (upcomingDays + 1) * DAY_MS;
-  const lower = row.event_time ? nowMs : todayStart;
-  return scheduled >= lower && scheduled < upcomingEnd;
+  if (!row.event_date) return false;
+  if (!isEventDateWithinUpcomingHorizon(row.event_date, nowMs, upcomingDays)) return false;
+  if (scheduledMomentMs(row) === null) return false;
+  return isEarningsReportingWindowStillOpen(row, nowMs);
 }
 
 export function countUpcomingEarningsInRows(
@@ -92,9 +156,9 @@ export async function fetchCatalystUpcomingEarningsCount(
 ): Promise<CatalystUpcomingEarningsCountResult> {
   const nowMs = args.nowMs ?? Date.now();
   const upcomingDays = args.upcomingDays ?? 30;
-  const { upcomingTo } = catalystEventsFetchWindow(nowMs, 3, upcomingDays);
   const todayEt = etCalendarDateFromMs(nowMs);
-  const pageSize = 1_000;
+  const horizonEndEt = upcomingEarningsHorizonEndEt(nowMs, upcomingDays);
+  const pageSize = CATALYST_UPCOMING_EARNINGS_PAGE_SIZE;
   let total = 0;
   let truncated = false;
 
@@ -106,8 +170,9 @@ export async function fetchCatalystUpcomingEarningsCount(
         .eq("event_type", "earnings")
         .eq("verification_state", "provider_reported")
         .gte("event_date", todayEt)
-        .lte("event_date", upcomingTo)
+        .lte("event_date", horizonEndEt)
         .order("event_date", { ascending: true })
+        .order("id", { ascending: true })
         .range(offset, offset + pageSize - 1);
 
       const sym = args.symbol?.trim().toUpperCase();
@@ -142,12 +207,14 @@ export async function fetchCatalystPublishedLast24Count(
 ): Promise<CatalystLast24CountResult> {
   const nowMs = args.nowMs ?? Date.now();
   const since = new Date(nowMs - 24 * 3_600_000).toISOString();
+  const until = new Date(nowMs).toISOString();
   try {
     let q = client
       .from("catalyst_events")
       .select("id", { count: "exact", head: true })
       .eq("verification_state", "provider_reported")
-      .gte("published_at", since);
+      .gte("published_at", since)
+      .lte("published_at", until);
 
     const sym = args.symbol?.trim().toUpperCase();
     if (sym) q = q.eq("symbol", sym);

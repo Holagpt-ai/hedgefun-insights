@@ -19,7 +19,7 @@
 
 ## Fix
 
-1. **`src/lib/catalyst/catalyst-summary-counts.ts`** — ET-aware upcoming earnings classification (`scheduledMomentMs`, date-only vs timed, `provider_reported` only); bounded paginated scan on `event_date` window (cap 5,000 rows); head count for **Reported in Last 24h** via `published_at`.
+1. **`src/lib/catalyst/catalyst-summary-counts.ts`** — ET calendar horizon (inclusive last day, DST-safe stepping); `time_of_day` + explicit `event_time` reporting-window rules (BMO/AMC/during/unknown) without treating `published_at` as a release; bounded paginated scan ordered by `event_date`, `id` (cap 5,000); **Last 24h** head count with `published_at` ∈ [now−24h, now].
 2. **`src/hooks/useCatalystSummaryCounts.ts`** — React Query wrappers (separate keys from feed).
 3. **`Catalyst.tsx`** — Summary cards use dedicated queries; event feed/filter/sort/RLS unchanged.
 
