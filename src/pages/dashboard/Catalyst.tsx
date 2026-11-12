@@ -13,12 +13,15 @@ import {
   useToggleCatalystReviewed,
   useCatalystLastSync,
 } from "@/hooks/useCatalystEvents";
+import {
+  useCatalystPublishedLast24Count,
+  useCatalystUpcomingEarningsCount,
+} from "@/hooks/useCatalystSummaryCounts";
 import { useCatalystHistoricalContext } from "@/hooks/useCatalystHistoricalContext";
 import { CatalystEventRow } from "@/components/catalyst/CatalystEventRow";
 import { CatalystDetailPanel } from "@/components/catalyst/CatalystDetailPanel";
 import {
   type WorkflowFilter,
-  isFuture,
   isRecent,
   normalizeSymbol,
 } from "@/lib/catalyst/parsers";
@@ -124,12 +127,28 @@ export default function Catalyst() {
   const [searchInput, setSearchInput] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
+  const catalystUpcomingDays = 30;
   const { data: rawEvents, isPending, error } = useCatalystEvents({
     symbol: activeSymbol,
     recentDays: 3,
-    upcomingDays: 30,
+    upcomingDays: catalystUpcomingDays,
     limit: 500,
     eventDateOrder: activeSymbol ? "desc" : "asc",
+  });
+  const {
+    data: upcomingEarningsCount,
+    isPending: upcomingEarningsPending,
+    isError: upcomingEarningsFailed,
+  } = useCatalystUpcomingEarningsCount({
+    symbol: activeSymbol,
+    upcomingDays: catalystUpcomingDays,
+  });
+  const {
+    data: last24Count,
+    isPending: last24Pending,
+    isError: last24Failed,
+  } = useCatalystPublishedLast24Count({
+    symbol: activeSymbol,
   });
   const { data: userState } = useCatalystUserState();
   const { data: lastSync } = useCatalystLastSync();
@@ -245,16 +264,40 @@ export default function Catalyst() {
   );
 
   const summary = useMemo(() => {
-    const upcomingEarnings = events.filter(
-      (e) => e.event_type === "earnings" && isFuture(e, sessionNowMs),
-    ).length;
     const recentCompany = events.filter(
       (e) => e.event_type !== "earnings" && isRecent(e, sessionNowMs, 72),
     ).length;
     const watchlistCatalysts = watchlistCatalystCounts(events, watchlistSymbols);
-    const last24 = events.filter((e) => isRecent(e, sessionNowMs, 24)).length;
-    return { upcomingEarnings, recentCompany, watchlistCatalysts, last24 };
-  }, [events, watchlistSymbols, sessionNowMs]);
+    const upcomingEarningsReady = upcomingEarningsCount && !upcomingEarningsCount.error;
+    const last24Ready = last24Count && !last24Count.error;
+    return {
+      upcomingEarnings: upcomingEarningsReady ? upcomingEarningsCount.count : null,
+      upcomingEarningsCapped: upcomingEarningsCount?.truncated === true,
+      upcomingEarningsStatus: upcomingEarningsPending
+        ? ("loading" as const)
+        : upcomingEarningsFailed || upcomingEarningsCount?.error
+          ? ("error" as const)
+          : ("ready" as const),
+      recentCompany,
+      watchlistCatalysts,
+      last24: last24Ready ? last24Count.count : null,
+      last24Status: last24Pending
+        ? ("loading" as const)
+        : last24Failed || last24Count?.error
+          ? ("error" as const)
+          : ("ready" as const),
+    };
+  }, [
+    events,
+    watchlistSymbols,
+    sessionNowMs,
+    upcomingEarningsCount,
+    upcomingEarningsPending,
+    upcomingEarningsFailed,
+    last24Count,
+    last24Pending,
+    last24Failed,
+  ]);
 
   const clearSymbolFilter = () => {
     const next = new URLSearchParams(searchParams);
@@ -338,14 +381,30 @@ export default function Catalyst() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <SummaryCard label="Upcoming Earnings" value={summary.upcomingEarnings} />
+        <SummaryCard
+          label="Upcoming Earnings"
+          value={summary.upcomingEarnings}
+          status={summary.upcomingEarningsStatus}
+          sublabel={
+            summary.upcomingEarningsStatus === "error"
+              ? "Unavailable"
+              : summary.upcomingEarningsCapped
+                ? "at least (scan capped)"
+                : undefined
+          }
+        />
         <SummaryCard label="Recent Company Events" value={summary.recentCompany} />
         <SummaryCard
           label={WATCHLIST_SUMMARY_LABEL}
           value={summary.watchlistCatalysts.events}
           sublabel={`${summary.watchlistCatalysts.events} events · ${summary.watchlistCatalysts.stocks} stocks`}
         />
-        <SummaryCard label="Reported in Last 24h" value={summary.last24} />
+        <SummaryCard
+          label="Reported in Last 24h"
+          value={summary.last24}
+          status={summary.last24Status}
+          sublabel={summary.last24Status === "error" ? "Unavailable" : undefined}
+        />
       </div>
 
       {/* Filters */}
@@ -453,11 +512,30 @@ export default function Catalyst() {
   );
 }
 
-function SummaryCard({ label, value, sublabel }: { label: string; value: number; sublabel?: string }) {
+type SummaryCardStatus = "ready" | "loading" | "error";
+
+function SummaryCard({
+  label,
+  value,
+  status = "ready",
+  sublabel,
+}: {
+  label: string;
+  value: number | null;
+  status?: SummaryCardStatus;
+  sublabel?: string;
+}) {
+  const display =
+    status === "loading" ? "…" : status === "error" || value === null ? "—" : value;
   return (
     <Card className="p-3">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">{value}</div>
+      <div
+        className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl"
+        aria-busy={status === "loading"}
+      >
+        {display}
+      </div>
       {sublabel && <div className="mt-1 text-[11px] text-muted-foreground">{sublabel}</div>}
     </Card>
   );
