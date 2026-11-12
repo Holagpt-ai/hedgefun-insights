@@ -6713,6 +6713,92 @@ export type Database = {
           },
         ]
       }
+      penny_continuation_workflow_handoffs: {
+        Row: {
+          badge_payload: Json
+          capture_at: string
+          continuation_qualified: boolean
+          created_at: string
+          generation_sync_at: string
+          generation_sync_ms: number
+          handoff_version: string
+          id: string
+          integration_version: string
+          model_version: string
+          observation_generation_id: string
+          publication_idempotency_key: string
+          publication_suppressed: boolean
+          qualification_evidence_kind: string
+          rank_snapshot: Json
+          revoked_at: string | null
+          security_id: string | null
+          source_session_date: string
+          symbol: string
+          symbol_observation_at: string | null
+          updated_at: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+        }
+        Insert: {
+          badge_payload: Json
+          capture_at: string
+          continuation_qualified?: boolean
+          created_at?: string
+          generation_sync_at: string
+          generation_sync_ms: number
+          handoff_version: string
+          id?: string
+          integration_version: string
+          model_version: string
+          observation_generation_id?: string
+          publication_idempotency_key: string
+          publication_suppressed?: boolean
+          qualification_evidence_kind: string
+          rank_snapshot?: Json
+          revoked_at?: string | null
+          security_id?: string | null
+          source_session_date: string
+          symbol: string
+          symbol_observation_at?: string | null
+          updated_at?: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+        }
+        Update: {
+          badge_payload?: Json
+          capture_at?: string
+          continuation_qualified?: boolean
+          created_at?: string
+          generation_sync_at?: string
+          generation_sync_ms?: number
+          handoff_version?: string
+          id?: string
+          integration_version?: string
+          model_version?: string
+          observation_generation_id?: string
+          publication_idempotency_key?: string
+          publication_suppressed?: boolean
+          qualification_evidence_kind?: string
+          rank_snapshot?: Json
+          revoked_at?: string | null
+          security_id?: string | null
+          source_session_date?: string
+          symbol?: string
+          symbol_observation_at?: string | null
+          updated_at?: string
+          valid_from_session_date?: string
+          valid_through_session_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "penny_continuation_workflow_handoffs_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       market_behavior_episodes: {
         Row: {
           close_strength: number | null
@@ -8499,93 +8585,6 @@ export type Database = {
         }
         Relationships: []
       }
-      screener_sync_generation_jobs: {
-        Row: {
-          abort_evidence: Json | null
-          abort_reason: string | null
-          all_tickers: Json
-          chunk_size: number
-          continue_last_at: string | null
-          continue_last_error: string | null
-          created_at: string
-          finalize_lease_expires_at: string | null
-          finalize_lease_token: string | null
-          gainers: Json
-          id: string
-          lease_expires_at: string | null
-          lease_token: string | null
-          losers: Json
-          merged_artifacts: Json
-          next_chunk_index: number
-          nhl_baseline_loaded: boolean
-          nhl_baseline_snapshot: Json | null
-          observation: Json
-          publish_rows_inserted: number | null
-          publish_rpc_recorded_at: string | null
-          state_version: number
-          status: string
-          sync_run_id: string
-          total_chunks: number
-          updated_at: string
-        }
-        Insert: {
-          abort_evidence?: Json | null
-          abort_reason?: string | null
-          all_tickers: Json
-          chunk_size: number
-          continue_last_at?: string | null
-          continue_last_error?: string | null
-          created_at?: string
-          finalize_lease_expires_at?: string | null
-          finalize_lease_token?: string | null
-          gainers?: Json
-          id?: string
-          lease_expires_at?: string | null
-          lease_token?: string | null
-          losers?: Json
-          merged_artifacts?: Json
-          next_chunk_index?: number
-          nhl_baseline_loaded?: boolean
-          nhl_baseline_snapshot?: Json | null
-          observation: Json
-          publish_rows_inserted?: number | null
-          publish_rpc_recorded_at?: string | null
-          state_version?: number
-          status: string
-          sync_run_id: string
-          total_chunks: number
-          updated_at?: string
-        }
-        Update: {
-          abort_evidence?: Json | null
-          abort_reason?: string | null
-          all_tickers?: Json
-          chunk_size?: number
-          continue_last_at?: string | null
-          continue_last_error?: string | null
-          created_at?: string
-          finalize_lease_expires_at?: string | null
-          finalize_lease_token?: string | null
-          gainers?: Json
-          id?: string
-          lease_expires_at?: string | null
-          lease_token?: string | null
-          losers?: Json
-          merged_artifacts?: Json
-          next_chunk_index?: number
-          nhl_baseline_loaded?: boolean
-          nhl_baseline_snapshot?: Json | null
-          observation?: Json
-          publish_rows_inserted?: number | null
-          publish_rpc_recorded_at?: string | null
-          state_version?: number
-          status?: string
-          sync_run_id?: string
-          total_chunks?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       screener_volume_baselines: {
         Row: {
           avg_volume_20d: number | null
@@ -10312,17 +10311,6 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
-      advance_screener_sync_chunk_v1: {
-        Args: {
-          p_expected_chunk_index: number
-          p_expected_state_version: number
-          p_job_id: string
-          p_lease_token: string
-          p_merged_artifacts: Json
-          p_now: string
-        }
-        Returns: Json
-      }
       ai_trader_apply_watchlist_transition_v1: {
         Args: { p_row: Json }
         Returns: Json
@@ -10525,16 +10513,6 @@ export type Database = {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
       }
-      claim_screener_sync_lease_v1: {
-        Args: {
-          p_job_id: string
-          p_lease_expires_at: string
-          p_lease_token: string
-          p_mode: string
-          p_now: string
-        }
-        Returns: Json
-      }
       claim_watchlist_v2_ticker_lease: {
         Args: {
           p_lease_seconds: number
@@ -10566,15 +10544,6 @@ export type Database = {
       cleanup_stale_screener_volume_generations_v1: {
         Args: { p_keep_generation_id: string }
         Returns: undefined
-      }
-      complete_screener_sync_publish_v1: {
-        Args: {
-          p_expected_state_version: number
-          p_finalize_lease_token: string
-          p_job_id: string
-          p_now: string
-        }
-        Returns: Json
       }
       complete_wl_v2_run: {
         Args: { p_cursor_end: string; p_run_id: string; p_status: string }
@@ -10705,10 +10674,6 @@ export type Database = {
           title: string
         }[]
       }
-      expire_screener_sync_stale_jobs_v1: {
-        Args: { p_job_ttl?: string; p_now: string }
-        Returns: Json
-      }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: Json
@@ -10792,10 +10757,6 @@ export type Database = {
           outcome_row_count: number
           security_id: string
         }[]
-      }
-      get_ops_scanner_diagnostics_v1: {
-        Args: { p_job_limit?: number }
-        Returns: Json
       }
       has_role: {
         Args: {
@@ -11022,6 +10983,25 @@ export type Database = {
         Args: { p_row: Json }
         Returns: undefined
       }
+      penny_continuation_handoff_expire_stale_v1: {
+        Args: { p_as_of_session_date: string }
+        Returns: number
+      }
+      penny_continuation_handoff_list_active_v1: {
+        Args: {
+          p_am_session_date: string
+          p_pairs: Json
+        }
+        Returns: Json
+      }
+      penny_continuation_handoff_revoke_v1: {
+        Args: { p_source_session_date: string; p_symbol: string }
+        Returns: boolean
+      }
+      penny_continuation_handoff_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: Json
+      }
       merge_screener_52w_high: {
         Args: { p_bar_high: number; p_existing_high: number }
         Returns: number
@@ -11030,25 +11010,7 @@ export type Database = {
         Args: { p_bar_low: number; p_existing_low: number }
         Returns: number
       }
-      ops_diagnostics_redact_v1: {
-        Args: { p_max: number; p_text: string }
-        Returns: string
-      }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
-      publish_screener_sync_staged_generation_v1: {
-        Args: {
-          p_expected_state_version: number
-          p_finalize_lease_token: string
-          p_job_id: string
-          p_nhl_baseline_status: string
-          p_now: string
-          p_rows: Json
-          p_sync_run_id: string
-          p_synced_at: string
-          p_tab_evaluation_evidence: Json
-        }
-        Returns: Json
-      }
       publish_screener_volume_baselines_v1: {
         Args: { p_generation_id: string; p_provider_as_of: string }
         Returns: number
@@ -11056,25 +11018,6 @@ export type Database = {
       purge_radar_v22_events_v1: {
         Args: { p_retain_days?: number }
         Returns: number
-      }
-      reconcile_screener_sync_staged_publish_v1: {
-        Args: {
-          p_expected_state_version: number
-          p_job_id: string
-          p_now: string
-        }
-        Returns: Json
-      }
-      record_screener_sync_publish_rpc_v1: {
-        Args: {
-          p_expected_state_version: number
-          p_finalize_lease_token: string
-          p_job_id: string
-          p_now: string
-          p_rows_inserted: number
-          p_sync_run_id: string
-        }
-        Returns: Json
       }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
@@ -11109,15 +11052,6 @@ export type Database = {
       release_screener_52w_baseline_run_lease_v1: {
         Args: { p_holder_id: string }
         Returns: undefined
-      }
-      release_screener_sync_finalize_lease_cas_v1: {
-        Args: {
-          p_expected_finalize_lease_token: string
-          p_expected_state_version: number
-          p_job_id: string
-          p_now: string
-        }
-        Returns: Json
       }
       release_sec_edgar_sync_lease_v1: {
         Args: { p_holder_id: string; p_stream_key: string }
@@ -11230,12 +11164,6 @@ export type Database = {
       screener_near_integer_scale_factor: {
         Args: { p_ratio: number }
         Returns: number
-      }
-      screener_sync_job_control_v1: {
-        Args: {
-          j: Database["public"]["Tables"]["screener_sync_generation_jobs"]["Row"]
-        }
-        Returns: Json
       }
       sec_edgar_sync_cron_should_invoke_v1: { Args: never; Returns: boolean }
       set_radar_v22_feed_status_v1: {
