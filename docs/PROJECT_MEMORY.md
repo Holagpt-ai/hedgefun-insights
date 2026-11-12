@@ -2,6 +2,15 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified controlled production deploy — November 12, 2026 ~12:18 ET (Batch 228)
+
+- **GitHub main:** `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def` (PR **#246** merged); **Lovable editor source:** `09266183e352b6a21f61acbd10d23ce91b2016f8` (scanner entrypoint, handler and shared runtime imports checked against main).
+- **Owner-authorized one-time rollback exception:** actual previous Edge revision not obtainable; source-only fallback `e7a3eaeeceec1310e941d263dd5df63fd3b76998` is NOT guaranteed to reproduce previous deployed binary. No blanket exception for later deployments.
+- **Lovable Cloud executed:** exactly **one `sync-screener-data` Edge deployment**, reported success, **12:18:24–12:18:34 PM ET**, fingerprint `07656eebf28569838df72838ea1f5c2026344167eb157b2728b25291bcbe3e29`; OPTIONS **200**. **Before/after platform version IDs unavailable**. Edge runtime identity and opening-bell behavior remain unverified.
+- **Read-only 12:19 ET checkpoint:** feed status available, **107** rows, last publish **12:15 ET** before deploy (not acceptance of new version). **ISS-034 OPEN** until natural Nov **13 09:30 ET** publish/lease check; Batch 191 C/D, Radar close, NHL UI still pending.
+- **Unrelated Lovable source side effect:** Penny client was restored to `main`; Lovable auto-regenerated `src/integrations/supabase/types.ts` again to match an unapplied Penny migration, causing a frontend preview type error. No Penny UI, SQL or source feature activation. Reconcile separately, do not include in scanner Edge rollout.
+- **No** SQL/migrations, Fly, cron, secrets, frontend publish, other Edge or Penny/overnight activation. Release record: `docs/DEPLOYMENT_STATUS.md` and Batch 228 runbook.
+
 ## Verified live checkpoint — November 12, 2026 (Batch 228 opening-bell finalize)
 
 - **GitHub `main`:** **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (Batch **227** merged).
