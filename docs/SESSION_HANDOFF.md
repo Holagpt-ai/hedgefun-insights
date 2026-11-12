@@ -1,12 +1,16 @@
-# Session handoff — Batch 225 Penny Continuation workflow handoff V1, November 11, 2026 ET
+# Session handoff — Batch 226 Penny persistence & read V1, November 12, 2026 ET
 
-**Source:** GitHub `main` **`8b7082e0a8bef24aa9ccdc5c6ca2fa70473042a2`**.
+**Source:** GitHub `main` **`736831e910b0ca57a8ecdb75f900cce8418b0510`** (Batch 225 PR **#242** merged).
 
-**Batch 225:** Workflow projection `penny_continuation_workflow_handoff_v1` (projectPennyWorkflowHandoffsFromIntegration) from Batch 224 results; client `matchPennyContinuationBadgesToAmInbox` + navigation reuse. Vitest (9) + Deno (4). **Not wired** to AM Inbox persistence, hooks, or UI.
+**Batch 226:** Penny-only table/RPC migration (files only), `capture-penny-continuation-handoffs.ts`, radar-bridge Penny actions, client `fetchActivePennyContinuationHandoffs` + `mapPersistedPennyHandoffRows`. Generation sync fencing on upsert; revoke + bounded list. Deno **5** + Vitest **3**. **Not applied** in production; **no** publisher cron, hooks, or AM Inbox UI.
 
-**Batch 224 (merged):** PR **#241** @ `74960a51e590d2c363213cd806643783c873db4b`. Integration layer on `main`. **Not production-activated.**
+**Batch 225 (merged):** Workflow handoff + badge integrity + navigation. **Not production-activated.**
 
-**Next:** Batch 225 PR review; activation batch for persistence and surfacing.
+**Next:** PR review; Lovable migration apply; owner-approved publisher + UI activation batch.
+
+## Archived handoff — Batch 225 Penny Continuation workflow handoff V1
+
+**Merged:** PR **#242** · Workflow projection + client badge matcher. **No persistence on main until Batch 226 apply.**
 
 ## Archived handoff — Batch 224 Penny Continuation integration V1
 

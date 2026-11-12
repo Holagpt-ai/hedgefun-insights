@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 226 — Penny persistence & read V1, PR pending)
+
+- Migration `penny_continuation_workflow_handoffs` + idempotent service-role upsert with stale-generation fencing, revoke/expire RPCs, bounded authenticated `list_active`. Capture + radar-bridge handlers + client read/map adapters. Deno **5** + Vitest **3**. **No SQL apply, Edge deploy, publisher, or UI hook.**
+
 ## 2026-11-11 (Batch 225 — workflow handoff badge integrity, PR #242)
 
 - Stale/session-conflict rejection in projection; badge symbol/date/model validation in matcher; Penny navigation without stale session-storage `securityId`. Deno 6 + Vitest 13.

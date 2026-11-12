@@ -15,6 +15,7 @@ import {
   handleLateSessionHandoffAction,
   persistLateSessionHandoffRows,
 } from "./late-session-handoff-handlers.ts";
+import { handlePennyContinuationHandoffAction } from "./penny-continuation-handoff-handlers.ts";
 import { handleForwardOutcomeAction } from "./forward-outcome-handlers.ts";
 import { handleCorporateEventAction } from "./corporate-event-handlers.ts";
 import { handleIntradayReconstructionAction } from "./intraday-reconstruction-handlers.ts";
@@ -258,6 +259,12 @@ async function handleAction(
     (name, args) => rpcResult(db, name, args, rpcMeta),
   );
   if (lateSession) return lateSession;
+  const pennyHandoff = await handlePennyContinuationHandoffAction(
+    action,
+    body,
+    (name, args) => rpcResult(db, name, args, rpcMeta),
+  );
+  if (pennyHandoff) return pennyHandoff;
   const forwardOutcomes = await handleForwardOutcomeAction(
     action,
     body,

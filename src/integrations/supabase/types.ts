@@ -6713,6 +6713,92 @@ export type Database = {
           },
         ]
       }
+      penny_continuation_workflow_handoffs: {
+        Row: {
+          badge_payload: Json
+          capture_at: string
+          continuation_qualified: boolean
+          created_at: string
+          generation_sync_at: string
+          generation_sync_ms: number
+          handoff_version: string
+          id: string
+          integration_version: string
+          model_version: string
+          observation_generation_id: string
+          publication_idempotency_key: string
+          publication_suppressed: boolean
+          qualification_evidence_kind: string
+          rank_snapshot: Json
+          revoked_at: string | null
+          security_id: string | null
+          source_session_date: string
+          symbol: string
+          symbol_observation_at: string | null
+          updated_at: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+        }
+        Insert: {
+          badge_payload: Json
+          capture_at: string
+          continuation_qualified?: boolean
+          created_at?: string
+          generation_sync_at: string
+          generation_sync_ms: number
+          handoff_version: string
+          id?: string
+          integration_version: string
+          model_version: string
+          observation_generation_id?: string
+          publication_idempotency_key: string
+          publication_suppressed?: boolean
+          qualification_evidence_kind: string
+          rank_snapshot?: Json
+          revoked_at?: string | null
+          security_id?: string | null
+          source_session_date: string
+          symbol: string
+          symbol_observation_at?: string | null
+          updated_at?: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+        }
+        Update: {
+          badge_payload?: Json
+          capture_at?: string
+          continuation_qualified?: boolean
+          created_at?: string
+          generation_sync_at?: string
+          generation_sync_ms?: number
+          handoff_version?: string
+          id?: string
+          integration_version?: string
+          model_version?: string
+          observation_generation_id?: string
+          publication_idempotency_key?: string
+          publication_suppressed?: boolean
+          qualification_evidence_kind?: string
+          rank_snapshot?: Json
+          revoked_at?: string | null
+          security_id?: string | null
+          source_session_date?: string
+          symbol?: string
+          symbol_observation_at?: string | null
+          updated_at?: string
+          valid_from_session_date?: string
+          valid_through_session_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "penny_continuation_workflow_handoffs_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       market_behavior_episodes: {
         Row: {
           close_strength: number | null
@@ -10896,6 +10982,52 @@ export type Database = {
       late_session_handoff_upsert_v1: {
         Args: { p_row: Json }
         Returns: undefined
+      }
+      penny_continuation_handoff_expire_stale_v1: {
+        Args: { p_as_of_session_date: string }
+        Returns: number
+      }
+      penny_continuation_handoff_list_active_v1: {
+        Args: { p_am_session_date: string; p_limit?: number }
+        Returns: {
+          badge_payload: Json
+          capture_at: string
+          continuation_qualified: boolean
+          created_at: string
+          generation_sync_at: string
+          generation_sync_ms: number
+          handoff_version: string
+          id: string
+          integration_version: string
+          model_version: string
+          observation_generation_id: string
+          publication_idempotency_key: string
+          publication_suppressed: boolean
+          qualification_evidence_kind: string
+          rank_snapshot: Json
+          revoked_at: string | null
+          security_id: string | null
+          source_session_date: string
+          symbol: string
+          symbol_observation_at: string | null
+          updated_at: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "penny_continuation_workflow_handoffs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      penny_continuation_handoff_revoke_v1: {
+        Args: { p_source_session_date: string; p_symbol: string }
+        Returns: boolean
+      }
+      penny_continuation_handoff_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: Json
       }
       merge_screener_52w_high: {
         Args: { p_bar_high: number; p_existing_high: number }
