@@ -4,6 +4,27 @@ import { MemoryRouter } from "react-router-dom";
 import { WatchlistRowV2 } from "@/components/watchlist-v2/WatchlistRowV2";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import { parseKeyLevels } from "@/lib/watchlist-v2/parsers";
+import { persistHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
+import type { SecurityId } from "@/types/security-identity";
+
+const SEC_VRAX = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" as SecurityId;
+
+function workflowForVrax(): HistoricalWorkflowContext {
+  return {
+    securityId: SEC_VRAX,
+    symbol: "VRAX",
+    historicalContextAvailable: true,
+    evidenceLabels: [],
+    sampleSizeQuality: "LIMITED",
+    comparableEpisodeCount: 0,
+    mostRecentComparableDate: null,
+    profileFreshness: "STALE",
+    sourceSurface: "radar",
+    handoffAt: "2026-11-12T18:00:00.000Z",
+    contextAssembledAt: "2026-11-12T18:00:00.000Z",
+  };
+}
 
 function row(overrides: Partial<V2Row>): V2Row {
   return {
@@ -157,6 +178,19 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
       }),
     );
     expect(getByText(/MOMENTUM · delayed snapshot/i)).toBeInTheDocument();
+  });
+
+  it("workflow links include securityId from session handoff when expanded", () => {
+    sessionStorage.clear();
+    persistHistoricalWorkflowContext(workflowForVrax());
+    const { container } = renderRow(row({ ticker: "VRAX" }));
+    const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
+    if (toggle) fireEvent.click(toggle);
+    const ai = container.querySelector('a[href*="/dashboard/ai"]');
+    expect(ai?.getAttribute("href")).toContain("symbol=VRAX");
+    expect(ai?.getAttribute("href")).toContain(`securityId=${encodeURIComponent(SEC_VRAX)}`);
+    const screeners = container.querySelector('a[href*="/dashboard/screeners"]');
+    expect(screeners?.getAttribute("href")).toContain(`securityId=${encodeURIComponent(SEC_VRAX)}`);
   });
 
   it("never renders raw driver_ids or evidence hashes, even when directional", () => {

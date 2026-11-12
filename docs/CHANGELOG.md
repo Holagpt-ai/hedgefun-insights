@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 232 — Watchlist V2 reliability, PR #250)
+
+- Shared `invalidateWatchlistClientCaches` after watchlist inserts from `useAddToWatchlist`, `StockCtaButtons`, and `useWatchlistV2` mutations so **watchlist-v2** refetches without full page reload.
+- `WatchlistRowV2` workflow actions use `workflowSymbolRoutes` / `touchWorkflowHandoff` (optional `securityId`); Action Center link added. Recorded Batch **231** scanner ledger **502** jobs Nov 10–12. Authenticated Watchlist checklist **NOT VERIFIED**.
+
 ## 2026-11-12 (Batch 230 — AM Inbox continuation, PR pending)
 
 - Bounded `get-pre-market-workspace` fetch (**25 s**); `amInboxNavigatePath` symbol-aware Screeners/Action Center. ISS-025 **OPEN** pending authenticated AM Inbox checklist. Recorded Batch **229** Catalyst UI **821** / **791**.

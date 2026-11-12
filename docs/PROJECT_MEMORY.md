@@ -2,6 +2,12 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 12, 2026 (Batch 232 Watchlist + Batch 231 scanner ledger)
+
+- **GitHub `main`:** **`d4c77d1f45f7c484bb43123cd8f7ca7ae9fd751e`** (Batch **230**/**229** on earlier commits; Batch **232** branches from this SHA).
+- **Batch 231 (acceptance only):** **502** published scanner jobs **Nov 10–12**, chunks + publish RPCs complete, NHL baseline loaded; **per-generation tab evaluation (Layer C) not stored on job rows** — still **NOT VERIFIED**.
+- **Batch 232 (PR pending):** **ISS-047** — Watchlist V2 stale after `useAddToWatchlist` / stock-detail add; row workflow links omitted session `securityId` — **fixed in git**, not deployed. Authenticated Watchlist checklist **NOT VERIFIED** (`batch232-watchlist-reliability-v1.md`).
+
 ## Verified live checkpoint — November 12, 2026 (Batch 229 Catalyst + Batch 230 AM Inbox)
 
 - **GitHub `main`:** **`34e8fb739b5b5ff2103c43c7c3ce72662429554a`** — Batch **229** PR **#248** merged (Catalyst earnings summary).

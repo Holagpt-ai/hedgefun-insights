@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { invalidateWatchlistClientCaches } from "@/lib/watchlist-v2/invalidate-watchlist-caches";
 
 interface Props {
   ticker: string;
@@ -48,8 +49,7 @@ export default function StockCtaButtons({ ticker }: Props) {
       return;
     }
 
-    queryClient.invalidateQueries({ queryKey: ["watchlist"] });
-    queryClient.invalidateQueries({ queryKey: ["watchlist", user.id] });
+    invalidateWatchlistClientCaches(queryClient, user.id);
     toast.success(`${ticker.toUpperCase()} added to watchlist`);
   };
 
