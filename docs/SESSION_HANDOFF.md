@@ -2,7 +2,7 @@
 
 **Branch:** `cursor/batch229-catalyst-earnings-count` · baseline **`7d5c80fe8a082f5ee2c66b3baeef11b836ae1558`**.
 
-**Batch 229:** Catalyst **Upcoming Earnings** + **Reported in Last 24h** summary counts decoupled from 500-row asc feed (**ISS-046**). Frontend only; runbook `docs/release/batch229-catalyst-earnings-count-v1.md`. **PR pending** owner review.
+**Batch 229:** Catalyst **Upcoming Earnings** + **Reported in Last 24h** summary counts decoupled from 500-row asc feed (**ISS-046**). Frontend only; runbook `docs/release/batch229-catalyst-earnings-count-v1.md`. **PR #248** @ **`f2df4b24a91065d1cbf943cf30026c471bca3177`** — owner review; **not merged**.
 
 **Production dependency:** **Vercel** after merge (no Supabase/Edge). **ISS-034** Nov 13 09:30 acceptance unchanged.
 
