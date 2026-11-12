@@ -84,3 +84,14 @@ Correlate with Edge logs for **`staged_finalize_stage_enter`**, **`continue_disp
 - `batch228-opening-bell-finalize_test.ts`
 - `sync-staging-resume_test.ts` (stage marker + active lease)
 - Existing `sync-staging-expiry_test.ts` unchanged (abort-after-expiry contract preserved when release skipped)
+
+---
+
+## Production release attestation — November 12, 2026
+
+- **Authorization:** Owner explicitly accepted one-time Git-snapshot-only rollback exception, because previous active Edge revision and a restorable platform version were unavailable. This exception is **only** for Batch 228 `sync-screener-data`. Git fallback `e7a3eaeeceec1310e941d263dd5df63fd3b76998` requires separate redeploy and is **not** previous live binary.
+- **Source:** GitHub main `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def` (PR #246 merged), Lovable editor `09266183e352b6a21f61acbd10d23ce91b2016f8`; verified scanner runtime source parity. An unrelated auto-regenerated frontend `types.ts` differs due to unapplied Penny RPC; scanner deployment unaffected. Penny UI and migrations remain deferred.
+- **Platform result:** Lovable Cloud reported `Successfully deployed edge functions: sync-screener-data` once. UTC window **2026-11-12 17:18:24–17:18:34**, source/settings fingerprint `07656eebf28569838df72838ea1f5c2026344167eb157b2728b25291bcbe3e29`. Running Edge version/revision ID was **not** returned. OPTIONS returned HTTP 200; logs returned no revision evidence.
+- **Nonmutating postdeploy query 12:19 ET:** Latest feed 107 rows with `synced_at` ~12:15 ET, **pre-deployment**; not an acceptance success. No manual scan triggered.
+- **Acceptance remains OPEN:** ISS-034 requires natural **Friday, Nov 13, 09:30 ET** generation and lease behavior; do not infer finalize performance from deploy success.
+- **Scope controls:** No SQL, migrations, Fly, cron, secrets/env, other Edge function, frontend publish, Penny/overnight activation or other prod modifications.
