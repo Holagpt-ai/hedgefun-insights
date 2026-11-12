@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## 2026-11-12 (Batch 232 — Watchlist V2 reliability, PR pending)
+## 2026-11-12 (Batch 232 — Watchlist V2 reliability, PR #250)
 
 - Shared `invalidateWatchlistClientCaches` after watchlist inserts from `useAddToWatchlist`, `StockCtaButtons`, and `useWatchlistV2` mutations so **watchlist-v2** refetches without full page reload.
 - `WatchlistRowV2` workflow actions use `workflowSymbolRoutes` / `touchWorkflowHandoff` (optional `securityId`); Action Center link added. Recorded Batch **231** scanner ledger **502** jobs Nov 10–12. Authenticated Watchlist checklist **NOT VERIFIED**.

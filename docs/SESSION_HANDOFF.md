@@ -2,7 +2,7 @@
 
 **Baseline:** GitHub `main` **`d4c77d1f45f7c484bb43123cd8f7ca7ae9fd751e`**.
 
-**Batch 232:** Watchlist V2 cache invalidation on alternate add paths; row workflow links via `workflowSymbolRoutes` + Action Center. Runbook `batch232-watchlist-reliability-v1.md`. **PR pending** — owner review; **not merged**; **no deploy**.
+**Batch 232:** Watchlist V2 cache invalidation on alternate add paths; row workflow links via `workflowSymbolRoutes` + Action Center. Runbook `batch232-watchlist-reliability-v1.md`. **PR #250** @ **`92f30eb2`** — owner review; **not merged**; **no deploy**.
 
 **Recorded acceptance:** Batch **231** scanner ledger (owner-verified): **502** published jobs **Nov 10–12**, complete chunks/publish RPCs, NHL baseline loaded; **Layer C** per-tab job evidence **not verifiable** from DB alone. Batch **232** audit: cold load, RLS, delayed/stale UX **pass** in git; **3 client defects fixed**. Authenticated Watchlist checklist **NOT VERIFIED**.
 
