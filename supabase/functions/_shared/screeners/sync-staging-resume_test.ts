@@ -3,6 +3,7 @@ import { finalizeLeaseActive, leaseActive } from "./sync-staging-cas.ts";
 import { resolveSyncSessionKind } from "./session-sync-context.ts";
 import { isExtendedSyncSession } from "./session-sync-context.ts";
 import { isLiveSurveillanceSessionKind } from "./screener-session.ts";
+import { formatFinalizeStageMarker } from "./sync-finalize-diagnostics.ts";
 import { stagedJobNeedsResume } from "./sync-staging-resume.ts";
 import { emptyChunkArtifacts, SCREENER_SYNC_LEASE_MS, type StagedGenerationJob } from "./sync-staging-types.ts";
 
@@ -49,6 +50,15 @@ function baseJob(overrides: Partial<StagedGenerationJob>): StagedGenerationJob {
 Deno.test("resume: finalizing with active lease and no dispatch error waits", () => {
   const nowMs = Date.parse("2026-10-30T20:16:00.000Z");
   const job = baseJob({ continueLastError: null });
+  assertEquals(finalizeLeaseActive(job, nowMs), true);
+  assertEquals(stagedJobNeedsResume(job, nowMs), false);
+});
+
+Deno.test("resume: finalizing with active lease and finalize_stage marker waits", () => {
+  const nowMs = Date.parse("2026-10-30T20:16:00.000Z");
+  const job = baseJob({
+    continueLastError: formatFinalizeStageMarker("claim_finalize_lease"),
+  });
   assertEquals(finalizeLeaseActive(job, nowMs), true);
   assertEquals(stagedJobNeedsResume(job, nowMs), false);
 });

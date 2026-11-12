@@ -2,6 +2,13 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 12, 2026 (Batch 228 opening-bell finalize)
+
+- **GitHub `main`:** **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (Batch **227** merged).
+- **09:30 ET pattern (Nov 10–12):** 7/7 chunks, no publish, null `abort_reason`, ~12–15 min abort; last marker often `finalize_stage:claim_finalize_lease` — **lease-expiry abort path confirmed**; **CPU NOT VERIFIED**. Batch **228** Edge fix: release expired finalize leases before `abortExpired`; tighten resume gating; marker after successful claim.
+- **Nov 10 after-hours ledger:** **48** published, **0** aborted, **48/48** chunk+publish RPC complete (**not** full UI acceptance).
+- **ISS-034 OPEN** until post-deploy acceptance. Runbook: `docs/release/batch228-opening-bell-finalize-v1.md`.
+
 ## Verified live checkpoint — November 12, 2026 ~11:00 AM ET (Batch 227 PR #245)
 
 - **GitHub `main`:** **`6a969e9457909444adce6f582172e40e3f9eee0e`** — Batch **226** Penny persistence/read **merged** (PR **#244**, files only; **not** SQL/Edge activated).
@@ -14,7 +21,7 @@ Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detai
 
 ## Verified live checkpoint — November 10, 2026 (~1:30 PM ET, Batch 191 / PR #233)
 
-- **Publication ledger (owner-verified, Lovable read-only DB):** ET session totals Nov **6/9/10** — see `docs/release/batch191-scanner-acceptance-v1.md`. Nov **10** RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted; **Nov 10 AH not accepted**.
+- **Publication ledger (owner-verified, Lovable read-only DB):** ET session totals Nov **6/9/10** — see `docs/release/batch191-scanner-acceptance-v1.md`. Nov **10** RTH through **1:30 PM:** **43** published (all **7/7** + publish RPC), **4** aborted. **Nov 10 after-hours:** **48** published, **0** aborted (**48/48** chunk+publish RPC) — Batch **228** ledger attestation; **UI Layers C/D NOT VERIFIED**.
 - **Current feed:** **107** rows @ ~1:30 PM; six tabs **`evaluated`**; Gappers unresolved **0**; NHL **available**. Ledger **verified**; historical per-tab evaluation on all jobs + authenticated UI **not verified**. **ISS-034** / **ISS-024** **OPEN**.
 
 ## Verified live checkpoint — November 10, 2026 (Batch 218 ISS-034 evidence)

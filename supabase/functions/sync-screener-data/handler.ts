@@ -24,7 +24,10 @@ import {
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
-import { prepareStagedFinalizeRetry } from "../_shared/screeners/sync-finalize-recovery.ts";
+import {
+  prepareStagedFinalizeRetry,
+  releaseExpiredFinalizeLeasesBeforeAbort,
+} from "../_shared/screeners/sync-finalize-recovery.ts";
 import { reconcileStrandedPublishedGeneration } from "../_shared/screeners/sync-staging-post-publish-reconcile.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
@@ -724,7 +727,6 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("claim_finalize_lease");
   stage = "claim_finalize_lease";
-  await markBoundary("claim_finalize_lease");
   const finalizeLease = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
   const claimed = await store.claimWork({
     jobId: generationId,
@@ -736,6 +738,7 @@ async function finalizeStagedScreenerGeneration(
     return json({ error: claimed.reason }, 409);
   }
   const job = claimed.job;
+  await markBoundary("claim_finalize_lease");
 
   const snap = job.nhlBaselineSnapshot;
   const nhlBaseline = snap
@@ -1207,6 +1210,7 @@ async function handleStagedSyncScreenerData(
   const functionUrl = `${supabaseUrl}/functions/v1/sync-screener-data`;
   const nowMs = (deps.nowMs ?? (() => Date.now()))();
   if (parsedBody.action === "cron") {
+    await releaseExpiredFinalizeLeasesBeforeAbort(store, nowMs);
     await store.abortExpired(nowMs);
     const unlocked = await reconcileStrandedPublishedGeneration(store, nowMs);
     if (unlocked.ok) {

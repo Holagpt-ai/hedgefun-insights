@@ -1,6 +1,16 @@
-# Session handoff — Batch 227 P0 scanner acceptance, November 12, 2026 ET
+# Session handoff — Batch 228 opening-bell finalize reliability, November 12, 2026 ET
 
-**Source:** GitHub `main` **`6a969e9457909444adce6f582172e40e3f9eee0e`** (Batch **226** PR **#244** squash-merged).
+**Source:** GitHub `main` **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (Batch **227** PR **#245** merged).
+
+**Batch 228:** Traced 09:30 finalize-lease lifecycle; **confirmed** lease-expiry abort (`abort_reason` null) discards 7/7 work when cron runs `abortExpired` before release. Edge fix + regressions. **Nov 10 AH** ledger **48/0** recorded. **ISS-034 OPEN** pending Edge deploy acceptance. **No SQL/cron/secrets.**
+
+**Next:** Owner review PR; Lovable deploy **`sync-screener-data`** only; observe next **09:30** window.
+
+## Archived handoff — Batch 227 P0 scanner acceptance
+
+**Merged:** PR **#245** @ **`e7a3eaee`**.
+
+**Source (historical):** GitHub `main` **`6a969e9457909444adce6f582172e40e3f9eee0e`** (Batch **226** PR **#244** squash-merged).
 
 **Batch 227 (PR #245):** P0 acceptance docs — **read-only Lovable evidence Nov 11–12 ~11:00 AM ET** recorded in runbook. **ISS-034/024/044/045 remain OPEN.** **No source fixes.** **Vercel production deployment identity NOT VERIFIED.** **PR #243** superseded in intent — **left OPEN**. **No deploy.**
 

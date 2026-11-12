@@ -12,6 +12,7 @@ import { isExtendedSyncSession, resolveSyncSessionKind } from "./session-sync-co
 import { isLiveSurveillanceSessionKind } from "./screener-session.ts";
 import { createSessionVolumeCache } from "./session-volume.ts";
 import { foldChunkIntoMerged, processUniverseChunk } from "./sync-chunk-processor.ts";
+import { releaseExpiredFinalizeLeasesBeforeAbort } from "./sync-finalize-recovery.ts";
 import type { MemorySyncStagingStore, SyncStagingStore } from "./sync-staging-memory.ts";
 import {
   emptyChunkArtifacts,
@@ -63,6 +64,7 @@ export async function runStagedSyncStep(
   deps: StagedOrchestratorDeps,
 ): Promise<StagedStepResult> {
   const nowMs = deps.nowMs();
+  await releaseExpiredFinalizeLeasesBeforeAbort(deps.store, nowMs);
   await deps.store.abortExpired(nowMs);
 
   if (request.action === "continue") {
