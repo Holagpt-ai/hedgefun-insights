@@ -13,13 +13,18 @@ import { VolumeLeaders } from "@/components/action-center/VolumeLeaders";
 import { CatalystWatch } from "@/components/action-center/CatalystWatch";
 import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot";
 import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
-import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
+import { ScannerHandoffBanner } from "@/components/scanner-intelligence/ScannerHandoffBanner";
 import { selectActionCenterHandoffRows } from "@/lib/action-center/handoff-context";
 import {
   formatMarketEvidenceContextLine,
   readMarketEvidenceHandoff,
 } from "@/lib/daily-intelligence/market-evidence-handoff";
-import { actionCenterWorkflowTileHref } from "@/lib/action-center/workflow-tile-routes";
+import {
+  actionCenterWorkflowTileHref,
+  readActionCenterHandoffQuery,
+} from "@/lib/action-center/workflow-tile-routes";
+import { handoffIdentity, historicalWorkflowMatchesRequest } from "@/lib/historical-workflow/historical-handoff-identity";
+import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { touchWorkflowHandoff } from "@/lib/historical-workflow/workflow-symbol-routes";
 
 const WORKFLOW_LINKS = [
@@ -88,10 +93,15 @@ export default function ActionCenter() {
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
   const [searchParams] = useSearchParams();
-  const handoff = readScannerHandoffQuery(searchParams);
+  const handoff = readActionCenterHandoffQuery(searchParams);
   const handoffSymbol = handoff?.symbol ?? null;
   const touchWorkflowFromActionCenter = () => {
-    if (handoffSymbol) touchWorkflowHandoff(handoffSymbol, "action_center");
+    if (!handoffSymbol) return;
+    const identity = handoffIdentity(handoffSymbol, handoff?.securityId ?? null);
+    if (!identity) return;
+    const session = readHistoricalWorkflowContext(handoffSymbol);
+    if (session && !historicalWorkflowMatchesRequest(identity, session)) return;
+    touchWorkflowHandoff(handoffSymbol, "action_center");
   };
 
   const leaderSymbols = useMemo(
@@ -116,12 +126,12 @@ export default function ActionCenter() {
 
       <ScannerHandoffBanner
         matched={
-          handoff === null
+          handoffSymbol === null
             ? null
             : ac.loading.alerts || ac.loading.leaders
               ? null
-              : ac.feed.some((item) => item.symbol.toUpperCase() === handoff.symbol) ||
-                ac.leaders.some((row) => row.symbol.toUpperCase() === handoff.symbol)
+              : ac.feed.some((item) => item.symbol.toUpperCase() === handoffSymbol) ||
+                ac.leaders.some((row) => row.symbol.toUpperCase() === handoffSymbol)
         }
       />
       <HandoffContext
@@ -208,7 +218,7 @@ export default function ActionCenter() {
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h2 className="text-lg font-semibold">Catalyst Watch</h2>
           <Link
-            to={actionCenterWorkflowTileHref("/dashboard/catalyst", handoffSymbol)}
+            to={actionCenterWorkflowTileHref("/dashboard/catalyst", handoff)}
             onClick={touchWorkflowFromActionCenter}
             className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1"
           >
@@ -238,7 +248,7 @@ export default function ActionCenter() {
           {WORKFLOW_LINKS.map((w) => (
             <Link
               key={w.route}
-              to={actionCenterWorkflowTileHref(w.route, handoffSymbol)}
+              to={actionCenterWorkflowTileHref(w.route, handoff)}
               onClick={handoffSymbol ? touchWorkflowFromActionCenter : undefined}
               className="text-left rounded-xl border bg-card p-4 hover:border-accent-blue hover:bg-accent-blue-light/30 transition-colors flex flex-col gap-1"
             >

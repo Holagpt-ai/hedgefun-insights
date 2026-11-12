@@ -63,6 +63,23 @@ describe("Action Center generic workflow tiles", () => {
     expect(watchlist.getAttribute("href")).toContain("symbol=NVDA");
   });
 
+  it("preserves URL securityId on workflow tiles when session storage is empty", () => {
+    sessionStorage.clear();
+    const sec = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    render(
+      <MemoryRouter
+        initialEntries={[`/dashboard/action-center?symbol=NVDA&securityId=${encodeURIComponent(sec)}`]}
+      >
+        <ActionCenter />
+      </MemoryRouter>,
+    );
+    const journal = screen.getByRole("link", {
+      name: /journal\s+log what worked/i,
+    }) as HTMLAnchorElement;
+    expect(journal.getAttribute("href")).toContain("symbol=NVDA");
+    expect(journal.getAttribute("href")).toContain(`securityId=${encodeURIComponent(sec)}`);
+  });
+
   it("uses Current Summary and does not claim a live command hub", () => {
     render(
       <MemoryRouter>

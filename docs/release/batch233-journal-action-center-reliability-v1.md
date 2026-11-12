@@ -16,8 +16,9 @@
 
 ## Confirmed defects fixed (**ISS-048**)
 
-1. **`actionCenterWorkflowTileHref`** — symbol-aware URLs for Continue Workflow + Catalyst header link when `readScannerHandoffQuery` returns a symbol.
-2. **`JournalTradeWorkflowLinks`** — Screeners uses `routes.screeners` from `workflowSymbolRoutes`.
+1. **`readActionCenterHandoffQuery`** — validated URL `securityId` + symbol; **`actionCenterWorkflowRouteHint`** applies batch **173** identity rules (no cross-security session blend).
+2. **`actionCenterWorkflowTileHref`** — symbol-aware URLs for Continue Workflow + Catalyst header using URL and/or session identity.
+3. **`JournalTradeWorkflowLinks`** — Screeners uses `routes.screeners` from `workflowSymbolRoutes` (unchanged).
 
 ## Verification (local)
 
