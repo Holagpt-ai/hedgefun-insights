@@ -103,7 +103,22 @@ export function validatePennyHandoffUpsertPayload(
   if (validFrom > validThrough) return false;
 
   if (row.qualification_evidence_kind === "live_market") {
-    if (validFrom !== sourceSessionDate || validThrough !== sourceSessionDate) return false;
+    const badge = row.badge_payload;
+    const supplemental = isRecord(badge) && Array.isArray(badge.supplementalLabels)
+      ? badge.supplementalLabels
+      : [];
+    const nextCarry = supplemental.includes("next_session_carry");
+    if (validFrom === sourceSessionDate && validThrough === sourceSessionDate) {
+      // same-session live
+    } else if (
+      nextCarry &&
+      validFrom > sourceSessionDate &&
+      validThrough === validFrom
+    ) {
+      // live capture with explicit next-session carry window
+    } else {
+      return false;
+    }
   } else if (validFrom <= sourceSessionDate || validThrough !== validFrom) {
     return false;
   }

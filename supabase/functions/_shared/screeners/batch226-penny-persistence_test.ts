@@ -76,6 +76,38 @@ Deno.test("batch226 penny valid window next session carry", () => {
   assertEquals(w.validThroughSessionDate, NEXT);
 });
 
+Deno.test("batch226 live_market next_session_carry window passes upsert validation", () => {
+  const handoff = qualifiedHandoff({
+    qualificationEvidenceKind: "live_market",
+    supplementalLabels: ["next_session_carry"],
+    badge: {
+      kind: "penny_continuation_v1",
+      symbol: "PNY",
+      sessionDate: SESSION,
+      continuationQualified: true,
+      corePassCount: 4,
+      dataFreshnessLabel: "delayed",
+      score: 75,
+      supplementalLabels: ["next_session_carry"],
+      model_version: "penny_continuation_v1",
+    },
+  });
+  const window = computePennyHandoffValidWindow({
+    sourceSessionDate: SESSION,
+    qualificationEvidenceKind: "live_market",
+    supplementalLabels: handoff.supplementalLabels,
+  });
+  assertEquals(window.validFromSessionDate, NEXT);
+  const row = buildPennyContinuationHandoffUpsertRow(handoff, {
+    observationGenerationId: "gen-a",
+    generationSyncMs: 1_700_000_000_000,
+    generationSyncIso: new Date(1_700_000_000_000).toISOString(),
+  });
+  assert(row);
+  assertEquals(row!.valid_from_session_date, NEXT);
+  assert(validatePennyHandoffUpsertPayload(row as unknown as Record<string, unknown>));
+});
+
 Deno.test("batch226 build upsert row requires idempotency and generation", () => {
   const row = buildPennyContinuationHandoffUpsertRow(qualifiedHandoff(), {
     observationGenerationId: "gen-a",

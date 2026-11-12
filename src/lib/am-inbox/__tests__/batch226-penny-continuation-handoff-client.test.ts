@@ -58,6 +58,29 @@ describe("batch226 penny persistence client", () => {
     expect(mapped?.dataFreshnessLabel).toBe("delayed");
   });
 
+  it("rejects unsupported projection versions", () => {
+    expect(
+      mapPennyHandoffReadProjection(
+        readProjection({ projection_version: "unsupported_projection_v9" }),
+      ),
+    ).toBeNull();
+    expect(
+      mapPennyHandoffReadProjection(
+        readProjection({ handoff_version: "legacy_handoff_v0" }),
+      ),
+    ).toBeNull();
+    expect(
+      mapPennyHandoffReadProjection(
+        readProjection({
+          badge_payload: {
+            ...readProjection().badge_payload,
+            symbol: "OTHER",
+          },
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it("drops unqualified projections", () => {
     expect(
       mapPennyHandoffReadProjection(

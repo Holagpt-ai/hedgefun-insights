@@ -5,6 +5,10 @@ import type {
   PennyQualificationEvidenceKind,
   PennySupplementalLabel,
 } from "@/lib/am-inbox/penny-continuation-workflow-types";
+import {
+  pennyHandoffCandidateFromReadProjection,
+  verifyPennyHandoffReadProjection,
+} from "@/lib/am-inbox/penny-continuation-handoff-read-integrity";
 import { PENNY_CONTINUATION_WORKFLOW_HANDOFF_VERSION } from "@/lib/am-inbox/penny-continuation-workflow-types";
 
 export type PersistedPennyContinuationHandoffRow = {
@@ -113,46 +117,12 @@ export type PennyContinuationHandoffReadProjection = {
   rank_snapshot: PersistedPennyContinuationHandoffRow["rank_snapshot"];
 };
 
-function rankKeysFromSnapshot(
-  snap: PennyContinuationHandoffReadProjection["rank_snapshot"],
-): PennyContinuationWorkflowHandoff["rankKeys"] {
-  const keys = snap?.rank_keys;
-  if (keys && typeof keys === "object") {
-    return {
-      sharesPerMinute: keys.sharesPerMinute ?? null,
-      sessionVolume: keys.sessionVolume ?? null,
-      dollarVolume: keys.dollarVolume ?? null,
-    };
-  }
-  return { sharesPerMinute: null, sessionVolume: null, dollarVolume: null };
-}
-
 export function mapPennyHandoffReadProjection(
   row: PennyContinuationHandoffReadProjection,
 ): PennyContinuationWorkflowHandoff | null {
   const badge = readBadgePayload(row.badge_payload);
-  if (!badge || row.continuation_qualified !== true) return null;
-  const snap = row.rank_snapshot ?? {};
-  return {
-    handoff_version: PENNY_CONTINUATION_WORKFLOW_HANDOFF_VERSION,
-    integration_version: row.integration_version,
-    model_version: row.model_version,
-    symbol: row.symbol.trim().toUpperCase(),
-    sourceSessionDate: row.source_session_date,
-    symbolObservationIso: row.symbol_observation_at,
-    captureIso: row.capture_at,
-    continuationQualified: true,
-    corePassCount: snap.core_pass_count ?? badge.corePassCount,
-    score: snap.score ?? badge.score ?? null,
-    rankKeys: rankKeysFromSnapshot(row.rank_snapshot),
-    dataFreshnessLabel: snap.data_freshness_label ?? badge.dataFreshnessLabel ?? null,
-    supplementalLabels: snap.supplemental_labels ?? badge.supplementalLabels ?? [],
-    publicationIdempotencyKey: row.publication_idempotency_key,
-    publicationSuppressed: row.publication_suppressed,
-    badge,
-    qualificationEvidenceKind: row.qualification_evidence_kind,
-    stableRankingKey: snap.stable_ranking_key ?? null,
-  };
+  if (!badge || !verifyPennyHandoffReadProjection(row, badge)) return null;
+  return pennyHandoffCandidateFromReadProjection(row, badge);
 }
 
 export function mapPennyHandoffReadProjections(

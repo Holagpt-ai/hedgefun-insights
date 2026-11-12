@@ -208,6 +208,79 @@ Deno.test({
 });
 
 Deno.test({
+  name: "batch226 pg live_market next_session_carry upsert accepted",
+  sanitizeOps: false,
+  sanitizeResources: false,
+}, async () => {
+  const NEXT = "2026-11-12";
+  await withPg(async (client) => {
+    await applyPennyMigration(client);
+    await client.queryObject("BEGIN");
+    await client.queryObject("SET LOCAL ROLE service_role");
+    const row = validRow({
+      qualification_evidence_kind: "live_market",
+      valid_from_session_date: NEXT,
+      valid_through_session_date: NEXT,
+      badge_payload: {
+        kind: "penny_continuation_v1",
+        symbol: "PNY",
+        sessionDate: SESSION,
+        continuationQualified: true,
+        corePassCount: 4,
+        dataFreshnessLabel: "delayed",
+        score: 70,
+        supplementalLabels: ["next_session_carry"],
+        model_version: "penny_continuation_v1",
+      },
+    });
+    const r = await client.queryObject<{ res: Record<string, unknown> }>(
+      `SELECT public.penny_continuation_handoff_upsert_v1($1::jsonb) AS res`,
+      [JSON.stringify(row)],
+    );
+    assertEquals(r.rows[0].res.applied, true);
+    await client.queryObject("ROLLBACK");
+  });
+});
+
+Deno.test({
+  name: "batch226 pg concurrent newer write wins and stale is rejected",
+  sanitizeOps: false,
+  sanitizeResources: false,
+}, async () => {
+  await withPg(async (client) => {
+    await applyPennyMigration(client);
+    await client.queryObject("BEGIN");
+    await client.queryObject("SET LOCAL ROLE service_role");
+    await client.queryObject(
+      `SELECT public.penny_continuation_handoff_upsert_v1($1::jsonb)`,
+      [JSON.stringify(validRow())],
+    );
+    const newer = validRow({
+      generation_sync_ms: GEN_MS + 120_000,
+      generation_sync_at: new Date(GEN_MS + 120_000).toISOString(),
+      publication_idempotency_key: `${SESSION}:PNY:penny_continuation_v1:gen-pg:2`,
+    });
+    const newerRes = await client.queryObject<{ res: Record<string, unknown> }>(
+      `SELECT public.penny_continuation_handoff_upsert_v1($1::jsonb) AS res`,
+      [JSON.stringify(newer)],
+    );
+    assertEquals(newerRes.rows[0].res.applied, true);
+    const stale = validRow({
+      generation_sync_ms: GEN_MS + 60_000,
+      generation_sync_at: new Date(GEN_MS + 60_000).toISOString(),
+      publication_idempotency_key: `${SESSION}:PNY:penny_continuation_v1:gen-pg:3`,
+    });
+    const staleRes = await client.queryObject<{ res: Record<string, unknown> }>(
+      `SELECT public.penny_continuation_handoff_upsert_v1($1::jsonb) AS res`,
+      [JSON.stringify(stale)],
+    );
+    assertEquals(staleRes.rows[0].res.applied, false);
+    assertEquals(staleRes.rows[0].res.reason, "stale_generation");
+    await client.queryObject("ROLLBACK");
+  });
+});
+
+Deno.test({
   name: "batch226 pg authenticated cannot read table directly",
   sanitizeOps: false,
   sanitizeResources: false,

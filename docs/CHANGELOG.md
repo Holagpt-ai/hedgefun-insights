@@ -1,8 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-12 (Batch 226 — Penny persistence review corrections, PR #244)
+
+- Hardened pair-scoped read RPC (1–64 projections), fail-closed upsert validation, `live_market` + `next_session_carry` window parity, read-projection version gates, Postgres regressions + `deno.lock` refresh. **No production activation.**
+
 ## 2026-11-12 (Batch 226 — Penny persistence & read V1, PR pending)
 
-- Migration `penny_continuation_workflow_handoffs` + idempotent service-role upsert with stale-generation fencing, revoke/expire RPCs, bounded authenticated `list_active`. Capture + radar-bridge handlers + client read/map adapters. Deno **5** + Vitest **3**. **No SQL apply, Edge deploy, publisher, or UI hook.**
+- Migration `penny_continuation_workflow_handoffs` + idempotent service-role upsert with stale-generation fencing, revoke/expire RPCs, pair-scoped authenticated `list_active`. Capture + radar-bridge handlers + client read/map adapters. **No SQL apply, Edge deploy, publisher, or UI hook.**
 
 ## 2026-11-11 (Batch 225 — workflow handoff badge integrity, PR #242)
 

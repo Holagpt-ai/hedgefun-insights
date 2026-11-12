@@ -142,11 +142,19 @@ BEGIN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
 
+  v_badge := p_row->'badge_payload';
+
   IF v_valid_from IS NULL OR v_valid_through IS NULL OR v_valid_from > v_valid_through THEN
     RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
   END IF;
   IF v_evidence_kind = 'live_market' THEN
-    IF v_valid_from <> v_session OR v_valid_through <> v_session THEN
+  IF v_valid_from = v_session AND v_valid_through = v_session THEN
+      NULL;
+    ELSIF coalesce(v_badge->'supplementalLabels', '[]'::jsonb) @> '["next_session_carry"]'::jsonb
+      AND v_valid_from > v_session
+      AND v_valid_through = v_valid_from THEN
+      NULL;
+    ELSE
       RETURN jsonb_build_object('applied', false, 'reason', 'invalid_body');
     END IF;
   ELSE
@@ -155,7 +163,6 @@ BEGIN
     END IF;
   END IF;
 
-  v_badge := p_row->'badge_payload';
   IF v_badge IS NULL
      OR jsonb_typeof(v_badge) <> 'object'
      OR v_badge->>'kind' IS DISTINCT FROM 'penny_continuation_v1'
