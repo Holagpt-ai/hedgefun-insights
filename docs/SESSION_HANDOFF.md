@@ -2,11 +2,13 @@
 
 **Source:** GitHub `main` **`6a969e9457909444adce6f582172e40e3f9eee0e`** (Batch **226** PR **#244** squash-merged).
 
-**Batch 227:** Read-only P0 acceptance reconciliation — **ISS-034**, **ISS-024**, **ISS-044**, **ISS-045**. Runbook `docs/release/batch227-scanner-p0-acceptance-v1.md` with Lovable query pack. **No source fixes** (219.3B ISS-045 already on `main`; Vercel acceptance pending). **PR #243** continuity docs **superseded** by this handoff — **left OPEN** for owner close only. **No deploy.**
+**Batch 227 (PR #245):** P0 acceptance docs — **read-only Lovable evidence Nov 11–12 ~11:00 AM ET** recorded in runbook. **ISS-034/024/044/045 remain OPEN.** **No source fixes.** **Vercel production deployment identity NOT VERIFIED.** **PR #243** superseded in intent — **left OPEN**. **No deploy.**
 
-**Batch 226 (merged):** Penny persistence/read **files only** — migration + RPCs, pair-scoped read, fail-closed upsert. **Not production-activated.**
+**Verified snapshot (Nov 12 ~11:00 AM ET):** Ledger — Nov **11** PM **66/0**, RTH **71/2**, AH **48/0**; Nov **12** PM **66/0**, RTH **16/1** (partial). Feed **104** rows, six tabs **`evaluated`**, Gappers **0**, NHL **available**. Radar closed snapshot **0**; candidates **176** (Nov 12). Opening aborts: **09:30** `finalize_stage:claim_finalize_lease` (Nov 11–12); **Nov 11 09:45** `prior_generation_retained`. **Nov 10 Batch 191 ledger preserved** (AH not accepted).
 
-**Next:** Owner runs Batch 227 queries (Nov 11–12 ledger + feed + ISS-044 snapshot); Vercel for ISS-045; Batch 191 Layers C/D when authorized.
+**Batch 226 (merged):** Penny persistence/read **files only** — **not production-activated.**
+
+**Next:** Nov **12** full RTH/AH ledger sign-off; **ISS-044** **20:00 ET** closed park when eligible; verify **Vercel prod SHA** + ISS-045 UI; Batch **191** Layers **C/D**.
 
 ## Archived handoff — Batch 226 Penny persistence & read V1
 

@@ -2,11 +2,15 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-## Verified live checkpoint — November 12, 2026 (Batch 227 / post–Batch 226 merge)
+## Verified live checkpoint — November 12, 2026 ~11:00 AM ET (Batch 227 PR #245)
 
 - **GitHub `main`:** **`6a969e9457909444adce6f582172e40e3f9eee0e`** — Batch **226** Penny persistence/read **merged** (PR **#244**, files only; **not** SQL/Edge activated).
-- **Scanner acceptance:** Latest **owner-verified** publication ledger remains **Nov 10 ~1:30 PM ET** (Batch **191**). **Nov 11–12** sessions **NOT VERIFIED** in repo at Batch 227 close. **ISS-034** / **ISS-024** **OPEN**. **ISS-045** code on `main` (219.3B); **Vercel UI NOT VERIFIED**. **ISS-044** **OPEN** pending **20:00 ET** closed snapshot. Runbook: `docs/release/batch227-scanner-p0-acceptance-v1.md`.
-- **Docs PR #243:** continuity intent **superseded** by Batch 227 handoff — **do not merge #243** without owner review; **do not close automatically**.
+- **Publication ledger (read-only Lovable, Nov 11–12):** **Nov 11** PM **66/0**, RTH **71/2**, AH **48/0**. **Nov 12** through **~11:00 AM ET:** PM **66/0**, RTH **16/1** (partial day). Opening **09:30** aborts **Nov 11** and **Nov 12:** **`finalize_stage:claim_finalize_lease`**; **Nov 11 09:45** **`prior_generation_retained`**. **Do not** infer CPU-specific root cause. **Nov 10 ~1:30 PM** ledger and **Nov 10 AH not accepted** remain in Batch **191** — **preserved**.
+- **Current feed @ ~11:00 AM Nov 12:** **104** rows; six tabs **`evaluated`**; Gappers **0** unresolved; NHL **`available`**; Day Trade Radar **4** rows; other five tabs **20** each.
+- **Radar V2:** `radar_v22_closed_snapshot` **0** rows; **Nov 12** `radar_v22_candidates` **176** rows. **ISS-044 OPEN** — closed-session eligibility and **20:00 ET** park **not** accepted.
+- **ISS-034** / **ISS-024** **OPEN** (Batch **191** matrix + Layers **C/D** incomplete). **ISS-045:** 219.3B on `main`; **Vercel production deployment identity NOT VERIFIED**; UI **NOT VERIFIED**.
+- **Docs PR #243:** superseded in intent by Batch **227** — **do not merge #243** without owner review; **do not close automatically**.
+- Runbook: `docs/release/batch227-scanner-p0-acceptance-v1.md`.
 
 ## Verified live checkpoint — November 10, 2026 (~1:30 PM ET, Batch 191 / PR #233)
 

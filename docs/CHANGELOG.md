@@ -1,6 +1,10 @@
 ﻿# Changelog
 
-## 2026-11-12 (Batch 227 — P0 scanner acceptance reconciliation, PR pending)
+## 2026-11-12 (Batch 227 — final documentation correction, PR #245)
+
+- Record owner-verified **Nov 11–12** read-only Lovable evidence (ledger, feed, Radar checkpoint); fix runbook Query **A** (ET date bounds, 04:00–20:00 session buckets) and Query **D** (`captured_at`, `count(*)`). Preserve Nov **10** Batch **191** attestation. **Vercel prod identity unverified.** **No scanner code.**
+
+## 2026-11-12 (Batch 227 — P0 scanner acceptance reconciliation, PR #245 initial)
 
 - Read-only ISS-034/024/044/045 matrix; Lovable query pack; Batch **226** merge recorded; **PR #243** superseded in docs (PR left OPEN). **No scanner code.**
 
