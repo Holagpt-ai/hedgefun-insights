@@ -1,10 +1,26 @@
-# Session handoff — Batch 233 Journal & Action Center workflow (November 12, 2026 ~4:45 PM ET)
+# Session handoff — ISS-034 November 13 opening-bell evidence (November 14, 2026 ET)
 
-**Baseline:** GitHub `main` **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** merged).
+**Baseline:** GitHub `main` **`72c1a57ca9e6aa77fea5b15cc6a0ed8606f481db`** (Batch **233** PR **#251** squash-merged November **12**).
 
-**Batch 233:** Action Center Continue Workflow tiles preserve handoff symbol/`securityId`; Journal trade Screeners link uses `routes.screeners`. Runbook `batch233-journal-action-center-reliability-v1.md`. **PR #251** @ **`b74d62cc`** — owner review; **not merged**; **no deploy**.
+**This session (no new batch number):** Isolated branch from `origin/main` in the open workspace. Traced Friday **November 13 09:30 ET** only. **Finding:** Batch **228** lease recovery **advanced** (7/7 + `finalize_stage:build_evidence`). Abort **`prior_generation_retained`** is fail-closed session-transition evidence: regular-session Gappers need **`day.o`**, NHL needs **`day.h`/`day.l`**; same-date 09:25 is retained. **09:25** **88** rows; **09:50** **101**; **10:05** **102** / six tabs evaluated. **No** scanner behavior change. Regression: `iss034-opening-bell-evidence_test.ts`. Runbook `docs/release/iss034-nov13-opening-bell-evidence-v1.md`.
 
-**Recorded acceptance:** Batch **188** / **173** / **16** contracts **pass** in git; **2 workflow defects fixed** (**ISS-048**). Authenticated Journal + Action Center checklist **NOT VERIFIED**.
+**ISS-048:** source **complete** on `main`; **OPEN only for authenticated production acceptance**.
+
+**Source sync:** GitHub Actions run **`43319836884`** **succeeded** (check + guarded integration apply) after #251. Lovable **editor parity** and **running deployment identity** **independently unverified**. Sync **≠** Edge/SQL/Vercel/Fly deploy.
+
+**ISS-044 (next P0, separate):** Nov **12 20:00 ET** — **119** Radar candidates; **RAIN** and **SHFS** `COOLING`; **zero** closed-session snapshot rows; feed still **`after-hours`**. Root cause **undetermined**. Do **not** mix Radar worker changes with ISS-034.
+
+**Not done:** no production deploy, SQL, Edge, Fly, cron, secrets, or PR merge.
+
+**Next:** owner review of this ISS-034 PR; then ISS-044 closed-park diagnosis; Batch **191** Layers C/D remain open.
+
+---
+
+## Archived handoff — Batch 233 Journal & Action Center workflow (November 12, 2026 ~4:45 PM ET)
+
+**Baseline (at authoring):** GitHub `main` **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** merged).
+
+**Batch 233:** Action Center Continue Workflow tiles preserve handoff symbol/`securityId`; Journal trade Screeners link uses `routes.screeners`. Runbook `batch233-journal-action-center-reliability-v1.md`. **Later merged:** PR **#251** → **`72c1a57c`** (November 12). Authenticated Journal + Action Center checklist **NOT VERIFIED**.
 
 ---
 
