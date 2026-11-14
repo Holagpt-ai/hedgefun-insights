@@ -95,3 +95,11 @@ Correlate with Edge logs for **`staged_finalize_stage_enter`**, **`continue_disp
 - **Nonmutating postdeploy query 12:19 ET:** Latest feed 107 rows with `synced_at` ~12:15 ET, **pre-deployment**; not an acceptance success. No manual scan triggered.
 - **Acceptance remains OPEN:** ISS-034 requires natural **Friday, Nov 13, 09:30 ET** generation and lease behavior; do not infer finalize performance from deploy success.
 - **Scope controls:** No SQL, migrations, Fly, cron, secrets/env, other Edge function, frontend publish, Penny/overnight activation or other prod modifications.
+
+---
+
+## November 13, 2026 natural 09:30 ET check (dated follow-up; does not rewrite the attestation above)
+
+Owner-reported Friday **November 13** job: **7/7** chunks, **no** publish RPC, abort **`prior_generation_retained`**, last durable error **`finalize_stage:build_evidence`**, Gappers **`prerequisite_unavailable`**, NHL **`not_evaluated`**. **09:25** published **88** rows; **09:50** **101**; **10:05** **102** / six tabs evaluated.
+
+This is **not** the Nov **10–12** lease-expiry abort class. Finding and missing-evidence list: `docs/release/iss034-nov13-opening-bell-evidence-v1.md`. ISS-034 remains **OPEN**. No Edge/SQL/cron change from that follow-up.

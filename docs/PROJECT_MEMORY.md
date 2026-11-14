@@ -2,10 +2,18 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 14, 2026 (ISS-034 Nov 13 opening-bell evidence)
+
+- **GitHub `main`:** **`72c1a57ca9e6aa77fea5b15cc6a0ed8606f481db`** (Batch **233** PR **#251** merged November **12**).
+- **ISS-048:** source implementation **complete**; remains **OPEN only for authenticated production acceptance**.
+- **GitHub → Lovable source sync:** Actions run **`43319836884`** **succeeded** (read-only check + guarded integration apply). Lovable **editor SHA** and **running Edge/Vercel/Fly identity** are **independently unverified**. Source sync **never** deploys Edge or SQL.
+- **ISS-034 (Nov 13 RTH open):** **09:25** published **88** rows; **09:30** **7/7**, no publish RPC, **`prior_generation_retained`**, last durable **`finalize_stage:build_evidence`**, Gappers **`prerequisite_unavailable`**, NHL **`not_evaluated`**; **09:50** **101**; **10:05** **102** / six tabs evaluated. Batch **228** lease path **advanced**. Fail-closed RTH `day.o` / NHL day-range at the open; same-date 09:25 retained. **No** scanner behavior change. **ISS-034 OPEN** (Batch **191** matrix + Layers C/D). Runbook `docs/release/iss034-nov13-opening-bell-evidence-v1.md`.
+- **ISS-044 (next P0):** Nov **12 20:00 ET** — **119** Radar candidates; **RAIN** / **SHFS** `COOLING`; **0** closed-session snapshot rows; feed still **`after-hours`**. Root cause **undetermined**. Do not mix with ISS-034 scanner changes. Fly **v48** rollback remains **v47** `deployment-01M73Z9VFR2SQ97S92HS9B06XX`.
+
 ## Verified live checkpoint — November 12, 2026 (Batch 233 Journal + Action Center)
 
-- **GitHub `main`:** **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** PR **#250** merged).
-- **Batch 233 (PR pending):** **ISS-048** — Action Center workflow tiles + Journal Screeners handoff — **fixed in git**, not deployed. Journal **188** / handoff **173** contracts **pass** in CI-local tests; authenticated acceptance **NOT VERIFIED**.
+- **GitHub `main` (at authoring):** **`c8a1296f6f39ba47f1ee58965d33851bc5fce3af`** (Batch **232** PR **#250** merged).
+- **Batch 233:** **ISS-048** — Action Center workflow tiles + Journal Screeners handoff — **fixed in git**; later merged as PR **#251** @ **`72c1a57c`**. Journal **188** / handoff **173** contracts **pass** in CI-local tests; authenticated acceptance **NOT VERIFIED**.
 
 ## Verified live checkpoint — November 12, 2026 (Batch 232 Watchlist + Batch 231 scanner ledger)
 

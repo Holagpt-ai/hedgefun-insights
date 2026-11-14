@@ -162,6 +162,7 @@ jobs:
           supabase/functions/_shared/screeners/batch228-opening-bell-finalize_test.ts
           supabase/functions/_shared/screeners/batch228-opening-bell-finalize-supabase_test.ts
           supabase/functions/_shared/screeners/batch228-opening-bell-finalize-postgres_test.ts
+          supabase/functions/_shared/screeners/iss034-opening-bell-evidence_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts
           supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts
