@@ -213,3 +213,30 @@ describe("DST, midnight, and exact boundaries", () => {
     expect(resolveMarketSessionAt(laborDayAfternoon, schedule)).toBe("closed");
   });
 });
+
+/** ISS-041: `resolveMarketSessionAt(ms)` must mirror `resolveSessionSchedule(date, null)`. */
+describe("resolveMarketSessionAt without explicit schedule (ISS-041)", () => {
+  it("treats Saturday and Sunday as closed at all clock times", () => {
+    const saturdayNoon = Date.parse("2026-10-31T16:00:00.000Z"); // 12:00 EDT Sat
+    const saturdayPremarket = Date.parse("2026-10-31T08:00:00.000Z"); // 04:00 EDT Sat
+    const sundayAfternoon = Date.parse("2026-11-01T19:00:00.000Z"); // 14:00 EST Sun
+    expect(resolveMarketSessionAt(saturdayNoon)).toBe("closed");
+    expect(resolveMarketSessionAt(saturdayPremarket)).toBe("closed");
+    expect(resolveMarketSessionAt(sundayAfternoon)).toBe("closed");
+  });
+
+  it("preserves weekday premarket, regular, and after-hours without calendar", () => {
+    const mondayPremarket = Date.parse("2026-11-02T09:00:00.000Z"); // 04:00 EST Mon
+    const mondayRth = Date.parse("2026-11-02T15:00:00.000Z"); // 10:00 EST Mon
+    const mondayAh = Date.parse("2026-11-02T22:00:00.000Z"); // 17:00 EST Mon
+    expect(resolveMarketSessionAt(mondayPremarket)).toBe("pre-market");
+    expect(resolveMarketSessionAt(mondayRth)).toBe("market");
+    expect(resolveMarketSessionAt(mondayAh)).toBe("after-hours");
+  });
+
+  it("honors an explicit closed-holiday schedule when provided", () => {
+    const laborDayAfternoon = Date.parse("2026-09-07T21:00:00.000Z");
+    const schedule = resolveSessionSchedule("2026-09-07", [holiday("2026-09-07", "Labor Day")]);
+    expect(resolveMarketSessionAt(laborDayAfternoon, schedule)).toBe("closed");
+  });
+});
