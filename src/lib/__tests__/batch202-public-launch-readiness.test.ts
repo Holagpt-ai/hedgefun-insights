@@ -13,6 +13,8 @@ const PUBLIC_ISS038_FILES = [
   "src/contexts/LanguageContext.tsx",
   "src/components/home/HeroSearch.tsx",
   "src/pages/static/FaqPage.tsx",
+  "src/pages/static/AboutPage.tsx",
+  "src/pages/static/MethodologyPage.tsx",
   "src/pages/static/DownloadPage.tsx",
   "src/pages/etf/EtfMainPage.tsx",
   "src/pages/stocks/StockListsPage.tsx",
@@ -31,6 +33,7 @@ describe("Batch 202 — ISS-038 delayed-data copy", () => {
     for (const file of PUBLIC_ISS038_FILES) {
       const src = readFileSync(resolve(file), "utf8");
       expect(src.toLowerCase()).not.toMatch(/real-time/);
+      expect(src.toLowerCase()).not.toMatch(/real\s+time/);
       expect(src.toLowerCase()).not.toMatch(/tiempo real/);
     }
   });
