@@ -132,7 +132,7 @@ export default function EtfMainPage() {
 
   usePageSeo({
     title: `ETF List — All ETF Symbols & Prices | ${BRAND.name}`,
-    description: `Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on ${BRAND.name}.`,
+    description: `Browse US-listed ETFs with performance, holdings, and sector data on ${BRAND.name}. Public quotes use 15-minute delayed market data.`,
   });
 
   return (

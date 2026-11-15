@@ -12,6 +12,7 @@ import { resolveMarketSession } from "@/lib/price-utils";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
 import { marketPulseDelayDisclosure } from "@/lib/markets/market-pulse-select";
+import { PUBLIC_EXTENDED_HOURS_POSITIONING } from "@/lib/public/public-market-copy";
 
 function useSessionMoversLabels() {
   const session = resolveMarketSession();
@@ -53,7 +54,7 @@ const Index = () => {
           Stocksist helps you research stocks, monitor session movers, and continue into screeners, watchlists, and catalyst tools after sign-in. Public quotes use {marketPulseDelayDisclosure().toLowerCase()}.
         </p>
         <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-[40rem] mx-auto">
-          Workspace features such as AI Analyst and live Radar require a free account; some capabilities remain in preview or are not deployed yet.
+          {PUBLIC_EXTENDED_HOURS_POSITIONING} Workspace features such as AI Analyst and Radar require a free account; some capabilities remain in preview.
         </p>
       </section>
 
@@ -64,7 +65,7 @@ const Index = () => {
       <ToolGrid />
 
       {/* 14D & 14E — Gainers / Losers */}
-      <div className="px-4 py-4 grid md:grid-cols-2 gap-6">
+      <div className="px-4 py-4 grid md:grid-cols-2 gap-6 min-w-0">
         <TopGainersTable title={labels.gainers} />
         <TopLosersTable title={labels.losers} />
       </div>
@@ -75,7 +76,7 @@ const Index = () => {
       </div>
 
       {/* 14G & 14H — IPOs */}
-      <div className="px-4 py-4 grid md:grid-cols-2 gap-6">
+      <div className="px-4 py-4 grid md:grid-cols-2 gap-6 min-w-0">
         <RecentIpos />
         <UpcomingIpos />
       </div>

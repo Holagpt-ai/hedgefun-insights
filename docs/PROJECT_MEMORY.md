@@ -2,6 +2,11 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
+## Verified live checkpoint — November 15, 2026 (Batch 202 public site — git only)
+
+- **GitHub `main`:** **`87759b67f1a0a3fe944d628b7011132afe45f3e2`**; Batch **202** branch pending — **ISS-038** copy fixes, **not deployed**.
+- **ISS-044:** branch `cursor/iss044-closed-session-evidence` @ **`159c62c7`** (independent).
+
 ## Verified live checkpoint — November 14, 2026 (ISS-034 Nov 13 opening-bell evidence)
 
 - **GitHub `main`:** **`72c1a57ca9e6aa77fea5b15cc6a0ed8606f481db`** (Batch **233** PR **#251** merged November **12**).

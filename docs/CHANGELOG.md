@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-15 (Batch 202 — public launch readiness / ISS-038)
+
+- Public marketing aligned to **15-minute delayed** quotes (hero i18n, FAQ, download, stock lists, ETF SEO, methodology); homepage **23×5** session positioning without overnight-scan claims; header/footer `auth_handoff` analytics; homepage grid `min-w-0`. Vitest `batch202-public-launch-readiness.test.ts`. **No deploy.** Runbook `docs/release/batch202-public-launch-readiness-v1.md`.
+
 ## 2026-11-14 (ISS-034 — November 13 opening-bell evidence; no new batch)
 
 - Recorded Friday **Nov 13 09:30 ET**: 7/7 chunks, no publish RPC, **`prior_generation_retained`**, last durable **`finalize_stage:build_evidence`**, Gappers **`prerequisite_unavailable`**, NHL **`not_evaluated`**. **09:25** **88** / **09:50** **101** / **10:05** **102** rows. Batch **228** lease path advanced; fail-closed RTH gap/`day.o` and NHL day-range at the open; same-date 09:25 retained. **No** scanner behavior change. Deno: `iss034-opening-bell-evidence_test.ts`. Continuity: Batch **233** PR **#251** merged `72c1a57c`; ISS-048 acceptance-only; sync run **`43319836884`** succeeded (editor/runtime identity unverified); ISS-044 Nov **12 20:00 ET** closed-park miss. Runbook `docs/release/iss034-nov13-opening-bell-evidence-v1.md`.

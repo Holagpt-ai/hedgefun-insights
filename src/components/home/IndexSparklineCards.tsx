@@ -10,7 +10,7 @@ import { resolveMarketClock } from "@/lib/market-calendar";
 function useSessionLabel() {
   const session = resolveMarketClock(new Date()).sessionId;
   if (session === "pre-market") return { label: "Pre-market", color: "bg-orange-500" };
-  if (session === "market") return { label: "Live", color: "bg-green-500" };
+  if (session === "market") return { label: "Regular", color: "bg-green-500" };
   if (session === "after-hours") return { label: "After-hours", color: "bg-muted-foreground" };
   return { label: "Closed", color: "bg-red-500" };
 }

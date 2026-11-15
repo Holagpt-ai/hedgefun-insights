@@ -278,7 +278,7 @@ export default function StockExchangesPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-[0.9375rem] font-bold text-foreground mb-1">Watchlist</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">
-                Keep track of all your favorite stocks in real-time.
+                Keep track of your favorite stocks with 15-minute delayed quotes on public pages.
               </p>
               <Button variant="outline" className="w-full text-accent-blue border-accent-blue hover:bg-accent-blue/5 text-[0.8125rem]" asChild>
                 <Link to="/watchlist">Sign Up Free</Link>

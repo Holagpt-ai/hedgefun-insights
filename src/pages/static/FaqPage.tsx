@@ -14,7 +14,10 @@ const FAQ_SECTIONS = [
     id: "getting-started",
     heading: "Getting Started",
     items: [
-      { q: "What is Stocksist?", a: "Stocksist is a financial data platform providing real-time stock quotes, ETF data, IPO tracking, market movers, earnings calendars, screening tools, and more for everyday investors." },
+      {
+        q: "What is Stocksist?",
+        a: "Stocksist is a financial data platform for stock and ETF research, IPO tracking, session movers, earnings calendars, and screening tools. Public quote pages use 15-minute delayed market data unless a workspace surface states otherwise.",
+      },
       { q: "How do I create an account?", a: 'Click "Sign Up" in the top right corner. You can register with your email address. It\'s free.' },
       { q: "How do I add stocks to my Watchlist?", a: 'Sign in to your account, navigate to the Watchlist page, and use the "Add new stock..." search to find and add any ticker.' },
     ],
@@ -37,7 +40,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "How does the Stocksist AI work?",
-        a: "The Stocksist AI uses large language models (LLMs) combined with real-time market data to perform algorithmic analysis through a Socratic questioning methodology. Rather than providing direct buy/sell recommendations, the AI guides users through structured analytical frameworks — asking probing questions about risk tolerance, position sizing, implied volatility, and probability of profit. This approach is inspired by McKinsey-style consulting frameworks adapted for retail options trading and credit spread analysis. The AI does not have access to your brokerage account and cannot execute trades on your behalf.",
+        a: "The Stocksist AI uses large language models (LLMs) combined with provider-backed market context (including delayed quotes on public surfaces) to perform algorithmic analysis through a Socratic questioning methodology. Rather than providing direct buy/sell recommendations, the AI guides users through structured analytical frameworks — asking probing questions about risk tolerance, position sizing, implied volatility, and probability of profit. This approach is inspired by McKinsey-style consulting frameworks adapted for retail options trading and credit spread analysis. The AI does not have access to your brokerage account and cannot execute trades on your behalf.",
       },
       {
         q: "Can I trust the AI's analysis? Does it ever make mistakes?",
@@ -45,7 +48,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "How often is market data updated?",
-        a: "Real-time data is updated continuously during market hours. After-hours and premarket data updates every few minutes. Market news refreshes every 5 minutes. Earnings calendars and IPO listings are synced daily.",
+        a: "Public stock and ETF quotes use 15-minute delayed market data. Workspace and scanner surfaces may refresh on different cadences during premarket, regular, and after-hours sessions. Market news refreshes periodically. Earnings calendars and IPO listings are synced daily.",
       },
     ],
   },

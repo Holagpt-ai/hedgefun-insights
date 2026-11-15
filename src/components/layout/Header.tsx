@@ -15,6 +15,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { trackEvent } from "@/lib/analytics";
+import { trackAuthHandoff } from "@/lib/analytics/public-events";
 import { useEffect, useRef, useCallback } from "react";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { BrandMark } from "@/components/brand/BrandMark";
@@ -228,8 +229,26 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={() => setAuthMode("login")}>Log In</Button>
-              <Button size="sm" className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" onClick={() => setAuthMode("signup")}>Sign Up</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  trackAuthHandoff({ mode: "login", returnPath: pathname, source: "header_login" });
+                  setAuthMode("login");
+                }}
+              >
+                Log In
+              </Button>
+              <Button
+                size="sm"
+                className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground"
+                onClick={() => {
+                  trackAuthHandoff({ mode: "signup", returnPath: pathname, source: "header_signup" });
+                  setAuthMode("signup");
+                }}
+              >
+                Sign Up
+              </Button>
             </>
           )}
         </div>
