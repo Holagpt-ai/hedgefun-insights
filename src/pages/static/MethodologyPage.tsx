@@ -40,7 +40,7 @@ export default function MethodologyPage() {
               Stocksist uses a proprietary multi-agent AI architecture built on large language models (LLMs) to generate analytical summaries, research insights, and market commentary. Our AI system is designed around a Socratic reasoning framework — rather than delivering blunt buy/sell signals, the AI agents are prompted to challenge assumptions, surface contradictory evidence, and present multiple analytical perspectives for each ticker or market scenario.
             </p>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              Our AI pipeline operates in two stages. In the first stage, a generation agent produces an initial analytical draft using live market data, financial statements, and historical price context. In the second stage, a separate auditing agent reviews the draft for factual consistency, logical coherence, and alignment with the underlying data. Only outputs that pass the audit stage are published to the platform.
+              Our AI pipeline operates in two stages. In the first stage, a generation agent produces an initial analytical draft using provider-backed market context, financial statements, and historical price context. In the second stage, a separate auditing agent reviews the draft for factual consistency, logical coherence, and alignment with the underlying data. Only outputs that pass the audit stage are published to the platform.
             </p>
             <p className="text-muted-foreground leading-relaxed">
               All AI-generated content on Stocksist is clearly labeled as machine-generated analysis. It is provided for informational and educational purposes only and does not constitute personalized financial advice, a solicitation to buy or sell any security, or a guarantee of future performance. Users must independently verify all AI-generated claims before making any investment decision.
@@ -55,8 +55,8 @@ export default function MethodologyPage() {
               Different data types on Stocksist update at different frequencies depending on source availability and exchange rules:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-              <li>Real-time stock and ETF quotes: Continuous during regular market hours (9:30 AM – 4:00 PM ET, Monday–Friday)</li>
-              <li>Pre-market and after-hours data: Updated every 1–5 minutes during extended sessions (4:00 AM – 9:30 AM and 4:00 PM – 8:00 PM ET)</li>
+              <li>Public stock and ETF quotes: 15-minute delayed market data on public pages; signed-in workspace surfaces may refresh on different cadences during premarket, regular, and after-hours sessions</li>
+              <li>Pre-market and after-hours workspace data: Refreshed on provider- and session-dependent cadences during extended sessions (4:00 AM – 9:30 AM and 4:00 PM – 8:00 PM ET)</li>
               <li>Market movers (gainers, losers, most active): Refreshed every 5 minutes during market hours</li>
               <li>News aggregation: Refreshed every 5–15 minutes from financial wire services</li>
               <li>Earnings calendar: Synced daily with licensed market-data providers and exchange notifications</li>
