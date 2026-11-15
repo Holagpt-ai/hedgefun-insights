@@ -14,7 +14,7 @@ export default function DownloadPage() {
         Get Stocksist on Any Device
       </h1>
       <p className="text-muted-foreground mb-8">
-        Access real-time market data, watchlists, and analysis wherever you go.
+        Access market research, watchlists, and analysis wherever you go. Quotes on public pages use 15-minute delayed market data.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -23,7 +23,7 @@ export default function DownloadPage() {
           <Smartphone className="h-12 w-12 mx-auto mb-3 text-accent-blue" />
           <h2 className="text-lg font-bold mb-2">iOS App</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Available on iPhone and iPad. Get real-time quotes, manage your watchlist, and track markets on the go.
+            Available on iPhone and iPad. Research symbols, manage your watchlist, and track session movers on the go.
           </p>
           <p className="text-xs text-muted-foreground">Coming Soon to the App Store</p>
         </div>

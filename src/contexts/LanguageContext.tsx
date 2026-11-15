@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { LOCALE_V1_POLICY } from "@/config/locale-v1.policy";
+import { PUBLIC_HERO_SUBTITLE } from "@/lib/public/public-market-copy";
 
 type Language = "en" | "es";
 
@@ -59,7 +60,10 @@ const translations: Translations = {
   topStocks: { en: "Top Stocks", es: "Mejores acciones" },
   corporateActions: { en: "Corporate Actions", es: "Acciones corporativas" },
   heroTitle: { en: "Search for a stock to start your analysis", es: "Busca una acción para comenzar tu análisis" },
-  heroSubtitle: { en: "Get real-time prices, financials, news, and analysis for any stock.", es: "Obtén precios en tiempo real, financieros, noticias y análisis de cualquier acción." },
+  heroSubtitle: {
+    en: PUBLIC_HERO_SUBTITLE.en,
+    es: PUBLIC_HERO_SUBTITLE.es,
+  },
   trendingLabel: { en: "Trending:", es: "Tendencias:" },
   signInGoogle: { en: "Sign in with Google", es: "Iniciar sesión con Google" },
   newsletterDesc: { en: "Daily market news in bullet point format.", es: "Noticias del mercado diarias en formato de viñetas." },

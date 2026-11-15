@@ -19,7 +19,7 @@ export default function MethodologyPage() {
               How We Source Market Data
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              Stocksist aggregates financial data from multiple regulated, institutional-grade sources. Our primary market data provider is Polygon.io, a licensed financial data platform that delivers real-time and historical price quotes, trade-level data, corporate actions, and options chain data directly from U.S. exchanges including NYSE, NASDAQ, CBOE, and OTC Markets.
+              Stocksist aggregates financial data from multiple regulated, institutional-grade sources. Our primary market data provider is Polygon.io, a licensed financial data platform that supplies exchange-licensed quotes, trade-level data, corporate actions, and options chain data. Public Stocksist pages display 15-minute delayed market data unless a specific workspace surface states otherwise.
             </p>
             <p className="text-muted-foreground leading-relaxed mb-3">
               All stock prices, ETF net asset values, index levels, and options Greeks displayed on Stocksist are sourced from Polygon.io feeds. We do not generate, estimate, or fabricate any raw market data. Every figure you see on Stocksist originates from a regulated exchange or licensed data provider.

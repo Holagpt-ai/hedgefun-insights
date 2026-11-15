@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AuthModals } from "@/components/auth/AuthModals";
+import { trackAuthHandoff } from "@/lib/analytics/public-events";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { BRAND } from "@/config/brand";
@@ -73,8 +74,10 @@ export function Footer() {
 
   const handleLinkClick = (to: string) => {
     if (to === "__auth_login__") {
+      trackAuthHandoff({ mode: "login", returnPath: window.location.pathname, source: "footer_login" });
       setAuthMode("login");
     } else if (to === "__auth_signup__") {
+      trackAuthHandoff({ mode: "signup", returnPath: window.location.pathname, source: "footer_signup" });
       setAuthMode("signup");
     } else {
       navigate(to);

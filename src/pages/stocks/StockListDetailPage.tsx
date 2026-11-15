@@ -533,7 +533,7 @@ export default function StockListDetailPage() {
             />
             <SidebarCard
               title="Watchlists"
-              body="Keep track of your favorite stocks in real time."
+              body="Keep track of your favorite stocks with 15-minute delayed quotes on public pages."
               cta="View Watchlist →"
               to="/watchlist"
               variant="outline"
