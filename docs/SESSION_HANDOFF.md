@@ -1,3 +1,15 @@
+# Session handoff — Batch 202 public launch readiness (November 15, 2026 ET)
+
+**Baseline:** GitHub `main` **`87759b67f1a0a3fe944d628b7011132afe45f3e2`**.
+
+**Batch 202 (Group 4):** Branch `cursor/batch202-public-launch-readiness`. **ISS-038** copy + **23×5** positioning + public auth CTA tracking. **47** targeted Vitest **PASS**; typecheck/build/integrity **PASS**. **Stop before merge/deploy.**
+
+**ISS-044:** preserved on `cursor/iss044-closed-session-evidence` @ **`159c62c7`** — not in this PR.
+
+**Next:** PR review → Vercel prod + homepage/mobile visual acceptance; ISS-044 Mon park window separate.
+
+---
+
 # Session handoff — ISS-034 November 13 opening-bell evidence (November 14, 2026 ET)
 
 **Baseline:** GitHub `main` **`72c1a57ca9e6aa77fea5b15cc6a0ed8606f481db`** (Batch **233** PR **#251** squash-merged November **12**).

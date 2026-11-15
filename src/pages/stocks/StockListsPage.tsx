@@ -262,7 +262,7 @@ export default function StockListsPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-sm font-bold text-foreground mb-2">Watchlists</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">
-                Save track of your favorite stocks in real time.
+                Keep track of your favorite stocks with 15-minute delayed quotes on public pages.
               </p>
               <Button
                 variant="outline"

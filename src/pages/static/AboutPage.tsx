@@ -79,8 +79,8 @@ export default function AboutPage() {
             <p>
               Our platform leverages <strong>McKinsey-style Socratic AI agents</strong> — reasoning systems that
               don't just summarize data, but actively challenge assumptions, stress-test theses, and surface
-              non-obvious risk factors that traditional screeners miss. Combined with real-time market data from
-              Polygon.io, licensed market-data providers, and proprietary analytical pipelines, Stocksist delivers the depth of a
+              non-obvious risk factors that traditional screeners miss. Combined with licensed market data from
+              Polygon.io and proprietary analytical pipelines — with 15-minute delayed quotes on public pages — Stocksist delivers the depth of a
               professional research desk in an interface designed for clarity and speed.
             </p>
             <p>

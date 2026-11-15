@@ -96,7 +96,7 @@ export default function TradingViewChart({
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
   const seoTitle = companyName
-    ? `${companyName} (${ticker}) Real-Time Analysis & Probability Forecast Chart | ${BRAND.name}`
+    ? `${companyName} (${ticker}) Chart & Technical Analysis | ${BRAND.name}`
     : `${ticker} Technical Analysis Chart | ${BRAND.name}`;
 
   // Intersection observer for lazy loading
