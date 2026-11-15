@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-15 (ISS-041 — market-session fallback; no new batch)
+
+- `scheduleOrFallback` in `src/lib/market-session.ts` uses `resolveSessionSchedule(etDate, null)` instead of bare `fallbackOpenSchedule`, so `resolveMarketSessionAt(ms)` without an explicit schedule mirrors the exchange-calendar weekend closure path. Affects `resolveConsumerSessionKind` and `movers-observation` callers indirectly. **No** scanner ranking, threshold, Edge, Fly, SQL, or deploy changes. **Checked:** Vitest `equities-session-calendar.test.ts` (16), `npm run typecheck`, `npm run build`.
+
 ## 2026-11-15 (Batch 202 — public launch readiness / ISS-038)
 
 - Public marketing aligned to **15-minute delayed** quotes (hero i18n, FAQ, download, stock lists, ETF SEO, methodology); homepage **23×5** session positioning without overnight-scan claims; header/footer `auth_handoff` analytics; homepage grid `min-w-0`. Vitest `batch202-public-launch-readiness.test.ts`. **No deploy.** Runbook `docs/release/batch202-public-launch-readiness-v1.md`.

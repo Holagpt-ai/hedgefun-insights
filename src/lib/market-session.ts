@@ -9,10 +9,10 @@
  */
 
 import {
-  fallbackOpenSchedule,
   isWithinAfterHoursWindow,
   NORMAL_AFTER_HOURS_END_MS,
   NORMAL_REGULAR_CLOSE_MS,
+  resolveSessionSchedule,
   sessionKindAtMsOfDay,
   type ResolvedSessionSchedule,
 } from "@/lib/equities-session-calendar";
@@ -160,7 +160,7 @@ function scheduleOrFallback(
   if (schedule) return schedule;
   const parts = easternParts(referenceMs);
   if (!parts) return null;
-  return fallbackOpenSchedule(easternDateFromParts(parts));
+  return resolveSessionSchedule(easternDateFromParts(parts), null);
 }
 
 /** Eastern-time wall clock for a UTC epoch ms (America/New_York). */

@@ -1,3 +1,15 @@
+# Session handoff — ISS-041 market-session fallback (November 15, 2026 ET)
+
+**Baseline:** GitHub `main` **`ff6a10fd377a66265100bbd1d8d70c1a65f54eb9`** (Batch 202 / ISS-038 merged as PR **#254**).
+
+**ISS-041:** Branch `cursor/iss041-market-session-fallback`. `scheduleOrFallback` routes through `resolveSessionSchedule(date, null)` so Saturday/Sunday resolve **closed** when callers omit a schedule (`screener-session.ts`, `movers-observation.ts`, MCP bundle consumers). **16** calendar/session Vitest **PASS**; typecheck/build **PASS**. **No** deploy, merge, or production change.
+
+**Preserved:** Batch 202 branch state, Group 5 stash, ISS-044 branch `cursor/iss044-closed-session-evidence`, unrelated MCP bundle excluded from PR.
+
+**Next:** owner review → merge PR → optional authenticated weekend check on consumer surfaces.
+
+---
+
 # Session handoff — Batch 202 public launch readiness (November 15, 2026 ET)
 
 **Baseline:** GitHub `main` **`87759b67f1a0a3fe944d628b7011132afe45f3e2`**.

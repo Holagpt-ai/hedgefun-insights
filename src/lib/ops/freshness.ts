@@ -40,10 +40,9 @@ export interface SessionContext {
 }
 
 /**
- * `resolveMarketSessionAt(ms)` without a schedule uses an always-open
- * fallback (weekends included). Resolve through `resolveSessionSchedule`
- * with `exceptions = null` so Saturday/Sunday are closed while weekday
- * holidays stay unverified.
+ * Holiday calendar is unavailable in the browser; `resolveMarketSessionAt(ms)`
+ * without an explicit schedule still uses `resolveSessionSchedule(date, null)`
+ * (weekends closed; weekday exchange holidays stay unverified).
  */
 export function resolveSessionContext(nowMs: number): SessionContext {
   const parts = easternParts(nowMs);
