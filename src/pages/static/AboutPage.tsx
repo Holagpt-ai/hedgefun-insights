@@ -28,7 +28,7 @@ const PILLARS = [
   {
     icon: BarChart3,
     title: "Institutional-Grade Data",
-    desc: "Real-time and delayed feeds from Polygon.io, licensed market-data providers, and proprietary pipelines — the same caliber of sources used by hedge funds.",
+    desc: "Provider-backed feeds from Polygon.io and other licensed market-data sources — with 15-minute delayed quotes on public pages — the same caliber of sources used by hedge funds.",
   },
   {
     icon: Shield,
@@ -71,8 +71,8 @@ export default function AboutPage() {
           <div className="text-base leading-[1.8] text-foreground space-y-4">
             <p>
               Stocksist exists to bridge the gap between <strong>institutional-grade algorithmic analysis</strong>{" "}
-              and the everyday retail trader. For decades, sophisticated quantitative tools, real-time data feeds,
-              and AI-driven research were locked behind six-figure terminal subscriptions and hedge fund paywalls.
+              and the everyday retail trader. For decades, sophisticated quantitative tools, institutional-grade
+              market data, and AI-driven research were locked behind six-figure terminal subscriptions and hedge fund paywalls.
               We believe that access to high-quality financial intelligence is not a luxury — it is a necessity for
               informed participation in modern capital markets.
             </p>
@@ -150,7 +150,7 @@ export default function AboutPage() {
         <section className="mb-10">
           <h2 className="text-xl font-bold text-foreground mb-4">What We Offer</h2>
           <ul className="list-disc pl-6 space-y-2 text-foreground leading-relaxed">
-            <li>Real-time stock and ETF data powered by Polygon.io</li>
+            <li>Stock and ETF quotes on public pages use 15-minute delayed market data from Polygon.io</li>
             <li>Comprehensive stock screener with 297+ filters</li>
             <li>IPO calendar, statistics, and screener</li>
             <li>Market movers: gainers, losers, most active, premarket, and after-hours</li>
