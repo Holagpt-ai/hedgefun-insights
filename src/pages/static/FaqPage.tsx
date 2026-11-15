@@ -44,7 +44,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can I trust the AI's analysis? Does it ever make mistakes?",
-        a: "No AI system is infallible. Large language models can produce inaccurate, incomplete, or misleading outputs — a phenomenon known as 'hallucination.' While Stocksist employs data validation layers and cross-references AI outputs against live market data from Polygon.io, users must independently verify all data, price quotes, earnings figures, and analytical conclusions before making any trading or investment decisions. Stocksist's AI analysis is provided for educational and informational purposes only and does NOT constitute personalized financial advice. Always consult a licensed financial professional before trading options, credit spreads, or equities.",
+        a: "No AI system is infallible. Large language models can produce inaccurate, incomplete, or misleading outputs — a phenomenon known as 'hallucination.' While Stocksist employs data validation layers and cross-references AI outputs against provider-backed market context from Polygon.io and other licensed feeds (public quote pages use 15-minute delayed market data), users must independently verify all data, price quotes, earnings figures, and analytical conclusions before making any trading or investment decisions. Stocksist's AI analysis is provided for educational and informational purposes only and does NOT constitute personalized financial advice. Always consult a licensed financial professional before trading options, credit spreads, or equities.",
       },
       {
         q: "How often is market data updated?",

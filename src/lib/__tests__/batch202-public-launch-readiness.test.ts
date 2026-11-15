@@ -35,6 +35,13 @@ describe("Batch 202 — ISS-038 delayed-data copy", () => {
     }
   });
 
+  it("public marketing surfaces avoid unsupported live market data claims", () => {
+    for (const file of PUBLIC_ISS038_FILES) {
+      const src = readFileSync(resolve(file), "utf8");
+      expect(src.toLowerCase()).not.toMatch(/live market data/);
+    }
+  });
+
   it("index sparkline regular-session label is not Live", () => {
     const spark = readFileSync(resolve("src/components/home/IndexSparklineCards.tsx"), "utf8");
     expect(spark).toContain('"Regular"');
