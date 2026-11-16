@@ -4,7 +4,7 @@
 
 **Production evidence:** Last publish **9:25 AM ET**; **87** `prior_generation_retained` aborts; Gappers `unresolved_gap_input_count=2` with 1302 volume-active (job `4ed4a4c7-…`). **Cause:** fail-closed Gappers accounting + preserve vs 9:25 evaluated snapshot — **not** Nov 13 open transient.
 
-**Fix branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260 correction** (same PR): unproven `gapSuppressedByCloseVersusPriorWithoutOpen` **removed from publish path**; `gappers-gap-input-accounting` replay; `abort_evidence.candidate_gappers`; bounded symbols. Stall **2 legitimate unresolved** until provider or **approved policy** — runbook `iss034-nov16-all-day-publication-stall-v1.md`. **ISS-024 Layer C BLOCKED** (separate).
+**Fix branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260** (not merged). Unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`). Option B degraded-tab publication **designed only** — `iss034-option-b-degraded-tab-publication-v1.md`. UI: feed `synced_at` **9:25 AM** but Gappers tab can show **evaluated** morning rows (`screener-truth-state` regression documents mismatch). **ISS-024 Layer C BLOCKED**.
 
 **Preserved:** Fly v49, MCP uncommitted, 8 PM ET ISS-044 acceptance.
 

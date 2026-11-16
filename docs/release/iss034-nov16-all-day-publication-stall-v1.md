@@ -24,6 +24,27 @@
 
 Accounting identity: `calculable + no_prior + split_scale + unresolved = volume_positive`.
 
+## Confirmed unresolved symbols (5:48+ PM ET Lovable)
+
+| Symbol | `day.o` | `prevDay.c` | Coverage | Gappers reject |
+| --- | --- | --- | --- | --- |
+| **ASBPW** | 0.0121 (positive) | **0** | Historical baseline **present** | **`missing_prior_close`** |
+| **ASPCR** | 0.0551 (positive) | **0** | Historical policy exclusion **present** | **`missing_prior_close`** |
+
+**Corrected diagnosis:** these are **not** missing-current-open tails (both have positive opens). Zero / invalid `prevDay.c` blocks gap %; baseline or exclusion prevents `no_prior_session` struct class → **unresolved** under fail-closed accounting.
+
+### Replay reconciliation (stored accum)
+
+| Counter | Stored job | Subset replay (1,302-ticker-shaped fixture) |
+| --- | ---: | ---: |
+| `volume_positive_count` | 1302 | 1302 ✓ |
+| `gap_calculable_count` | 1298 | 1298 ✓ |
+| `no_prior_session_count` | 1 | 1 ✓ |
+| `split_scale_suppressed_count` | 1 | 1 ✓ |
+| `unresolved_gap_input_count` | 2 | 2 ✓ (ASBPW, ASPCR) |
+
+**Explicit gap:** CI does **not** replay all **13,240** provider rows. Byte-identical full-job replay requires Lovable export + `scripts/ops/iss034-gappers-replay.deno.ts`. Any counter mismatch on full export must be reported before merge.
+
 ## Owner read-only blocker (PR #260 correction, 5:48 PM ET)
 
 On the **stored production snapshot** (13,240 symbols):
@@ -40,7 +61,11 @@ Therefore the first PR #260 classifier **does not** reduce `unresolved_gap_input
 2. `deno run --allow-read scripts/ops/iss034-gappers-replay.deno.ts job-export.json`
 3. Output includes `baseline.unresolved[]` (symbol, `rejectReason`, prerequisite flags) and `unresolved_delta` vs the replay-only close-vs-prior helper.
 
-**Expected rejection class for owner-shaped tails:** `missing_gap_reference` — volume-active, **no** positive `day.o`, **no** positive `day.c`, positive `prevDay.c` (legitimate RTH gap contract: gap requires `day.o` vs `prevDay.c`; no synthesis).
+**Production tail class (confirmed):** `missing_prior_close` for ASBPW/ASPCR — positive `day.o`, **non-positive** `prevDay.c`, historical coverage present (not structurally no-prior).
+
+## Option B (design only — not implemented)
+
+See `docs/release/iss034-option-b-degraded-tab-publication-v1.md`. Requires explicit owner approval before any publish-policy code.
 
 ## PR #260 corrected scope (same PR, not merged)
 

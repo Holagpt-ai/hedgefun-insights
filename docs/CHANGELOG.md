@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-16 (ISS-034 — ASBPW/ASPCR + Option B design; PR #260; not merged)
+
+- Owner-identified unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`, not missing open). Subset replay matches job accum **1302/1298/1/1/2**. Option B publication-policy design doc; preserve gate unchanged. Vitest ISS-034 truth-state regression; Deno production replay + Option B contract tests. **No** policy deploy.
+
 ## 2026-11-16 (ISS-034 — PR #260 production-evidence correction; not merged)
 
 - Owner read-only replay on job `4ed4a4c7-…`: `gapSuppressedByCloseVersusPriorWithoutOpen` matches **0** symbols; `unresolved_gap_input_count` stays **2**. Removed helper from publish accounting; added `gappers-gap-input-accounting` replay + `scripts/ops/iss034-gappers-replay.deno.ts`; `abort_evidence.candidate_gappers`; bounded staged `unresolvedGapSymbols`. Publication policy options documented — fail-closed default preserved. **No** deploy.

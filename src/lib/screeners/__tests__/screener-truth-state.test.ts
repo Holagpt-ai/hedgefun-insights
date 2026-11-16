@@ -72,6 +72,31 @@ function gapperRow(symbol: string, gap: number, volume: number): ScreenerResultR
 }
 
 describe("screener truth-state resolver", () => {
+  it("ISS-034 Nov16: stale feed with morning gappers evaluated still shows evaluated_with_results", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "available",
+      rowCount: 12,
+      syncedAt: "2026-11-16T14:25:00.000Z",
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "evaluated",
+          universe_count: 4000,
+          volume_positive_count: 1200,
+          gap_calculable_count: 1198,
+          no_prior_session_count: 0,
+          split_scale_suppressed_count: 0,
+          unresolved_gap_input_count: 0,
+          qualified_count: 12,
+          selected_count: 12,
+        },
+      },
+    });
+    expect(truth.reason).toBe("evaluated_with_results");
+    expect(truth.showFreshness).toBe(true);
+    expect(truth.showRows).toBe(true);
+  });
+
   it("gappers: empty universe evidence does not claim validated zero-match", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
