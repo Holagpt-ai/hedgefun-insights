@@ -41,6 +41,8 @@ DECLARE
     'volume_spikes',
     'unusual_volume'
   ];
+  v_tab text;
+  v_status text;
   v_evidence_key text;
 BEGIN
   IF p_tab_evaluation_evidence IS NULL THEN
@@ -49,6 +51,32 @@ BEGIN
   IF jsonb_typeof(p_tab_evaluation_evidence) <> 'object' THEN
     RAISE EXCEPTION 'tab_evaluation_evidence must be an object';
   END IF;
+  IF p_tab_evaluation_evidence = '{}'::jsonb THEN
+    RAISE EXCEPTION 'tab_evaluation_evidence incomplete';
+  END IF;
+
+  FOREACH v_tab IN ARRAY v_managed_tabs LOOP
+    IF NOT (p_tab_evaluation_evidence ? v_tab) THEN
+      RAISE EXCEPTION 'tab_evaluation_evidence missing tab';
+    END IF;
+    IF jsonb_typeof(p_tab_evaluation_evidence -> v_tab) <> 'object' THEN
+      RAISE EXCEPTION 'tab_evaluation_evidence invalid tab payload';
+    END IF;
+    v_status := p_tab_evaluation_evidence -> v_tab ->> 'status';
+    IF v_status IS NULL OR v_status = '' THEN
+      RAISE EXCEPTION 'tab_evaluation_evidence status required';
+    END IF;
+    IF v_tab = 'new_highs_lows' THEN
+      IF v_status NOT IN ('evaluated', 'not_evaluated') THEN
+        RAISE EXCEPTION 'tab_evaluation_evidence invalid nhl status';
+      END IF;
+    ELSE
+      IF v_status NOT IN ('evaluated', 'prerequisite_unavailable') THEN
+        RAISE EXCEPTION 'tab_evaluation_evidence invalid status';
+      END IF;
+    END IF;
+  END LOOP;
+
   FOR v_evidence_key IN SELECT jsonb_object_keys(p_tab_evaluation_evidence)
   LOOP
     IF NOT (v_evidence_key = ANY (v_managed_tabs)) THEN

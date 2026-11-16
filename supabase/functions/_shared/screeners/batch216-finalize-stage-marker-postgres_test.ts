@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { formatFinalizeStageMarker } from "./sync-finalize-diagnostics.ts";
 import {
+  layerCSixTabEvidenceEvaluated,
   sampleObservation,
   truncateStaging,
   withPg,
@@ -142,9 +143,7 @@ Deno.test({
           syncRunId,
           JSON.stringify(sampleObservation(syncRunId)),
           lease,
-          JSON.stringify({
-            day_trade_radar: { status: "evaluated", universe_count: 1, qualified_count: 1, selected_count: 1 },
-          }),
+          JSON.stringify(layerCSixTabEvidenceEvaluated()),
         ],
       );
 

@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-16 (ISS-024 Layer C — per-generation tab evaluation evidence)
+## 2026-11-16 (ISS-024 Layer C — per-generation tab evaluation evidence; PR #259 review)
 
-- Migration `20261116153000`: durable six-tab `tab_evaluation_evidence` on `screener_sync_generation_jobs` at atomic staged publish; complete gate; reconcile alignment. Pre-migration published jobs remain Layer C **unavailable**. Runbook `docs/release/batch191-layer-c-tab-evidence-v1.md`. **Not applied** (Lovable SQL + Edge deploy pending).
+- Migration `20261116153000`: durable six-tab `tab_evaluation_evidence` on `screener_sync_generation_jobs` at atomic staged publish; `assert_screener_tab_evaluation_evidence_v1` requires all six tabs (rejects `{}`/partial); complete gate; reconcile alignment. Pre-migration published jobs remain Layer C **unavailable**. Layer C Deno tests in Critical screener CI. Runbook `docs/release/batch191-layer-c-tab-evidence-v1.md`. **Not applied** (Lovable SQL + Edge deploy pending).
 
 ## 2026-11-16 (Batch 196 — Radar acceleration display parity)
 

@@ -43,8 +43,9 @@ LIMIT 20;
 
 ## Tests
 
-- Deno: `batch191-layer-c-tab-evidence-postgres_test.ts` (requires `SCREENER_SYNC_PG_TEST_URL` after bootstrap).
-- Bootstrap chain includes migration `20261116153000` via `scripts/supabase/screener-sync-pg-test-setup.mjs`.
+- **CI:** `batch191-layer-c-tab-evidence-postgres_test.ts` runs in `.github/workflows/screener-deno-regressions.yml` (Critical screener tests) against disposable Postgres 16 after bootstrap.
+- Local: `SCREENER_SYNC_PG_TEST_URL=... node scripts/supabase/screener-sync-pg-test-setup.mjs` then Deno test file.
+- `assert_screener_tab_evaluation_evidence_v1` requires all **six** tab keys and valid per-tab statuses (`evaluated` / `prerequisite_unavailable`, NHL `not_evaluated`); empty `{}` and partial payloads are rejected at publish.
 
 ## Production activation
 

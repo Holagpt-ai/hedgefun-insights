@@ -9,6 +9,7 @@ import {
   insertChunkingJob,
   pgTestUrl,
   sampleObservation,
+  assertJsonbDeepEqual,
   layerCSixTabEvidenceEvaluated,
   sampleTabEvidence,
   truncateStaging,
@@ -275,10 +276,7 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
        FROM public.screener_sync_generation_jobs WHERE id = $1`,
       [jobId],
     );
-    assertEquals(
-      JSON.stringify(jobEvidence.rows[0]?.tab_evaluation_evidence),
-      JSON.stringify(evidence),
-    );
+    assertJsonbDeepEqual(jobEvidence.rows[0]?.tab_evaluation_evidence, evidence);
     assertEquals(jobEvidence.rows[0]?.published_nhl_baseline_status, "initializing");
     const feed = await client.queryObject<{ sync_run_id: string; rows_inserted: number; evidence: unknown }>(
       `SELECT sync_run_id, rows_inserted, tab_evaluation_evidence AS evidence
@@ -286,6 +284,7 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
     );
     assertEquals(feed.rows[0]?.sync_run_id, syncRunId);
     assertEquals(feed.rows[0]?.rows_inserted, 2);
+    assertJsonbDeepEqual(feed.rows[0]?.evidence, evidence);
     const complete = await client.queryObject<{ payload: string }>(
       `SELECT public.complete_screener_sync_publish_v1(
         $1::uuid, $2::uuid, $3, now()
@@ -310,6 +309,8 @@ Deno.test("postgres gate: duplicate atomic publish is idempotent", async () => {
     const finalizeLease = crypto.randomUUID();
     const syncedAt = "2026-10-28T18:05:00.000Z";
     const rows = [validScreenerRow("ZZZ", "gappers")];
+    const evidence = layerCSixTabEvidenceEvaluated();
+    const evidenceJson = JSON.stringify(evidence);
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -318,12 +319,19 @@ Deno.test("postgres gate: duplicate atomic publish is idempotent", async () => {
                $4::uuid, now() + interval '12 minutes', 0)`,
       [jobId, syncRunId, JSON.stringify({ ...sampleObservation(syncRunId), syncedAt }), finalizeLease],
     );
-    const args = [jobId, finalizeLease, JSON.stringify(rows), syncRunId, syncedAt];
+    const args = [
+      jobId,
+      finalizeLease,
+      JSON.stringify(rows),
+      syncRunId,
+      syncedAt,
+      evidenceJson,
+    ];
     for (let i = 0; i < 2; i++) {
       const pub = await client.queryObject<{ payload: string }>(
         `SELECT public.publish_screener_sync_staged_generation_v1(
           $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, $5::timestamptz,
-          'initializing', '{}'::jsonb, now()
+          'initializing', $6::jsonb, now()
         )::text AS payload`,
         args,
       );
@@ -346,6 +354,7 @@ Deno.test("postgres gate: replace failure rolls back publish record", async () =
     const syncRunId = crypto.randomUUID();
     const finalizeLease = crypto.randomUUID();
     const badRows = [{ tab_id: "day_trade_radar", symbol: "BAD" }];
+    const evidence = JSON.stringify(layerCSixTabEvidenceEvaluated());
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -357,9 +366,9 @@ Deno.test("postgres gate: replace failure rolls back publish record", async () =
     await assertRejects(async () => {
       await client.queryObject(
         `SELECT public.publish_screener_sync_staged_generation_v1(
-          $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, now(), 'initializing', '{}'::jsonb, now()
+          $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, now(), 'initializing', $5::jsonb, now()
         )`,
-        [jobId, finalizeLease, JSON.stringify(badRows), syncRunId],
+        [jobId, finalizeLease, JSON.stringify(badRows), syncRunId, evidence],
       );
     });
     const job = await client.queryObject<{ publish_rows_inserted: number | null }>(
@@ -426,6 +435,7 @@ Deno.test("postgres gate: recovery after publish before complete", async () => {
     const finalizeLease = crypto.randomUUID();
     const syncedAt = "2026-10-28T18:10:00.000Z";
     const rows = [validScreenerRow("REC", "gappers")];
+    const evidence = JSON.stringify(layerCSixTabEvidenceEvaluated());
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -437,9 +447,9 @@ Deno.test("postgres gate: recovery after publish before complete", async () => {
     const pub = await client.queryObject<{ payload: string }>(
       `SELECT public.publish_screener_sync_staged_generation_v1(
         $1::uuid, $2::uuid, 0, $3::jsonb, $4::uuid, $5::timestamptz,
-        'initializing', '{}'::jsonb, now()
+        'initializing', $6::jsonb, now()
       )::text AS payload`,
-      [jobId, finalizeLease, JSON.stringify(rows), syncRunId, syncedAt],
+      [jobId, finalizeLease, JSON.stringify(rows), syncRunId, syncedAt, evidence],
     );
     assertEquals(JSON.parse(String(pub.rows[0]?.payload ?? "{}")).ok, true);
     const mid = await client.queryObject<{ state_version: number }>(

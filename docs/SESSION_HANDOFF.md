@@ -2,13 +2,15 @@
 
 **Baseline:** GitHub `main` **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`**.
 
-**Delivered:** Migration `20261116153000_screener_sync_generation_tab_evidence_v1.sql` — persist `tab_evaluation_evidence`, `published_synced_at`, `published_nhl_baseline_status` on `screener_sync_generation_jobs` during `publish_screener_sync_staged_generation_v1`; `complete_screener_sync_publish_v1` requires job evidence; reconcile backfills job evidence from feed when missing (same generation only). Deno: `batch191-layer-c-tab-evidence-postgres_test.ts`. **No SQL applied. No Edge deploy.**
+**PR #259** (`cursor/iss024-layer-c-tab-evidence`): Layer C durable job evidence + review corrections — strengthened `assert_screener_tab_evaluation_evidence_v1` (six tabs, fail-closed on `{}`/partial); integration tests use `assertJsonbDeepEqual`; Batch 216 complete fixture; Layer C Deno suite wired in **Critical screener tests** workflow. **No SQL applied. No Edge deploy.**
 
-**Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL spot-check in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
+**Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
+
+**CI gate:** Critical screener tests (incl. Layer C PG), migration-order, typecheck, build, Vercel — confirm green on PR head before merge.
 
 **Preserved:** Fly v49, stash `preserve-iss044-docs-mcp`, MCP uncommitted.
 
-**Next:** PR review; ISS-044 20:00 ET; post-activation Layer C audit.
+**Next:** Merge when approved; ISS-044 20:00 ET; post-activation Layer C audit.
 
 ---
 
