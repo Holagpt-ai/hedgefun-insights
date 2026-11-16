@@ -77,6 +77,8 @@ Production RPC used `INSERT INTO radar_v22_closed_snapshot SELECT c.*, 'closed_s
 
 **Worker fix (no SQL):** `EvaluateResult.preParkFlush`; `publishRadarV2ClosedParkIfNeeded`; skip empty soft_rth_ah candidate wipes unless non-session events need flush. Ranking, Five Pillars, caps, lifecycle, delayed-feed behavior unchanged.
 
+**Follow-on (Nov 16 ISS-044, same issue id, no new batch):** retain frozen `preParkFlush` in `pendingClosedPark` until V2 park commits; re-emit `park_closed` on failed/skipped flush/closed RPC; structured `radar_v2_park_*` logs. Does **not** claim to explain Nov 12 production evidence. Worker cold-start without in-memory flush still cannot park until an approved hydration RPC exists.
+
 ## Confirmed code defects (reproducible in tests)
 
 1. **`publishRadarV2Generation`** could treat some RPC **`applied: false`** outcomes as success and clear persist-failure telemetry while **`v2_synced_at` never advanced** (including **`stale_generation`** fence rejects; any explicit `applied: false` now fails closed).

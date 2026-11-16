@@ -534,8 +534,13 @@ Deno.test("11-14. session transitions fire once", () => {
   engine.evaluate(ET.mon195959999, GEN);
   const park = engine.evaluate(ET.mon2000, GEN);
   assertEquals(park.sessionTransition, "park_closed");
+  assertEquals(engine.hasPendingClosedPark(), true);
   const parkAgain = engine.evaluate(ET.mon2000 + 50, GEN);
-  assertEquals(parkAgain.sessionTransition, null);
+  assertEquals(parkAgain.sessionTransition, "park_closed");
+  assertEquals(parkAgain.preParkFlush?.candidates.length, park.preParkFlush?.candidates.length);
+  engine.acknowledgeClosedParkCommitted();
+  const parkSettled = engine.evaluate(ET.mon2000 + 100, GEN);
+  assertEquals(parkSettled.sessionTransition, null);
 
   const reset = engine.evaluate(ET.tue0400, GEN);
   assertEquals(reset.sessionTransition, "hard_reset");
