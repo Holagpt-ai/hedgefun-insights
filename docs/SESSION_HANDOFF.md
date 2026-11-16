@@ -6,7 +6,9 @@
 
 **Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
 
-**CI gate:** Critical screener tests (incl. Layer C PG), migration-order, typecheck, build, Vercel — confirm green on PR head before merge.
+**Head SHA:** `eb256c5c7f8809d789b50fa99dfee868bd607ec9` (PR #259 review corrections).
+
+**CI (2026-11-16):** Critical screener tests **PASS** (438+ Deno incl. Layer C PG; run `43960456625`); `verify` (migration-order) **PASS**; Vercel **PASS**. Local typecheck/build **PASS**.
 
 **Preserved:** Fly v49, stash `preserve-iss044-docs-mcp`, MCP uncommitted.
 
