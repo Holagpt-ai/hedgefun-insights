@@ -2,7 +2,7 @@
 
 **Baseline:** GitHub `main` **`5d45d520501f6b65b8e5a080be34aaa3510ff8f7`**.
 
-**ISS-044 implementation:** Branch `cursor/iss044-closed-park-retry`. Worker retains frozen `preParkFlush` in `pendingClosedPark`, defers V2 candidate clear until committed park, retries `park_closed` each eval until `publishRadarV2ClosedParkIfNeeded` succeeds; `run.ts` calls `acknowledgeClosedParkCommitted()` only when `isRadarV2PublishCommitted`. **84** focused Deno tests **PASS**. **No** Fly/SQL/Edge deploy.
+**ISS-044 implementation:** Branch `cursor/iss044-closed-park-retry`, PR **#257**. Retry-safety: `closed-park-recovery.ts`, bounded park RPC pacing, stable two-stage ids, no V1 empty spam on park retries, `isClosedParkFullyCommitted` before `acknowledgeClosedParkCommitted()`. **89** focused Deno tests **PASS**; typecheck/build **PASS**. **No** Fly/SQL/Edge deploy.
 
 **Cold-start limitation:** Worker restart after **20:00 ET** with empty engine cannot reconstruct an outstanding park without a service-role candidate read + explicit hydration API — **not added** (would need approved RPC/migration).
 

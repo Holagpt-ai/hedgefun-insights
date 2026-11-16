@@ -1171,16 +1171,14 @@ export function createRadarEngine(opts: {
 
       if (pendingClosedPark) {
         lastSessionKind = kind;
-        const persistEmpty = !lastPersistWasEmpty;
-        if (persistEmpty) lastPersistWasEmpty = true;
         return packResult({
-          published: true,
+          published: false,
+          persistEmpty: false,
           board: frozen,
           sessionKind: kind,
           surveillanceDate,
           sessionTransition: "park_closed",
           liveSurveillance: false,
-          persistEmpty,
           clearV2: false,
           preParkFlush: {
             tradingDate: pendingClosedPark.tradingDate,
@@ -1228,7 +1226,7 @@ export function createRadarEngine(opts: {
       const persistEmpty = wasLive && preParkFlush !== null && !lastPersistWasEmpty;
       if (persistEmpty) lastPersistWasEmpty = true;
       return packResult({
-        published: persistEmpty || pendingClosedPark !== null,
+        published: persistEmpty,
         board: frozen,
         sessionKind: kind,
         surveillanceDate,

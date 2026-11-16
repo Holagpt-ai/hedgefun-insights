@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-16 (ISS-044 — closed-session park retry; no new batch)
+## 2026-11-16 (ISS-044 — closed-session park retry-safety; PR #257; no new batch)
 
-- Radar worker: `pendingClosedPark` freezes live `preParkFlush` until `publishRadarV2ClosedParkIfNeeded` commits flush + empty closed; failed/skipped parks re-emit `park_closed` with the same snapshot; V2 in-memory candidates clear only after `acknowledgeClosedParkCommitted`. Structured logs: `radar_v2_park_*`. Deno: `iss044-closed-park-retry_test.ts` + existing park regressions **84 passed** (focused). **No** SQL/Fly/deploy. Nov 12 prod failure **not** claimed solved.
+- Radar worker: `ClosedParkRecovery` pins stable flush/closed generation ids and synced_at; **15s** `RADAR_V2_PARK_RETRY_INTERVAL_MS` backoff so 5s eval cycles cannot spam V2/V1; two-stage checkpoint (`flush` → `closed`) with flush `shouldWrite` enforced and no AH replay after closed stage; `pendingClosedPark` retries use `published: false` / `persistEmpty: false`. Ack only via `isClosedParkFullyCommitted`. Deno: **89** focused (`iss044-closed-park-retry_test.ts`, `session_test.ts`, `persist_v2_test.ts` park regressions). Typecheck/build **PASS**. **No** SQL/Fly/deploy. Cold-start park rehydrate **not** added. Nov 12 prod root cause **not** claimed solved.
 
 ## 2026-11-16 (Earnings Top-3 test harness; no new batch)
 

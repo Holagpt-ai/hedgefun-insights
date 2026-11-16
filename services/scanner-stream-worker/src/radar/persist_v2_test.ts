@@ -9,6 +9,7 @@ import { REPLACE_RADAR_RPC } from "./persist.ts";
 import {
   buildRadarV2Events,
   createMemoryRadarV2Store,
+  createClosedParkRecovery,
   createRadarV2WriteGate,
   decideRadarV2Fence,
   dualWriteRadarPersistence,
@@ -1812,6 +1813,13 @@ Deno.test("219.3A: park_closed flushes last live candidates before empty closed"
     payloads.push(input);
     return { error: null };
   };
+  const recovery = createClosedParkRecovery({
+    tradingDate: closed.persistenceV2.tradingDate,
+    flushGenerationId: GEN,
+    flushSyncedAt: SYNC,
+    closedGenerationId: GEN2,
+    closedSyncedAt: SYNC2,
+  });
   const out = await publishRadarV2ClosedParkIfNeeded({
     flagEnabled: true,
     result: closed,
@@ -1820,9 +1828,10 @@ Deno.test("219.3A: park_closed flushes last live candidates before empty closed"
     checkpointMs: CHECKPOINT,
     generationId: GEN,
     syncedAt: SYNC,
+    recovery,
     rpc,
   });
-  assertEquals(out, { ok: true, applied: true });
+  assert(out !== "skipped" && out.ok === true);
   assertEquals(payloads.length, 2);
   assertEquals(payloads[0]?.p_session_kind, "after-hours");
   assertEquals((payloads[0]?.p_candidates.length ?? 0) > 0, true);
@@ -1846,6 +1855,13 @@ Deno.test("219.3A: failed pre-park flush does not publish empty closed wipe", as
     calls += 1;
     return { error: { message: "boom" } };
   };
+  const recovery = createClosedParkRecovery({
+    tradingDate: closed.persistenceV2.tradingDate,
+    flushGenerationId: GEN,
+    flushSyncedAt: SYNC,
+    closedGenerationId: GEN2,
+    closedSyncedAt: SYNC2,
+  });
   const out = await publishRadarV2ClosedParkIfNeeded({
     flagEnabled: true,
     result: closed,
@@ -1854,6 +1870,7 @@ Deno.test("219.3A: failed pre-park flush does not publish empty closed wipe", as
     checkpointMs: CHECKPOINT,
     generationId: GEN,
     syncedAt: SYNC,
+    recovery,
     rpc,
   });
   assertEquals(out, { ok: false, code: "persist_failed" });
