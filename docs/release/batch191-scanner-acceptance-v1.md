@@ -109,7 +109,7 @@ Legend: **P** = PASS, **F** = FAIL (confirmed harmful event), **N** = NOT VERIFI
 
 1. **Nov 10 after-hours** (16:00–20:00 ET) — publication ledger + feed evidence after session completes.
 2. **Nov 10 regular** — remainder **1:30 PM–4:00 PM ET** without disproportionate finalize failures.
-3. **Layer C** — sample or audit `tab_evaluation_evidence` on published jobs across PM/RTH/AH (not only `current`).
+3. **Layer C** — after migration `20261116153000` + Edge deploy, audit `screener_sync_generation_jobs.tab_evaluation_evidence` on **new** `published` jobs (pre-migration rows stay **unavailable**). Runbook: `batch191-layer-c-tab-evidence-v1.md`.
 4. **Layer D** — authenticated Screeners walkthrough (RVOL, float ISS-037, Five Pillars).
 5. **Clean RTH day** — repeated session without **`http_546`** and with opening retention within documented tolerance (Batch 191 gate).
 
@@ -120,6 +120,7 @@ Still valid for **Lovable Cloud** read-only operators; ledger totals above super
 ```sql
 SELECT id, sync_run_id, status, next_chunk_index, total_chunks,
        publish_rows_inserted, publish_rpc_recorded_at,
+       tab_evaluation_evidence IS NOT NULL AS has_layer_c_evidence,
        abort_reason, continue_last_error, created_at
 FROM public.screener_sync_generation_jobs
 WHERE created_at >= '2026-11-06'::timestamptz

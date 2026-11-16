@@ -89,4 +89,8 @@ runSql("20261106200000_ops_scanner_diagnostics_read_v1.sql", join(
   migrationsDir,
   "20261106200000_ops_scanner_diagnostics_read_v1.sql",
 ));
+runSql("20261116153000_screener_sync_generation_tab_evidence_v1.sql", join(
+  migrationsDir,
+  "20261116153000_screener_sync_generation_tab_evidence_v1.sql",
+));
 console.log("\nBootstrap complete.");
