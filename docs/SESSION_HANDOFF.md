@@ -1,3 +1,21 @@
+# Session handoff — ISS-024 Layer C tab evidence (November 16, 2026 ET)
+
+**Baseline:** GitHub `main` **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`**.
+
+**PR #259** (`cursor/iss024-layer-c-tab-evidence`): Layer C durable job evidence + review corrections — strengthened `assert_screener_tab_evaluation_evidence_v1` (six tabs, fail-closed on `{}`/partial); integration tests use `assertJsonbDeepEqual`; Batch 216 complete fixture; Layer C Deno suite wired in **Critical screener tests** workflow. **No SQL applied. No Edge deploy.**
+
+**Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
+
+**Head SHA:** `ee3dbe30cef847031e49cf7084366e7386553562` (review corrections).
+
+**CI (2026-11-16):** Critical screener tests **PASS** (Layer C PG executed; run `43961435559`); `verify` (migration-order) **PASS**; Vercel **PASS**. Local typecheck/build **PASS**.
+
+**Preserved:** Fly v49, stash `preserve-iss044-docs-mcp`, MCP uncommitted.
+
+**Next:** Merge when approved; ISS-044 20:00 ET; post-activation Layer C audit.
+
+---
+
 # Session handoff — Batch 196 numerical integrity (November 16, 2026 ET)
 
 **Baseline:** GitHub `main` **`a0912926a4c8cae672170d11fa8a234715cc9df7`**.

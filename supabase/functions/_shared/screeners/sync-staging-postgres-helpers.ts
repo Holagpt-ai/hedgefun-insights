@@ -1,3 +1,4 @@
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
 
 export function pgTestUrl(): string {
@@ -65,6 +66,93 @@ export function sampleTabEvidence() {
       universe_count: 1,
       qualified_count: 1,
     },
+  };
+}
+
+/** Deep equality for jsonb round-trips (key order may differ from client JSON). */
+export function assertJsonbDeepEqual(
+  actual: unknown,
+  expected: unknown,
+): void {
+  assertEquals(
+    JSON.parse(JSON.stringify(actual)),
+    JSON.parse(JSON.stringify(expected)),
+  );
+}
+
+/** Six-tab evaluated evidence for Layer C publish/complete gates. */
+export function layerCSixTabEvidenceEvaluated() {
+  const simple = {
+    status: "evaluated" as const,
+    universe_count: 1,
+    qualified_count: 1,
+    selected_count: 1,
+  };
+  return {
+    day_trade_radar: simple,
+    gappers: {
+      status: "evaluated" as const,
+      universe_count: 1,
+      volume_positive_count: 1,
+      gap_calculable_count: 1,
+      no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
+      unresolved_gap_input_count: 0,
+      qualified_count: 1,
+      selected_count: 1,
+    },
+    gainers_losers: simple,
+    new_highs_lows: {
+      status: "evaluated" as const,
+      baseline_status: "available" as const,
+      baseline_quote_count: 1,
+      universe_count: 1,
+      evaluated_count: 1,
+      qualified_count: 1,
+      selected_count: 1,
+      policy_excluded_count: 0,
+      no_history_count: 0,
+      unresolved_count: 0,
+    },
+    volume_spikes: simple,
+    unusual_volume: simple,
+  };
+}
+
+/** Six-tab evidence with legitimate blocked tabs (not forced evaluated). */
+export function layerCSixTabEvidenceLegitimateBlocked() {
+  const genericBlocked = {
+    status: "prerequisite_unavailable" as const,
+    universe_count: 0,
+    qualified_count: 0,
+    selected_count: 0,
+    reason: "upstream_universe_empty",
+  };
+  return {
+    day_trade_radar: genericBlocked,
+    gappers: {
+      status: "prerequisite_unavailable" as const,
+      universe_count: 0,
+      volume_positive_count: 0,
+      gap_calculable_count: 0,
+      no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
+      unresolved_gap_input_count: 0,
+      qualified_count: 0,
+      selected_count: 0,
+      reason: "upstream_universe_empty",
+    },
+    gainers_losers: genericBlocked,
+    new_highs_lows: {
+      status: "not_evaluated" as const,
+      baseline_status: "initializing" as const,
+      baseline_quote_count: 0,
+      universe_count: 0,
+      selected_count: 0,
+      reason: "baseline_quotes_empty",
+    },
+    volume_spikes: genericBlocked,
+    unusual_volume: genericBlocked,
   };
 }
 

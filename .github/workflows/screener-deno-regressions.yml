@@ -14,6 +14,7 @@ on:
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20261116153000_screener_sync_generation_tab_evidence_v1.sql"
       - "supabase/migrations/20261112103000_penny_continuation_workflow_handoffs_v1.sql"
       - "supabase/migrations/20260813180000_equities_session_calendar.sql"
       - "supabase/tests/penny-handoff-pg/**"
@@ -35,6 +36,7 @@ on:
       - "supabase/migrations/20261104120000_screener_sync_stale_finalizing_reconcile_v1.sql"
       - "supabase/migrations/20261104230000_screener_sync_slim_control_json_v1.sql"
       - "supabase/migrations/20261106200000_ops_scanner_diagnostics_read_v1.sql"
+      - "supabase/migrations/20261116153000_screener_sync_generation_tab_evidence_v1.sql"
       - "supabase/migrations/20261112103000_penny_continuation_workflow_handoffs_v1.sql"
       - "supabase/migrations/20260813180000_equities_session_calendar.sql"
       - "supabase/tests/penny-handoff-pg/**"
@@ -138,6 +140,7 @@ jobs:
           supabase/functions/_shared/screeners/sync-finalize-diagnostics_test.ts
           supabase/functions/_shared/screeners/batch216-finalize-stage-marker_test.ts
           supabase/functions/_shared/screeners/batch216-finalize-stage-marker-postgres_test.ts
+          supabase/functions/_shared/screeners/batch191-layer-c-tab-evidence-postgres_test.ts
           supabase/functions/_shared/screeners/sync-finalize-lease-release_contract_test.ts
           supabase/functions/_shared/screeners/sync-finalize-lease-release-acl-postgres_test.ts
           supabase/functions/_shared/screeners/sync-staging-postgres-acl-helpers_test.ts
