@@ -1,6 +1,7 @@
 # ISS-034 — Option B: degraded Gappers publication (design only)
 
-**Status:** **NOT APPROVED** — no implementation or deploy in PR #260.  
+**Status:** **IMPLEMENTED** (tests only) on branch `cursor/iss034-option-b-degraded-gappers-publish` — **NOT deployed**; flag default **off**.  
+**Depends on:** PR **#260** (diagnostics + replay).  
 **Intent:** Let independently **evaluated** tabs publish while Gappers remains honestly **`prerequisite_unavailable`** when gap-input coverage is incomplete.
 
 ## Problem (Nov 16)

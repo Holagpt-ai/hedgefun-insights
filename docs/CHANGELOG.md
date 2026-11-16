@@ -1,8 +1,16 @@
 ﻿# Changelog
 
+## 2026-11-17 (ISS-034 — full-universe replay gate; PR #260; not merged)
+
+- Mandatory **13,240**-ticker replay **SATISFIED** on job `4ed4a4c7-…` (exit 0; counters **1302/1298/1/1/2**). Export not in git. **ISS-034 OPEN** until merge/deploy/acceptance.
+
+## 2026-11-16 (ISS-034 — Option B implementation; PR #261; not merged/deployed)
+
+- `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` (default off): gappers-only `gap_input_coverage_incomplete` may publish without Gappers rows when flag true. Frontend honesty + R1–R7 / RG Deno/Vitest. Stacked on PR **#260**. **No** production activation.
+
 ## 2026-11-16 (ISS-034 — full-job Gappers replay readiness; PR #260; not merged)
 
-- `iss034-job-gappers-replay.ts` rebuilds historical coverage from frozen `nhl_baseline_snapshot`; replay CLI rejects missing job clock/baseline. Lovable export runbook `iss034-nov16-full-job-replay-export-v1.md`. **13,240** production replay still **blocked** pending export. **No** deploy.
+- `iss034-job-gappers-replay.ts` rebuilds historical coverage from frozen `nhl_baseline_snapshot`; replay CLI rejects missing job clock/baseline. Lovable export runbook `iss034-nov16-full-job-replay-export-v1.md`. **No** deploy.
 
 ## 2026-11-16 (ISS-034 — ASBPW/ASPCR + Option B design; PR #260; not merged)
 

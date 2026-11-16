@@ -4,6 +4,7 @@
  */
 
 import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
+import { gappersGapInputCoverageIncomplete } from "./screener-degraded-gappers-publish.ts";
 import { isPreviousSessionSnapshotDuringLiveSession } from "./screener-session.ts";
 
 type EvidenceStatus = "evaluated" | "prerequisite_unavailable" | "not_evaluated";
@@ -53,6 +54,8 @@ export function shouldPreservePriorScreenerGeneration(input: {
   nextEvidence: TabEvaluationEvidenceMap;
   nowMs: number;
   priorSyncedAt: string | null | undefined;
+  /** When true, gappers-only `gap_input_coverage_incomplete` does not retain. */
+  allowDegradedGappersPublish?: boolean;
 }): boolean {
   if (
     isPreviousSessionSnapshotDuringLiveSession({
@@ -62,10 +65,20 @@ export function shouldPreservePriorScreenerGeneration(input: {
   ) {
     return false;
   }
+  const degraded: (typeof PRESERVE_TABS)[number][] = [];
   for (const tabId of PRESERVE_TABS) {
     if (wouldDegradeTab(input.priorEvidence, input.nextEvidence, tabId)) {
-      return true;
+      degraded.push(tabId);
     }
   }
-  return false;
+  if (degraded.length === 0) return false;
+  if (
+    input.allowDegradedGappersPublish === true &&
+    degraded.length === 1 &&
+    degraded[0] === "gappers" &&
+    gappersGapInputCoverageIncomplete(input.nextEvidence)
+  ) {
+    return false;
+  }
+  return true;
 }

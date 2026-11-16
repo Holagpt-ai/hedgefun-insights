@@ -31,6 +31,10 @@ import {
 import { reconcileStrandedPublishedGeneration } from "../_shared/screeners/sync-staging-post-publish-reconcile.ts";
 import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
 import {
+  isDegradedGappersPublishEnabled,
+  omitGappersRowsForDegradedPublication,
+} from "../_shared/screeners/screener-degraded-gappers-publish.ts";
+import {
   isExtendedSyncSession,
   resolveScannerObservationSessionFields,
   resolveSyncSessionKind,
@@ -937,6 +941,7 @@ async function finalizeStagedScreenerGeneration(
   finalizeTimer.advance("preserve_check");
   stage = "preserve_check";
   await markBoundary("preserve_check", syncRunId);
+  const allowDegradedGappersPublish = isDegradedGappersPublishEnabled();
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
@@ -944,6 +949,7 @@ async function finalizeStagedScreenerGeneration(
       nextEvidence: tabEvaluationEvidence,
       nowMs,
       priorSyncedAt: priorFeed.syncedAt,
+      allowDegradedGappersPublish: allowDegradedGappersPublish,
     })
   ) {
     await store.abortJob(
@@ -981,6 +987,12 @@ async function finalizeStagedScreenerGeneration(
     detail: "publish_candidate",
   });
 
+  const publishRows = omitGappersRowsForDegradedPublication(
+    allRows,
+    tabEvaluationEvidence,
+    allowDegradedGappersPublish,
+  );
+
   let evidencePersistence: TabEvaluationEvidencePersistenceResult = {
     mode: "atomic_rpc",
   };
@@ -999,7 +1011,7 @@ async function finalizeStagedScreenerGeneration(
       syncedAt,
       nhlBaselineStatus: nhlBaseline.status,
       tabEvaluationEvidence,
-      rows: allRows,
+      rows: publishRows,
       nowMs: wallNowMs,
     });
 
@@ -1053,7 +1065,7 @@ async function finalizeStagedScreenerGeneration(
       const status = reason === "staged_publish_rpc_unavailable" ? 503 : 409;
       return json({ error: reason, generation_id: job.id }, status);
     }
-  } else if (rowsInserted !== allRows.length) {
+  } else if (rowsInserted !== publishRows.length) {
     await store.failJob(job.id, "publish_rows_replay_mismatch", wallNowMs);
     return json({ error: "database_error" }, 500);
   }
@@ -1630,6 +1642,7 @@ export async function handleSyncScreenerData(
     );
   }
 
+  const allowDegradedGappersPublishLegacy = isDegradedGappersPublishEnabled();
   const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
@@ -1637,6 +1650,7 @@ export async function handleSyncScreenerData(
       nextEvidence: tabEvaluationEvidence,
       nowMs,
       priorSyncedAt: priorFeed.syncedAt,
+      allowDegradedGappersPublish: allowDegradedGappersPublishLegacy,
     })
   ) {
     return json({
@@ -1650,8 +1664,13 @@ export async function handleSyncScreenerData(
     });
   }
 
+  const publishRowsLegacy = omitGappersRowsForDegradedPublication(
+    allRows,
+    tabEvaluationEvidence,
+    allowDegradedGappersPublishLegacy,
+  );
   const rpcBase = {
-    p_rows: allRows,
+    p_rows: publishRowsLegacy,
     p_sync_run_id: syncRunId,
     p_synced_at: syncedAt,
     p_nhl_baseline_status: nhlBaseline.status,
@@ -1684,7 +1703,7 @@ export async function handleSyncScreenerData(
     typeof rowsInserted !== "number" ||
     !Number.isInteger(rowsInserted) ||
     rowsInserted < 0 ||
-    rowsInserted !== allRows.length
+    rowsInserted !== publishRowsLegacy.length
   ) {
     console.error("[sync-screener-data] replace generation count mismatch");
     return json({ error: "database_error" }, 500);

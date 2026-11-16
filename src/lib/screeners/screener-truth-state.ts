@@ -91,6 +91,13 @@ function gappersPrerequisiteCopy(
         "No securities had a prior regular session from which a gap could be calculated.",
     };
   }
+  if (reason === "gap_input_coverage_incomplete") {
+    return {
+      title: "Gappers evaluation unavailable — incomplete market data.",
+      explanation:
+        "This generation could not verify gap inputs for every volume-active symbol. Gapper rankings are not shown until inputs recover.",
+    };
+  }
   return {
     title: "Gap inputs unavailable",
     explanation:
@@ -321,6 +328,23 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "available" && rowCount > 0) {
+    if (tabId === "gappers") {
+      const gappersEvidence = evidence as GappersTabEvidence | null;
+      if (gappersEvidence?.status === "prerequisite_unavailable") {
+        const copy = copyForReason(
+          tabId,
+          "prerequisite_unavailable",
+          evidence,
+        );
+        return {
+          status: "empty",
+          reason: "prerequisite_unavailable",
+          ...copy,
+          showRows: false,
+          showFreshness: hasSyncedAt,
+        };
+      }
+    }
     if (isPublicationConfirmedTabEvidence(evidence)) {
       return {
         status,
