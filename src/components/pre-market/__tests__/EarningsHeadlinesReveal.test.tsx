@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "test-user" } }),
+}));
+
 import { EarningsList } from "@/components/pre-market/EarningsList";
 import { HeadlinesList } from "@/components/pre-market/HeadlinesList";
 import type { PreMarketEarnings, PreMarketHeadline } from "@/types/pre-market";
