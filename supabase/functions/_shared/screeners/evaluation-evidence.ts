@@ -35,10 +35,11 @@ import {
   currentSessionReferencePrice,
   dayHighLow,
   gapPercent,
+  gapSuppressedByCloseVersusPriorWithoutOpen,
   gapSuppressedOnlyBySplitScaleGuard,
+  normalizeSymbol,
   hasValidSessionOpen,
   isExplicitZeroPriorDayAggregate,
-  normalizeSymbol,
   gapPercentForTabContext,
   qualifiesDayTradeRadar,
   qualifiesGappers,
@@ -65,6 +66,8 @@ export interface GappersTabEvidence {
   /** Gap null only because regular vs reference triggered `impliesSplitScale`. */
   split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
+  /** Sample of symbols still in the unresolved gap-input class (sorted, capped). */
+  unresolved_gap_symbols?: string[];
   qualified_count: number;
   selected_count: number;
   reason?: string;
@@ -243,6 +246,7 @@ export function evaluateGappersEvidence(
   let no_prior_session_count = 0;
   let split_scale_suppressed_count = 0;
   let unresolved_gap_input_count = 0;
+  const unresolvedGapSymbols: string[] = [];
   let qualified_count = 0;
 
   const tabGapOpts = {
@@ -259,10 +263,15 @@ export function evaluateGappersEvidence(
       gap_calculable_count += 1;
     } else if (isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)) {
       no_prior_session_count += 1;
-    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
+    } else if (
+      gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts) ||
+      gapSuppressedByCloseVersusPriorWithoutOpen(t, tabGapOpts)
+    ) {
       split_scale_suppressed_count += 1;
     } else {
       unresolved_gap_input_count += 1;
+      const sym = normalizeSymbol(t?.ticker);
+      if (sym) unresolvedGapSymbols.push(sym);
     }
     if (qualifiesGappers(t, tabGapOpts)) {
       qualified_count += 1;
@@ -277,6 +286,7 @@ export function evaluateGappersEvidence(
     no_prior_session_count,
     split_scale_suppressed_count,
     unresolved_gap_input_count,
+    unresolved_gap_symbols: boundedSymbolSample(unresolvedGapSymbols),
     qualified_count,
     selected_count,
   };

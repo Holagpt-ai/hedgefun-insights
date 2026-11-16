@@ -104,6 +104,7 @@ export function emptyChunkArtifacts(): StagedChunkArtifacts {
       no_prior_session_count: 0,
       split_scale_suppressed_count: 0,
       unresolved_gap_input_count: 0,
+      unresolvedGapSymbols: [],
       qualified_count: 0,
     },
     primaryAccum: { dayTrade: 0, volumeSpikes: 0, unusual: 0, volumeActive: 0 },

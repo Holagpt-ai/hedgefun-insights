@@ -25,6 +25,7 @@ import {
   currentSessionReferencePrice,
   dayHighLow,
   gapPercentForTabContext,
+  gapSuppressedByCloseVersusPriorWithoutOpen,
   gapSuppressedOnlyBySplitScaleGuard,
   normalizeSymbol,
   qualifiesDayTradeRadar,
@@ -45,6 +46,7 @@ export type GappersEvidenceAccum = {
   no_prior_session_count: number;
   split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
+  unresolvedGapSymbols: string[];
   qualified_count: number;
 };
 
@@ -55,6 +57,7 @@ export function createEmptyGappersEvidenceAccum(): GappersEvidenceAccum {
     no_prior_session_count: 0,
     split_scale_suppressed_count: 0,
     unresolved_gap_input_count: 0,
+    unresolvedGapSymbols: [],
     qualified_count: 0,
   };
 }
@@ -71,6 +74,7 @@ export function mergeGappersEvidenceAccums(
       b.split_scale_suppressed_count,
     unresolved_gap_input_count: a.unresolved_gap_input_count +
       b.unresolved_gap_input_count,
+    unresolvedGapSymbols: [...a.unresolvedGapSymbols, ...b.unresolvedGapSymbols],
     qualified_count: a.qualified_count + b.qualified_count,
   };
 }
@@ -104,10 +108,15 @@ export function accumulateGappersEvidenceChunk(
       isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)
     ) {
       acc.no_prior_session_count += 1;
-    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
+    } else if (
+      gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts) ||
+      gapSuppressedByCloseVersusPriorWithoutOpen(t, tabGapOpts)
+    ) {
       acc.split_scale_suppressed_count += 1;
     } else {
       acc.unresolved_gap_input_count += 1;
+      const sym = normalizeSymbol(t?.ticker);
+      if (sym) acc.unresolvedGapSymbols.push(sym);
     }
     if (qualifiesGappers(t, tabGapOpts)) {
       acc.qualified_count += 1;
@@ -127,6 +136,7 @@ export function finalizeGappersEvidenceFromAccum(
     no_prior_session_count: acc.no_prior_session_count,
     split_scale_suppressed_count: acc.split_scale_suppressed_count,
     unresolved_gap_input_count: acc.unresolved_gap_input_count,
+    unresolved_gap_symbols: boundedSymbolSample(acc.unresolvedGapSymbols),
     qualified_count: acc.qualified_count,
     selected_count,
   };
