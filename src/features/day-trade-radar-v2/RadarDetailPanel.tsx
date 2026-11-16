@@ -19,11 +19,12 @@ import {
   VOL_YDAY_HEADER,
   YDAY_VOL_BLANK,
   YDAY_VOL_HEADER,
+  VOLUME_ACCELERATION_HEADER,
 } from "./scanner-metric-copy";
+import { formatScreenerVolumeAccelerationPct } from "@/lib/screeners/screener-metric-display";
 import {
   formatFreshness,
   formatHodDistance,
-  formatRadarAcceleration,
   formatRadarDayRange,
   formatRadarDollarVolume,
   formatRadarMultiplier,
@@ -262,7 +263,11 @@ export function RadarDetailPanel({
           <Metric label="15s Volume" value={formatRadarUnavailableMetric(row.rolling_volume_15s)} />
           <Metric label="60s Volume" value={formatRadarUnavailableMetric(row.rolling_volume_60s)} />
           <Metric label="60s Dollar Volume" value={formatRadarDollarVolume(row.rolling_dollar_volume_60s)} />
-          <Metric label="5m Acceleration" value={formatRadarAcceleration(row.acceleration_5m)} />
+          <Metric
+            label="Volume acceleration"
+            value={formatScreenerVolumeAccelerationPct(row.volume_acceleration_pct)}
+            hint={VOLUME_ACCELERATION_HEADER}
+          />
           <Metric label="VWAP State" value={formatVwapState(row.vwap_side, row.session_vwap)} />
           <Metric label="Freshness" value={formatFreshness(row.freshness_class)} />
           <Metric
