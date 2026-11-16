@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-16 (ISS-034 — PR #260 production-evidence correction; not merged)
+
+- Owner read-only replay on job `4ed4a4c7-…`: `gapSuppressedByCloseVersusPriorWithoutOpen` matches **0** symbols; `unresolved_gap_input_count` stays **2**. Removed helper from publish accounting; added `gappers-gap-input-accounting` replay + `scripts/ops/iss034-gappers-replay.deno.ts`; `abort_evidence.candidate_gappers`; bounded staged `unresolvedGapSymbols`. Publication policy options documented — fail-closed default preserved. **No** deploy.
+
+## 2026-11-16 (ISS-024 Layer C — production activation prep; PR #259 merged)
+
+- **GitHub `main` `15aef76e`** — PR **#259** merged. Lovable activation runbook `docs/release/batch191-layer-c-production-activation-v1.md` (pre-flight, safe window, SQL→Edge order, rollback provenance `53a0ee4c`, forward SQL recovery). **Production BLOCKED** until owner pre-flight; **no** SQL/Edge/Fly from Cursor. Fly **v49** / ISS-044 unchanged.
+
 ## 2026-11-16 (ISS-024 Layer C — per-generation tab evaluation evidence; PR #259 review)
 
 - Migration `20261116153000`: durable six-tab `tab_evaluation_evidence` on `screener_sync_generation_jobs` at atomic staged publish; `assert_screener_tab_evaluation_evidence_v1` requires all six tabs (rejects `{}`/partial); complete gate; reconcile alignment. Pre-migration published jobs remain Layer C **unavailable**. Layer C Deno tests in Critical screener CI. Runbook `docs/release/batch191-layer-c-tab-evidence-v1.md`. **Not applied** (Lovable SQL + Edge deploy pending).

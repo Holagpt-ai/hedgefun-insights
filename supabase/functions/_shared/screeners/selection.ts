@@ -347,10 +347,9 @@ export function gapSuppressedOnlyBySplitScaleGuard(
 }
 
 /**
- * Regular session: when `day.o` is absent, some warrant/stub snapshots still carry
- * `day.c` and `prevDay.c` with a near-integer scale mismatch. Treat that as
- * split-scale suppression for evidence accounting — not an unresolved gap input.
- * Never synthesizes an open or gap percent.
+ * Replay-only classifier (ISS-034 PR #260 correction). **Not** used in staged publish
+ * accounting. Owner evidence on job `4ed4a4c7-…` showed **zero** production symbols
+ * matching positive `day.c` + `prevDay.c` with missing `day.o`.
  */
 export function gapSuppressedByCloseVersusPriorWithoutOpen(
   t: PolygonTicker,

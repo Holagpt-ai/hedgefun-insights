@@ -5,6 +5,11 @@
 
 import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
 import {
+  applyGappersGapInputToCounters,
+  classifyGappersGapInput,
+  type GappersGapInputReplayOpts,
+} from "./gappers-gap-input-accounting.ts";
+import {
   boundedSymbolSample,
   evaluateGenericTabEvidence,
   isSafelyClassifiableNoHistory,
@@ -24,9 +29,6 @@ import {
 import {
   currentSessionReferencePrice,
   dayHighLow,
-  gapPercentForTabContext,
-  gapSuppressedByCloseVersusPriorWithoutOpen,
-  gapSuppressedOnlyBySplitScaleGuard,
   normalizeSymbol,
   qualifiesDayTradeRadar,
   qualifiesGappers,
@@ -74,7 +76,10 @@ export function mergeGappersEvidenceAccums(
       b.split_scale_suppressed_count,
     unresolved_gap_input_count: a.unresolved_gap_input_count +
       b.unresolved_gap_input_count,
-    unresolvedGapSymbols: [...a.unresolvedGapSymbols, ...b.unresolvedGapSymbols],
+    unresolvedGapSymbols: boundedSymbolSample([
+      ...a.unresolvedGapSymbols,
+      ...b.unresolvedGapSymbols,
+    ]) ?? [],
     qualified_count: a.qualified_count + b.qualified_count,
   };
 }
@@ -99,25 +104,17 @@ export function accumulateGappersEvidenceChunk(
     observationSessionFields,
     nowMs,
   };
+  const gapReplayOpts: GappersGapInputReplayOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    cache,
+    isStructurallyNoPriorSession: (ticker) =>
+      isStructurallyNoPriorSession(ticker, coverage, extendedSession, nowMs),
+  };
   for (const t of universe) {
-    if (sessionQualificationVolume(t, volumeCtx) === null) continue;
-    acc.volume_positive_count += 1;
-    if (gapPercentForTabContext(t, tabGapOpts) !== null) {
-      acc.gap_calculable_count += 1;
-    } else if (
-      isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)
-    ) {
-      acc.no_prior_session_count += 1;
-    } else if (
-      gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts) ||
-      gapSuppressedByCloseVersusPriorWithoutOpen(t, tabGapOpts)
-    ) {
-      acc.split_scale_suppressed_count += 1;
-    } else {
-      acc.unresolved_gap_input_count += 1;
-      const sym = normalizeSymbol(t?.ticker);
-      if (sym) acc.unresolvedGapSymbols.push(sym);
-    }
+    const cls = classifyGappersGapInput(t, volumeCtx, gapReplayOpts);
+    applyGappersGapInputToCounters(acc, cls);
     if (qualifiesGappers(t, tabGapOpts)) {
       acc.qualified_count += 1;
     }

@@ -1,6 +1,5 @@
 /**
  * ISS-034 — Nov 16, 2026 all-day publication stall (read-only production shape).
- * Gappers accounting with tiny unresolved tail + prior_generation_retained preserve.
  */
 
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
@@ -8,13 +7,11 @@ import {
   finalizeGappersEvidenceFromAccum,
   type GappersEvidenceAccum,
 } from "./evaluation-evidence-chunk.ts";
+import { buildPriorGenerationRetentionAbortDetail } from "./generation-abort-diagnostics.ts";
 import { shouldPreservePriorScreenerGeneration } from "./generation-preserve.ts";
-import {
-  gapSuppressedByCloseVersusPriorWithoutOpen,
-  type PolygonTicker,
-} from "./selection.ts";
+import { gapSuppressedByCloseVersusPriorWithoutOpen, type PolygonTicker } from "./selection.ts";
 
-const RTH_NOW = Date.parse("2026-11-16T22:05:00.000Z"); // 5:05 PM ET
+const RTH_NOW = Date.parse("2026-11-16T22:05:00.000Z");
 
 function ticker(
   sym: string,
@@ -29,56 +26,31 @@ function ticker(
   };
 }
 
-/** Warrant/stub: positive volume, no day.o, scaled day.c vs prevDay.c */
-function warrantNoOpen(sym: string): PolygonTicker {
-  return ticker(sym, {
+Deno.test("Nov16: close-vs-prior helper exists but is not wired into publish accounting", () => {
+  const w = ticker("WARR.WS", {
     day: { c: 0.51, h: 0.52, l: 0.05, v: 1_500_000 },
     prevDay: { c: 10, v: 500_000 },
   });
-}
-
-Deno.test("Nov16: missing day.o with close-vs-prior split is split-scale not unresolved", () => {
-  const w = warrantNoOpen("WARR.WS");
   assertEquals(
     gapSuppressedByCloseVersusPriorWithoutOpen(w, { extendedSession: false }),
     true,
   );
 });
 
-Deno.test("Nov16: missing day.o without scale mismatch stays unresolved", () => {
-  const t = ticker("PLAIN", {
-    day: { c: 10.05, h: 10.1, l: 9.95, v: 800_000 },
-    prevDay: { c: 10, v: 50_000 },
-  });
-  delete (t.day as { o?: unknown }).o;
-  assertEquals(
-    gapSuppressedByCloseVersusPriorWithoutOpen(t, { extendedSession: false }),
-    false,
-  );
-});
-
-Deno.test("Nov16: production-shaped accum evaluates when close-vs-prior split classifies tail", () => {
+Deno.test("Nov16: production-shaped accum stays incomplete with two unresolved", () => {
   const acc: GappersEvidenceAccum = {
     volume_positive_count: 1302,
     gap_calculable_count: 1298,
     no_prior_session_count: 1,
     split_scale_suppressed_count: 1,
     unresolved_gap_input_count: 2,
-    unresolvedGapSymbols: ["AAA", "BBB"],
+    unresolvedGapSymbols: ["PROD_A", "PROD_B"],
     qualified_count: 0,
   };
-  const before = finalizeGappersEvidenceFromAccum(acc, 5000, 0);
-  assertEquals(before.status, "prerequisite_unavailable");
-  assertEquals(before.reason, "gap_input_coverage_incomplete");
-
-  const healed: GappersEvidenceAccum = {
-    ...acc,
-    split_scale_suppressed_count: 3,
-    unresolved_gap_input_count: 0,
-    unresolvedGapSymbols: [],
-  };
-  const after = finalizeGappersEvidenceFromAccum(healed, 5000, 0);
-  assertEquals(after.status, "evaluated");
+  const ev = finalizeGappersEvidenceFromAccum(acc, 13240, 0);
+  assertEquals(ev.status, "prerequisite_unavailable");
+  assertEquals(ev.reason, "gap_input_coverage_incomplete");
+  assertEquals(ev.unresolved_gap_symbols, ["PROD_A", "PROD_B"]);
 });
 
 Deno.test("Nov16: preserve fires when gappers degrades from evaluated", () => {
@@ -115,6 +87,7 @@ Deno.test("Nov16: preserve fires when gappers degrades from evaluated", () => {
       ...prior.gappers,
       status: "prerequisite_unavailable" as const,
       unresolved_gap_input_count: 2,
+      unresolved_gap_symbols: ["PROD_A", "PROD_B"],
       reason: "gap_input_coverage_incomplete",
     },
   };
@@ -127,4 +100,49 @@ Deno.test("Nov16: preserve fires when gappers degrades from evaluated", () => {
     }),
     true,
   );
+});
+
+Deno.test("Nov16: prior_generation_retained abort stores candidate_gappers snapshot", () => {
+  const next = {
+    gappers: {
+      status: "prerequisite_unavailable" as const,
+      universe_count: 13240,
+      volume_positive_count: 1302,
+      gap_calculable_count: 1298,
+      no_prior_session_count: 1,
+      split_scale_suppressed_count: 1,
+      unresolved_gap_input_count: 2,
+      unresolved_gap_symbols: ["PROD_A"],
+      qualified_count: 0,
+      selected_count: 0,
+      reason: "gap_input_coverage_incomplete",
+    },
+  };
+  const detail = buildPriorGenerationRetentionAbortDetail({
+    priorEvidence: { gappers: { ...next.gappers, status: "evaluated" } },
+    nextEvidence: next,
+    priorSyncedAt: "2026-11-16T14:25:00.000Z",
+    candidateGenerationId: "4ed4a4c7-d8c4-4582-bd89-cc949d6e291d",
+    candidateSyncRunId: "sync-run",
+    candidateGappersAccum: {
+      volume_positive_count: 1302,
+      gap_calculable_count: 1298,
+      no_prior_session_count: 1,
+      split_scale_suppressed_count: 1,
+      unresolved_gap_input_count: 2,
+      unresolvedGapSymbols: ["PROD_B", "PROD_A"],
+      qualified_count: 0,
+    },
+  });
+  const evidence = detail.evidence as {
+    candidate_gappers?: {
+      unresolved_gap_input_count: number;
+      unresolved_gap_symbols?: string[];
+    };
+  };
+  assertEquals(evidence.candidate_gappers?.unresolved_gap_input_count, 2);
+  assertEquals(evidence.candidate_gappers?.unresolved_gap_symbols, [
+    "PROD_A",
+    "PROD_B",
+  ]);
 });
