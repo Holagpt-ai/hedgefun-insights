@@ -20,3 +20,6 @@ export const HISTORY_HEADER =
   "Verified prior Stocksist momentum episodes for this ticker, including qualifying runner events, strong volume episodes, and repeat-mover behavior.";
 export const HISTORY_BLANK =
   "No verified prior Stocksist momentum episode is available for this ticker yet. This does not mean the stock has never moved before.";
+
+export const VOLUME_ACCELERATION_HEADER =
+  "Percent change in shares per minute between the latest 5-minute window and the prior 5-minute window. Matches the Radar Acceleration column and Screeners participation acceleration. Not the internal 60-second bucket ratio.";

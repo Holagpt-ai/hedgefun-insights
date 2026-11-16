@@ -18,6 +18,7 @@ import {
   UNUSUAL_VOLUME_PRIOR_RATIO,
   UNUSUAL_VOLUME_TIME_ADJUSTED_RVOL,
 } from "@/lib/screeners/scanner-tab-qualification";
+import { formatScreenerVolumeAccelerationPct } from "@/lib/screeners/screener-metric-display";
 
 const NOW = Date.parse("2026-09-16T15:00:00.000Z");
 
@@ -186,6 +187,17 @@ describe("Batch 196.2 presentation parity", () => {
     expect(qualifyPanelRows(rows, "day_trade", "under_1", NOW).map((r) => r.symbol)).not.toContain(
       "PENNY",
     );
+  });
+
+  it("Radar acceleration display uses 5m shares/min percent, not the 60s bucket ratio field", () => {
+    const pctRow = row({
+      symbol: "ACCEL",
+      volume: 5_000_000,
+      volume_acceleration_pct: 74.2,
+      acceleration_5m: 3.5,
+    });
+    expect(formatScreenerVolumeAccelerationPct(pctRow.volume_acceleration_pct)).toBe("+74%");
+    expect(pctRow.acceleration_5m).toBe(3.5);
   });
 
   it("Unusual Volume evidence labels match qualification signal without mislabeling TARVOL", () => {

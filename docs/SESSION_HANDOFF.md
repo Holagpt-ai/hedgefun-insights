@@ -1,3 +1,17 @@
+# Session handoff — Batch 196 numerical integrity (November 16, 2026 ET)
+
+**Baseline:** GitHub `main` **`a0912926a4c8cae672170d11fa8a234715cc9df7`**.
+
+**Finding:** **196.1/196.2** already on `main`; **no Fly/worker edits** (v49 for ISS-044). **CONFIRMED UI defect:** detail drawer used `acceleration_5m` (60s bucket ratio) under label **5m Acceleration**; grid/Screeners use `volume_acceleration_pct`.
+
+**Fix:** `RadarDetailPanel` + `VOLUME_ACCELERATION_HEADER`; Vitest regressions. **Stop before merge.**
+
+**Open:** ISS-036 live acceptance; qualification count prod reconciliation; null RVOL/accel when baseline/gates fail — **expected**, not defects.
+
+**Next:** ISS-044 **20:00 ET**; Batch **191** Layer C.
+
+---
+
 # Session handoff — ISS-044 closed-session park retry (November 16, 2026 ET)
 
 **Baseline:** GitHub `main` **`5d45d520501f6b65b8e5a080be34aaa3510ff8f7`**.
