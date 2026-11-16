@@ -75,7 +75,10 @@ import {
 import type {
   RadarV22CandidateRow,
 } from "../../../../supabase/functions/_shared/radar-v22/persistence-v2.ts";
-import { isRadarV22SessionKind } from "../../../../supabase/functions/_shared/radar-v22/persistence-v2.ts";
+import {
+  isRadarV22SessionKind,
+  type RadarV22SessionKind,
+} from "../../../../supabase/functions/_shared/radar-v22/persistence-v2.ts";
 import type {
   EligibleQuote,
   EngineCounters,
@@ -198,6 +201,9 @@ export type RadarEngine = {
   sessionIntel(symbol: string): SessionIntelSnapshot | null;
   symbolsWithTape(): string[];
   surveillanceDateAt(wallNowMs: number): string | null;
+  /** Call after a committed closed-session V2 park (flush + empty closed). */
+  acknowledgeClosedParkCommitted(): void;
+  hasPendingClosedPark(): boolean;
 };
 
 export type RadarMemorySnapshot = {
@@ -259,6 +265,8 @@ export function createRadarEngine(opts: {
   let lastV2Candidates: RadarV22CandidateRow[] = [];
   let lastV2ScannerFirings: ScannerAlertFiring[] = [];
   let lastV2Archived: Array<{ symbol: string; eventAt: string }> = [];
+  /** Survives failed/skipped closed parks until persistence commits (ISS-044). */
+  let pendingClosedPark: PersistenceV2View | null = null;
   let frozen: FrozenBoard | null = null;
   let feedStale = false;
   const counters: EngineCounters = {
@@ -309,6 +317,8 @@ export function createRadarEngine(opts: {
     const sessionKind = isRadarV22SessionKind(opts.sessionKind)
       ? opts.sessionKind
       : "closed";
+    const parkPending = opts.preParkFlush !== undefined &&
+      opts.preParkFlush !== null;
     return {
       published: opts.published,
       staleTransition: opts.staleTransition ?? false,
@@ -333,9 +343,13 @@ export function createRadarEngine(opts: {
           ? isoFromMs(lastReceiveMs)
           : null,
         lastProviderEventAt: opts.board.lastProviderEventAt,
-        candidates: lastV2Candidates.map((row) => ({ ...row })),
-        archived: lastV2Archived.map((row) => ({ ...row })),
-        scannerFirings: lastV2ScannerFirings.map((row) => ({ ...row })),
+        candidates: parkPending
+          ? []
+          : lastV2Candidates.map((row) => ({ ...row })),
+        archived: parkPending ? [] : lastV2Archived.map((row) => ({ ...row })),
+        scannerFirings: parkPending
+          ? []
+          : lastV2ScannerFirings.map((row) => ({ ...row })),
       },
     };
   }
@@ -363,6 +377,34 @@ export function createRadarEngine(opts: {
     lastReceiveMs = null;
     feedStale = false;
     subsessionEpoch = 0;
+    lastV2Candidates = [];
+    lastV2ScannerFirings = [];
+    lastV2Archived = [];
+    pendingClosedPark = null;
+  }
+
+  function buildPreParkFlushView(
+    flushKind: RadarV22SessionKind,
+    surveillanceDate: string,
+  ): PersistenceV2View | null {
+    if (lastV2Candidates.length === 0) return null;
+    return {
+      tradingDate: lastSurveillanceDate ?? surveillanceDate,
+      sessionKind: flushKind,
+      liveSurveillance: true,
+      sessionTransition: null,
+      sentinelEnabled: config.sentinelEnabled,
+      feedStale: false,
+      lastReceiveAt: lastReceiveMs !== null ? isoFromMs(lastReceiveMs) : null,
+      lastProviderEventAt: frozen?.lastProviderEventAt ??
+        (lastEventEndMs !== null ? isoFromMs(lastEventEndMs) : null),
+      candidates: lastV2Candidates.map((row) => ({ ...row })),
+      archived: lastV2Archived.map((row) => ({ ...row })),
+      scannerFirings: lastV2ScannerFirings.map((row) => ({ ...row })),
+    };
+  }
+
+  function clearV2CandidateState(): void {
     lastV2Candidates = [];
     lastV2ScannerFirings = [];
     lastV2Archived = [];
@@ -1121,48 +1163,79 @@ export function createRadarEngine(opts: {
     }
 
     if (!live) {
+      const nowIso = isoFromMs(wallNowMs) ?? "";
+      frozen = {
+        ...emptyBoard(surveillanceDate, nowIso),
+        generationId,
+      };
+
+      if (pendingClosedPark) {
+        lastSessionKind = kind;
+        const persistEmpty = !lastPersistWasEmpty;
+        if (persistEmpty) lastPersistWasEmpty = true;
+        return packResult({
+          published: true,
+          board: frozen,
+          sessionKind: kind,
+          surveillanceDate,
+          sessionTransition: "park_closed",
+          liveSurveillance: false,
+          persistEmpty,
+          clearV2: false,
+          preParkFlush: {
+            tradingDate: pendingClosedPark.tradingDate,
+            sessionKind: pendingClosedPark.sessionKind,
+            liveSurveillance: pendingClosedPark.liveSurveillance,
+            sessionTransition: null,
+            sentinelEnabled: pendingClosedPark.sentinelEnabled,
+            feedStale: pendingClosedPark.feedStale,
+            lastReceiveAt: pendingClosedPark.lastReceiveAt,
+            lastProviderEventAt: pendingClosedPark.lastProviderEventAt,
+            candidates: pendingClosedPark.candidates.map((row) => ({ ...row })),
+            archived: pendingClosedPark.archived.map((row) => ({ ...row })),
+            scannerFirings: pendingClosedPark.scannerFirings.map((row) => ({
+              ...row,
+            })),
+          },
+        });
+      }
+
       const wasLive = lastSessionKind !== null &&
         isLiveSurveillanceKind(lastSessionKind);
       const flushKind = wasLive && lastSessionKind &&
           isRadarV22SessionKind(lastSessionKind)
         ? lastSessionKind
         : null;
-      const preParkFlush: PersistenceV2View | null =
-        wasLive && flushKind && lastV2Candidates.length > 0
-          ? {
-            tradingDate: lastSurveillanceDate ?? surveillanceDate,
-            sessionKind: flushKind,
-            liveSurveillance: true,
-            sessionTransition: null,
-            sentinelEnabled: config.sentinelEnabled,
-            feedStale: false,
-            lastReceiveAt: lastReceiveMs !== null
-              ? isoFromMs(lastReceiveMs)
-              : null,
-            lastProviderEventAt: frozen?.lastProviderEventAt ??
-              (lastEventEndMs !== null ? isoFromMs(lastEventEndMs) : null),
-            candidates: lastV2Candidates.map((row) => ({ ...row })),
-            archived: lastV2Archived.map((row) => ({ ...row })),
-            scannerFirings: lastV2ScannerFirings.map((row) => ({ ...row })),
-          }
-          : null;
+      const preParkFlush = flushKind
+        ? buildPreParkFlushView(flushKind, surveillanceDate)
+        : null;
+      if (preParkFlush) {
+        pendingClosedPark = {
+          tradingDate: preParkFlush.tradingDate,
+          sessionKind: preParkFlush.sessionKind,
+          liveSurveillance: preParkFlush.liveSurveillance,
+          sessionTransition: null,
+          sentinelEnabled: preParkFlush.sentinelEnabled,
+          feedStale: preParkFlush.feedStale,
+          lastReceiveAt: preParkFlush.lastReceiveAt,
+          lastProviderEventAt: preParkFlush.lastProviderEventAt,
+          candidates: preParkFlush.candidates.map((row) => ({ ...row })),
+          archived: preParkFlush.archived.map((row) => ({ ...row })),
+          scannerFirings: preParkFlush.scannerFirings.map((row) => ({ ...row })),
+        };
+      }
       lastSessionKind = kind;
-      const nowIso = isoFromMs(wallNowMs) ?? "";
-      frozen = {
-        ...emptyBoard(surveillanceDate, nowIso),
-        generationId,
-      };
-      const persistEmpty = wasLive && !lastPersistWasEmpty;
+      const persistEmpty = wasLive && preParkFlush !== null && !lastPersistWasEmpty;
       if (persistEmpty) lastPersistWasEmpty = true;
       return packResult({
-        published: persistEmpty,
+        published: persistEmpty || pendingClosedPark !== null,
         board: frozen,
         sessionKind: kind,
         surveillanceDate,
-        sessionTransition: wasLive ? "park_closed" : null,
+        sessionTransition: preParkFlush ? "park_closed" : null,
         liveSurveillance: false,
         persistEmpty,
-        clearV2: true,
+        clearV2: preParkFlush === null,
         preParkFlush,
       });
     }
@@ -1381,6 +1454,13 @@ export function createRadarEngine(opts: {
     },
     surveillanceDateAt(wallNowMs) {
       return surveillanceDateAt(wallNowMs);
+    },
+    acknowledgeClosedParkCommitted() {
+      pendingClosedPark = null;
+      clearV2CandidateState();
+    },
+    hasPendingClosedPark() {
+      return pendingClosedPark !== null;
     },
   };
 }

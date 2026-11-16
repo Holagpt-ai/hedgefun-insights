@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-16 (ISS-044 — closed-session park retry; no new batch)
+
+- Radar worker: `pendingClosedPark` freezes live `preParkFlush` until `publishRadarV2ClosedParkIfNeeded` commits flush + empty closed; failed/skipped parks re-emit `park_closed` with the same snapshot; V2 in-memory candidates clear only after `acknowledgeClosedParkCommitted`. Structured logs: `radar_v2_park_*`. Deno: `iss044-closed-park-retry_test.ts` + existing park regressions **84 passed** (focused). **No** SQL/Fly/deploy. Nov 12 prod failure **not** claimed solved.
+
 ## 2026-11-16 (Earnings Top-3 test harness; no new batch)
 
 - `EarningsHeadlinesReveal.test.tsx` mocks `useAuth` so `EarningsList` → `PreMarketSymbolActions` mounts under test (Group 3 regression). **No** production/UI behavior change.

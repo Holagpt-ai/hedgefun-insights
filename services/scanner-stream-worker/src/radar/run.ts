@@ -16,6 +16,7 @@ import {
 } from "./persist.ts";
 import {
   createRadarV2WriteGate,
+  isRadarV2PublishCommitted,
   publishRadarV2ClosedParkIfNeeded,
   publishRadarV2IfNeeded,
   type RadarV2RpcFn,
@@ -337,6 +338,25 @@ export function startRadarV22(opts: {
         v2,
         v1Attempted: result.published,
         v1Ok: v1PersistOk,
+      });
+    }
+    if (
+      result.sessionTransition === "park_closed" &&
+      v2 !== "skipped" &&
+      isRadarV2PublishCommitted(v2)
+    ) {
+      engine.acknowledgeClosedParkCommitted();
+      log("info", "radar_v2_park_acknowledged", {
+        trading_date: result.persistenceV2.tradingDate,
+      });
+    } else if (
+      result.sessionTransition === "park_closed" &&
+      engine.hasPendingClosedPark()
+    ) {
+      log("warn", "radar_v2_park_outstanding", {
+        trading_date: result.persistenceV2.tradingDate,
+        v2_ok: v2 !== "skipped" && v2.ok,
+        v2_committed: v2 !== "skipped" && isRadarV2PublishCommitted(v2),
       });
     }
 

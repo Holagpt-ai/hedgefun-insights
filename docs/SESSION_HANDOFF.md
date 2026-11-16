@@ -1,3 +1,19 @@
+# Session handoff — ISS-044 closed-session park retry (November 16, 2026 ET)
+
+**Baseline:** GitHub `main` **`5d45d520501f6b65b8e5a080be34aaa3510ff8f7`**.
+
+**ISS-044 implementation:** Branch `cursor/iss044-closed-park-retry`. Worker retains frozen `preParkFlush` in `pendingClosedPark`, defers V2 candidate clear until committed park, retries `park_closed` each eval until `publishRadarV2ClosedParkIfNeeded` succeeds; `run.ts` calls `acknowledgeClosedParkCommitted()` only when `isRadarV2PublishCommitted`. **84** focused Deno tests **PASS**. **No** Fly/SQL/Edge deploy.
+
+**Cold-start limitation:** Worker restart after **20:00 ET** with empty engine cannot reconstruct an outstanding park without a service-role candidate read + explicit hydration API — **not added** (would need approved RPC/migration).
+
+**Nov 12 prod miss:** root cause **still undetermined**; this batch closes the reproducible single-attempt park gap from 219.3A.
+
+**Preserved:** Group 5 stash, ISS-044 evidence branch **`159c62c7`**, uncommitted MCP bundle.
+
+**Next:** PR review → owner-authorized **Fly worker only** deploy → weekday **20:00 ET** `radar_v22_closed_snapshot` acceptance.
+
+---
+
 # Session handoff — Earnings Top-3 test regression (November 16, 2026 ET)
 
 **Baseline:** GitHub `main` **`90ddda12f5ed3b8791cdc19d9a936bdc256ad0b6`** (ISS-041 PR **#255** merged).
