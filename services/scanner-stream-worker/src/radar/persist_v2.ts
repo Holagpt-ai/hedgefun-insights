@@ -50,6 +50,27 @@ import { radarV22EventTypeFromEngine } from "../../../../src/lib/radar/radar-eve
 import type { IntradayParticipationSnapshot } from "../../../../src/lib/radar/intraday-participation.ts";
 import { resolveCumulativeSessionVolume } from "../../../../src/lib/radar/cumulative-session-volume.ts";
 import { createRadarV2EventPublishQueue } from "./radar-v2-event-queue.ts";
+import { log } from "../log.ts";
+import {
+  advanceParkStageAfterFlush,
+  type ClosedParkBackoffResult,
+  type ClosedParkRecovery,
+  isClosedParkFullyCommitted,
+  isParkBackoffResult,
+  markParkRpcAttempt,
+  parkBackoffResult,
+  shouldAttemptParkRpc,
+} from "./closed-park-recovery.ts";
+export {
+  advanceParkStageAfterFlush,
+  createClosedParkRecovery,
+  isClosedParkFullyCommitted,
+  isParkBackoffResult,
+  RADAR_V2_PARK_RETRY_INTERVAL_MS,
+  shouldAttemptParkRpc,
+  type ClosedParkBackoffResult,
+  type ClosedParkRecovery,
+} from "./closed-park-recovery.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -1124,6 +1145,16 @@ export async function publishRadarV2IfNeeded(opts: {
  * later p_synced_at. Reusing the same fence keys returns already_current and
  * skips the closed-session snapshot branch.
  */
+function flushStageCommitted(
+  result: PublishRadarResult,
+): boolean {
+  if (!result.ok) return false;
+  if (result.applied === false && result.reason === "stale_generation") {
+    return false;
+  }
+  return result.applied !== false;
+}
+
 export async function publishRadarV2ClosedParkIfNeeded(opts: {
   flagEnabled: boolean;
   result: RadarV2PublishEligibility & {
@@ -1138,24 +1169,44 @@ export async function publishRadarV2ClosedParkIfNeeded(opts: {
   syncedAt: string;
   rpc: RadarV2RpcFn;
   nowMs?: () => number;
-  newId?: () => string;
-}): Promise<"skipped" | PublishRadarResult> {
+  recovery?: ClosedParkRecovery | null;
+  parkRetryIntervalMs?: number;
+}): Promise<"skipped" | PublishRadarResult | ClosedParkBackoffResult> {
   if (!shouldPublishRadarV2(opts.flagEnabled, opts.result)) {
     return "skipped";
   }
+  const recovery = opts.recovery;
+  if (recovery && !shouldAttemptParkRpc(
+    recovery,
+    opts.wallNowMs,
+    opts.parkRetryIntervalMs,
+  )) {
+    return parkBackoffResult();
+  }
+
   const flush = opts.result.preParkFlush;
-  let closedOpts = opts;
-  if (flush && flush.candidates.length > 0) {
+  const hasFlush = Boolean(flush && flush.candidates.length > 0);
+  let closedGenerationId = opts.generationId;
+  let closedSyncedAt = opts.syncedAt;
+
+  if (hasFlush && recovery && recovery.stage === "flush") {
+    if (recovery) markParkRpcAttempt(recovery, opts.wallNowMs);
     try {
+      log("info", "radar_v2_park_flush_attempt", {
+        trading_date: flush!.tradingDate,
+        session_kind: flush!.sessionKind,
+        candidate_count: flush!.candidates.length,
+        generation_id: recovery.flushGenerationId,
+      });
       const flushArgs = replaceArgsFromView({
-        generationId: opts.generationId,
-        syncedAt: opts.syncedAt,
-        view: flush,
+        generationId: recovery.flushGenerationId,
+        syncedAt: recovery.flushSyncedAt,
+        view: flush!,
       });
       flushArgs.p_candidates = flushArgs.p_candidates.map((row) => ({
         ...row,
-        generation_id: opts.generationId,
-        updated_at: opts.syncedAt,
+        generation_id: recovery.flushGenerationId,
+        updated_at: recovery.flushSyncedAt,
       }));
       const flushDecision = opts.gate.decide({
         wallNowMs: opts.wallNowMs,
@@ -1167,24 +1218,82 @@ export async function publishRadarV2ClosedParkIfNeeded(opts: {
         sessionTransition: "park_closed",
         sessionReset: false,
       });
+      if (!flushDecision.shouldWrite) {
+        return parkBackoffResult();
+      }
       const flushResult = await publishRadarV2Generation(opts.rpc, flushArgs);
-      if (!flushResult.ok || flushResult.applied === false) {
+      const flushCommitted = flushStageCommitted(flushResult) ||
+        (flushResult.ok && flushResult.reason === "already_current");
+      if (!flushCommitted) {
         opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
+        log("warn", "radar_v2_park_flush_failed", {
+          ok: flushResult.ok,
+          code: flushResult.ok ? null : flushResult.code,
+          applied: flushResult.ok ? flushResult.applied : null,
+          reason: flushResult.ok ? flushResult.reason ?? null : null,
+        });
         return flushResult;
       }
       opts.gate.markSuccess(flushDecision, opts.wallNowMs, flushDecision.eventKeys);
-      const closedGenerationId = (opts.newId ?? (() => crypto.randomUUID()))();
-      const closedSyncedAt = new Date(opts.wallNowMs + 1).toISOString();
-      closedOpts = {
-        ...opts,
-        generationId: closedGenerationId,
-        syncedAt: closedSyncedAt,
-      };
+      advanceParkStageAfterFlush(recovery, true);
+      log("info", "radar_v2_park_flush_committed", {
+        trading_date: flush!.tradingDate,
+        session_kind: flush!.sessionKind,
+        candidate_count: flush!.candidates.length,
+        reason: flushResult.ok ? flushResult.reason ?? null : null,
+      });
     } catch {
       opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
+      log("error", "radar_v2_park_flush_failed", { code: "persist_failed" });
       return { ok: false, code: "persist_failed" };
     }
   }
-  return publishRadarV2IfNeeded(closedOpts);
+
+  if (recovery) {
+    closedGenerationId = recovery.closedGenerationId;
+    closedSyncedAt = recovery.closedSyncedAt;
+  } else if (hasFlush) {
+    closedGenerationId = crypto.randomUUID();
+    closedSyncedAt = new Date(opts.wallNowMs + 1).toISOString();
+  }
+
+  if (recovery && recovery.stage === "closed" && !hasFlush) {
+    markParkRpcAttempt(recovery, opts.wallNowMs);
+  } else if (recovery && recovery.stage === "closed" && hasFlush) {
+    markParkRpcAttempt(recovery, opts.wallNowMs);
+  }
+
+  const closedOpts = {
+    ...opts,
+    generationId: closedGenerationId,
+    syncedAt: closedSyncedAt,
+  };
+  log("info", "radar_v2_park_closed_attempt", {
+    trading_date: opts.result.persistenceV2.tradingDate,
+    generation_id: closedGenerationId,
+    stage: recovery?.stage ?? null,
+    has_pre_park_flush: hasFlush,
+  });
+  const closedResult = await publishRadarV2IfNeeded(closedOpts);
+  if (closedResult === "skipped") {
+    return parkBackoffResult();
+  }
+  const closedCommitted = closedResult.ok && closedResult.applied !== false ||
+    (closedResult.ok && closedResult.reason === "already_current");
+  if (!closedCommitted) {
+    log("warn", "radar_v2_park_closed_failed", {
+      ok: closedResult.ok,
+      code: closedResult.ok ? null : closedResult.code,
+      applied: closedResult.ok ? closedResult.applied : null,
+      reason: closedResult.ok ? closedResult.reason ?? null : null,
+    });
+    opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
+    return closedResult;
+  }
+  log("info", "radar_v2_park_closed_committed", {
+    trading_date: opts.result.persistenceV2.tradingDate,
+    reason: closedResult.reason ?? null,
+  });
+  return closedResult;
 }
 

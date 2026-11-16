@@ -15,11 +15,29 @@ import {
   type SetStatusFn,
 } from "./persist.ts";
 import {
+  createClosedParkRecovery,
   createRadarV2WriteGate,
+  isClosedParkFullyCommitted,
+  isParkBackoffResult,
+  isRadarV2PublishCommitted,
   publishRadarV2ClosedParkIfNeeded,
   publishRadarV2IfNeeded,
+  type ClosedParkBackoffResult,
+  type ClosedParkRecovery,
+  type PublishRadarResult,
   type RadarV2RpcFn,
 } from "./persist_v2.ts";
+
+type V2LoopOutcome =
+  | PublishRadarResult
+  | "skipped"
+  | ClosedParkBackoffResult;
+
+function v2ForHealthAndTelemetry(
+  v2: V2LoopOutcome,
+): PublishRadarResult | "skipped" {
+  return isParkBackoffResult(v2) ? "skipped" : v2;
+}
 import { refreshEligibleUniverse } from "./snapshot.ts";
 import type { RadarConnectionState, RadarHealthSnapshot } from "./types.ts";
 import { createFeedTelemetryTracker } from "./feed-telemetry.ts";
@@ -122,6 +140,7 @@ export function startRadarV22(opts: {
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
   const v2Gate = createRadarV2WriteGate();
+  let closedParkRecovery: ClosedParkRecovery | null = null;
   let running = true;
   let socket: ReturnType<typeof createRadarSocket> | null = null;
 
@@ -170,7 +189,7 @@ export function startRadarV22(opts: {
   }
 
   function tryClearPersistFailure(input: {
-    v2: Awaited<ReturnType<typeof publishRadarV2IfNeeded>>;
+    v2: V2LoopOutcome;
     v1Attempted: boolean;
     v1Ok: boolean;
   }): void {
@@ -178,7 +197,7 @@ export function startRadarV22(opts: {
       !shouldClearPersistFailureTelemetry({
         persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
         v1RecoveryRequired,
-        v2: input.v2,
+        v2: v2ForHealthAndTelemetry(input.v2),
         v1Attempted: input.v1Attempted,
         v1Ok: input.v1Ok,
       })
@@ -220,11 +239,35 @@ export function startRadarV22(opts: {
       syncedAt,
       rpc: rpcV2,
       nowMs,
+      recovery: closedParkRecovery,
     };
     if (result.sessionTransition === "park_closed") {
       return await publishRadarV2ClosedParkIfNeeded(publishOpts);
     }
     return await publishRadarV2IfNeeded(publishOpts);
+  }
+
+  function ensureClosedParkRecovery(
+    result: EvaluateResult,
+    generationId: string,
+    syncedAt: string,
+    wallNow: number,
+  ): void {
+    if (result.sessionTransition !== "park_closed") return;
+    if (closedParkRecovery !== null) return;
+    const closedGenerationId = newId();
+    const closedSyncedAt = new Date(wallNow + 1).toISOString();
+    closedParkRecovery = createClosedParkRecovery({
+      tradingDate: result.persistenceV2.tradingDate,
+      flushGenerationId: generationId,
+      flushSyncedAt: syncedAt,
+      closedGenerationId,
+      closedSyncedAt,
+    });
+    const flushCount = result.preParkFlush?.candidates.length ?? 0;
+    if (flushCount === 0) {
+      closedParkRecovery.stage = "closed";
+    }
   }
 
   function pushHealth(status: RadarHealthSnapshot["status"]): void {
@@ -257,6 +300,10 @@ export function startRadarV22(opts: {
       wallNow,
     );
     const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
+    if (result.sessionReset) {
+      closedParkRecovery = null;
+    }
+    ensureClosedParkRecovery(result, generationId, syncedAt, wallNow);
     if (result.staleTransition) {
       await setStatus({
         p_status: result.board.rows.length > 0 ? "stale" : "empty",
@@ -264,7 +311,9 @@ export function startRadarV22(opts: {
         p_synced_at: syncedAt,
       });
       const v2 = await publishV2ForResult(result, generationId, syncedAt, wallNow);
-      if (v2 !== "skipped" && !v2.ok) {
+      if (isParkBackoffResult(v2)) {
+        // Paced park retry; keep prior failure telemetry.
+      } else if (v2 !== "skipped" && !v2.ok) {
         notePersistFailure(v2.code ?? "persist_failed");
         log("error", "radar_persist_v2_failed", { code: v2.code });
       } else {
@@ -275,7 +324,7 @@ export function startRadarV22(opts: {
           leaseHeld,
           feedStale: true,
           persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
-          v2,
+          v2: v2ForHealthAndTelemetry(v2),
           v1Attempted: false,
           v1Ok: true,
           unresolvedPersistFailure: lastPersistErrorCode !== null ||
@@ -329,14 +378,34 @@ export function startRadarV22(opts: {
     }
 
     const v2 = await publishV2ForResult(result, generationId, syncedAt, wallNow);
-    if (v2 !== "skipped" && !v2.ok) {
+    if (isParkBackoffResult(v2)) {
+      // Paced retry; keep failure telemetry until a committed park outcome.
+    } else if (v2 !== "skipped" && !v2.ok) {
       notePersistFailure(v2.code ?? "persist_failed");
       log("error", "radar_persist_v2_failed", { code: v2.code });
     } else {
-      tryClearPersistFailure({
-        v2,
-        v1Attempted: result.published,
-        v1Ok: v1PersistOk,
+      tryClearPersistFailure({ v2, v1Attempted: result.published, v1Ok: v1PersistOk });
+    }
+    if (
+      result.sessionTransition === "park_closed" &&
+      isClosedParkFullyCommitted(v2, closedParkRecovery, result.preParkFlush)
+    ) {
+      engine.acknowledgeClosedParkCommitted();
+      closedParkRecovery = null;
+      tryClearPersistFailure({ v2, v1Attempted: result.published, v1Ok: v1PersistOk });
+      log("info", "radar_v2_park_acknowledged", {
+        trading_date: result.persistenceV2.tradingDate,
+      });
+    } else if (
+      result.sessionTransition === "park_closed" &&
+      engine.hasPendingClosedPark() &&
+      !isParkBackoffResult(v2)
+    ) {
+      log("warn", "radar_v2_park_outstanding", {
+        trading_date: result.persistenceV2.tradingDate,
+        stage: closedParkRecovery?.stage ?? null,
+        v2_ok: v2 !== "skipped" && v2.ok,
+        v2_committed: v2 !== "skipped" && isRadarV2PublishCommitted(v2),
       });
     }
 
@@ -349,11 +418,13 @@ export function startRadarV22(opts: {
         leaseHeld,
         feedStale: result.board.feedStale,
         persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
-        v2,
+        v2: v2ForHealthAndTelemetry(v2),
         v1Attempted: result.published,
         v1Ok: v1PersistOk,
         unresolvedPersistFailure: lastPersistErrorCode !== null ||
-          v1RecoveryRequired,
+          v1RecoveryRequired ||
+          (result.sessionTransition === "park_closed" &&
+            engine.hasPendingClosedPark()),
       }),
     );
   };
