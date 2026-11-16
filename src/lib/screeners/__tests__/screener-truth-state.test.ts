@@ -272,7 +272,9 @@ describe("screener truth-state resolver", () => {
       },
     });
     expect(truth.reason).toBe("prerequisite_unavailable");
-    expect(truth.explanation).toContain("Prior-close and gap inputs were unavailable");
+    expect(truth.explanation).toContain(
+      "could not verify gap inputs for every volume-active symbol",
+    );
   });
 
   it("gappers: 20 valid rows → available with results", () => {

@@ -33,6 +33,7 @@ import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/gene
 import {
   isDegradedGappersPublishEnabled,
   omitGappersRowsForDegradedPublication,
+  publishedTabCountsFromRows,
 } from "../_shared/screeners/screener-degraded-gappers-publish.ts";
 import {
   isExtendedSyncSession,
@@ -1128,7 +1129,7 @@ async function finalizeStagedScreenerGeneration(
     syncRunId,
     timingsMs: finalizeTimer.timingsMs,
   });
-  const bounds = providerAsOfBounds(allRows);
+  const bounds = providerAsOfBounds(publishRows);
   return json({
     ok: true,
     staged: true,
@@ -1138,14 +1139,7 @@ async function finalizeStagedScreenerGeneration(
     rows_inserted: rowsInserted,
     tab_evaluation_evidence_persistence: evidencePersistence,
     nhl_baseline_status: nhlBaseline.status,
-    tabs: {
-      day_trade_radar: dayTradeRows.length,
-      gappers: gapperRows.length,
-      volume_spikes: volumeSpikeRows.length,
-      gainers_losers: gainersLosersRows.length,
-      unusual_volume: unusualVolumeRows.length,
-      new_highs_lows: nhlRows.length,
-    },
+    tabs: publishedTabCountsFromRows(publishRows),
     provider_as_of_min: bounds.min,
     provider_as_of_max: bounds.max,
     synced_at: syncedAt,
@@ -1725,7 +1719,7 @@ export async function handleSyncScreenerData(
     }
   }
 
-  const bounds = providerAsOfBounds(allRows);
+  const bounds = providerAsOfBounds(publishRowsLegacy);
 
   const sessionDate = easternTradingDateFromMs(nowMs);
   const dayTradeSymbols = dayTradeSelected.map((t) => String(t.ticker ?? ""));
@@ -1749,14 +1743,7 @@ export async function handleSyncScreenerData(
     rows_inserted: rowsInserted,
     tab_evaluation_evidence_persistence: evidencePersistence,
     nhl_baseline_status: nhlBaseline.status,
-    tabs: {
-      day_trade_radar: dayTradeRows.length,
-      gappers: gapperRows.length,
-      volume_spikes: volumeSpikeRows.length,
-      gainers_losers: gainersLosersRows.length,
-      unusual_volume: unusualVolumeRows.length,
-      new_highs_lows: nhlRows.length,
-    },
+    tabs: publishedTabCountsFromRows(publishRowsLegacy),
     provider_as_of_min: bounds.min,
     provider_as_of_max: bounds.max,
     synced_at: syncedAt,

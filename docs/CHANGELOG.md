@@ -4,6 +4,10 @@
 
 - Mandatory **13,240**-ticker replay **SATISFIED** on job `4ed4a4c7-…` (exit 0; counters **1302/1298/1/1/2**). Export not in git. **ISS-034 OPEN** until merge/deploy/acceptance.
 
+## 2026-11-16 (ISS-034 — Option B PR #261 review corrections; not merged/deployed)
+
+- Strict eligibility: degraded Gappers publish only when companion tabs **evaluated** on the candidate (not merely unchanged from prior unavailability). Radar restoration blocked for `gap_input_coverage_incomplete`. Sync handler `tabs` counts reflect published payload (zero Gappers when omitted). Extended R2/R5/R7 Deno + Vitest. **No** production activation.
+
 ## 2026-11-16 (ISS-034 — Option B implementation; PR #261; not merged/deployed)
 
 - `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` (default off): gappers-only `gap_input_coverage_incomplete` may publish without Gappers rows when flag true. Frontend honesty + R1–R7 / RG Deno/Vitest. Stacked on PR **#260**. **No** production activation.

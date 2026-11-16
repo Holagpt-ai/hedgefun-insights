@@ -4,7 +4,7 @@
  */
 
 import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
-import { gappersGapInputCoverageIncomplete } from "./screener-degraded-gappers-publish.ts";
+import { canAllowDegradedGappersPublication } from "./screener-degraded-gappers-publish.ts";
 import { isPreviousSessionSnapshotDuringLiveSession } from "./screener-session.ts";
 
 type EvidenceStatus = "evaluated" | "prerequisite_unavailable" | "not_evaluated";
@@ -73,10 +73,11 @@ export function shouldPreservePriorScreenerGeneration(input: {
   }
   if (degraded.length === 0) return false;
   if (
-    input.allowDegradedGappersPublish === true &&
-    degraded.length === 1 &&
-    degraded[0] === "gappers" &&
-    gappersGapInputCoverageIncomplete(input.nextEvidence)
+    canAllowDegradedGappersPublication({
+      degradedTabs: degraded,
+      nextEvidence: input.nextEvidence,
+      allowDegradedGappersPublish: input.allowDegradedGappersPublish,
+    })
   ) {
     return false;
   }

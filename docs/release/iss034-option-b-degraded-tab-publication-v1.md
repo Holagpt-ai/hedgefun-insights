@@ -6,7 +6,7 @@
 
 ## Problem (Nov 16)
 
-- Candidate generations reach `build_evidence` with G/L + NHL **evaluated**, Gappers **`gap_input_coverage_incomplete`** (`unresolved_gap_input_count=2`, ASBPW + ASPCR, `missing_prior_close`).
+- Candidate generations reach `build_evidence` with G/L + NHL **evaluated**, Gappers **`gap_input_coverage_incomplete`** (`unresolved_gap_input_count=2`, ASBPW + ASPCR, `missing_prior_close` — positive `day.o`, **zero** `prevDay.c`, not missing open).
 - `shouldPreservePriorScreenerGeneration` blocks **entire** publication when any preservation tab degrades evaluated → prerequisite_unavailable.
 - Feed frozen at **9:25 AM**; Gappers UI still shows **`evaluated`** rows from that generation (not afternoon candidate).
 
@@ -48,6 +48,12 @@
 | Radar overlay (`overlayCanonicalIntradayMetrics`) | May refresh **intraday metrics** on existing Gappers rows when Radar V2 loads — **does not** update feed `synced_at`; can make prices/metrics look newer while generation metadata stays 9:25 |
 
 **Conclusion:** Observed “recent provider observation” is likely **row-level metrics / provider_as_of from overlay or per-symbol fields**, while **generation freshness** (`synced_at`) correctly remains 9:25 AM until a publish succeeds. Option B must tighten Gappers truth-state so users are not told “Results available” when afternoon accounting failed.
+
+## Implementation notes (PR #261 review pass)
+
+- **Strict Option B eligibility:** flag skips preserve only when **only** Gappers degrades, reason `gap_input_coverage_incomplete`, and **`gainers_losers` + `new_highs_lows` are `evaluated` on the candidate** — prior-tab unavailability does not count as verified.
+- **Radar:** `shouldRestoreGappersFromRadar` returns false for published `gap_input_coverage_incomplete`.
+- **Handler accounting:** JSON `tabs` and provider bounds use **published** row payload (zero Gappers after filter).
 
 ## Regression plan (post-approval implementation)
 

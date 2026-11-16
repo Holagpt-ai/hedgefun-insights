@@ -2,6 +2,58 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { shouldPreservePriorScreenerGeneration } from "./generation-preserve.ts";
 import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
 
+Deno.test("preserve: Option B retains when GL/NHL were already unavailable on prior", () => {
+  const prior: TabEvaluationEvidenceMap = {
+    gappers: {
+      status: "evaluated",
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 50,
+      qualified_count: 2,
+      selected_count: 2,
+    },
+    gainers_losers: {
+      status: "prerequisite_unavailable",
+      universe_count: 100,
+      qualified_count: 0,
+      selected_count: 0,
+    },
+    new_highs_lows: {
+      status: "not_evaluated",
+      baseline_status: "available",
+      baseline_quote_count: 1000,
+      universe_count: 100,
+      selected_count: 0,
+      reason: "baseline_coverage_incomplete",
+    },
+  };
+  const next: TabEvaluationEvidenceMap = {
+    ...prior,
+    gappers: {
+      status: "prerequisite_unavailable",
+      universe_count: 100,
+      volume_positive_count: 1302,
+      gap_calculable_count: 1298,
+      no_prior_session_count: 1,
+      split_scale_suppressed_count: 1,
+      unresolved_gap_input_count: 2,
+      qualified_count: 0,
+      selected_count: 0,
+      reason: "gap_input_coverage_incomplete",
+    },
+  };
+  assertEquals(
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence: prior,
+      nextEvidence: next,
+      nowMs: Date.parse("2026-11-16T22:05:00.000Z"),
+      priorSyncedAt: "2026-11-16T14:25:00.000Z",
+      allowDegradedGappersPublish: true,
+    }),
+    true,
+  );
+});
+
 Deno.test("preserve: Option B allows publish when only gappers gap_input incomplete", () => {
   const prior: TabEvaluationEvidenceMap = {
     gappers: {

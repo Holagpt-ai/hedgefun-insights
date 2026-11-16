@@ -11,10 +11,16 @@ import {
 import { buildPriorGenerationRetentionAbortDetail } from "./generation-abort-diagnostics.ts";
 import { shouldPreservePriorScreenerGeneration } from "./generation-preserve.ts";
 import {
+  canAllowDegradedGappersPublication,
   countRowsByTab,
   isDegradedGappersPublishEnabled,
   omitGappersRowsForDegradedPublication,
+  preservationCompanionTabsEvaluatedOnCandidate,
+  publishedTabCountsFromRows,
 } from "./screener-degraded-gappers-publish.ts";
+import { buildStagedJobFromUniverse } from "./sync-orchestrator.ts";
+import { buildRepresentativeUniverse } from "./sync-screener-cpu-benchmark.ts";
+import { MemorySyncStagingStore } from "./sync-staging-memory.ts";
 import type { PolygonTicker } from "./selection.ts";
 import { isStructurallyNoPriorSession, type HistoricalCoverageEvidence } from "./evaluation-evidence.ts";
 
@@ -101,6 +107,61 @@ Deno.test("R2: flag enabled skips preserve; rows omit gappers only", () => {
   assertEquals(countRowsByTab(filtered).gainers_losers, 1);
   assertEquals(countRowsByTab(filtered).new_highs_lows, 1);
   assertEquals(filtered.length, 3);
+});
+
+Deno.test("R2: strict eligibility rejects companion tabs not evaluated on candidate", () => {
+  assertEquals(
+    preservationCompanionTabsEvaluatedOnCandidate(candidateGappersIncomplete),
+    true,
+  );
+  const nhlNotEvaluated = {
+    ...candidateGappersIncomplete,
+    new_highs_lows: {
+      ...priorFull.new_highs_lows,
+      status: "not_evaluated" as const,
+      reason: "baseline_coverage_incomplete",
+    },
+  };
+  assertEquals(
+    preservationCompanionTabsEvaluatedOnCandidate(nhlNotEvaluated),
+    false,
+  );
+  assertEquals(
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence: priorFull,
+      nextEvidence: nhlNotEvaluated,
+      nowMs: AFTERNOON,
+      priorSyncedAt: MORNING,
+      allowDegradedGappersPublish: true,
+    }),
+    true,
+  );
+  assertEquals(
+    canAllowDegradedGappersPublication({
+      degradedTabs: ["gappers"],
+      nextEvidence: nhlNotEvaluated,
+      allowDegradedGappersPublish: true,
+    }),
+    false,
+  );
+});
+
+Deno.test("R2: response tab counts match published payload (zero gappers)", () => {
+  const rows = [
+    { tab_id: "day_trade_radar", symbol: "A" },
+    { tab_id: "gappers", symbol: "G" },
+    { tab_id: "gainers_losers", symbol: "B" },
+  ];
+  const publishRows = omitGappersRowsForDegradedPublication(
+    rows,
+    candidateGappersIncomplete,
+    true,
+  );
+  const tabs = publishedTabCountsFromRows(publishRows);
+  assertEquals(tabs.gappers, 0);
+  assertEquals(tabs.day_trade_radar, 1);
+  assertEquals(tabs.gainers_losers, 1);
+  assertEquals(publishRows.length, 2);
 });
 
 Deno.test("R2: flag on still preserves when gainers_losers degrades", () => {
@@ -241,4 +302,79 @@ Deno.test("R7: row filter idempotent and preserves non-gapper symbols", () => {
   );
   assertEquals(once, twice);
   assertEquals(once.length, 2);
+});
+
+Deno.test("R5/R7: staged publish rowsInserted matches filtered payload (single replace)", async () => {
+  const store = new MemorySyncStagingStore();
+  const nowMs = Date.parse(MORNING);
+  const syncRunId = crypto.randomUUID();
+  const universe = buildRepresentativeUniverse(10, "regular", nowMs);
+  const base = buildStagedJobFromUniverse(
+    universe,
+    [],
+    [],
+    nowMs,
+    new Date(nowMs).toISOString(),
+    syncRunId,
+    10,
+  );
+  const jobId = crypto.randomUUID();
+  store.seedJob({
+    ...base,
+    id: jobId,
+    status: "finalizing",
+    nextChunkIndex: base.totalChunks,
+    leaseToken: null,
+    leaseExpiresMs: null,
+    createdAtMs: nowMs,
+    updatedAtMs: nowMs,
+    stateVersion: 0,
+    continueLastAtMs: null,
+    continueLastError: null,
+    finalizeLeaseToken: "fin-opt-b",
+    finalizeLeaseExpiresMs: nowMs + 60_000,
+    publishRowsInserted: null,
+    publishRpcRecordedAtMs: null,
+    abortReason: null,
+    abortEvidence: null,
+  });
+  const candidateRows = [
+    { tab_id: "gappers", symbol: "G1" },
+    { tab_id: "gainers_losers", symbol: "GL1" },
+    { tab_id: "day_trade_radar", symbol: "D1" },
+  ];
+  const publishRows = omitGappersRowsForDegradedPublication(
+    candidateRows,
+    candidateGappersIncomplete,
+    true,
+  );
+  assertEquals(publishedTabCountsFromRows(publishRows).gappers, 0);
+  const first = await store.publishStagedGeneration({
+    jobId,
+    finalizeLeaseToken: "fin-opt-b",
+    expectedStateVersion: 0,
+    syncRunId,
+    syncedAt: new Date(nowMs).toISOString(),
+    nhlBaselineStatus: "available",
+    tabEvaluationEvidence: candidateGappersIncomplete,
+    rows: publishRows,
+    nowMs,
+  });
+  assertEquals(first.ok, true);
+  if (!first.ok) return;
+  assertEquals(first.rowsInserted, publishRows.length);
+  const replay = await store.publishStagedGeneration({
+    jobId,
+    finalizeLeaseToken: "fin-opt-b",
+    expectedStateVersion: 0,
+    syncRunId,
+    syncedAt: new Date(nowMs).toISOString(),
+    nhlBaselineStatus: "available",
+    tabEvaluationEvidence: candidateGappersIncomplete,
+    rows: publishRows,
+    nowMs,
+  });
+  assertEquals(replay.ok, true);
+  if (!replay.ok) return;
+  assertEquals(replay.rowsInserted, publishRows.length);
 });
