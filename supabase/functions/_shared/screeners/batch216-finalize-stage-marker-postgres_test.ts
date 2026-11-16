@@ -132,11 +132,20 @@ Deno.test({
         `INSERT INTO public.screener_sync_generation_jobs
          (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
           next_chunk_index, state_version, finalize_lease_token, finalize_lease_expires_at,
-          continue_last_error, publish_rows_inserted)
+          continue_last_error, publish_rows_inserted, tab_evaluation_evidence)
          VALUES ($1, $2, 'finalizing', $3::jsonb, '[]'::jsonb, 2200, 7, 7, 7,
                  $4::uuid, now() + interval '12 minutes',
-                 'finalize_stage:atomic_publish', 6)`,
-        [jobId, syncRunId, JSON.stringify(sampleObservation(syncRunId)), lease],
+                 'finalize_stage:atomic_publish', 6,
+                 $5::jsonb)`,
+        [
+          jobId,
+          syncRunId,
+          JSON.stringify(sampleObservation(syncRunId)),
+          lease,
+          JSON.stringify({
+            day_trade_radar: { status: "evaluated", universe_count: 1, qualified_count: 1, selected_count: 1 },
+          }),
+        ],
       );
 
       const complete = await client.queryObject<{ payload: string }>(

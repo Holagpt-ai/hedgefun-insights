@@ -9,6 +9,7 @@ import {
   insertChunkingJob,
   pgTestUrl,
   sampleObservation,
+  layerCSixTabEvidenceEvaluated,
   sampleTabEvidence,
   truncateStaging,
   validScreenerRow,
@@ -233,7 +234,7 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
       validScreenerRow("AAA", "gappers"),
       validScreenerRow("BBB", "gappers"),
     ];
-    const evidence = sampleTabEvidence();
+    const evidence = layerCSixTabEvidenceEvaluated();
     await client.queryObject(
       `INSERT INTO public.screener_sync_generation_jobs
        (id, sync_run_id, status, observation, all_tickers, chunk_size, total_chunks,
@@ -265,6 +266,20 @@ Deno.test("postgres gate: atomic publish + complete + feed evidence", async () =
       [jobId],
     );
     assertEquals(jobAfter.rows[0]?.publish_rows_inserted, 2);
+    const jobEvidence = await client.queryObject<{
+      tab_evaluation_evidence: unknown;
+      published_synced_at: string | null;
+      published_nhl_baseline_status: string | null;
+    }>(
+      `SELECT tab_evaluation_evidence, published_synced_at, published_nhl_baseline_status
+       FROM public.screener_sync_generation_jobs WHERE id = $1`,
+      [jobId],
+    );
+    assertEquals(
+      JSON.stringify(jobEvidence.rows[0]?.tab_evaluation_evidence),
+      JSON.stringify(evidence),
+    );
+    assertEquals(jobEvidence.rows[0]?.published_nhl_baseline_status, "initializing");
     const feed = await client.queryObject<{ sync_run_id: string; rows_inserted: number; evidence: unknown }>(
       `SELECT sync_run_id, rows_inserted, tab_evaluation_evidence AS evidence
        FROM public.screener_feed_state WHERE state_key = 'current'`,

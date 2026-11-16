@@ -1,3 +1,17 @@
+# Session handoff — ISS-024 Layer C tab evidence (November 16, 2026 ET)
+
+**Baseline:** GitHub `main` **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`**.
+
+**Delivered:** Migration `20261116153000_screener_sync_generation_tab_evidence_v1.sql` — persist `tab_evaluation_evidence`, `published_synced_at`, `published_nhl_baseline_status` on `screener_sync_generation_jobs` during `publish_screener_sync_staged_generation_v1`; `complete_screener_sync_publish_v1` requires job evidence; reconcile backfills job evidence from feed when missing (same generation only). Deno: `batch191-layer-c-tab-evidence-postgres_test.ts`. **No SQL applied. No Edge deploy.**
+
+**Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL spot-check in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
+
+**Preserved:** Fly v49, stash `preserve-iss044-docs-mcp`, MCP uncommitted.
+
+**Next:** PR review; ISS-044 20:00 ET; post-activation Layer C audit.
+
+---
+
 # Session handoff — Batch 196 numerical integrity (November 16, 2026 ET)
 
 **Baseline:** GitHub `main` **`a0912926a4c8cae672170d11fa8a234715cc9df7`**.
