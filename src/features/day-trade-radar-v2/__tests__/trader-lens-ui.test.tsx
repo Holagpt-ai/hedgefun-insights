@@ -96,6 +96,25 @@ describe("Radar time and short-window labels", () => {
     expect(screen.queryByText("Trigger")).not.toBeInTheDocument();
   });
 
+  it("shows volume acceleration percent matching grid and Screeners, not the bucket ratio", () => {
+    render(
+      <MemoryRouter>
+        <RadarDetailPanel
+          row={ranked({ volume_acceleration_pct: 74.2, acceleration_5m: 3.5 })}
+          inactive={false}
+          chartStatus="idle"
+          chartBars={[]}
+          latestBarIso={null}
+          chartError={null}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Volume acceleration")).toBeInTheDocument();
+    expect(screen.getByText("+74%")).toBeInTheDocument();
+    expect(screen.queryByText("3.50")).not.toBeInTheDocument();
+    expect(screen.queryByText("5m Acceleration")).not.toBeInTheDocument();
+  });
+
   it("keeps short-window moves labeled 15s Move / 60s Move, not Day Move", () => {
     render(
       <MemoryRouter>
