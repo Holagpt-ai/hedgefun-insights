@@ -1,3 +1,13 @@
+# Session handoff — Earnings Top-3 test regression (November 16, 2026 ET)
+
+**Baseline:** GitHub `main` **`90ddda12f5ed3b8791cdc19d9a936bdc256ad0b6`** (ISS-041 PR **#255** merged).
+
+**Follow-up:** Branch `fix/earnings-headlines-reveal-test`. Group 3 failure was **test harness only** — `EarningsList` renders `PreMarketSymbolActions` (`useAuth`); test lacked `AuthContext` mock. Aligns with `PreMarketSymbolActions.test.tsx`. **7** Top-N reveal Vitest **PASS**; typecheck/build **PASS**. **No** UI defect. **No** deploy/merge.
+
+**Preserved:** Group 5 stash, ISS-044 @ **`159c62c7`**, MCP bundle excluded from PR.
+
+---
+
 # Session handoff — ISS-041 market-session fallback (November 15, 2026 ET)
 
 **Baseline:** GitHub `main` **`ff6a10fd377a66265100bbd1d8d70c1a65f54eb9`** (Batch 202 / ISS-038 merged as PR **#254**).
