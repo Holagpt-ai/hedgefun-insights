@@ -34,7 +34,17 @@ export async function fetchPennyContinuationHandoffsForCandidates(
 ): Promise<PennyContinuationWorkflowHandoff[]> {
   const normalized = normalizePairs(pairs);
   if (!amSessionDate || !normalized) return [];
-  const { data, error } = await supabase.rpc(
+  // Keep this read typed locally until the managed schema includes the RPC.
+  const client = supabase as unknown as {
+    rpc: (
+      name: "penny_continuation_handoff_list_active_v1",
+      args: {
+        p_am_session_date: string;
+        p_pairs: { symbol: string; source_session_date: string }[];
+      },
+    ) => PromiseLike<{ data: unknown; error: unknown }>;
+  };
+  const { data, error } = await client.rpc(
     "penny_continuation_handoff_list_active_v1",
     {
       p_am_session_date: amSessionDate,
