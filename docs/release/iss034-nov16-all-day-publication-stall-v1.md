@@ -57,7 +57,7 @@ Therefore the first PR #260 classifier **does not** reduce `unresolved_gap_input
 
 ### Replay (identify symbols + prerequisites)
 
-1. Lovable read-only export: `observation`, `all_tickers`, optional `merged_artifacts` for job `4ed4a4c7-…`.
+1. Lovable read-only export per `docs/release/iss034-nov16-full-job-replay-export-v1.md` (`id`, `sync_run_id`, `observation`, `all_tickers`, `merged_artifacts`, **`nhl_baseline_snapshot`**) for job `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d`.
 2. `deno run --allow-read scripts/ops/iss034-gappers-replay.deno.ts job-export.json`
 3. Output includes `baseline.unresolved[]` (symbol, `rejectReason`, prerequisite flags) and `unresolved_delta` vs the replay-only close-vs-prior helper.
 

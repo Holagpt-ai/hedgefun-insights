@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-16 (ISS-034 — full-job Gappers replay readiness; PR #260; not merged)
+
+- `iss034-job-gappers-replay.ts` rebuilds historical coverage from frozen `nhl_baseline_snapshot`; replay CLI rejects missing job clock/baseline. Lovable export runbook `iss034-nov16-full-job-replay-export-v1.md`. **13,240** production replay still **blocked** pending export. **No** deploy.
+
 ## 2026-11-16 (ISS-034 — ASBPW/ASPCR + Option B design; PR #260; not merged)
 
 - Owner-identified unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`, not missing open). Subset replay matches job accum **1302/1298/1/1/2**. Option B publication-policy design doc; preserve gate unchanged. Vitest ISS-034 truth-state regression; Deno production replay + Option B contract tests. **No** policy deploy.

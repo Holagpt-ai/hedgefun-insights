@@ -1,3 +1,12 @@
+# Session handoff — ISS-034 full-job replay readiness (November 16, 2026 ET)
+
+**Branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260** only (Option B remains **#261**, untouched this pass).  
+**Replay:** `iss034-job-gappers-replay.ts` + `scripts/ops/iss034-gappers-replay.deno.ts` require frozen `nhl_baseline_snapshot`, job `observation` clock, `all_tickers`, `merged_artifacts.gappersAccum`. **No** `Date.now()` / live baseline fallback.  
+**Export spec:** `docs/release/iss034-nov16-full-job-replay-export-v1.md` — job `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d`.  
+**Full 13,240 replay:** **NOT RUN** — Lovable JSON export **not in repo** (release gate **unresolved**). CI: `iss034-job-gappers-replay_test.ts` (4) **PASS** locally.
+
+---
+
 # Session handoff — ISS-034 Nov 16 all-day scanner stall (November 16, 2026 ET)
 
 **GitHub `main`:** `15aef76e3bc22650a6ccbd0286fb9d4cf3ab1017`.
