@@ -21,6 +21,11 @@
  *   eligible snapshot symbol is absent from both baseline quotes and exclusions.
  */
 
+import {
+  applyGappersGapInputToCounters,
+  classifyGappersGapInput,
+  type GappersGapInputReplayOpts,
+} from "./gappers-gap-input-accounting.ts";
 import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
 import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
 import {
@@ -35,11 +40,9 @@ import {
   currentSessionReferencePrice,
   dayHighLow,
   gapPercent,
-  gapSuppressedOnlyBySplitScaleGuard,
   hasValidSessionOpen,
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
-  gapPercentForTabContext,
   qualifiesDayTradeRadar,
   qualifiesGappers,
   qualifiesUnusualVolume,
@@ -65,6 +68,8 @@ export interface GappersTabEvidence {
   /** Gap null only because regular vs reference triggered `impliesSplitScale`. */
   split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
+  /** Sample of symbols still in the unresolved gap-input class (sorted, capped). */
+  unresolved_gap_symbols?: string[];
   qualified_count: number;
   selected_count: number;
   reason?: string;
@@ -243,6 +248,7 @@ export function evaluateGappersEvidence(
   let no_prior_session_count = 0;
   let split_scale_suppressed_count = 0;
   let unresolved_gap_input_count = 0;
+  const unresolvedGapSymbols: string[] = [];
   let qualified_count = 0;
 
   const tabGapOpts = {
@@ -250,24 +256,35 @@ export function evaluateGappersEvidence(
     observationSessionFields,
     nowMs,
   };
+  const gapReplayOpts: GappersGapInputReplayOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    cache,
+    isStructurallyNoPriorSession: (ticker) =>
+      isStructurallyNoPriorSession(ticker, coverage, extendedSession, nowMs),
+  };
+  const counters = {
+    volume_positive_count,
+    gap_calculable_count,
+    no_prior_session_count,
+    split_scale_suppressed_count,
+    unresolved_gap_input_count,
+    unresolvedGapSymbols,
+  };
 
   for (const t of universe) {
-    const volumeActive = sessionQualificationVolume(t, volumeCtx) !== null;
-    if (!volumeActive) continue;
-    volume_positive_count += 1;
-    if (gapPercentForTabContext(t, tabGapOpts) !== null) {
-      gap_calculable_count += 1;
-    } else if (isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)) {
-      no_prior_session_count += 1;
-    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
-      split_scale_suppressed_count += 1;
-    } else {
-      unresolved_gap_input_count += 1;
-    }
+    const cls = classifyGappersGapInput(t, volumeCtx, gapReplayOpts);
+    applyGappersGapInputToCounters(counters, cls);
     if (qualifiesGappers(t, tabGapOpts)) {
       qualified_count += 1;
     }
   }
+  volume_positive_count = counters.volume_positive_count;
+  gap_calculable_count = counters.gap_calculable_count;
+  no_prior_session_count = counters.no_prior_session_count;
+  split_scale_suppressed_count = counters.split_scale_suppressed_count;
+  unresolved_gap_input_count = counters.unresolved_gap_input_count;
 
   const selected_count = selected.length;
   const base = {
@@ -277,6 +294,7 @@ export function evaluateGappersEvidence(
     no_prior_session_count,
     split_scale_suppressed_count,
     unresolved_gap_input_count,
+    unresolved_gap_symbols: boundedSymbolSample(unresolvedGapSymbols),
     qualified_count,
     selected_count,
   };

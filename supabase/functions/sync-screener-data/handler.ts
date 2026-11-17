@@ -955,6 +955,7 @@ async function finalizeStagedScreenerGeneration(
         priorSyncedAt: priorFeed.syncedAt,
         candidateGenerationId: job.id,
         candidateSyncRunId: syncRunId,
+        candidateGappersAccum: job.merged.gappersAccum,
       }),
     );
     logFinalizeStageExit({

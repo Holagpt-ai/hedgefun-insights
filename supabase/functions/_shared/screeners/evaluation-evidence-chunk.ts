@@ -5,6 +5,11 @@
 
 import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
 import {
+  applyGappersGapInputToCounters,
+  classifyGappersGapInput,
+  type GappersGapInputReplayOpts,
+} from "./gappers-gap-input-accounting.ts";
+import {
   boundedSymbolSample,
   evaluateGenericTabEvidence,
   isSafelyClassifiableNoHistory,
@@ -24,8 +29,6 @@ import {
 import {
   currentSessionReferencePrice,
   dayHighLow,
-  gapPercentForTabContext,
-  gapSuppressedOnlyBySplitScaleGuard,
   normalizeSymbol,
   qualifiesDayTradeRadar,
   qualifiesGappers,
@@ -45,6 +48,7 @@ export type GappersEvidenceAccum = {
   no_prior_session_count: number;
   split_scale_suppressed_count: number;
   unresolved_gap_input_count: number;
+  unresolvedGapSymbols: string[];
   qualified_count: number;
 };
 
@@ -55,6 +59,7 @@ export function createEmptyGappersEvidenceAccum(): GappersEvidenceAccum {
     no_prior_session_count: 0,
     split_scale_suppressed_count: 0,
     unresolved_gap_input_count: 0,
+    unresolvedGapSymbols: [],
     qualified_count: 0,
   };
 }
@@ -71,6 +76,10 @@ export function mergeGappersEvidenceAccums(
       b.split_scale_suppressed_count,
     unresolved_gap_input_count: a.unresolved_gap_input_count +
       b.unresolved_gap_input_count,
+    unresolvedGapSymbols: boundedSymbolSample([
+      ...a.unresolvedGapSymbols,
+      ...b.unresolvedGapSymbols,
+    ]) ?? [],
     qualified_count: a.qualified_count + b.qualified_count,
   };
 }
@@ -95,20 +104,17 @@ export function accumulateGappersEvidenceChunk(
     observationSessionFields,
     nowMs,
   };
+  const gapReplayOpts: GappersGapInputReplayOpts = {
+    extendedSession,
+    observationSessionFields,
+    nowMs,
+    cache,
+    isStructurallyNoPriorSession: (ticker) =>
+      isStructurallyNoPriorSession(ticker, coverage, extendedSession, nowMs),
+  };
   for (const t of universe) {
-    if (sessionQualificationVolume(t, volumeCtx) === null) continue;
-    acc.volume_positive_count += 1;
-    if (gapPercentForTabContext(t, tabGapOpts) !== null) {
-      acc.gap_calculable_count += 1;
-    } else if (
-      isStructurallyNoPriorSession(t, coverage, extendedSession, nowMs)
-    ) {
-      acc.no_prior_session_count += 1;
-    } else if (gapSuppressedOnlyBySplitScaleGuard(t, tabGapOpts)) {
-      acc.split_scale_suppressed_count += 1;
-    } else {
-      acc.unresolved_gap_input_count += 1;
-    }
+    const cls = classifyGappersGapInput(t, volumeCtx, gapReplayOpts);
+    applyGappersGapInputToCounters(acc, cls);
     if (qualifiesGappers(t, tabGapOpts)) {
       acc.qualified_count += 1;
     }
@@ -127,6 +133,7 @@ export function finalizeGappersEvidenceFromAccum(
     no_prior_session_count: acc.no_prior_session_count,
     split_scale_suppressed_count: acc.split_scale_suppressed_count,
     unresolved_gap_input_count: acc.unresolved_gap_input_count,
+    unresolved_gap_symbols: boundedSymbolSample(acc.unresolvedGapSymbols),
     qualified_count: acc.qualified_count,
     selected_count,
   };

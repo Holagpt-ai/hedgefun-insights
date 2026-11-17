@@ -3,7 +3,9 @@
  * Does not change shouldPreservePriorScreenerGeneration guard semantics.
  */
 
-import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
+import type { GappersTabEvidence, TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
+import { boundedSymbolSample } from "./evaluation-evidence.ts";
+import type { GappersEvidenceAccum } from "./evaluation-evidence-chunk.ts";
 
 export type ScreenerSyncAbortReason =
   | "prior_generation_retained"
@@ -53,10 +55,22 @@ function wouldDegradeTab(
   return false;
 }
 
+export type CandidateGappersAbortSnapshot = {
+  status: GappersTabEvidence["status"];
+  reason?: string;
+  volume_positive_count: number;
+  gap_calculable_count: number;
+  no_prior_session_count: number;
+  split_scale_suppressed_count: number;
+  unresolved_gap_input_count: number;
+  unresolved_gap_symbols?: string[];
+};
+
 export type PriorGenerationRetentionEvidence = {
   prior_synced_at: string | null;
   candidate_generation_id: string;
   candidate_sync_run_id: string;
+  candidate_gappers?: CandidateGappersAbortSnapshot;
   tabs: Array<{
     tab: PreservationTabId;
     prior_status: EvidenceStatus | null;
@@ -64,6 +78,32 @@ export type PriorGenerationRetentionEvidence = {
     triggered_preservation: boolean;
   }>;
 };
+
+function summarizeCandidateGappers(
+  nextEvidence: TabEvaluationEvidenceMap,
+  accum?: GappersEvidenceAccum,
+): CandidateGappersAbortSnapshot | undefined {
+  const row = nextEvidence?.gappers;
+  if (!row || typeof row !== "object") return undefined;
+  const g = row as GappersTabEvidence;
+  const fromEvidence = Array.isArray(g.unresolved_gap_symbols)
+    ? g.unresolved_gap_symbols
+    : [];
+  const fromAccum = accum?.unresolvedGapSymbols ?? [];
+  const mergedSymbols = boundedSymbolSample([
+    ...new Set([...fromEvidence, ...fromAccum]),
+  ]);
+  return {
+    status: g.status,
+    reason: g.reason,
+    volume_positive_count: g.volume_positive_count,
+    gap_calculable_count: g.gap_calculable_count,
+    no_prior_session_count: g.no_prior_session_count,
+    split_scale_suppressed_count: g.split_scale_suppressed_count,
+    unresolved_gap_input_count: g.unresolved_gap_input_count,
+    unresolved_gap_symbols: mergedSymbols,
+  };
+}
 
 export type ScreenerSyncAbortDetail = {
   reason: ScreenerSyncAbortReason;
@@ -76,6 +116,7 @@ export function buildPriorGenerationRetentionAbortDetail(input: {
   priorSyncedAt: string | null | undefined;
   candidateGenerationId: string;
   candidateSyncRunId: string;
+  candidateGappersAccum?: GappersEvidenceAccum;
 }): ScreenerSyncAbortDetail {
   const tabs = PRESERVATION_TABS.map((tab) => ({
     tab,
@@ -93,6 +134,10 @@ export function buildPriorGenerationRetentionAbortDetail(input: {
       prior_synced_at: input.priorSyncedAt ?? null,
       candidate_generation_id: input.candidateGenerationId,
       candidate_sync_run_id: input.candidateSyncRunId,
+      candidate_gappers: summarizeCandidateGappers(
+        input.nextEvidence,
+        input.candidateGappersAccum,
+      ),
       tabs,
     },
   };

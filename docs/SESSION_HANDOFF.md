@@ -1,18 +1,51 @@
-# Session handoff — ISS-024 Layer C tab evidence (November 16, 2026 ET)
+# Session handoff — ISS-034 full-job replay gate (November 17, 2026 ET)
 
-**Baseline:** GitHub `main` **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`**.
+**Branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260**. Option B remains **PR #261** (unchanged this pass).
 
-**PR #259** (`cursor/iss024-layer-c-tab-evidence`): Layer C durable job evidence + review corrections — strengthened `assert_screener_tab_evaluation_evidence_v1` (six tabs, fail-closed on `{}`/partial); integration tests use `assertJsonbDeepEqual`; Batch 216 complete fixture; Layer C Deno suite wired in **Critical screener tests** workflow. **No SQL applied. No Edge deploy.**
+**Mandatory full-universe replay gate:** **SATISFIED** (Nov 17 owner Lovable export run locally; **~13.9 MB JSON not committed** — stays outside Git).
 
-**Activation:** Lovable apply migration → deploy `sync-screener-data` → SQL in `docs/release/batch191-layer-c-tab-evidence-v1.md`.
+| Evidence | Verified |
+| --- | --- |
+| Job ID | `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d` |
+| Universe | **13,240** tickers (`all_tickers`) |
+| Canonical CLI | `deno run --allow-read scripts/ops/iss034-gappers-replay.deno.ts` → **exit 0** |
+| Counters (stored = replayed) | **1302 / 1298 / 1 / 1 / 2** |
+| Counter mismatches | **none** |
+| Unresolved tails | **ASBPW**, **ASPCR** → `missing_prior_close` |
+| Close-versus-prior helper delta | **0** |
+| Frozen baseline | `nhl_baseline_snapshot` — **12,121** quote entries, status `available`; policy exclusions **available** (**2,609** excluded) |
 
-**Head SHA:** `ee3dbe30cef847031e49cf7084366e7386553562` (review corrections).
+**Job clock (export as stored):** `observation.now_ms` / `frozen_at_ms` = **1794866701060** — **milliseconds**, not microseconds; replay uses this value, not live `Date.now()`.
 
-**CI (2026-11-16):** Critical screener tests **PASS** (Layer C PG executed; run `43961435559`); `verify` (migration-order) **PASS**; Vercel **PASS**. Local typecheck/build **PASS**.
+**ISS-034:** **OPEN** — merge **#260** / **#261**, Edge deploy, and production acceptance still pending. **No** merge/deploy/SQL/secrets/flag in this closeout.
 
-**Preserved:** Fly v49, stash `preserve-iss044-docs-mcp`, MCP uncommitted.
+---
 
-**Next:** Merge when approved; ISS-044 20:00 ET; post-activation Layer C audit.
+# Session handoff — ISS-034 Nov 16 all-day scanner stall (November 16, 2026 ET)
+
+**GitHub `main`:** `15aef76e3bc22650a6ccbd0286fb9d4cf3ab1017`.
+
+**Production evidence:** Last publish **9:25 AM ET**; **87** `prior_generation_retained` aborts; Gappers `unresolved_gap_input_count=2` with 1302 volume-active (job `4ed4a4c7-…`). **Cause:** fail-closed Gappers accounting + preserve vs 9:25 evaluated snapshot — **not** Nov 13 open transient.
+
+**Fix branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260** (not merged). Unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`). Option B degraded-tab publication **designed only** — `iss034-option-b-degraded-tab-publication-v1.md`. UI: feed `synced_at` **9:25 AM** but Gappers tab can show **evaluated** morning rows (`screener-truth-state` regression documents mismatch). **ISS-024 Layer C BLOCKED**.
+
+**Preserved:** Fly v49, MCP uncommitted, 8 PM ET ISS-044 acceptance.
+
+---
+
+# Session handoff — ISS-024 Layer C production prep (November 16, 2026 ET)
+
+**GitHub `main`:** **`15aef76e3bc22650a6ccbd0286fb9d4cf3ab1017`** — PR **#259** **merged** (Layer C source complete).
+
+**Production activation:** **BLOCKED** until owner read-only pre-flight in `docs/release/batch191-layer-c-production-activation-v1.md` §1 confirms migration `20261116153000` is **not** applied and records live `sync-screener-data` metadata. **Then:** SQL apply → Edge record/deploy (`sync-screener-data` only) → first-natural-publish SQL verify (`batch191-layer-c-tab-evidence-v1.md`).
+
+**Pre–Layer C rollback Git provenance (Edge redeploy only, not binary):** `53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`. SQL is forward-only after apply.
+
+**Cursor:** **no** SQL, Edge, Fly, cron, or secrets. Fly Radar **v49** preserved for ISS-044 (orthogonal to Layer C).
+
+**Preserved:** stash `preserve-iss044-docs-mcp`, uncommitted `supabase/functions/mcp/index.ts`.
+
+**Next:** Owner Lovable pre-flight → authorized activation → ISS-024 Layer C spot-check; ISS-044 **20:00 ET** acceptance unchanged.
 
 ---
 

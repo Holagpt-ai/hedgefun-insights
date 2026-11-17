@@ -346,6 +346,26 @@ export function gapSuppressedOnlyBySplitScaleGuard(
   return impliesSplitScale(regular, reference);
 }
 
+/**
+ * Replay-only classifier (ISS-034 PR #260 correction). **Not** used in staged publish
+ * accounting. Owner evidence on job `4ed4a4c7-…` showed **zero** production symbols
+ * matching positive `day.c` + `prevDay.c` with missing `day.o`.
+ */
+export function gapSuppressedByCloseVersusPriorWithoutOpen(
+  t: PolygonTicker,
+  opts?: TabSelectionOpts,
+): boolean {
+  const extendedSession = extendedQuoteSemanticsForTicker(t, opts);
+  if (extendedSession === null || extendedSession === true) return false;
+  if (currentSessionOpen(t, false) !== null) return false;
+  const regular = regularClose(t);
+  const prevClose = previousRegularClose(t);
+  if (regular === null || prevClose === null || !(regular > 0) || !(prevClose > 0)) {
+    return false;
+  }
+  return impliesSplitScale(regular, prevClose);
+}
+
 export function gapPercent(
   t: PolygonTicker,
   extendedSession = false,
