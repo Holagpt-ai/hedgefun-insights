@@ -4,7 +4,11 @@
  */
 
 import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
-import { canAllowDegradedGappersPublication } from "./screener-degraded-gappers-publish.ts";
+import {
+  canAllowDegradedGappersPublication,
+  gappersGapInputCoverageIncomplete,
+  preservationCompanionTabsEvaluatedOnCandidate,
+} from "./screener-degraded-gappers-publish.ts";
 import { isPreviousSessionSnapshotDuringLiveSession } from "./screener-session.ts";
 
 type EvidenceStatus = "evaluated" | "prerequisite_unavailable" | "not_evaluated";
@@ -49,6 +53,17 @@ const PRESERVE_TABS = [
   "new_highs_lows",
 ] as const;
 
+function mustRetainIncompleteGappersWithoutVerifiedCompanions(input: {
+  nextEvidence: TabEvaluationEvidenceMap;
+  allowDegradedGappersPublish?: boolean;
+}): boolean {
+  return (
+    input.allowDegradedGappersPublish === true &&
+    gappersGapInputCoverageIncomplete(input.nextEvidence) &&
+    !preservationCompanionTabsEvaluatedOnCandidate(input.nextEvidence)
+  );
+}
+
 export function shouldPreservePriorScreenerGeneration(input: {
   priorEvidence: TabEvaluationEvidenceMap | null | undefined;
   nextEvidence: TabEvaluationEvidenceMap;
@@ -57,6 +72,9 @@ export function shouldPreservePriorScreenerGeneration(input: {
   /** When true, gappers-only `gap_input_coverage_incomplete` does not retain. */
   allowDegradedGappersPublish?: boolean;
 }): boolean {
+  if (mustRetainIncompleteGappersWithoutVerifiedCompanions(input)) {
+    return true;
+  }
   if (
     isPreviousSessionSnapshotDuringLiveSession({
       nowMs: input.nowMs,

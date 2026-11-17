@@ -25,16 +25,29 @@ export function gappersGapInputCoverageIncomplete(
   return g.reason === "gap_input_coverage_incomplete";
 }
 
+/**
+ * Row omission uses the same companion-tab health gate as preserve skip — the filter
+ * cannot strip Gappers rows when G/L + NHL are not `evaluated` on the candidate.
+ */
+export function degradedGappersPublicationRowOmissionAllowed(
+  evidence: TabEvaluationEvidenceMap,
+  publishEnabled: boolean,
+): boolean {
+  if (!publishEnabled) return false;
+  if (!gappersGapInputCoverageIncomplete(evidence)) return false;
+  const gappers = evidence.gappers as GappersTabEvidence | undefined;
+  if (!gappers || gappers.status === "evaluated") return false;
+  return preservationCompanionTabsEvaluatedOnCandidate(evidence);
+}
+
 export function omitGappersRowsForDegradedPublication<T extends { tab_id?: unknown }>(
   rows: readonly T[],
   evidence: TabEvaluationEvidenceMap,
   publishEnabled: boolean,
 ): T[] {
-  if (!publishEnabled || !gappersGapInputCoverageIncomplete(evidence)) {
+  if (!degradedGappersPublicationRowOmissionAllowed(evidence, publishEnabled)) {
     return [...rows];
   }
-  const gappers = evidence.gappers as GappersTabEvidence;
-  if (gappers.status === "evaluated") return [...rows];
   return rows.filter((row) => row.tab_id !== "gappers");
 }
 

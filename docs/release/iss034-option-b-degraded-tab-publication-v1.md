@@ -54,6 +54,8 @@
 - **Strict Option B eligibility:** flag skips preserve only when **only** Gappers degrades, reason `gap_input_coverage_incomplete`, and **`gainers_losers` + `new_highs_lows` are `evaluated` on the candidate** — prior-tab unavailability does not count as verified.
 - **Radar:** `shouldRestoreGappersFromRadar` returns false for published `gap_input_coverage_incomplete`.
 - **Handler accounting:** JSON `tabs` and provider bounds use **published** row payload (zero Gappers after filter).
+- **Row omission ≡ companion health:** `omitGappersRowsForDegradedPublication` uses `degradedGappersPublicationRowOmissionAllowed` (same G/L + NHL `evaluated` gate). Incomplete Gappers without verified companions → **retain** (flag on) and **do not** strip rows.
+- **Release gate:** mandatory full-universe replay for job `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d` (**13,240** tickers). The **1,302**-symbol-shaped CI fixture is **not** full validation (`iss034-nov16-all-day-publication-stall-v1.md`).
 
 ## Regression plan (post-approval implementation)
 
