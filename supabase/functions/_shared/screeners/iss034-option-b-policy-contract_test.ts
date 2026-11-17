@@ -9,7 +9,7 @@ import { shouldPreservePriorScreenerGeneration } from "./generation-preserve.ts"
 const MORNING = "2026-11-16T14:25:00.000Z";
 const AFTERNOON = Date.parse("2026-11-16T22:05:00.000Z");
 
-Deno.test("Option B contract (current): gappers-only degrade retains prior generation", () => {
+Deno.test("R1: gappers-only degrade retains prior generation when flag off", () => {
   const prior = {
     gappers: {
       status: "evaluated" as const,

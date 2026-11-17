@@ -171,6 +171,8 @@ jobs:
           supabase/functions/_shared/screeners/iss034-nov16-asbpw-aspcr-production-replay_test.ts
           supabase/functions/_shared/screeners/iss034-job-gappers-replay_test.ts
           supabase/functions/_shared/screeners/iss034-option-b-policy-contract_test.ts
+          supabase/functions/_shared/screeners/iss034-option-b-implementation_test.ts
+          supabase/functions/_shared/screeners/iss034-option-b-release-gate_test.ts
           supabase/functions/sync-screener-data/handler_evidence_persistence_test.ts
           supabase/functions/_shared/market-data/float_test.ts
           supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts

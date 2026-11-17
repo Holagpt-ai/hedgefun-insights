@@ -1,6 +1,6 @@
 # Session handoff — ISS-034 full-job replay gate (November 17, 2026 ET)
 
-**Branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260**. Option B remains **PR #261** (unchanged this pass).
+**Status:** **PR #260** merged to **`main`** @ `b04789c00ad954716a9a16403c66dd21b9724b4c`.
 
 **Mandatory full-universe replay gate:** **SATISFIED** (Nov 17 owner Lovable export run locally; **~13.9 MB JSON not committed** — stays outside Git).
 
@@ -17,17 +17,24 @@
 
 **Job clock (export as stored):** `observation.now_ms` / `frozen_at_ms` = **1794866701060** — **milliseconds**, not microseconds; replay uses this value, not live `Date.now()`.
 
-**ISS-034:** **OPEN** — merge **#260** / **#261**, Edge deploy, and production acceptance still pending. **No** merge/deploy/SQL/secrets/flag in this closeout.
+**ISS-034:** **OPEN** — **#261** (Option B) pending on **`main`**; Edge deploy and production acceptance after owner authorization.
+
+---
+
+# Session handoff — ISS-034 Option B (November 17, 2026 ET)
+
+**Branch:** `cursor/iss034-option-b-degraded-gappers-publish` — **PR #261** (base **`main`**).  
+**Flag:** `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` default **off**. **No** deploy/SQL/secrets/flag activation.
 
 ---
 
 # Session handoff — ISS-034 Nov 16 all-day scanner stall (November 16, 2026 ET)
 
-**GitHub `main`:** `15aef76e3bc22650a6ccbd0286fb9d4cf3ab1017`.
+**GitHub `main`:** `b04789c00ad954716a9a16403c66dd21b9724b4c` (**#260** merged).
 
 **Production evidence:** Last publish **9:25 AM ET**; **87** `prior_generation_retained` aborts; Gappers `unresolved_gap_input_count=2` with 1302 volume-active (job `4ed4a4c7-…`). **Cause:** fail-closed Gappers accounting + preserve vs 9:25 evaluated snapshot — **not** Nov 13 open transient.
 
-**Fix branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260** (not merged). Unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`). Option B degraded-tab publication **designed only** — `iss034-option-b-degraded-tab-publication-v1.md`. UI: feed `synced_at` **9:25 AM** but Gappers tab can show **evaluated** morning rows (`screener-truth-state` regression documents mismatch). **ISS-024 Layer C BLOCKED**.
+**Fix:** **#260** merged; **#261** Option B pending. Unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`). UI: feed `synced_at` **9:25 AM** but Gappers tab can show **evaluated** morning rows (`screener-truth-state` regression documents mismatch). **ISS-024 Layer C BLOCKED**.
 
 **Preserved:** Fly v49, MCP uncommitted, 8 PM ET ISS-044 acceptance.
 

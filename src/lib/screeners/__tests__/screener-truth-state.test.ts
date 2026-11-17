@@ -72,7 +72,36 @@ function gapperRow(symbol: string, gap: number, volume: number): ScreenerResultR
 }
 
 describe("screener truth-state resolver", () => {
-  it("ISS-034 Nov16: stale feed with morning gappers evaluated still shows evaluated_with_results", () => {
+  it("ISS-034 R6: gappers prerequisite_unavailable hides stale rows", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "available",
+      rowCount: 12,
+      syncedAt: "2026-11-16T17:05:00.000Z",
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 13240,
+          volume_positive_count: 1302,
+          gap_calculable_count: 1298,
+          no_prior_session_count: 1,
+          split_scale_suppressed_count: 1,
+          unresolved_gap_input_count: 2,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "gap_input_coverage_incomplete",
+        },
+      },
+    });
+    expect(truth.reason).toBe("prerequisite_unavailable");
+    expect(truth.title).toBe(
+      "Gappers evaluation unavailable — incomplete market data.",
+    );
+    expect(truth.showRows).toBe(false);
+    expect(truth.showFreshness).toBe(true);
+  });
+
+  it("ISS-034 Nov16: morning gappers evaluated still shows evaluated_with_results", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
       status: "available",
@@ -243,7 +272,9 @@ describe("screener truth-state resolver", () => {
       },
     });
     expect(truth.reason).toBe("prerequisite_unavailable");
-    expect(truth.explanation).toContain("Prior-close and gap inputs were unavailable");
+    expect(truth.explanation).toContain(
+      "could not verify gap inputs for every volume-active symbol",
+    );
   });
 
   it("gappers: 20 valid rows → available with results", () => {

@@ -28,6 +28,12 @@ export function shouldRestoreGappersFromRadar(view: {
     "gappers",
   );
   if (evidence && "status" in evidence && evidence.status === "evaluated") return false;
+  if (
+    evidence?.status === "prerequisite_unavailable" &&
+    evidence.reason === "gap_input_coverage_incomplete"
+  ) {
+    return false;
+  }
   if (view.rows.length > 0 && view.status === "available") return false;
   return (
     view.status === "unavailable" ||
