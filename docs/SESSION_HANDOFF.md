@@ -1,9 +1,23 @@
-# Session handoff — ISS-034 full-job replay readiness (November 16, 2026 ET)
+# Session handoff — ISS-034 full-job replay gate (November 17, 2026 ET)
 
-**Branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260** only (Option B remains **#261**, untouched this pass).  
-**Replay:** `iss034-job-gappers-replay.ts` + `scripts/ops/iss034-gappers-replay.deno.ts` require frozen `nhl_baseline_snapshot`, job `observation` clock, `all_tickers`, `merged_artifacts.gappersAccum`. **No** `Date.now()` / live baseline fallback.  
-**Export spec:** `docs/release/iss034-nov16-full-job-replay-export-v1.md` — job `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d`.  
-**Full 13,240 replay:** **NOT RUN** — Lovable JSON export **not in repo** (release gate **unresolved**). CI: `iss034-job-gappers-replay_test.ts` (4) **PASS** locally.
+**Branch:** `cursor/iss034-nov16-gappers-stall` — **PR #260**. Option B remains **PR #261** (unchanged this pass).
+
+**Mandatory full-universe replay gate:** **SATISFIED** (Nov 17 owner Lovable export run locally; **~13.9 MB JSON not committed** — stays outside Git).
+
+| Evidence | Verified |
+| --- | --- |
+| Job ID | `4ed4a4c7-d8c4-4582-bd89-cc949d6e291d` |
+| Universe | **13,240** tickers (`all_tickers`) |
+| Canonical CLI | `deno run --allow-read scripts/ops/iss034-gappers-replay.deno.ts` → **exit 0** |
+| Counters (stored = replayed) | **1302 / 1298 / 1 / 1 / 2** |
+| Counter mismatches | **none** |
+| Unresolved tails | **ASBPW**, **ASPCR** → `missing_prior_close` |
+| Close-versus-prior helper delta | **0** |
+| Frozen baseline | `nhl_baseline_snapshot` — **12,121** quote entries, status `available`; policy exclusions **available** (**2,609** excluded) |
+
+**Job clock (export as stored):** `observation.now_ms` / `frozen_at_ms` = **1794866701060** — **milliseconds**, not microseconds; replay uses this value, not live `Date.now()`.
+
+**ISS-034:** **OPEN** — merge **#260** / **#261**, Edge deploy, and production acceptance still pending. **No** merge/deploy/SQL/secrets/flag in this closeout.
 
 ---
 
