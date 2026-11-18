@@ -1,5 +1,10 @@
 # AM Inbox — `late_session_handoff_list_active_v1` ACL correction V1
 
+## Production activation closeout — November 18, 2026, 18:37 ET
+
+**COMPLETED BY OWNER-AUTHORIZED DIRECT LOVABLE CLOUD SQL EXECUTION; NOT A RECORDED MIGRATION-LEDGER APPLY.** PR #265 squash-merged `be8659df81157a8964f709cce1d4a4caacf24243`. Native Lovable migration-history inspection returned `too many migration revisions to establish a unique applied history`; owner separately approved direct execution of the two statements already in the merged migration file, with no wider SQL replay. Production check at **2026-11-18 23:37:37 UTC**: `anon EXECUTE=false`, `authenticated=true`, `service_role=true`, `SECURITY DEFINER=true`, function definition hash `df1282e91f6667bb2dd45c704abbfca6` unchanged. **Neither Supabase nor Drizzle migration ledger was backfilled, edited, or marked applied.** No other SQL, Edge, Fly, Vercel, frontend, secrets, cron, or `deno.lock` modification. Anonymous-execute security defect closed; authenticated AM Inbox UI acceptance **ISS-025 remains OPEN**. Do not repeat this SQL merely to reconcile history; establish separate authorization if drift is independently confirmed.
+
+
 **Scope:** SQL migration + pgTAP ACL regression only. **No** frontend, Edge, Fly, cron, secrets, or production apply from Cursor.
 
 **Baseline:** GitHub `main` at branch open (post ISS-049 Fly worker `47f2136b`).
