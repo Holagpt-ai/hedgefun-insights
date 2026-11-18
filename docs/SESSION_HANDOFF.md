@@ -1,3 +1,65 @@
+# Session handoff — ISS-034 `sync-screener-data` rollback exception closeout (November 17, 2026 ET)
+
+**Status:** Owner-approved **one-time Git-snapshot-only rollback exception** documented. **No** Edge deploy, SQL, secrets change, Option B activation, or Lovable apply performed from Cursor.
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` | **`5f00210f2d8dca9143158f17d003cb5bab0e6031`** (PR **#262**; **#260** + **#261** on `main`) |
+| Lovable integration / editor | **`b181f6089ece0aa836e34d1eb7f222cba5716062`** |
+| Live `sync-screener-data` Edge revision | **UNKNOWN** — no verified version id; **no binary rollback** |
+| **ISS-034** | **OPEN** (deploy + natural-session acceptance still required) |
+| **ISS-024 Layer C** | **Separate / BLOCKED** — not part of this exception |
+
+## Fallback Git sources (validated in repo; not live binaries)
+
+| SHA | Role | Use for this exception? |
+| --- | --- | --- |
+| **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** | Batch **227** / Batch **228** family — last documented **scanner Edge** recovery commit before **#260** / **#261** handler work | **Yes** — **approved recovery Git source** if a failed deploy requires redeploy of pre–ISS-034-fix scanner logic |
+| **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`** | Pre–Layer C parent per `batch191-layer-c-production-activation-v1.md` | **No** (default) — reserve for **Layer C** activation/rollback narrative only; not the ISS-034 scanner default |
+
+Redeploying either SHA through Lovable **builds new Edge bytes**; it does **not** restore a prior platform artifact.
+
+## Option B gate (mandatory before release)
+
+Code on `main` fail-closes unless `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH === "true"`. **Before** any `sync-screener-data` deploy:
+
+1. In Lovable Cloud → Edge secrets (project `zcjptaolpumhtlwhlemq`), **confirm** the secret is **unset** or **not exactly** `"true"`.
+2. Record owner attestation in the deploy note (secret name + observed value or “absent”).
+3. **UNKNOWN** (not inspected) **blocks** release.
+
+Do **not** set the flag to `"true"` unless a separate owner ticket authorizes Option B production activation.
+
+## Exact Lovable deployment instructions (`sync-screener-data` only)
+
+Executor: **Lovable Cloud** on `zcjptaolpumhtlwhlemq`. Procedure shell: `docs/release/edge-function-release-lovable.md`.
+
+1. **Before:** Note **live Edge version id** from Lovable if exposed; if unavailable, record **UNKNOWN** (matches rollback exception).
+2. **Source parity:** Confirm Lovable project active SHA is **`b181f608`** (or later integration tip that is an ancestor of **`5f00210f`**).
+3. **Option B preflight:** Complete § Option B gate above — **OFF confirmed**.
+4. **Scope:** Deploy **only** **`sync-screener-data`**. Supabase bundles required `supabase/functions/_shared/**` imports; **do not** deploy other Edge functions, MCP, Fly, cron, Vercel, or SQL.
+5. **Deploy:** Lovable Cloud → Edge Functions → **`sync-screener-data`** → deploy from synced project source (one function).
+6. **After:** Capture deploy timestamp, Lovable-reported success/failure, and any **source/settings fingerprint** Lovable exposes; running revision id if shown, else **UNKNOWN**.
+7. **Smoke:** `OPTIONS` on `/functions/v1/sync-screener-data` (expect HTTP 200). No synthetic full-universe scan unless owner approves.
+8. **Do not:** Apply migration `20261116153000`, change unrelated secrets, enable Option B, or activate Penny/Layer C.
+
+## Rollback if deploy is unacceptable
+
+1. **No** platform “revert to previous binary” unless Lovable exposes a restorable version id (currently **UNKNOWN**).
+2. Owner may authorize **one** redeploy from Git **`e7a3eaee`** via Lovable (same single-function scope). Update `docs/DEPLOYMENT_STATUS.md` with time + result.
+3. Do **not** use **`53a0ee4c`** for ISS-034 scanner rollback unless a separate Layer C owner decision says otherwise.
+
+## Owner authorizations still required (not done)
+
+| Step | Authorization |
+| --- | --- |
+| Edge deploy `5f00210f` / `b181f608` source | Explicit owner **go** for production `sync-screener-data` |
+| Option B secret state | **Definitive OFF** confirmation (not UNKNOWN) |
+| Rollback exception | Acknowledged Git-only recovery via **`e7a3eaee`** |
+| ISS-034 acceptance | Natural session observation after deploy |
+| ISS-024 Layer C | **Separate** activation runbook — **not** in this batch |
+
+---
+
 # Session handoff — ISS-034 full-job replay gate (November 17, 2026 ET)
 
 **Status:** **PR #260** merged to **`main`** @ `b04789c00ad954716a9a16403c66dd21b9724b4c`.
