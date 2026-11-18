@@ -920,8 +920,19 @@ export type RadarV2WriteReason =
   | "backoff"
   | "skip";
 
-/** After a failed V2 RPC, suppress churn retries until cooldown elapses. */
+/** Minimum backoff after a failed V2 RPC before another churn write. */
 export const RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS = 15_000;
+
+/** Cap so sustained DB timeouts do not hammer replace RPC every eval tick. */
+export const RADAR_V2_PERSIST_FAILURE_BACKOFF_CAP_MS = 60_000;
+
+export function radarV2PersistFailureBackoffMs(checkpointMs: number): number {
+  const cappedCheckpoint = Math.min(
+    Math.max(checkpointMs, RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS),
+    RADAR_V2_PERSIST_FAILURE_BACKOFF_CAP_MS,
+  );
+  return Math.max(RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS, cappedCheckpoint);
+}
 export {
   createRadarV2EventPublishQueue,
   RADAR_V2_MAX_EVENTS_PER_PUBLISH,
@@ -1003,10 +1014,12 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
         eventKeys,
       });
 
+      const failureBackoffMs = radarV2PersistFailureBackoffMs(
+        input.checkpointMs,
+      );
       if (
         lastFailureMs !== null &&
-        input.wallNowMs - lastFailureMs <
-          RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS &&
+        input.wallNowMs - lastFailureMs < failureBackoffMs &&
         !isForcedSessionWrite(input)
       ) {
         return decision(false, "backoff");

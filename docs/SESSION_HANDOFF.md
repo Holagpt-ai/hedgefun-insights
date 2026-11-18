@@ -1,3 +1,25 @@
+# Session handoff — ISS-034 post-deploy + ISS-049 Radar persistence (November 18, 2026 ET)
+
+**GitHub `main`:** **`de3d6d9c`** (includes **#263** rollback exception docs). **ISS-024 Layer C:** **separate / BLOCKED** (unchanged).
+
+## ISS-034 — owner-reported production evidence (not full acceptance)
+
+| Field | Value |
+| --- | --- |
+| Edge deploy | **`sync-screener-data`**, **~2026-11-18 17:10:30 UTC** |
+| Submitted-source fingerprint | **`e16fba307fd842e3df5984432153976286bca7221c77f6ac0f8dae820c0a21fd`** |
+| Option B | **OFF** |
+| First natural generation | **17:15 UTC** — **7/7**, **103** rows, six tabs evaluated |
+| Gappers unresolved | **0** |
+| Continuation error / abort | **none recorded** |
+| **ISS-034** | **OPEN** — remaining Batch **191** matrix / multi-session acceptance |
+
+## ISS-049 — Radar V2 persistence (P0; separate from screener)
+
+Lovable: **23** statement cancellations (~24 h); **99** failed Radar DB saves (~8 min). Investigation: Fly → `publish_candidates_v2` → **`replace_radar_v22_candidates_v1`** (`radar_v22_*` tables). **Not** `sync-screener-data` publish RPCs unless log correlation proves otherwise. Runbook: `docs/release/iss049-radar-persistence-statement-cancel-v1.md`. Worker backoff alignment PR pending; **no** Fly/SQL deploy from Cursor.
+
+---
+
 # Session handoff — ISS-034 `sync-screener-data` rollback exception closeout (November 17, 2026 ET)
 
 **Status:** Owner-approved **one-time Git-snapshot-only rollback exception** documented. **No** Edge deploy, SQL, secrets change, Option B activation, or Lovable apply performed from Cursor.
