@@ -112,6 +112,8 @@ write_disposable_prereqs() {
   cat > "$STUB" <<'SQL'
 CREATE TABLE IF NOT EXISTS public.daily_briefs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brief_type text,
+  brief_date date,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.daily_briefs ENABLE ROW LEVEL SECURITY;
