@@ -370,6 +370,21 @@ CREATE TABLE IF NOT EXISTS public.security_backfill_jobs (
   metadata jsonb
 );
 
+CREATE TABLE IF NOT EXISTS public.security_episode_events (
+  episode_event_id uuid PRIMARY KEY,
+  episode_id uuid NOT NULL REFERENCES public.market_behavior_episodes (episode_id),
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  event_type text NOT NULL,
+  event_at timestamptz NOT NULL,
+  price numeric,
+  volume numeric,
+  metadata jsonb,
+  provenance text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  created_at timestamptz NOT NULL
+);
+
 -- Disposable placeholders so later migrations that inspect Vault at apply
 -- time can compile. These are not production credentials.
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
