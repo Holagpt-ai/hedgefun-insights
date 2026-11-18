@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 2026-11-18 — Completed release and production ACL correction (verified; retain open acceptance separately)
+
+- **PR #265** merged to GitHub `main` at squash SHA `be8659df81157a8964f709cce1d4a4caacf24243`. Four Journal DB CI jobs green and pgTAP `late_session_handoff_function_acl.test.sql` ran successfully. CI-only disposable historical-intelligence stubs resolved existing Journal bootstrap failures; no production migration rewrite.
+- **AM Inbox ACL production correction COMPLETE:** Lovable native migration-history inspection could not establish unique applied history, so the owner separately approved **direct execution** of ONLY `REVOKE ALL ON FUNCTION public.late_session_handoff_list_active_v1(date) FROM PUBLIC, anon;` and `GRANT EXECUTE ... TO authenticated, service_role;`. Production read-only recheck at 23:37:37 UTC: `anon=false`, `authenticated=true`, `service_role=true`; `SECURITY DEFINER` retained; definition MD5 `df1282e91f6667bb2dd45c704abbfca6` unchanged. **No migration ledger entry written**; neither Drizzle nor Supabase ledger changed. `deno.lock` unmodified.
+- **PR #264** merged at `47f2136b7cb35234cc85d23bccd090d202eea5e0`. Fly-only Radar worker **v50** deployed ~18:06 UTC Nov 18 with `radarV2PersistFailureBackoffMs` (checkpoint 30s, floor 15s/cap 60s), image `deployment-01M7QXBMQERTR1FCQZVCT4V00M`. Successful postdeploy `publish_candidates_v2` HTTP 200 at 130s budget. **ISS-049 OPEN** for natural error/backoff and ~24h persisted-write/timeout acceptance; v49 image preserved for separately authorized rollback.
+- **ISS-034 release:** PRs #260–#263 merged; `sync-screener-data` deployed only via Lovable ~17:10:30 UTC with Option B confirmed OFF and source fingerprint `e16fba307fd842e3df5984432153976286bca7221c77f6ac0f8dae820c0a21fd`. 17:15 UTC natural 7/7, 103 rows, six tabs evaluated, Gappers unresolved 0. **ISS-034 OPEN** pending remainder of Batch 191 matrix.
+- **Lovable warning triage:** Batch 37 Upstash shared cache confirmed in production (38 requests/3d, 0 HTTP 429); >20-symbol historical progressive batching confirmed in live frontend and 28/28 tests; RVOL confidence fix confirmed in live frontend and 8,873 stored high-RVOL handoffs (0 missing baselines); AM Inbox qualified fallback confirmed in live frontend/tests. These are **not** new code implementation work. Live-session acceptance remains separate. The earlier `scanner_intelligence_alerts` critical heuristic was not confirmed personal-data exposure; business entitlements still merit eventual review.
+
+
 ## 2026-11-17 (ISS-034 — full-universe replay gate; PR #260; not merged)
 
 - Mandatory **13,240**-ticker replay **SATISFIED** on job `4ed4a4c7-…` (exit 0; counters **1302/1298/1/1/2**). Export not in git. **ISS-034 OPEN** until merge/deploy/acceptance.
