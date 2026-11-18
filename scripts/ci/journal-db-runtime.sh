@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS public.screener_results (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tab_id text,
   symbol text,
+  volume numeric,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.screener_results ENABLE ROW LEVEL SECURITY;
