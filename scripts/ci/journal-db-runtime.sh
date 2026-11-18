@@ -85,9 +85,10 @@ node "$ROOT/scripts/journal/verify-canonical-migrations.mjs"
 HELD="$(mktemp -d)"
 DB_CONTAINER=""
 STUB="$ROOT/supabase/migrations/20260611180000_ci_disposable_prereqs.sql"
+STUB_BEHAVIOR_FN="$ROOT/supabase/migrations/20260922225000_ci_disposable_behavior_profile_fn_drop.sql"
 
 cleanup() {
-  rm -f "$STUB"
+  rm -f "$STUB" "$STUB_BEHAVIOR_FN"
   if [[ -d "$HELD" ]]; then
     restore_held_sql
     rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
@@ -383,6 +384,12 @@ SELECT cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('journal-private', 'journal-private', false)
 ON CONFLICT (id) DO UPDATE SET public = false;
+SQL
+
+  # v2 widens behavior_profile_list_candidates_v1 OUT columns; Postgres forbids
+  # CREATE OR REPLACE when the return row type changes (42P13).
+  cat > "$STUB_BEHAVIOR_FN" <<'SQL'
+DROP FUNCTION IF EXISTS public.behavior_profile_list_candidates_v1(uuid, integer);
 SQL
 }
 

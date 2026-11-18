@@ -49,7 +49,7 @@ GRANT EXECUTE ON FUNCTION public.late_session_handoff_list_active_v1(date) TO au
 | Layer | Command / artifact |
 | --- | --- |
 | ACL (pgTAP) | `supabase test db --local supabase/tests/database/late_session_handoff_function_acl.test.sql` (also wired in `scripts/ci/journal-db-runtime.sh` **Clean database** job) |
-| Journal disposable bootstrap | `scripts/ci/journal-db-runtime.sh` `write_disposable_prereqs` stubs Drizzle-only security-intelligence tables before `20260922160000_historical_backfill_supabase_rpc_v1.sql` (CI-only; not a production migration) |
+| Journal disposable bootstrap | `write_disposable_prereqs` stubs Drizzle-only security-intelligence tables before `20260922160000_*`; ephemeral `20260922225000_ci_disposable_behavior_profile_fn_drop.sql` drops `behavior_profile_list_candidates_v1` so `20260922230000_*` can widen its OUT row (42P13 on fresh runners). **CI-only** — not production migrations. |
 | AM Inbox client (no code change) | `npm run test -- src/lib/am-inbox/__tests__/batch217-am-inbox-production-readiness.test.ts src/lib/am-inbox/__tests__/batch186-am-inbox-continuation-acceptance.test.ts src/lib/am-inbox/__tests__/am-inbox-late-session.test.ts` |
 | Continuation scoring | **No changes** in this batch (see test evidence below) |
 
