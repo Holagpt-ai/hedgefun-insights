@@ -85,9 +85,10 @@ node "$ROOT/scripts/journal/verify-canonical-migrations.mjs"
 HELD="$(mktemp -d)"
 DB_CONTAINER=""
 STUB="$ROOT/supabase/migrations/20260611180000_ci_disposable_prereqs.sql"
+STUB_BEHAVIOR_FN="$ROOT/supabase/migrations/20260922225000_ci_disposable_behavior_profile_fn_drop.sql"
 
 cleanup() {
-  rm -f "$STUB"
+  rm -f "$STUB" "$STUB_BEHAVIOR_FN"
   if [[ -d "$HELD" ]]; then
     restore_held_sql
     rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
@@ -111,6 +112,8 @@ write_disposable_prereqs() {
   cat > "$STUB" <<'SQL'
 CREATE TABLE IF NOT EXISTS public.daily_briefs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brief_type text,
+  brief_date date,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.daily_briefs ENABLE ROW LEVEL SECURITY;
@@ -119,6 +122,7 @@ CREATE TABLE IF NOT EXISTS public.screener_results (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tab_id text,
   symbol text,
+  volume numeric,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.screener_results ENABLE ROW LEVEL SECURITY;
@@ -254,6 +258,136 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authentica
 GRANT ALL ON TABLE public.journal_trades TO service_role;
 GRANT ALL ON TABLE public.journal_notes TO service_role;
 
+-- Security intelligence tables are applied in production via Drizzle (0005/0006)
+-- but are absent from the committed supabase/migrations chain. Stubs here are
+-- CI-only compile prerequisites for 20260922160000_historical_backfill_supabase_rpc_v1.sql.
+CREATE TABLE IF NOT EXISTS public.securities (
+  security_id uuid PRIMARY KEY,
+  current_symbol text NOT NULL,
+  issuer_name text,
+  security_type text NOT NULL,
+  exchange text,
+  country text,
+  adr_status text NOT NULL,
+  active boolean NOT NULL,
+  resolution_state text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.security_symbol_history (
+  history_id uuid PRIMARY KEY,
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  symbol text NOT NULL,
+  exchange text,
+  effective_from date NOT NULL,
+  effective_to date,
+  source text,
+  source_as_of timestamptz,
+  provenance text NOT NULL,
+  observed_at timestamptz,
+  fetched_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.security_reference_identifiers (
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  identifier_kind text NOT NULL,
+  identifier_value text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  provenance text NOT NULL,
+  observed_at timestamptz,
+  fetched_at timestamptz,
+  PRIMARY KEY (security_id, identifier_kind)
+);
+
+CREATE TABLE IF NOT EXISTS public.security_daily_history (
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  session_date date NOT NULL,
+  observed_symbol text,
+  exchange text,
+  open numeric,
+  high numeric,
+  low numeric,
+  close numeric,
+  volume numeric,
+  dollar_volume numeric,
+  previous_close numeric,
+  move_pct numeric,
+  source text,
+  source_as_of timestamptz,
+  fetched_at timestamptz,
+  computed_at timestamptz,
+  quality text NOT NULL,
+  freshness text NOT NULL,
+  provenance text NOT NULL,
+  PRIMARY KEY (security_id, session_date)
+);
+
+CREATE TABLE IF NOT EXISTS public.market_behavior_episodes (
+  episode_id uuid PRIMARY KEY,
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  episode_start timestamptz NOT NULL,
+  episode_end timestamptz,
+  observed_symbol text,
+  direction text NOT NULL,
+  tier text NOT NULL,
+  start_price numeric,
+  high_price numeric,
+  low_price numeric,
+  end_price numeric,
+  max_positive_move_pct numeric,
+  max_negative_move_pct numeric,
+  volume numeric,
+  dollar_volume numeric,
+  rvol numeric,
+  float_turnover numeric,
+  halt_count integer,
+  close_strength numeric,
+  detected_by text,
+  origin text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  fetched_at timestamptz,
+  computed_at timestamptz,
+  quality text NOT NULL,
+  freshness text NOT NULL,
+  provenance text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.security_backfill_jobs (
+  job_id uuid PRIMARY KEY,
+  job_type text NOT NULL,
+  state text NOT NULL,
+  date_from date NOT NULL,
+  date_to date NOT NULL,
+  cursor_date date,
+  cursor_token text,
+  processed_count integer NOT NULL,
+  error_count integer NOT NULL,
+  started_at timestamptz,
+  updated_at timestamptz NOT NULL,
+  completed_at timestamptz,
+  metadata jsonb
+);
+
+CREATE TABLE IF NOT EXISTS public.security_episode_events (
+  episode_event_id uuid PRIMARY KEY,
+  episode_id uuid NOT NULL REFERENCES public.market_behavior_episodes (episode_id),
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  event_type text NOT NULL,
+  event_at timestamptz NOT NULL,
+  price numeric,
+  volume numeric,
+  metadata jsonb,
+  provenance text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  created_at timestamptz NOT NULL
+);
+
 -- Disposable placeholders so later migrations that inspect Vault at apply
 -- time can compile. These are not production credentials.
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
@@ -268,6 +402,12 @@ SELECT cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('journal-private', 'journal-private', false)
 ON CONFLICT (id) DO UPDATE SET public = false;
+SQL
+
+  # v2 widens behavior_profile_list_candidates_v1 OUT columns; Postgres forbids
+  # CREATE OR REPLACE when the return row type changes (42P13).
+  cat > "$STUB_BEHAVIOR_FN" <<'SQL'
+DROP FUNCTION IF EXISTS public.behavior_profile_list_candidates_v1(uuid, integer);
 SQL
 }
 
@@ -923,6 +1063,8 @@ if [[ "$MODE" == "clean" ]]; then
   run_fn_acl_failure_injection
   echo "==> running function ACL hardening pgTAP tests"
   supabase test db --local supabase/tests/database/journal_function_acl_hardening.test.sql
+  echo "==> running late-session handoff list_active ACL pgTAP tests"
+  supabase test db --local supabase/tests/database/late_session_handoff_function_acl.test.sql
   echo "==> clean-database job passed"
   exit 0
 fi
