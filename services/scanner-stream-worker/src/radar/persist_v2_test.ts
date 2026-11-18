@@ -22,6 +22,7 @@ import {
   publishRadarV2IfNeeded,
   RADAR_V22_CANDIDATE_CAP,
   RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS,
+  radarV2PersistFailureBackoffMs,
   REPLACE_RADAR_V2_RPC,
   RADAR_V2_MAX_EVENTS_PER_PUBLISH,
   replaceArgsFromView,
@@ -768,11 +769,12 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
   assertEquals(duringCooldown, "skipped");
   assertEquals(calls, 1);
   fail = false;
+  const retryAt = radarV2PersistFailureBackoffMs(CHECKPOINT) + 1_000;
   const retry = await publishRadarV2IfNeeded({
     flagEnabled: true,
     result: live,
     gate,
-    wallNowMs: 16_000,
+    wallNowMs: retryAt,
     checkpointMs: CHECKPOINT,
     generationId: GEN2,
     syncedAt: "2026-08-10T14:00:16.000Z",
@@ -792,6 +794,12 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
   });
   assertEquals(skipped, "skipped");
   assertEquals(calls, 2);
+});
+
+Deno.test("persist failure backoff tracks checkpoint up to cap", () => {
+  assertEquals(radarV2PersistFailureBackoffMs(5_000), 15_000);
+  assertEquals(radarV2PersistFailureBackoffMs(30_000), 30_000);
+  assertEquals(radarV2PersistFailureBackoffMs(120_000), 60_000);
 });
 
 Deno.test("persist failure cooldown suppresses fingerprint churn retries", async () => {
@@ -834,9 +842,10 @@ Deno.test("persist failure cooldown suppresses fingerprint churn retries", async
   });
   assertEquals(churn, "skipped");
   assertEquals(calls, 1);
+  const failureBackoff = radarV2PersistFailureBackoffMs(30_000);
   assertEquals(
     gate.decide({
-      wallNowMs: RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS - 1,
+      wallNowMs: failureBackoff - 1,
       checkpointMs: 30_000,
       tradingDate: "2026-08-10",
       sessionKind: "market",
@@ -1406,7 +1415,9 @@ Deno.test("stale_generation RPC is a V2 failure and does not mark write-gate suc
   const duringBackoff = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
   assertEquals(duringBackoff.shouldWrite, false);
   assertEquals(duringBackoff.reason, "backoff");
-  const afterBackoff = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 20_000 }));
+  const afterBackoff = gate.decide(churnInput([candidate("AAA")], {
+    wallNowMs: radarV2PersistFailureBackoffMs(CHECKPOINT) + 1_000,
+  }));
   assertEquals(afterBackoff.shouldWrite, true);
   assert(afterBackoff.reason === "bootstrap" || afterBackoff.reason === "events");
 });
