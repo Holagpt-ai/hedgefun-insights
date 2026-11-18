@@ -23,19 +23,19 @@ Redeploying either SHA through Lovable **builds new Edge bytes**; it does **not*
 
 Code on `main` fail-closes unless `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH === "true"`. **Before** any `sync-screener-data` deploy:
 
-1. In Lovable Cloud → Edge secrets (project `zcjptaolpumhtlwhlemq`), **confirm** the secret is **unset** or **not exactly** `"true"`.
-2. Record owner attestation in the deploy note (secret name + observed value or “absent”).
-3. **UNKNOWN** (not inspected) **blocks** release.
+1. In Lovable Cloud → Edge secrets (project `zcjptaolpumhtlwhlemq`), inspect `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` and classify attestation as **OFF**, **ON**, or **UNKNOWN** only (OFF = unset or not enabling Option B production behavior).
+2. Record owner attestation in the deploy note: secret **name** + attestation (**OFF** / **ON** / **UNKNOWN**). **Never** log, paste, or commit secret **values** in docs, tickets, or git.
+3. Release requires attestation **OFF**. **UNKNOWN** (not inspected) **blocks** release.
 
-Do **not** set the flag to `"true"` unless a separate owner ticket authorizes Option B production activation.
+Do **not** set the flag to enable Option B unless a separate owner ticket authorizes Option B production activation.
 
 ## Exact Lovable deployment instructions (`sync-screener-data` only)
 
 Executor: **Lovable Cloud** on `zcjptaolpumhtlwhlemq`. Procedure shell: `docs/release/edge-function-release-lovable.md`.
 
 1. **Before:** Note **live Edge version id** from Lovable if exposed; if unavailable, record **UNKNOWN** (matches rollback exception).
-2. **Source parity:** Confirm Lovable project active SHA is **`b181f608`** (or later integration tip that is an ancestor of **`5f00210f`**).
-3. **Option B preflight:** Complete § Option B gate above — **OFF confirmed**.
+2. **Source parity:** Confirm Lovable project active SHA is **`b181f608`** or a **later** approved integration/editor tip such that GitHub `main` **`5f00210f`** is a **git ancestor** of that commit (`git merge-base --is-ancestor 5f00210f <lovable-tip>` must succeed).
+3. **Option B preflight:** Complete § Option B gate above — attestation **OFF** (not UNKNOWN).
 4. **Scope:** Deploy **only** **`sync-screener-data`**. Supabase bundles required `supabase/functions/_shared/**` imports; **do not** deploy other Edge functions, MCP, Fly, cron, Vercel, or SQL.
 5. **Deploy:** Lovable Cloud → Edge Functions → **`sync-screener-data`** → deploy from synced project source (one function).
 6. **After:** Capture deploy timestamp, Lovable-reported success/failure, and any **source/settings fingerprint** Lovable exposes; running revision id if shown, else **UNKNOWN**.
@@ -53,7 +53,7 @@ Executor: **Lovable Cloud** on `zcjptaolpumhtlwhlemq`. Procedure shell: `docs/re
 | Step | Authorization |
 | --- | --- |
 | Edge deploy `5f00210f` / `b181f608` source | Explicit owner **go** for production `sync-screener-data` |
-| Option B secret state | **Definitive OFF** confirmation (not UNKNOWN) |
+| Option B secret state | Owner attestation **OFF** only (not ON or UNKNOWN); no secret values in records |
 | Rollback exception | Acknowledged Git-only recovery via **`e7a3eaee`** |
 | ISS-034 acceptance | Natural session observation after deploy |
 | ISS-024 Layer C | **Separate** activation runbook — **not** in this batch |
