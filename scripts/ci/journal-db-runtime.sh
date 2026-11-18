@@ -923,6 +923,8 @@ if [[ "$MODE" == "clean" ]]; then
   run_fn_acl_failure_injection
   echo "==> running function ACL hardening pgTAP tests"
   supabase test db --local supabase/tests/database/journal_function_acl_hardening.test.sql
+  echo "==> running late-session handoff list_active ACL pgTAP tests"
+  supabase test db --local supabase/tests/database/late_session_handoff_function_acl.test.sql
   echo "==> clean-database job passed"
   exit 0
 fi
