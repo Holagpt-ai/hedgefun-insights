@@ -1,3 +1,52 @@
+# Session handoff — November 18, 2026 (production closeout + remaining launch acceptance)
+
+**Current `main`:** `be8659df81157a8964f709cce1d4a4caacf24243` (PR #265 merged). **Status:** completed ACL production correction and deployment checkpoints; scanner/Radar/session acceptance still OPEN. **This is a documentation checkpoint only; no new production deployment from this record.**
+
+## Objective and decisions
+
+1. Stabilize seven-tab scanner, Radar persistence, and AM Inbox for Stocksist public-launch readiness without broad repeat audits or interleaving unrelated work.
+2. PRs #260–#263 merged and synchronized to Lovable; `sync-screener-data` deployed **only** after Option B definitively OFF and one-time Git-snapshot recovery exception. Option B activation remains separate/deferred.
+3. PR #264 merged and **Fly worker v50** deployed (worker-only). SQL/Edge/Fly changes are separate release gates.
+4. Lovable 'exposed personal & sensitive data' warning on `scanner_intelligence_alerts` was a permissive authenticated market-data RLS heuristic, not confirmed personal-data exposure; commercial entitlement remains a possible future issue. Separate actual ACL defect: `late_session_handoff_list_active_v1(date)` allowed `anon` EXECUTE contrary to intended policy.
+5. PR #265 merged after 4/4 Journal DB CI jobs and pgTAP ACL regression passed. Lovable native migration runner could not establish unique applied history; **owner explicitly authorized direct execution of exactly two approved ACL statements** without ledger modification. Completed and verified; no need to replay migrations.
+
+## Verified production identities / evidence
+
+| Surface | Latest verified state | Acceptance |
+| --- | --- | --- |
+| GitHub `main` | `be8659df81157a8964f709cce1d4a4caacf24243` | PR #265 merged |
+| `sync-screener-data` Edge | Lovable deploy ~**2026-11-18 17:10:30 UTC**; submitted fingerprint `e16fba307fd842e3df5984432153976286bca7221c77f6ac0f8dae820c0a21fd`; running Edge version ID UNAVAILABLE; Option B OFF | First natural **17:15 UTC** 7/7, **103** rows, six tabs evaluated, Gappers unresolved **0**, no recorded failure. ISS-034 OPEN for remaining Batch 191 session matrix |
+| Fly `stocksist-radar-v22-worker` | v50 ~**2026-11-18 18:06 UTC**; image `deployment-01M7QXBMQERTR1FCQZVCT4V00M`, digest `sha256:25c905c9491b1281849689dec9c211b5f67c9d3bb5f9fa786749745363d88448`; machine `8e4192a73d09e8` | `publish_candidates_v2` HTTP 200; 130s bridge timeout; default 30s failure backoff built but no real failure observed. ISS-049 OPEN |
+| Fly rollback | v49 `deployment-01M7JK8SMFV0RP648PH6VBDN4G`, digest `sha256:41d00ca5a76ced3725a1fa365dbc2d52ea23ace9af60f76aba94a076493d6257` | Preserve v49 park improvements; no automatic rollback |
+| AM Inbox ACL | `public.late_session_handoff_list_active_v1(date)` at **2026-11-18 23:37:37 UTC**: `anon EXECUTE=false`, `authenticated=true`, `service_role=true`; body hash `df1282e91f6667bb2dd45c704abbfca6`, SECURITY DEFINER unchanged | **COMPLETE**; direct two-statement SQL, **not ledger-applied**; do not replay; `deno.lock` unmodified |
+| Data-market quota | Batch 37 Upstash shared cache active, no recent quota denies (38 requests/3 days; 19x200, 19x204) | No current outage; monitor before marketing scale |
+
+## Open inventory and next actions (no duplicate fixes)
+
+1. **ISS-044:** At next natural **20:00 ET** session park, read-only check Fly v50 event-state, closed snapshot writes, and whether the final candidates park; no synthetic run or feed upgrade.
+2. **ISS-049:** After ~24h of v50 natural trading, compare Radar successful publishes, `replace_radar_v22_candidates_v1` 57014/502 failures, statement cancellations and backoff evidence. Historical Lovable signals **99 failed saves/8min**, **23 statement cancels/24h**; direct timestamp correlation not yet proven. Do not close on startup smoke alone.
+3. **ISS-034 / Batch 191:** Complete remaining premarket/RTH/after-hours and multi-session acceptance, especially RTH opening finalize, honest Gappers/NHL states, no repeated `prior_generation_retained` / `http_546`; do not infer full resolution from one 17:15 UTC publication. Option B remains OFF; ISS-024 Layer C separate/block.
+4. **ISS-025 AM Inbox:** Signed-in production check of qualified fallback for naturally occurring qualified>0/priority=0; confirm authenticated RPC still reads after ACL correction; do not build fake cases. The **32/33 or 37/38** legacy RVOL ranking test miss is separately documented and not evidence the ACL fix failed.
+5. **Radar >20 history:** Live bundle progressive <=20 chunking + **28/28** tests PASS; accept in signed-in RTH when a naturally populated >20 board exists (history beyond row 20, Repeat Movers, no oversized RPC).
+6. **Continuation RVOL:** Code and live bundle correct; **8,873** stored handoffs with 3x+ RVOL had baseline and no low-confidence label; sampled **6/6** scoring tests pass. Close live capture→following AM completeness only on natural session evidence, not because stored survivors looked sound. Sample-size-quality field uncertainty is **not a confirmed defect**.
+7. **Market-data limits:** Redis Upstash verified, 0 quota rejects; retain limits, monitor `quota_denies` for scaled advertising. Do not raise caps without a capacity decision.
+8. **Remaining Lovable warning:** Watchlist transient 'Data Unavailable' on initial load has not yet received focused verification. Historic quiet-feed watchdog fix is documented in code; session-aware live verification remains outstanding.
+9. **Other open ledger work:** ISS-024 Layer C deferred, ISS-047 Watchlist authenticated acceptance, ISS-038 site copy Vercel acceptance, ISS-048 Journal/Action Center authenticated acceptance, other issues exactly as in `docs/ISSUE_REGISTER.md`. AI Analyst/Catalyst regression, AI Trader, broker/billing, real-time-feed upgrades stay deferred.
+
+## Avoid repeating
+
+- No migration-history reconstruction, ledger repair, bulk apply, fake applied records, or retries of the now-completed AM Inbox ACL SQL.
+- No Lovable frontend publish: GitHub `main` → Vercel is production frontend; Lovable Cloud only for separately authorized DB/Edge work.
+- No `deno.lock` touch, no AI Trader/feeds/billing scope creep, no rebuilding already-verified Batch 37, >20 history batching, RVOL, or qualified fallback.
+- Do not conflate GitHub source, Lovable editor source, deployed Edge version, Fly image, and Vercel production revision.
+- Maintain separate issue closure gates; record completed work in changelog, not active backlog.
+
+## Critical paths
+
+Repo `Holagpt-ai/hedgefun-insights`; production `https://stocksist.com`; Lovable Cloud project `zcjptaolpumhtlwhlemq` / Lovable editor project `417e2d28-74eb-46af-bc29-6f03aed6facf`; Cursor workspace `C:\Projects\hedgefun-batch218`; deployment config `fly.radar.toml`; migration `supabase/migrations/20261118193000_late_session_handoff_list_active_acl_v1.sql`; runbooks `docs/release/am-inbox-handoff-list-active-acl-v1.md`, `docs/release/iss049-radar-persistence-statement-cancel-v1.md`. Edge recovery Git source `e7a3eaeeceec1310e941d263dd5df63fd3b76998` is **not** a verified old binary.
+
+---
+
 # Session handoff — ISS-034 post-deploy + ISS-049 Radar persistence (November 18, 2026 ET)
 
 **GitHub `main`:** **`de3d6d9c`** (includes **#263** rollback exception docs). **ISS-024 Layer C:** **separate / BLOCKED** (unchanged).
