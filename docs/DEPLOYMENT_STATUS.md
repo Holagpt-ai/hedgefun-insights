@@ -1,3 +1,5 @@
+> **ISS-034 rollback exception closeout (2026-11-17 ET; Git/document only — no deploy):** Owner approved a **one-time Git-snapshot-only rollback exception** for production **`sync-screener-data`** (same class as Batch **228**). **Verified live Edge revision / platform version ID:** **UNKNOWN** — Cursor has **no** attested running-revision id; **direct binary rollback is unavailable**. **Authoritative forward Git source:** GitHub `main` **`5f00210f2d8dca9143158f17d003cb5bab0e6031`** (PR **#262** merged; includes **#260** + **#261** Option B source). **Lovable integration + editor tip:** **`b181f6089ece0aa836e34d1eb7f222cba5716062`** (`chore(sync): forward approved main into Lovable integration`). **Validated fallback Git objects (exist on `main`; neither equals live binary):** **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (Batch **227** PR **#245** — **approved ISS-034 / scanner Edge recovery source** if a post-deploy rollback redeploy is required; Lovable must build from this commit, not “revert platform”). **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`** (Batch **196** PR **#258** — **valid SHA**, documented **only** as pre–**ISS-024 Layer C** Git provenance; **not** the default scanner rollback for this exception). **Option B:** `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` must be **definitively OFF** in Lovable Edge secrets (absent or not exactly `"true"`) **before** release — **UNKNOWN is insufficient**. **ISS-034 remains OPEN** until deploy + production acceptance. **ISS-024 Layer C** (migration `20261116153000`) is **separate** and **not** authorized by this exception. Exact owner steps: `docs/SESSION_HANDOFF.md` § ISS-034 Nov 17 rollback closeout.
+
 > **Continuity checkpoint (2026-11-14, git only — not a production deploy):** GitHub `main` **`72c1a57ca9e6aa77fea5b15cc6a0ed8606f481db`** (Batch **233** PR **#251** merged November **12**). GitHub → Lovable guarded source-sync run **`43319836884`** **succeeded** (check + apply). Lovable **editor SHA** and **running Edge/Vercel/Fly identity** remain **independently unverified**. Source sync is **not** an Edge, SQL, Fly, or Vercel deploy. Friday **Nov 13 09:30 ET** scanner check **failed closed** (`prior_generation_retained` at `build_evidence`; Gappers `prerequisite_unavailable`; NHL `not_evaluated`) after **09:25** published **88** rows; **09:50/10:05** recovered. **ISS-034 OPEN**. Nov **12 20:00 ET** Radar closed park: **119** candidates, **0** closed-snapshot rows, feed **`after-hours`** — **ISS-044 OPEN**. No production writes from this checkpoint.
 
 > **Latest production release — Batch 228, November 12, 2026, 12:18:24–12:18:34 PM ET:** Lovable Cloud reported **successful** single-function Edge deployment of `sync-screener-data` (PR #246; GitHub source `caefbe6b5e5d83582d0a69c8cf6f74bf3b0d0def`; Lovable editor `09266183e352b6a21f61acbd10d23ce91b2016f8`). Platform submitted-source/settings fingerprint: `07656eebf28569838df72838ea1f5c2026344167eb157b2728b25291bcbe3e29`. Edge version ID **unavailable** before and after; OPTIONS returned HTTP 200, but no running-revision attestation was provided. **Owner-approved one-time Git-snapshot-only rollback exception:** fallback `e7a3eaeeceec1310e941d263dd5df63fd3b76998` requires a separate redeploy and is **not** an exact prior Edge binary. No SQL/Fly/cron/secrets/frontend publish or Penny/overnight activation. Read-only 12:19 ET ledger showed 12:15 ET (predeploy) latest generation, 107 rows; **not postdeploy acceptance**. **ISS-034 remains OPEN** pending November 13 natural 09:30 ET verification. Unrelated auto-regenerated `src/integrations/supabase/types.ts` (Penny types absent until deferred migration) remains a source/UI preview typing discrepancy, not an Edge import.
@@ -27,6 +29,20 @@
 # Deployment status
 
 **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+
+## ISS-034 — `sync-screener-data` (Nov 17, 2026 rollback exception)
+
+| Field | Value |
+| --- | --- |
+| Approved **forward** Git source | **`5f00210f2d8dca9143158f17d003cb5bab0e6031`** |
+| Lovable integration / editor | **`b181f6089ece0aa836e34d1eb7f222cba5716062`** |
+| Live Edge revision / binary rollback | **UNKNOWN** / **unavailable** |
+| Approved **recovery** Git source (ISS-034) | **`e7a3eaeeceec1310e941d263dd5df63fd3b76998`** (redeploy only; not prior binary) |
+| Layer C parent (not ISS-034 default) | **`53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`** |
+| `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` | **Must be OFF** before deploy (**definitive**; UNKNOWN blocks) |
+| Deploy instructions | `docs/SESSION_HANDOFF.md` § Nov 17 rollback closeout |
+| **ISS-034** | **OPEN** |
+| **ISS-024 Layer C** | **Separate** — migration `20261116153000` **out of scope** |
 
 **Batch 210:** Immutable **release intent** JSON + append-only **attestations** (`docs/release/manifests/`) record approved git Shas and optional owner-reported platform versions; **read-only** verification is `scripts/release-control/verify-release.mjs` + workflow `.github/workflows/unified-release-control-verify.yml`. **MATCH** on source hashes **does not** prove live Edge/Vercel/Fly binaries — **ISS-039**.
 
