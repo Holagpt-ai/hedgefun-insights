@@ -6,6 +6,7 @@ on:
     paths:
       - "supabase/migrations/20260821*.sql"
       - "supabase/migrations/2026081619*.sql"
+      - "supabase/migrations/20261118193000_late_session_handoff_list_active_acl_v1.sql"
       - "supabase/tests/database/**"
       - "supabase/tests/fixtures/**"
       - "scripts/ci/journal-db-runtime.sh"
@@ -19,6 +20,7 @@ on:
     paths:
       - "supabase/migrations/20260821*.sql"
       - "supabase/migrations/2026081619*.sql"
+      - "supabase/migrations/20261118193000_late_session_handoff_list_active_acl_v1.sql"
       - "supabase/tests/database/**"
       - "supabase/tests/fixtures/**"
       - "scripts/ci/journal-db-runtime.sh"
