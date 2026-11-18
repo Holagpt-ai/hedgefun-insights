@@ -21,6 +21,7 @@ import {
   restoreExtendedSessionGappers,
   shouldRestoreGappersFromRadar,
 } from "@/lib/screeners/radar-gapper-restoration";
+import { getTabEvaluationEvidence } from "@/lib/screeners/tab-evaluation-evidence";
 import { isVerifiedRadarV2Decision } from "@/lib/screeners/radar-v2-soft-refresh";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { resolveRadarHistoricalContextAccessToken } from "@/lib/radar/radar-historical-context-access";
@@ -487,9 +488,20 @@ export function useScreenerData(
         fetchGenerationOnce,
         { nowMs: Date.now(), activeTabId: tabId },
       );
+      const tabGappersEvidence =
+        tabId === "gappers"
+          ? getTabEvaluationEvidence(
+            (view.tab_evaluation_evidence ?? null) as Parameters<
+              typeof getTabEvaluationEvidence
+            >[0],
+            "gappers",
+          )
+          : null;
+      const gappersEvaluationVerified = tabGappersEvidence?.status === "evaluated";
       if (
         (tabId === "gappers" || tabId === "new_highs_lows") &&
-        view.rows.length > 0
+        view.rows.length > 0 &&
+        (tabId !== "gappers" || gappersEvaluationVerified)
       ) {
         try {
           const radarDecision = await loadRadarV2Decision("day_trade_radar", Date.now());

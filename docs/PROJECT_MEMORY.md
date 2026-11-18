@@ -149,6 +149,10 @@ Deferred product/platform work is batched **203–209** in the master register (
 
 Owner-reported Lovable Cloud **`sync-screener-data`** Edge **version 516** and six consecutive successful natural premarket generations (narrow premarket window only). Git-recorded narrative: `docs/release/manifests/batch210.example.190.16.historical.v1.json` → `historical_evidence.production_checkpoint_2026_11_06`. **ISS-034** remains **OPEN** until **Batch 191** regular-session and after-hours acceptance; the Batch 210 verifier keeps **runtime** as **UNKNOWN** without platform-attested digests (**ISS-039**).
 
+### ISS-034 Option B — degraded Gappers publish (2026-11-16, git only)
+
+**Flag:** `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH=true` (exact string; default off). When on and **only** Gappers is `gap_input_coverage_incomplete`, publication may proceed with **zero Gappers rows** and honest `prerequisite_unavailable` evidence. **Not deployed.** Depends on PR **#260** + separate Option B PR. **ISS-024 Layer C** migration not required for evidence shape but recommended for job audit.
+
 ### Batch 191.1 — Gappers split-scale evidence (2026-11-06, git)
 
 **Merged:** PR **#221** → `67e3418a` on `main`.

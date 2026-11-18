@@ -169,6 +169,48 @@ describe("extended-session gap restoration", () => {
       },
     })).toBe(false);
   });
+
+  it("does not restore when published evidence is gap_input_coverage_incomplete", () => {
+    expect(shouldRestoreGappersFromRadar({
+      status: "unavailable",
+      rows: [],
+      tab_evaluation_evidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 1302,
+          volume_positive_count: 1302,
+          gap_calculable_count: 1298,
+          no_prior_session_count: 1,
+          split_scale_suppressed_count: 1,
+          unresolved_gap_input_count: 2,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "gap_input_coverage_incomplete",
+        },
+      },
+    })).toBe(false);
+  });
+
+  it("still restores ordinary prerequisite_unavailable gappers during extended session", () => {
+    expect(shouldRestoreGappersFromRadar({
+      status: "unavailable",
+      rows: [],
+      tab_evaluation_evidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 10,
+          volume_positive_count: 5,
+          gap_calculable_count: 0,
+          no_prior_session_count: 0,
+          split_scale_suppressed_count: 0,
+          unresolved_gap_input_count: 5,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "prior_close_gap_inputs_unavailable",
+        },
+      },
+    })).toBe(true);
+  });
 });
 
 describe("scanner integrity labels", () => {

@@ -1,5 +1,37 @@
 ﻿# Changelog
 
+## 2026-11-17 (ISS-034 — full-universe replay gate; PR #260; not merged)
+
+- Mandatory **13,240**-ticker replay **SATISFIED** on job `4ed4a4c7-…` (exit 0; counters **1302/1298/1/1/2**). Export not in git. **ISS-034 OPEN** until merge/deploy/acceptance.
+
+## 2026-11-16 (ISS-034 — Option B release-gate reconciliation; PR #261; not merged)
+
+- Row omission aligned with preserve companion-tab gate; retain incomplete Gappers when companions unverified (incl. session-boundary / repeat-gen paths). `iss034-option-b-release-gate_test.ts` in Critical screener CI. **No** production activation.
+
+## 2026-11-16 (ISS-034 — Option B PR #261 review corrections; not merged/deployed)
+
+- Strict eligibility: degraded Gappers publish only when companion tabs **evaluated** on the candidate (not merely unchanged from prior unavailability). Radar restoration blocked for `gap_input_coverage_incomplete`. Sync handler `tabs` counts reflect published payload (zero Gappers when omitted). Extended R2/R5/R7 Deno + Vitest. **No** production activation.
+
+## 2026-11-16 (ISS-034 — Option B implementation; PR #261; not merged/deployed)
+
+- `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH` (default off): gappers-only `gap_input_coverage_incomplete` may publish without Gappers rows when flag true. Frontend honesty + R1–R7 / RG Deno/Vitest. Stacked on PR **#260**. **No** production activation.
+
+## 2026-11-16 (ISS-034 — full-job Gappers replay readiness; PR #260; not merged)
+
+- `iss034-job-gappers-replay.ts` rebuilds historical coverage from frozen `nhl_baseline_snapshot`; replay CLI rejects missing job clock/baseline. Lovable export runbook `iss034-nov16-full-job-replay-export-v1.md`. **No** deploy.
+
+## 2026-11-16 (ISS-034 — ASBPW/ASPCR + Option B design; PR #260; not merged)
+
+- Owner-identified unresolved: **ASBPW**, **ASPCR** (`missing_prior_close`, not missing open). Subset replay matches job accum **1302/1298/1/1/2**. Option B publication-policy design doc; preserve gate unchanged. Vitest ISS-034 truth-state regression; Deno production replay + Option B contract tests. **No** policy deploy.
+
+## 2026-11-16 (ISS-034 — PR #260 production-evidence correction; not merged)
+
+- Owner read-only replay on job `4ed4a4c7-…`: `gapSuppressedByCloseVersusPriorWithoutOpen` matches **0** symbols; `unresolved_gap_input_count` stays **2**. Removed helper from publish accounting; added `gappers-gap-input-accounting` replay + `scripts/ops/iss034-gappers-replay.deno.ts`; `abort_evidence.candidate_gappers`; bounded staged `unresolvedGapSymbols`. Publication policy options documented — fail-closed default preserved. **No** deploy.
+
+## 2026-11-16 (ISS-024 Layer C — production activation prep; PR #259 merged)
+
+- **GitHub `main` `15aef76e`** — PR **#259** merged. Lovable activation runbook `docs/release/batch191-layer-c-production-activation-v1.md` (pre-flight, safe window, SQL→Edge order, rollback provenance `53a0ee4c`, forward SQL recovery). **Production BLOCKED** until owner pre-flight; **no** SQL/Edge/Fly from Cursor. Fly **v49** / ISS-044 unchanged.
+
 ## 2026-11-16 (ISS-024 Layer C — per-generation tab evaluation evidence; PR #259 review)
 
 - Migration `20261116153000`: durable six-tab `tab_evaluation_evidence` on `screener_sync_generation_jobs` at atomic staged publish; `assert_screener_tab_evaluation_evidence_v1` requires all six tabs (rejects `{}`/partial); complete gate; reconcile alignment. Pre-migration published jobs remain Layer C **unavailable**. Layer C Deno tests in Critical screener CI. Runbook `docs/release/batch191-layer-c-tab-evidence-v1.md`. **Not applied** (Lovable SQL + Edge deploy pending).

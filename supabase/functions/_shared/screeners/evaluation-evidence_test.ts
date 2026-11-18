@@ -17,6 +17,7 @@ import {
   type NhlBaselineQuote,
 } from "./new-highs-lows.ts";
 import {
+  gapSuppressedByCloseVersusPriorWithoutOpen,
   gapSuppressedOnlyBySplitScaleGuard,
   type PolygonTicker,
 } from "./selection.ts";
@@ -935,6 +936,26 @@ Deno.test("gappers: missing prior close is not split-scale suppressed", () => {
     prevDay: { v: 1 },
   };
   assertEquals(gapSuppressedOnlyBySplitScaleGuard(t, { extendedSession: false }), false);
+});
+
+Deno.test("gappers: missing day.o close-vs-prior split is replay-only (publish counts unresolved)", () => {
+  const nowMs = SPLIT_SCALE_FIXTURE_NOW_MS;
+  const w: PolygonTicker = {
+    ticker: "WARRANT",
+    updated: nowMs * 1_000_000,
+    day: { c: 0.51, h: 0.52, l: 0.05, v: 1_500_000 },
+    prevDay: { c: 10, v: 500_000 },
+    min: { av: 1_500_000, v: 800, t: nowMs },
+  };
+  assertEquals(
+    gapSuppressedByCloseVersusPriorWithoutOpen(w, { extendedSession: false }),
+    true,
+  );
+  const ev = evaluateGappersEvidence([w], [], coverage([], []), false, nowMs);
+  assertEquals(ev.split_scale_suppressed_count, 0);
+  assertEquals(ev.unresolved_gap_input_count, 1);
+  assertEquals(ev.status, "prerequisite_unavailable");
+  assertEquals(ev.reason, "prior_close_gap_inputs_unavailable");
 });
 
 Deno.test("gappers: evaluated when only unresolved-free volume actives are split-scale", () => {

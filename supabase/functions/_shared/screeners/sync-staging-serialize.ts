@@ -11,6 +11,7 @@ import {
   type StagedGenerationStatus,
   type StagedObservationContext,
 } from "./sync-staging-types.ts";
+import { boundedSymbolSample } from "./evaluation-evidence.ts";
 import type { PolygonTicker } from "./selection.ts";
 
 type SerializedMerged = Omit<StagedChunkArtifacts, "nhlCandidates"> & {
@@ -47,10 +48,15 @@ export function deserializeMergedArtifacts(raw: unknown): StagedChunkArtifacts {
         Number.isFinite(rawSplit) && rawSplit >= 0
         ? Math.floor(rawSplit)
         : 0;
+    const rawUnresolved = g.unresolvedGapSymbols;
+  const unresolvedGapSymbols = Array.isArray(rawUnresolved)
+    ? (boundedSymbolSample(rawUnresolved.filter((s) => typeof s === "string")) ?? [])
+    : [];
     base.gappersAccum = {
       ...base.gappersAccum,
       ...(g as typeof base.gappersAccum),
       split_scale_suppressed_count: split,
+      unresolvedGapSymbols,
     };
   }
   if (o.primaryAccum && typeof o.primaryAccum === "object") {

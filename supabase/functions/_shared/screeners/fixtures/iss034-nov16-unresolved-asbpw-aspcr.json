@@ -1,0 +1,26 @@
+{
+  "job_id": "4ed4a4c7-d8c4-4582-bd89-cc949d6e291d",
+  "observation_now_ms": 1731794700000,
+  "stored_gappers_accum": {
+    "volume_positive_count": 1302,
+    "gap_calculable_count": 1298,
+    "no_prior_session_count": 1,
+    "split_scale_suppressed_count": 1,
+    "unresolved_gap_input_count": 2
+  },
+  "unresolved_candidates": [
+    {
+      "symbol": "ASBPW",
+      "day_o": 0.0121,
+      "prevDay_c": 0,
+      "coverage_note": "historical baseline present"
+    },
+    {
+      "symbol": "ASPCR",
+      "day_o": 0.0551,
+      "prevDay_c": 0,
+      "coverage_note": "historical policy exclusion present"
+    }
+  ],
+  "replay_note": "Full universe replay: deno run --allow-read scripts/ops/iss034-gappers-replay.deno.ts <lovable-export.json>"
+}
