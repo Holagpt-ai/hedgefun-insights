@@ -254,6 +254,121 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authentica
 GRANT ALL ON TABLE public.journal_trades TO service_role;
 GRANT ALL ON TABLE public.journal_notes TO service_role;
 
+-- Security intelligence tables are applied in production via Drizzle (0005/0006)
+-- but are absent from the committed supabase/migrations chain. Stubs here are
+-- CI-only compile prerequisites for 20260922160000_historical_backfill_supabase_rpc_v1.sql.
+CREATE TABLE IF NOT EXISTS public.securities (
+  security_id uuid PRIMARY KEY,
+  current_symbol text NOT NULL,
+  issuer_name text,
+  security_type text NOT NULL,
+  exchange text,
+  country text,
+  adr_status text NOT NULL,
+  active boolean NOT NULL,
+  resolution_state text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.security_symbol_history (
+  history_id uuid PRIMARY KEY,
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  symbol text NOT NULL,
+  exchange text,
+  effective_from date NOT NULL,
+  effective_to date,
+  source text,
+  source_as_of timestamptz,
+  provenance text NOT NULL,
+  observed_at timestamptz,
+  fetched_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.security_reference_identifiers (
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  identifier_kind text NOT NULL,
+  identifier_value text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  provenance text NOT NULL,
+  observed_at timestamptz,
+  fetched_at timestamptz,
+  PRIMARY KEY (security_id, identifier_kind)
+);
+
+CREATE TABLE IF NOT EXISTS public.security_daily_history (
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  session_date date NOT NULL,
+  observed_symbol text,
+  exchange text,
+  open numeric,
+  high numeric,
+  low numeric,
+  close numeric,
+  volume numeric,
+  dollar_volume numeric,
+  previous_close numeric,
+  move_pct numeric,
+  source text,
+  source_as_of timestamptz,
+  fetched_at timestamptz,
+  computed_at timestamptz,
+  quality text NOT NULL,
+  freshness text NOT NULL,
+  provenance text NOT NULL,
+  PRIMARY KEY (security_id, session_date)
+);
+
+CREATE TABLE IF NOT EXISTS public.market_behavior_episodes (
+  episode_id uuid PRIMARY KEY,
+  security_id uuid NOT NULL REFERENCES public.securities (security_id),
+  episode_start timestamptz NOT NULL,
+  episode_end timestamptz,
+  observed_symbol text,
+  direction text NOT NULL,
+  tier text NOT NULL,
+  start_price numeric,
+  high_price numeric,
+  low_price numeric,
+  end_price numeric,
+  max_positive_move_pct numeric,
+  max_negative_move_pct numeric,
+  volume numeric,
+  dollar_volume numeric,
+  rvol numeric,
+  float_turnover numeric,
+  halt_count integer,
+  close_strength numeric,
+  detected_by text,
+  origin text NOT NULL,
+  source text,
+  source_as_of timestamptz,
+  fetched_at timestamptz,
+  computed_at timestamptz,
+  quality text NOT NULL,
+  freshness text NOT NULL,
+  provenance text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.security_backfill_jobs (
+  job_id uuid PRIMARY KEY,
+  job_type text NOT NULL,
+  state text NOT NULL,
+  date_from date NOT NULL,
+  date_to date NOT NULL,
+  cursor_date date,
+  cursor_token text,
+  processed_count integer NOT NULL,
+  error_count integer NOT NULL,
+  started_at timestamptz,
+  updated_at timestamptz NOT NULL,
+  completed_at timestamptz,
+  metadata jsonb
+);
+
 -- Disposable placeholders so later migrations that inspect Vault at apply
 -- time can compile. These are not production credentials.
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
