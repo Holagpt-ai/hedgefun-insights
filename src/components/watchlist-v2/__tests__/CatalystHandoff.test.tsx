@@ -181,6 +181,7 @@ function stubRow(ticker: string) {
     requestStatus: "succeeded",
     requestError: null,
     hasV2: true,
+    presentation: "ready",
   };
 }
 
