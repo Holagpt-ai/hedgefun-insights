@@ -1,4 +1,18 @@
-# Session handoff — November 22, 2026 (Group 3 market intelligence; Groups 1–2 on main)
+# Session handoff — November 22, 2026 (Group 4 final development; Groups 1–3 on main)
+
+**GitHub `main`:** `25b6c85d136c2c9e2e147a20a2274b8e18511e02` (#268–#270 merged). **Group 4** branch `cursor/group4-final-development` — ISS-038 billing/disclaimer/admin delayed-data copy; release intent manifest for ISS-039; ISS-027/032/042 **preserved**; no SQL/Edge/Fly deploy.
+
+**Prior — Group 3 (#270):** Edge catalyst precedence authority parity + attribution reconcile/headline gate on `main`.
+
+**Prior — Group 2 (#269):** `resolveWatchlistRowPresentation` — false Data Unavailable during hydrate fixed.
+
+**Landed (Group 4, pending PR):** `SUBSCRIPTION_MARKET_DATA_FEATURE` + Billing/Disclaimer/Admin Subscriptions alignment; `group4-final-development-2026-11-22.v1.json`.
+
+**Production authorization still required:** Vercel deploy for ISS-038 sign-off; Layer C SQL; ISS-044 20:00 ET; Batch 191 ISS-034 matrix; authenticated UI gates (ISS-025/047/048); Lovable integration forward-sync when `STOCKSIST_LOVABLE_SYNC_ACTIVATED=true`.
+
+---
+
+# Session handoff — November 22, 2026 (Group 3 market intelligence; historical)
 
 **GitHub `main`:** `e234b5493755ecaafa2431a7e7ee1a3b1141ab2a` (#269 merged — Group 2 watchlist). **Group 3** branch `cursor/group3-market-intelligence` — Edge catalyst precedence authority parity + attribution reconcile/headline gate; ISS-026/037 **preserved** (complete in source); ISS-028 frontend complete, Edge alignment in git pending deploy.
 

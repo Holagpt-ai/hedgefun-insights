@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  PRO_SUBSCRIPTION_FEATURE_BULLETS,
   PUBLIC_EXTENDED_HOURS_POSITIONING,
   PUBLIC_HERO_SUBTITLE,
+  SUBSCRIPTION_MARKET_DATA_FEATURE,
 } from "@/lib/public/public-market-copy";
 
 const root = process.cwd();
@@ -16,6 +18,8 @@ const PUBLIC_ISS038_FILES = [
   "src/pages/static/AboutPage.tsx",
   "src/pages/static/MethodologyPage.tsx",
   "src/pages/static/DownloadPage.tsx",
+  "src/pages/static/DisclaimerPage.tsx",
+  "src/pages/account/BillingPage.tsx",
   "src/pages/etf/EtfMainPage.tsx",
   "src/pages/stocks/StockListsPage.tsx",
   "src/pages/stocks/StockListDetailPage.tsx",
@@ -43,6 +47,15 @@ describe("Batch 202 — ISS-038 delayed-data copy", () => {
       const src = readFileSync(resolve(file), "utf8");
       expect(src.toLowerCase()).not.toMatch(/live market data/);
     }
+  });
+
+  it("billing and admin plan copy use delayed-data policy constants", () => {
+    expect(SUBSCRIPTION_MARKET_DATA_FEATURE.toLowerCase()).toMatch(/15-minute delayed/);
+    expect(SUBSCRIPTION_MARKET_DATA_FEATURE.toLowerCase()).not.toMatch(/real-time/);
+    expect(PRO_SUBSCRIPTION_FEATURE_BULLETS[0]).toBe(SUBSCRIPTION_MARKET_DATA_FEATURE);
+    const billing = readFileSync(resolve("src/pages/account/BillingPage.tsx"), "utf8");
+    expect(billing).toContain("PRO_SUBSCRIPTION_FEATURE_BULLETS");
+    expect(billing).not.toMatch(/Real-time market data/);
   });
 
   it("index sparkline regular-session label is not Live", () => {
