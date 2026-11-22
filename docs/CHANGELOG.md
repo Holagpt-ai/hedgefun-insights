@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 2026-11-22 continuity closeout (completed actions Nov 18; docs-only record)
+
+- **PR #264** merged at 47f2136b7cb35234cc85d23bccd090d202eea5e0. Worker-only checkpoint-aligned Radar V2 persistence-failure backoff shipped to **Fly v50**, Nov 18 ~18:06 UTC (image deployment-01M7QXBMQERTR1FCQZVCT4V00M); postdeploy healthy publish_candidates_v2 HTTP 200, timeout_ms=130000. Natural failure backoff and historical statement-cancel correction acceptance still ISS-049 OPEN.
+- **ISS-034 Edge-only deployment** Nov 18 ~17:10 UTC completed with Option B OFF; submitted fingerprint e16fba307fd842e3df5984432153976286bca7221c77f6ac0f8dae820c0a21fd. Nov 18 17:15 UTC first natural job published 103 rows, 7/7, six tabs evaluated, Gappers unresolved 0. ISS-034 stays OPEN for Batch 191 session matrix.
+- **PR #265** merged at be8659df81157a8964f709cce1d4a4caacf24243. Four Journal CI matrix jobs + new pgTAP ACL tests PASS after CI-only disposable bootstrap fix. **Production security correction applied through approved direct Lovable Cloud SQL outside migration ledger**: public.late_session_handoff_list_active_v1(date) anon EXECUTE revoked; authenticated/service_role retained; unchanged definer function hash df1282e91f6667bb2dd45c704abbfca6. No ledger entries edited; **do not label 20261118193000 ledger-applied**. AM Inbox authenticated UI ISS-025 remains OPEN.
+- **Production verification, no changes:** market-data Batch 37 shared_cache=upstash, zero sample 429s; live Radar historical chunking <=20, continuation RVOL baseline and AM Inbox qualified fallback present. These are existing fixes; preserve live-acceptance gates. Lovable scanner_intelligence_alerts broad authenticated read was not proven to expose personal fields. Next isolated UX warning is transient Watchlist Data Unavailable before analysis loads.
+- **Documentation snapshot:** docs/release/stocksist-session-handoff-2026-11-22.md.
+
+
 ## 2026-11-17 (ISS-034 — full-universe replay gate; PR #260; not merged)
 
 - Mandatory **13,240**-ticker replay **SATISFIED** on job `4ed4a4c7-…` (exit 0; counters **1302/1298/1/1/2**). Export not in git. **ISS-034 OPEN** until merge/deploy/acceptance.
