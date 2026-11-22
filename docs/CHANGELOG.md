@@ -1,6 +1,12 @@
 ﻿# Changelog
 
-## 2026-11-22 Group 2 — watchlist presentation (PR #269 pending; base `7aa83b61` after #268)
+## 2026-11-22 Group 3 — market intelligence & data quality (PR pending; base `e234b549`)
+
+- **ISS-028 (Edge parity):** `supabase/functions/_shared/catalyst/precedence.ts` — `applyAttributionAuthority` matches client ranking demotion for `provider_associated` / sector / unverified rows; Deno test **18b**. `attribution.ts` — `reconcileAttributionWithLiveRules` + `headlineQualifiesForTickerScopedNews` for ingest/brief alignment with Batch 195.1 client rules.
+- **ISS-026 / ISS-037:** **Preserved** — Batch 187 earnings ranking and PR #215 free-float provenance already on `main`; no new ranking or float logic. Edge earnings activation remains owner-gated (Lovable).
+- **Vitest:** related-earnings precedence regression in `precedence.test.ts`. Focused catalyst/float/earnings suites pass locally.
+
+## 2026-11-22 Group 2 — watchlist presentation (PR #269 merged; `e234b549`)
 
 - **Watchlist V2:** `resolveWatchlistRowPresentation` + hook wiring so hydrating analysis shows **Loading analysis** instead of false **Data Unavailable**; `provider_unavailable` gates market-signal suppression. Vitest: `watchlist-row-presentation`, `WatchlistRowV2`, batch11/24/24-1/metrics, batch232 cache invalidation, batch233 workflow tiles, journal final verification.
 

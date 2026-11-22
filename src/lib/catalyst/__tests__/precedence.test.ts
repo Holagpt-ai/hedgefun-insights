@@ -33,6 +33,26 @@ describe("catalyst precedence parity", () => {
     expect(looksLikeMarketAttention("Tesla vs SpaceX: Which Is the Better Stock to Buy?")).toBe(true);
   });
 
+  it("demotes a related earnings headline below the issuer calendar row", () => {
+    const issuer = {
+      ...base("ACADIA Pharmaceuticals earnings", "earnings"),
+      provider: "earnings_calendar",
+      attribution_class: "direct" as const,
+      ticker_specific: true,
+    };
+    const related = {
+      ...base("Recursion Pharmaceuticals reports third-quarter earnings", "earnings"),
+      attribution_class: "unverified" as const,
+      ticker_specific: false,
+    };
+    expect(classifyCatalystPrecedence(issuer).tier).toBe("primary");
+    expect(classifyCatalystPrecedence(related).tier).toBe("secondary");
+    expect(classifyCatalystPrecedence(related).classRank).toBe(0);
+    expect(
+      compareCatalystPrecedence(issuer, related, { owned: new Set(), etDate: "2026-09-18" }),
+    ).toBeLessThan(0);
+  });
+
   it("older primary beats newer commentary", () => {
     const older = {
       ...base("Company prices $50M public offering", "corporate_action"),
