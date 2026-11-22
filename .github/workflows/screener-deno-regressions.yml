@@ -177,3 +177,4 @@ jobs:
           supabase/functions/_shared/market-data/float_test.ts
           supabase/functions/_shared/radar-v22/persistence_v2_rpc_contract_test.ts
           supabase/functions/_shared/radar-v22/batch219-cross-date-replace-postgres_test.ts
+          supabase/functions/_shared/scanner-alerts/alert-event-type-constraint_test.ts

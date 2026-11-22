@@ -1,4 +1,10 @@
-# Session handoff — November 22, 2026 (Group 4 final development; Groups 1–3 on main)
+# Session handoff — November 22, 2026 (Launch Batch B)
+
+**GitHub `main`:** `87f7fd81eb418474ae6e38544348577477d61301` (#268–#271). **Batch B** adds forward-only alert event-type CHECK (`20261122160000`); **not applied**. ISS-034 Nov 20 RTH retain path is existing Option B-off preserve (SONN); 09:35 `merge_selections` abort **unresolved**. Fly **v50** preserved. Layer C **not** executed.
+
+---
+
+# Session handoff — November 22, 2026 (Group 4 final development; historical)
 
 **GitHub `main`:** `25b6c85d136c2c9e2e147a20a2274b8e18511e02` (#268–#270 merged). **Group 4** branch `cursor/group4-final-development` — ISS-038 billing/disclaimer/admin delayed-data copy; release intent manifest for ISS-039; ISS-027/032/042 **preserved**; no SQL/Edge/Fly deploy.
 
