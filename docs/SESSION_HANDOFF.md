@@ -1,3 +1,9 @@
+# Session handoff — November 22, 2026 (Group 2 watchlist presentation; PR pending)
+
+**GitHub `main`:** `30ea54bc4e8913f10443187bb9ed5853bef21932` (#267). **Group 1** PR #268 OPEN on `cursor/group1-scanner-radar-reliability` (not merged). **Group 2** branch `cursor/group2-watchlist-workflows` — watchlist row `presentation` resolves loading vs provider-unavailable; ISS-025 / ISS-047 / ISS-048 live acceptance unchanged (batch232/233/journal tests PASS).
+
+---
+
 # Session handoff — November 22, 2026 (security ACL complete; Fly v50; ISS-034 still open)
 
 **Canonical detail:** docs/release/stocksist-session-handoff-2026-11-22.md. **GitHub main:** be8659df81157a8964f709cce1d4a4caacf24243 (#265). This is a docs-only continuity update, not a new deployment.
