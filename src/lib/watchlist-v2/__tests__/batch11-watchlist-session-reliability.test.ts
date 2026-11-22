@@ -51,6 +51,7 @@ function v2Row(overrides: Partial<V2Row>): V2Row {
     requestStatus: "none",
     requestError: null,
     hasV2: true,
+    presentation: "ready",
     ...overrides,
   };
 }
