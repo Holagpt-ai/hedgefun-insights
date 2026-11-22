@@ -82,6 +82,21 @@ export function isPreviousSessionSnapshotDuringLiveSession(input: {
   return assessScreenerGenerationSession(input) === "previous_during_live";
 }
 
+/** Aligns persisted feed timestamps with the consumer equities surveillance clock. */
+export function screenerGenerationSessionAlignment(input: {
+  nowMs: number;
+  syncedAt: string | null | undefined;
+  providerAsOfMax: string | null | undefined;
+  sessionKind?: SessionKind;
+}): ScreenerGenerationSessionAlignment {
+  const referenceIso = input.providerAsOfMax ?? input.syncedAt ?? null;
+  return assessScreenerGenerationSession({
+    nowMs: input.nowMs,
+    referenceIso,
+    sessionKind: input.sessionKind,
+  });
+}
+
 /**
  * During live surveillance the persisted feed `session_kind` must match the
  * ET calendar clock. Prevents relabeling a prior sub-session snapshot (e.g.

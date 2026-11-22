@@ -1,3 +1,17 @@
+# Session handoff — Group 1 scanner/radar reliability (November 22, 2026)
+
+**Base:** GitHub `main` `30ea54bc4e8913f10443187bb9ed5853bef21932`. **Branch:** `cursor/group1-scanner-radar-reliability` (PR pending).
+
+**Landed (Group 1):** ISS-024 **Layer D** — `prior_surveillance_session_snapshot` truth copy when `viewForActiveTab` withholds rows for `previous_during_live`; `useScreenerData` passes session alignment. **ISS-044** — read-only runbook `docs/release/iss044-weekday-2000-et-acceptance-v1.md` (Fly **v50** preserved). **ISS-024 Layer C** — activation package unchanged in `batch191-layer-c-production-activation-v1.md` (SQL/Edge **BLOCKED** without owner §1 pre-flight).
+
+**Preserved (no code/deploy):** ISS-034/#260–#261, ISS-049/v50, ISS-041/#255, ISS-043 Batch 215 gate, ISS-036/ISS-045, Option B OFF.
+
+**Tests:** Vitest `screener-truth-state`, `screener-session`, `equities-session-calendar` — **PASS** (local).
+
+**Production authorization still required:** Layer C SQL `20261116153000`; ISS-044 **20:00 ET** natural observation; Batch **191** ISS-034 matrix; authenticated Layer D UI.
+
+---
+
 # Session handoff — November 22, 2026 (security ACL complete; Fly v50; ISS-034 still open)
 
 **Canonical detail:** docs/release/stocksist-session-handoff-2026-11-22.md. **GitHub main:** be8659df81157a8964f709cce1d4a4caacf24243 (#265). This is a docs-only continuity update, not a new deployment.

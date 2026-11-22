@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessScreenerGenerationSession,
+  screenerGenerationSessionAlignment,
   surveillanceTradingDateFromMs,
 } from "@/lib/screeners/screener-session";
 import { viewForActiveTab, validateGeneration } from "@/lib/screeners/contract";
@@ -159,8 +160,15 @@ describe("screener session alignment", () => {
       syncedAt: view.synced_at,
       nhlBaselineStatus: view.nhl_baseline_status,
       tabEvaluationEvidence: view.tab_evaluation_evidence,
+      generationSessionAlignment: screenerGenerationSessionAlignment({
+        nowMs,
+        syncedAt: view.synced_at,
+        providerAsOfMax: view.provider_as_of_max,
+      }),
     });
-    expect(truth.reason).toBe("generation_unavailable");
+    expect(truth.reason).toBe("prior_surveillance_session_snapshot");
+    expect(truth.title).toBe("Prior session snapshot");
     expect(truth.title).not.toBe("Baseline unavailable");
+    expect(truth.title).not.toBe("Screener unavailable");
   });
 });
