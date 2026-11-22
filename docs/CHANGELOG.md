@@ -1,6 +1,11 @@
 ﻿# Changelog
 
-## 2026-11-22 Group 4 — final development (PR pending; base `25b6c85d`)
+## 2026-11-22 Launch Batch B — alert event-type constraint (PR pending; base `87f7fd81`)
+
+- **ISS-034 (no source change):** Nov 20 RTH zero publications / retained generations match existing Gappers preserve with Option B **OFF** (SONN unresolved gap input at 09:15 ET). The 09:35 `merge_selections` stop has no recorded cause; not treated as a confirmed code defect. Option B stays off.
+- **Alerts:** forward migration `20261122160000_scanner_intelligence_alerts_event_types_v1.sql` widens `scanner_intelligence_alerts_event_type_check` to the eight `SCANNER_EVENT_TYPES` (adds `HOD_BREAK`, `VWAP_RECLAIM`, `GAP_CONTINUATION`, `LATE_DAY_ACCELERATION`, `VWAP_LOSS`). Not applied. Deno contract test only.
+
+## 2026-11-22 Group 4 — final development (PR #271 merged; `87f7fd81`)
 
 - **ISS-038:** Shared `SUBSCRIPTION_MARKET_DATA_FEATURE` / `PRO_SUBSCRIPTION_FEATURE_BULLETS`; Billing, Disclaimer data-delays section, Admin Subscriptions Pro monthly plan — no unsupported real-time marketing. Vitest `batch202-public-launch-readiness` extended (9 tests).
 - **ISS-027 / ISS-032:** **Preserved** — Batch 188 journal terminal loading and mobile Risk/AI Brief fixes unchanged; focused tests pass.
