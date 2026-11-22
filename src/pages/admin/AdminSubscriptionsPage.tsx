@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PRICING } from "@/config/pricing";
+import { SUBSCRIPTION_MARKET_DATA_FEATURE } from "@/lib/public/public-market-copy";
 
 const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
 
@@ -61,7 +62,7 @@ export default function AdminSubscriptionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { name: PRICING.free.label, price: `$${PRICING.free.monthly}`, count: "—", features: ["Basic stock data", "10 AI queries/day", "Watchlist (5 stocks)"] },
-          { name: `${PRICING.pro.label} Monthly`, price: `$${proMonthly}/mo`, count: counts.monthly, features: ["Real-time data", "Unlimited AI", "Full screener", "Unlimited watchlist"] },
+          { name: `${PRICING.pro.label} Monthly`, price: `$${proMonthly}/mo`, count: counts.monthly, features: [SUBSCRIPTION_MARKET_DATA_FEATURE, "Unlimited AI", "Full screener", "Unlimited watchlist"] },
           { name: `${PRICING.pro.label} Annual`, price: `$${proAnnual}/yr`, count: counts.annual, features: ["Everything in Monthly", "Best value", "Priority support"] },
         ].map((p) => (
           <div key={p.name} style={card}>

@@ -94,10 +94,10 @@ export default function DisclaimerPage() {
                 reliability of any third-party data.
               </li>
               <li>
-                <strong>Data Delays:</strong> Stock prices and market data may be delayed by up to 15 minutes or
-                more depending on the data source and your subscription tier. Real-time data availability is
-                subject to the limitations of our data providers. Always verify critical pricing data with your
-                broker or an official exchange source before executing any trade.
+                <strong>Data Delays:</strong> Stocksist research surfaces use{" "}
+                <strong>15-minute delayed</strong> market data by policy. Quotes and charts are not live exchange
+                feeds. Delays may be longer when a provider is unavailable. Always verify critical
+                pricing with your broker or an official exchange source before executing any trade.
               </li>
               <li>
                 <strong>Model Limitations:</strong> AI models are trained on historical data and may not accurately
