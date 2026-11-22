@@ -52,8 +52,14 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  resolveWatchlistRowPresentation,
+  watchlistPresentationBadgeLabel,
+  type WatchlistRowPresentation,
+} from "@/lib/watchlist-v2/watchlist-row-presentation";
 
 interface Props {
   row: V2Row;
@@ -84,7 +90,46 @@ const compactVol = (n: number | null) => {
 const sessionLabel = (s: V2Row["sessionType"]) =>
   s === "premarket" ? "Pre-market" : s === "postclose" ? "Post-close" : "RTH";
 
-const directionBadge = (d: V2Row["direction"], failureReason: string | null) => {
+function resolveRowPresentation(row: V2Row): WatchlistRowPresentation {
+  return (
+    row.presentation ??
+    resolveWatchlistRowPresentation({
+      hasV2: row.hasV2,
+      direction: row.direction,
+      requestStatus: row.requestStatus,
+      secondaryHydrating: false,
+    })
+  );
+}
+
+const directionBadge = (
+  row: Pick<V2Row, "direction" | "failureReason" | "presentation" | "hasV2" | "requestStatus">,
+) => {
+  const presentation = resolveRowPresentation(row as V2Row);
+  if (presentation === "loading_analysis" || presentation === "analysis_pending") {
+    return {
+      label: watchlistPresentationBadgeLabel(presentation),
+      className: "bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-200",
+      Icon: Loader2,
+    };
+  }
+  if (presentation === "awaiting_first_analysis") {
+    return {
+      label: watchlistPresentationBadgeLabel(presentation),
+      className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+      Icon: Minus,
+    };
+  }
+  if (presentation === "analysis_failed") {
+    return {
+      label: watchlistPresentationBadgeLabel(presentation),
+      className: "bg-red-100 text-red-800 dark:bg-red-900/35 dark:text-red-300",
+      Icon: Minus,
+    };
+  }
+
+  const d = row.direction;
+  const failureReason = row.failureReason;
   const map: Record<
     Exclude<V2Row["direction"], "data_unavailable">,
     { label: string; className: string; Icon: typeof TrendingUp }
@@ -195,7 +240,8 @@ export function WatchlistRowV2({
   const workflowRoutes = useMemo(() => workflowSymbolRoutes(row.ticker), [row.ticker]);
   const touchWorkflow = () => touchWorkflowHandoff(row.ticker, "watchlist");
   const tokens = densityTokens(density);
-  const dir = directionBadge(row.direction, row.failureReason);
+  const presentation = resolveRowPresentation(row);
+  const dir = directionBadge(row);
   const DirIcon = dir.Icon;
   const change = row.changePct;
   const changeColor =
@@ -205,7 +251,7 @@ export function WatchlistRowV2({
         ? "text-emerald-600 dark:text-emerald-400"
         : "text-red-600 dark:text-red-400";
 
-  const isUnavailable = row.direction === "data_unavailable";
+  const isUnavailable = presentation === "provider_unavailable";
   const expectedUnavailable = isUnavailable && isExpectedUnavailableReason(row.failureReason);
   const providerFailed = row.requestStatus === "failed";
   const unavailableSecondary = expectedUnavailable ? humanFailureReasonSecondary(row.failureReason) : null;

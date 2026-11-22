@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { WatchlistRowV2 } from "@/components/watchlist-v2/WatchlistRowV2";
 import type { V2Row } from "@/hooks/useWatchlistV2";
@@ -67,6 +67,7 @@ function row(overrides: Partial<V2Row>): V2Row {
     requestStatus: "none",
     requestError: null,
     hasV2: true,
+    presentation: "provider_unavailable",
     ...overrides,
   };
 }
@@ -142,6 +143,19 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     expect(container.textContent).not.toMatch(/estimated/i);
   });
 
+  it("shows loading badge while analysis hydrates instead of Data Unavailable", () => {
+    const { getByText, container } = renderRow(
+      row({
+        hasV2: false,
+        direction: "data_unavailable",
+        failureReason: null,
+        presentation: "loading_analysis",
+      }),
+    );
+    expect(getByText(/Loading analysis/i)).toBeInTheDocument();
+    expect(within(container).queryByText(/^Data Unavailable$/)).toBeNull();
+  });
+
   it("never surfaces market signals when direction=data_unavailable", () => {
     const { container } = renderRow(row({}));
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
@@ -153,7 +167,7 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
 
   it("does render market signals when direction is directional", () => {
     const { container } = renderRow(
-      row({ direction: "bullish", failureReason: null, explanation: "ok" }),
+      row({ direction: "bullish", failureReason: null, explanation: "ok", presentation: "ready" }),
     );
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
     if (toggle) fireEvent.click(toggle);

@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-22 Group 2 — watchlist presentation (PR #269 pending; base `7aa83b61` after #268)
+
+- **Watchlist V2:** `resolveWatchlistRowPresentation` + hook wiring so hydrating analysis shows **Loading analysis** instead of false **Data Unavailable**; `provider_unavailable` gates market-signal suppression. Vitest: `watchlist-row-presentation`, `WatchlistRowV2`, batch11/24/24-1/metrics, batch232 cache invalidation, batch233 workflow tiles, journal final verification.
+
 ## 2026-11-22 continuity closeout (completed actions Nov 18; docs-only record)
 
 - **PR #264** merged at 47f2136b7cb35234cc85d23bccd090d202eea5e0. Worker-only checkpoint-aligned Radar V2 persistence-failure backoff shipped to **Fly v50**, Nov 18 ~18:06 UTC (image deployment-01M7QXBMQERTR1FCQZVCT4V00M); postdeploy healthy publish_candidates_v2 HTTP 200, timeout_ms=130000. Natural failure backoff and historical statement-cancel correction acceptance still ISS-049 OPEN.

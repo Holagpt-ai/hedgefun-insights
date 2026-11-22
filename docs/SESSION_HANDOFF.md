@@ -1,14 +1,12 @@
-# Session handoff — Group 1 scanner/radar reliability (November 22, 2026)
+# Session handoff — November 22, 2026 (Group 2 watchlist; Group 1 on main)
 
-**Base:** GitHub `main` `30ea54bc4e8913f10443187bb9ed5853bef21932`. **Branch:** `cursor/group1-scanner-radar-reliability` (PR pending).
+**GitHub `main`:** `7aa83b617322700396aa3d7cf6b09c0c37303e7b` (#268 merged — Group 1 scanner/radar). **Group 2** branch `cursor/group2-watchlist-workflows` PR #269 — watchlist row `presentation` resolves loading vs provider-unavailable; ISS-025 / ISS-047 / ISS-048 live acceptance unchanged (batch232/233/journal tests PASS).
 
-**Landed (Group 1):** ISS-024 **Layer D** — `prior_surveillance_session_snapshot` truth copy when `viewForActiveTab` withholds rows for `previous_during_live`; `useScreenerData` passes session alignment. **ISS-044** — read-only runbook `docs/release/iss044-weekday-2000-et-acceptance-v1.md` (Fly **v50** preserved). **ISS-024 Layer C** — activation package unchanged in `batch191-layer-c-production-activation-v1.md` (SQL/Edge **BLOCKED** without owner §1 pre-flight).
+**Landed (Group 1, #268):** ISS-024 **Layer D** — `prior_surveillance_session_snapshot` truth copy when `viewForActiveTab` withholds rows for `previous_during_live`; `useScreenerData` passes session alignment. **ISS-044** — read-only runbook `docs/release/iss044-weekday-2000-et-acceptance-v1.md` (Fly **v50** preserved). **ISS-024 Layer C** — activation package in `batch191-layer-c-production-activation-v1.md` (SQL/Edge **BLOCKED** without owner §1 pre-flight). **CI:** `deno.lock` aligned to `vite-plugin-hmr-gate@^1.8.3`.
 
-**Preserved (no code/deploy):** ISS-034/#260–#261, ISS-049/v50, ISS-041/#255, ISS-043 Batch 215 gate, ISS-036/ISS-045, Option B OFF.
+**Landed (Group 2, pending #269):** `resolveWatchlistRowPresentation` + `V2Row.presentation` in `useWatchlistV2` / `WatchlistRowV2` — false **Data Unavailable** during analysis hydrate fixed.
 
-**Tests:** Vitest `screener-truth-state`, `screener-session`, `equities-session-calendar` — **PASS** (local).
-
-**Production authorization still required:** Layer C SQL `20261116153000`; ISS-044 **20:00 ET** natural observation; Batch **191** ISS-034 matrix; authenticated Layer D UI.
+**Production authorization still required:** Layer C SQL `20261116153000`; ISS-044 **20:00 ET** observation; Batch **191** ISS-034 matrix; authenticated AM Inbox (ISS-025), watchlist/journal prod handoffs (ISS-047/048).
 
 ---
 

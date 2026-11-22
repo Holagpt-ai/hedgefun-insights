@@ -37,6 +37,10 @@ import {
 } from "@/lib/watchlist-v2/watchlist-query-isolation";
 import { resolveWatchlistLoadingState } from "@/lib/watchlist-v2/watchlist-loading-state";
 import { invalidateWatchlistClientCaches } from "@/lib/watchlist-v2/invalidate-watchlist-caches";
+import {
+  resolveWatchlistRowPresentation,
+  type WatchlistRowPresentation,
+} from "@/lib/watchlist-v2/watchlist-row-presentation";
 
 export interface V2Row {
   ticker: string;
@@ -69,6 +73,7 @@ export interface V2Row {
   requestStatus: "pending" | "failed" | "succeeded" | "none";
   requestError: string | null;
   hasV2: boolean;
+  presentation: WatchlistRowPresentation;
 }
 
 type WatchlistRow = { id: string; symbol: string; added_at: string | null };
@@ -243,6 +248,12 @@ export function useWatchlistV2() {
     const nameMap = namesQuery.data ?? {};
     const reqMap = requestsQuery.data ?? {};
 
+    const secondaryHydrating =
+      analysisQuery.isPending ||
+      analysisQuery.isFetching ||
+      requestsQuery.isPending ||
+      requestsQuery.isFetching;
+
     return symbols.map((sym) => {
       const raw = analysisMap[sym] as Record<string, unknown> | undefined;
       const req = reqMap[sym];
@@ -256,6 +267,12 @@ export function useWatchlistV2() {
       });
 
       if (!raw) {
+        const presentation = resolveWatchlistRowPresentation({
+          hasV2: false,
+          direction: "data_unavailable",
+          requestStatus,
+          secondaryHydrating,
+        });
         return {
           ticker: sym,
           companyName: nameMap[sym] ?? null,
@@ -287,10 +304,17 @@ export function useWatchlistV2() {
           requestStatus,
           requestError,
           hasV2: false,
+          presentation,
         };
       }
 
       const direction = isDirection(raw.direction) ? raw.direction : "data_unavailable";
+      const presentation = resolveWatchlistRowPresentation({
+        hasV2: true,
+        direction,
+        requestStatus,
+        secondaryHydrating,
+      });
       const sessionType =
         raw.session_type === "premarket" || raw.session_type === "rth" || raw.session_type === "postclose"
           ? (raw.session_type as V2Session)
@@ -330,9 +354,19 @@ export function useWatchlistV2() {
         requestStatus,
         requestError,
         hasV2: true,
+        presentation,
       };
     });
-  }, [symbols, analysisQuery.data, namesQuery.data, requestsQuery.data]);
+  }, [
+    symbols,
+    analysisQuery.data,
+    analysisQuery.isPending,
+    analysisQuery.isFetching,
+    namesQuery.data,
+    requestsQuery.data,
+    requestsQuery.isPending,
+    requestsQuery.isFetching,
+  ]);
 
   // Manual refresh — invokes V2 analyzer with ticker only.
   const refreshMutation = useMutation({
