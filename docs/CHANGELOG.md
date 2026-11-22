@@ -62,12 +62,6 @@
 
 - `EarningsHeadlinesReveal.test.tsx` mocks `useAuth` so `EarningsList` → `PreMarketSymbolActions` mounts under test (Group 3 regression). **No** production/UI behavior change.
 
-## 2026-11-22 (Group 1 — ISS-024 Layer D session truth + ISS-044 acceptance prep)
-
-- **ISS-024 Layer D:** Distinguish `previous_during_live` session gate from generic screener unavailability — `prior_surveillance_session_snapshot` copy in `screener-truth-state.ts`; `screenerGenerationSessionAlignment` + `useScreenerData` wiring. Vitest `screener-truth-state`, `screener-session`.
-- **ISS-044:** Runbook `docs/release/iss044-weekday-2000-et-acceptance-v1.md` (read-only 20:00 ET gates; Fly **v50** preserved). **No** worker redeploy.
-- **ISS-024 Layer C:** Runbook `batch191-layer-c-production-activation-v1.md` Fly note updated to **v50**; activation still **owner BLOCKED** until Lovable §1 pre-flight.
-
 ## 2026-11-15 (ISS-041 — market-session fallback; no new batch)
 
 - `scheduleOrFallback` in `src/lib/market-session.ts` uses `resolveSessionSchedule(etDate, null)` instead of bare `fallbackOpenSchedule`, so `resolveMarketSessionAt(ms)` without an explicit schedule mirrors the exchange-calendar weekend closure path. Affects `resolveConsumerSessionKind` and `movers-observation` callers indirectly. **No** scanner ranking, threshold, Edge, Fly, SQL, or deploy changes. **Checked:** Vitest `equities-session-calendar.test.ts` (16), `npm run typecheck`, `npm run build`.
