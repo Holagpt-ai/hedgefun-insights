@@ -189,6 +189,26 @@ Deno.test("17. no symbol-specific hardcoding in precedence rules", () => {
   assertEquals(classifyCatalystPrecedence(other).tier, "secondary");
 });
 
+Deno.test("18b. provider_associated primary class rank is attenuated versus direct", () => {
+  const direct = base({
+    title: "FDA approves XYZ therapy for rare disease",
+    event_type: "fda_biotech",
+    attribution_class: "direct",
+    ticker_specific: true,
+  });
+  const associated = base({
+    title: "XYZ reports Phase 3 primary endpoint success",
+    event_type: "fda_biotech",
+    attribution_class: "provider_associated",
+    ticker_specific: true,
+  });
+  const directResult = classifyCatalystPrecedence(direct);
+  const associatedResult = classifyCatalystPrecedence(associated);
+  assertEquals(directResult.tier, "primary");
+  assertEquals(associatedResult.tier, "primary");
+  assertEquals(associatedResult.classRank < directResult.classRank, true);
+});
+
 Deno.test("18. related earnings headline does not outrank the issuer calendar row", () => {
   const issuer = base({
     title: "ACADIA Pharmaceuticals earnings",
