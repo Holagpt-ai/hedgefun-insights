@@ -1,5 +1,15 @@
 # Project memory
 
+## Verified continuity checkpoint — November 22, 2026 (post-PR #265; docs-only, no deploy)
+
+- **GitHub main:** be8659df81157a8964f709cce1d4a4caacf24243 (PR #265 merged). **Fly Radar worker v50** deployed November 18 ~18:06 UTC from PR #264 / 47f2136b; Radar V2 writes HTTP 200 and bridge timeout_ms=130000. v49 image deployment-01M7JK8SMFV0RP648PH6VBDN4G is recovery reference. **ISS-049 OPEN** for natural-timeout/backoff acceptance and historical burst correlation; no further Fly deployment approved.
+- **ISS-034:** sync-screener-data-only Edge deploy November 18 ~17:10 UTC; submitted fingerprint e16fba307fd842e3df5984432153976286bca7221c77f6ac0f8dae820c0a21fd; Option B **OFF**; natural 17:15 UTC publish 7/7, 103 rows, six tabs evaluated, zero Gappers unresolved. Later latest published timestamp Nov 21 00:55 UTC (read-only), but **full Batch 191 multi-session acceptance OPEN**; actual running Edge revision ID unavailable.
+- **AM Inbox ACL security correction COMPLETED in production:** PR #265 SQL applied **directly through Lovable Cloud, outside migration ledger**, after the normal migration mechanism stopped due to ambiguous Supabase/Drizzle history. Verified anon EXECUTE=false, authenticated=true, service_role=true, unchanged SECURITY DEFINER and function hash df1282e91f6667bb2dd45c704abbfca6. **Do not mark migration 20261118193000 ledger-applied or repair/replay migration history.** The existing Lovable deno.lock change was untouched. ISS-025 authenticated UI acceptance remains OPEN.
+- **ISS-044 OPEN:** read-only Nov 22 radar_v22_closed_snapshot had **0** rows. Need naturally observed 20:00 ET closed-park evidence on Fly v50, not another speculative redeploy.
+- **Known mitigations, no duplicate implementation:** Batch 37 Upstash market-data shared cache verified production, zero 429s in sampled 3 days; >20-symbol Radar history batches and continuation RVOL/AM Inbox qualified fallback present in deployed client. Authenticated history/UI acceptance unresolved. Watchlist temporary false Data Unavailable loading-state warning remains reported/unverified.
+- **Canonical detailed session snapshot:** docs/release/stocksist-session-handoff-2026-11-22.md. GitHub source-sync does NOT deploy Edge, SQL, Fly or Vercel. Continue launch-critical, tightly scoped work; Nov 29 public launch target, no scope creep into AI Trader/billing/brokers/real-time feed upgrades.
+
+
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
 ## Verified live checkpoint — November 15, 2026 (Batch 202 public site — git only)

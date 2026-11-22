@@ -4,6 +4,7 @@ import {
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
+import type { ScreenerGenerationSessionAlignment } from "@/lib/screeners/screener-session";
 import {
   getTabEvaluationEvidence,
   gappersEvidenceSupportsZeroMatch,
@@ -27,6 +28,7 @@ export type ScreenerTruthReason =
   | "evaluated_with_results"
   | "publication_confirmed_results"
   | "evaluation_evidence_missing"
+  | "prior_surveillance_session_snapshot"
   | "loading";
 
 export interface ScreenerTruthState {
@@ -48,6 +50,8 @@ export interface ResolveScreenerTruthStateInput {
   nhlBaselineStatus?: unknown;
   tabEvaluationEvidence?: TabEvaluationEvidenceMap | null;
   source?: ScreenerDataSource | null;
+  /** When `viewForActiveTab` withholds rows for `previous_during_live` session alignment. */
+  generationSessionAlignment?: ScreenerGenerationSessionAlignment | null;
 }
 
 const GENERIC_ZERO_TITLE = "No qualifying securities";
@@ -110,6 +114,14 @@ function evidenceMissingCopy(): Pick<ScreenerTruthState, "title" | "explanation"
     title: "Evaluation evidence unavailable",
     explanation:
       "Evaluation evidence for this tab is unavailable in the latest generation. No securities are being inferred.",
+  };
+}
+
+function priorSurveillanceSessionCopy(): Pick<ScreenerTruthState, "title" | "explanation"> {
+  return {
+    title: "Prior session snapshot",
+    explanation:
+      "The latest published screener generation belongs to a prior equities surveillance date. Rows are withheld until the current session publishes a verified generation.",
   };
 }
 
@@ -237,6 +249,8 @@ function copyForReason(
     }
     case "generation_unavailable":
       return { title: UNAVAILABLE_TITLE, explanation: UNAVAILABLE_EXPLANATION };
+    case "prior_surveillance_session_snapshot":
+      return priorSurveillanceSessionCopy();
     case "generation_stale":
       return {
         title: "Stale delayed snapshot",
@@ -274,6 +288,7 @@ export function resolveScreenerTruthState(
     nhlBaselineStatus,
     tabEvaluationEvidence,
     source,
+    generationSessionAlignment,
   } = input;
 
   const nhlStatus = parseNhlBaselineStatus(nhlBaselineStatus);
@@ -293,9 +308,11 @@ export function resolveScreenerTruthState(
 
   if (status === "unavailable") {
     const reason =
-      tabId === NHL_TAB_ID && nhlStatus === "unavailable"
-        ? "baseline_unavailable"
-        : "generation_unavailable";
+      generationSessionAlignment === "previous_during_live"
+        ? "prior_surveillance_session_snapshot"
+        : tabId === NHL_TAB_ID && nhlStatus === "unavailable"
+          ? "baseline_unavailable"
+          : "generation_unavailable";
     const copy = copyForReason(tabId, reason, evidence);
     return {
       status,
