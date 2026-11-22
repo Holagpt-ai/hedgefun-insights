@@ -49,6 +49,7 @@ import {
   resolveScreenerTruthState,
   type ScreenerTruthState,
 } from "@/lib/screeners/screener-truth-state";
+import { screenerGenerationSessionAlignment } from "@/lib/screeners/screener-session";
 import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-evidence";
 import type { NhlBaselineStatus } from "@/lib/screeners/contract";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
@@ -263,6 +264,12 @@ export function useScreenerData(
       }
       lastViewRef.current = nextView;
       lastSourceRef.current = resolvedSource;
+      const nowMs = Date.now();
+      const generationSessionAlignment = screenerGenerationSessionAlignment({
+        nowMs,
+        syncedAt: nextView.synced_at,
+        providerAsOfMax: nextView.provider_as_of_max,
+      });
       setTruthState(
         resolveScreenerTruthState({
           tabId,
@@ -272,6 +279,8 @@ export function useScreenerData(
           nhlBaselineStatus: nextView.nhl_baseline_status,
           tabEvaluationEvidence: nextView.tab_evaluation_evidence,
           source: resolvedSource,
+          generationSessionAlignment:
+            nextView.status === "unavailable" ? generationSessionAlignment : null,
         }),
       );
       if (
@@ -313,6 +322,7 @@ export function useScreenerData(
                 nhlBaselineStatus: staleView.nhl_baseline_status,
                 tabEvaluationEvidence: staleView.tab_evaluation_evidence,
                 source: lastSourceRef.current,
+                generationSessionAlignment: null,
               }),
             );
           }, delay);
