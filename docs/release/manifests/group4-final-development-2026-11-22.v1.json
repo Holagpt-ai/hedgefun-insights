@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "batch_id": "group4",
+  "manifest_id": "group4.final-development.2026-11-22.v1",
+  "kind": "release_intent",
+  "title": "Group 4 — homepage, admin UI, and release integration (Git source)",
+  "summary": "Records approved GitHub main after Groups 1–3 (#268–#270) plus Group 4 Vercel copy/admin UI changes. Runtime Vercel/Lovable/Fly identities remain independently attested (**ISS-039**). Lovable integration tip at record time may lag main; forward-sync is gated (**ISS-040**). No Edge/SQL/Fly activation in this intent.",
+  "recorded_at": "2026-11-22T18:58:00.000Z",
+  "github": {
+    "main": {
+      "approved_sha": "25b6c85d136c2c9e2e147a20a2274b8e18511e02"
+    },
+    "lovable_integration": {
+      "branch": "cursor/lovable-sync-from-main-20261024",
+      "commit_sha": "b181f6089ece0aa836e34d1eb7f222cba5716062"
+    }
+  },
+  "components": [
+    {
+      "id": "vercel_stocksist_spa",
+      "class": "vercel_frontend",
+      "name": "stocksist.com Vercel SPA",
+      "applicability": "APPLICABLE",
+      "deployment_target": {
+        "canonical_origin": "https://stocksist.com"
+      }
+    },
+    {
+      "id": "lovable_source_forward_sync",
+      "class": "github_integration",
+      "name": "GitHub main → Lovable integration forward sync",
+      "applicability": "APPLICABLE",
+      "deployment_target": {
+        "platform": "github_actions",
+        "workflow": ".github/workflows/lovable-source-forward-sync.yml"
+      }
+    },
+    {
+      "id": "sync_screener_data_edge",
+      "class": "supabase_edge",
+      "name": "sync-screener-data",
+      "applicability": "NOT_APPLICABLE",
+      "not_applicable_reason": "Group 4 changes Vercel admin/public copy and release manifests only; no Supabase Edge source delta authorized.",
+      "deployment_target": {
+        "platform": "lovable_cloud_supabase_edge",
+        "project_id": "zcjptaolpumhtlwhlemq",
+        "function_name": "sync-screener-data"
+      }
+    },
+    {
+      "id": "scanner_stream_worker_fly",
+      "class": "fly_worker",
+      "name": "stocksist-radar-v22-worker",
+      "applicability": "NOT_APPLICABLE",
+      "not_applicable_reason": "Group 4 does not modify Fly worker sources.",
+      "deployment_target": {
+        "platform": "fly_io"
+      }
+    }
+  ],
+  "compatibility": [
+    "Requires Groups 1–3 on main (#268 scanner truth, #269 watchlist presentation, #270 catalyst Edge parity).",
+    "ISS-038 delayed-data copy applies to public and subscription marketing surfaces after Vercel deploy.",
+    "Admin Operations UI remains gated by has_role RPC (ISS-042); no production role grants from Git."
+  ],
+  "approvals": [
+    {
+      "role": "maintainer",
+      "description": "Group 4 development PR (Holagpt-ai/hedgefun-insights)",
+      "reference": "pending"
+    }
+  ]
+}

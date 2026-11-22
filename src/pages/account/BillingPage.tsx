@@ -6,22 +6,20 @@ import { Button } from "@/components/ui/button";
 import { PRICING } from "@/config/pricing";
 import { BRAND } from "@/config/brand";
 import { hasProAccess } from "@/lib/entitlement";
+import {
+  PRO_SUBSCRIPTION_FEATURE_BULLETS,
+  SUBSCRIPTION_MARKET_DATA_FEATURE,
+} from "@/lib/public/public-market-copy";
 import { toast } from "@/hooks/use-toast";
 import { CreditCard, Receipt } from "lucide-react";
 
 const FREE_FEATURES = [
-  "Basic market data",
+  SUBSCRIPTION_MARKET_DATA_FEATURE,
   "Watchlist up to 10 stocks",
   "Limited screener filters",
 ];
 
-const PRO_FEATURES = [
-  "Real-time market data",
-  "Unlimited watchlist",
-  "All screener filters",
-  "Analyst ratings & top stocks",
-  "Up to 30 years financial history",
-];
+const PRO_FEATURES = [...PRO_SUBSCRIPTION_FEATURE_BULLETS];
 
 const BillingPage = () => {
   const navigate = useNavigate();

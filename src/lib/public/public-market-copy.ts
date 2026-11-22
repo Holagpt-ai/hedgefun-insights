@@ -17,3 +17,15 @@ export const PUBLIC_EXTENDED_HOURS_POSITIONING =
 export function publicInstrumentListDelayBlurb(): string {
   return `Keep track of your favorite symbols using ${delayLower} on public pages.`;
 }
+
+/** Plan marketing bullets — same delayed-data policy as public surfaces (ISS-038). */
+export const SUBSCRIPTION_MARKET_DATA_FEATURE =
+  "15-minute delayed market data (Stocksist research policy)";
+
+export const PRO_SUBSCRIPTION_FEATURE_BULLETS = [
+  SUBSCRIPTION_MARKET_DATA_FEATURE,
+  "Unlimited watchlist",
+  "All screener filters",
+  "Analyst ratings & top stocks",
+  "Up to 30 years financial history",
+] as const;

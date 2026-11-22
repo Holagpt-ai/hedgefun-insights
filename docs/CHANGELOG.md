@@ -1,6 +1,13 @@
 ﻿# Changelog
 
-## 2026-11-22 Group 3 — market intelligence & data quality (PR pending; base `e234b549`)
+## 2026-11-22 Group 4 — final development (PR pending; base `25b6c85d`)
+
+- **ISS-038:** Shared `SUBSCRIPTION_MARKET_DATA_FEATURE` / `PRO_SUBSCRIPTION_FEATURE_BULLETS`; Billing, Disclaimer data-delays section, Admin Subscriptions Pro monthly plan — no unsupported real-time marketing. Vitest `batch202-public-launch-readiness` extended (9 tests).
+- **ISS-027 / ISS-032:** **Preserved** — Batch 188 journal terminal loading and mobile Risk/AI Brief fixes unchanged; focused tests pass.
+- **ISS-042:** **Preserved** — Admin Operations authorization + render tests pass; no production role grants from Git.
+- **ISS-039 / ISS-040:** Release intent manifest `docs/release/manifests/group4-final-development-2026-11-22.v1.json` (Git `25b6c85d`, Lovable integration tip recorded); `npm run test:release-control` / `test:lovable-sync` pass.
+
+## 2026-11-22 Group 3 — market intelligence & data quality (PR #270 merged; `25b6c85d`)
 
 - **ISS-028 (Edge parity):** `supabase/functions/_shared/catalyst/precedence.ts` — `applyAttributionAuthority` matches client ranking demotion for `provider_associated` / sector / unverified rows; Deno test **18b**. `attribution.ts` — `reconcileAttributionWithLiveRules` + `headlineQualifiesForTickerScopedNews` for ingest/brief alignment with Batch 195.1 client rules.
 - **ISS-026 / ISS-037:** **Preserved** — Batch 187 earnings ranking and PR #215 free-float provenance already on `main`; no new ranking or float logic. Edge earnings activation remains owner-gated (Lovable).
