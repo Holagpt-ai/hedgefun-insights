@@ -1,3 +1,19 @@
+# Session handoff — November 22, 2026 (security ACL complete; Fly v50; ISS-034 still open)
+
+**Canonical detail:** docs/release/stocksist-session-handoff-2026-11-22.md. **GitHub main:** be8659df81157a8964f709cce1d4a4caacf24243 (#265). This is a docs-only continuity update, not a new deployment.
+
+- **Completed:** ISS-034 Edge-only deploy Nov 18 ~17:10 UTC (submitted fingerprint e16fba3..., Option B OFF), first natural post-deploy job 17:15 UTC published 103 rows / 7/7 / six tabs, Gappers unresolved 0. Full Batch 191 matrix still OPEN. Previous Edge binary ID UNKNOWN, fallback Git e7a3eaee only after separate approval.
+- **Completed:** PR #264 merged at 47f2136b; Fly worker v50 shipped Nov 18 ~18:06 UTC, new image deployment-01M7QXBMQERTR1FCQZVCT4V00M, digest sha256:25c905c9491b1281849689dec9c211b5f67c9d3bb5f9fa786749745363d88448. Bridge timeout 130 s, normal Radar V2 writes succeed. Backoff under natural failure and DB cancellation reduction NOT VERIFIED; ISS-049 OPEN. v49 rollback image deployment-01M7JK8SMFV0RP648PH6VBDN4G.
+- **Completed, directly in production outside ledger:** after PR #265 squash be8659df, owner-approved Lovable Cloud REVOKE ALL EXECUTE FROM PUBLIC, anon + GRANT EXECUTE TO authenticated, service_role for public.late_session_handoff_list_active_v1(date). Verified anon false, authenticated/service_role true and unchanged SECURITY DEFINER/function hash. No migration ledger records edited or falsely marked applied; deno.lock untouched. ISS-025 UI authentication acceptance still OPEN.
+- **ISS-044 OPEN:** November 22 read-only closed snapshot 0 rows; closed-session park and session-state acceptance pending. **ISS-024 Layer C** separate/blocked, migration not applied by this work.
+- **No new implementation:** Redis shared market cache verified without 429s; Radar historical >20-symbol fix, continuation RVOL baseline, AM Inbox qualified fallback present in live code. Watchlist loading false-error warning is next bounded unresolved UI check; other live acceptance evidence deferred to consolidated launch pass.
+
+## Avoid repeating completed work
+
+Do not rerun the full-universe ISS-034 replay, repeat broad audits, invent market data, reactivate Option B, redeploy Fly/Edge, repeat #265 CI failures from old head, or repair migration ledgers. Do not claim Git source equals deployed runtime. Details and unfinished items in canonical linked snapshot.
+
+---
+
 # Session handoff — ISS-034 post-deploy + ISS-049 Radar persistence (November 18, 2026 ET)
 
 **GitHub `main`:** **`de3d6d9c`** (includes **#263** rollback exception docs). **ISS-024 Layer C:** **separate / BLOCKED** (unchanged).
