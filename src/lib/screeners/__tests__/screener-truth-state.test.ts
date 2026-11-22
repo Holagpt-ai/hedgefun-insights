@@ -541,6 +541,19 @@ describe("screener truth-state resolver", () => {
     expect(truth.title).toBe("Baseline unavailable");
   });
 
+  it("unavailable + previous_during_live alignment uses prior session snapshot copy", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "unavailable",
+      rowCount: 0,
+      syncedAt: "2026-09-24T00:05:00.000Z",
+      generationSessionAlignment: "previous_during_live",
+    });
+    expect(truth.reason).toBe("prior_surveillance_session_snapshot");
+    expect(truth.title).toBe("Prior session snapshot");
+    expect(truth.showRows).toBe(false);
+  });
+
   it("new highs/lows: generation unavailable with baseline available does not blame baseline", () => {
     const truth = resolveScreenerTruthState({
       tabId: "new_highs_lows",

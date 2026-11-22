@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## 2026-11-22 Group 2 — watchlist presentation (PR pending; base `30ea54bc`)
+## 2026-11-22 Group 2 — watchlist presentation (PR #269 pending; base `7aa83b61` after #268)
 
 - **Watchlist V2:** `resolveWatchlistRowPresentation` + hook wiring so hydrating analysis shows **Loading analysis** instead of false **Data Unavailable**; `provider_unavailable` gates market-signal suppression. Vitest: `watchlist-row-presentation`, `WatchlistRowV2`, batch11/24/24-1/metrics, batch232 cache invalidation, batch233 workflow tiles, journal final verification.
 
@@ -12,6 +12,11 @@
 - **Production verification, no changes:** market-data Batch 37 shared_cache=upstash, zero sample 429s; live Radar historical chunking <=20, continuation RVOL baseline and AM Inbox qualified fallback present. These are existing fixes; preserve live-acceptance gates. Lovable scanner_intelligence_alerts broad authenticated read was not proven to expose personal fields. Next isolated UX warning is transient Watchlist Data Unavailable before analysis loads.
 - **Documentation snapshot:** docs/release/stocksist-session-handoff-2026-11-22.md.
 
+## 2026-11-22 (Group 1 — ISS-024 Layer D session truth + ISS-044 acceptance prep)
+
+- **ISS-024 Layer D:** `prior_surveillance_session_snapshot` copy when session gate withholds rows (`previous_during_live`); `screenerGenerationSessionAlignment` + `useScreenerData` wiring. Vitest `screener-truth-state`, `screener-session`.
+- **ISS-044:** `docs/release/iss044-weekday-2000-et-acceptance-v1.md` — read-only 20:00 ET gates (Fly **v50** preserved).
+- **ISS-024 Layer C:** `batch191-layer-c-production-activation-v1.md` Fly note → **v50**; SQL/Edge activation still owner **BLOCKED** until Lovable §1.
 
 ## 2026-11-17 (ISS-034 — full-universe replay gate; PR #260; not merged)
 

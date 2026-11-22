@@ -401,7 +401,7 @@
         "npm:@lovable.dev/cloud-auth-js@1",
         "npm:@lovable.dev/mcp-js@0.20.0",
         "npm:@lovable.dev/vite-plugin-dev-server-bridge@^1.0.2",
-        "npm:@lovable.dev/vite-plugin-hmr-gate@^1.8.0",
+        "npm:@lovable.dev/vite-plugin-hmr-gate@^1.8.3",
         "npm:@playwright/test@^1.57.0",
         "npm:@radix-ui/react-accordion@^1.2.11",
         "npm:@radix-ui/react-alert-dialog@^1.1.14",
