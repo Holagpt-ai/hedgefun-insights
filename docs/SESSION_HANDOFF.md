@@ -1,4 +1,12 @@
-# Session handoff — November 22, 2026 (Launch Batch B)
+# Session handoff — November 25, 2026 (ISS-034 finalize boundary diagnostics; PR pending)
+
+**Base:** `70fb72de835bed0517bb01faebfcab5a4bd3c066` (post–Batch B). **Landed (git only, not deployed):** durable finalize markers — `merge_selections` after selection work; `load_volume_baselines` after baseline load — to narrow Nov 24–25 opening-bell stalls between merge and volume load. **Root cause UNVERIFIED** (CPU/lease/DB not established; logs empty).
+
+**Nov 25 Lovable read-only:** Nov 23 PM/RTH/AH pubs **63/68/48**; Nov 24 **49/62/0** AH + **58** consecutive retains (Gappers coverage); Nov 25 **65** PM + **18** RTH partial; Nov 24 **09:30** and Nov 25 **09:40** **7/7** then last marker `finalize_stage:merge_selections`, ~12 s post-chunk, stale abort ~30 min, null cause. **ISS-034 P0 OPEN** until Edge deploy + acceptance. **ISS-043 PASS** Nov 23–25 session window (no cron change). **Option B OFF**; **#261** merged; Layer C **BLOCKED**; **#272** migration **not applied**; Fly **v50** unchanged.
+
+---
+
+# Session handoff — November 22, 2026 (Launch Batch B; historical)
 
 **GitHub `main`:** `87f7fd81eb418474ae6e38544348577477d61301` (#268–#271). **Batch B** adds forward-only alert event-type CHECK (`20261122160000`); **not applied**. ISS-034 Nov 20 RTH retain path is existing Option B-off preserve (SONN); 09:35 `merge_selections` abort **unresolved**. Fly **v50** preserved. Layer C **not** executed.
 
