@@ -36,6 +36,8 @@ function optionBRowsWithoutGappers(syncedAt: string) {
     ...validScreenerRow("NHL1", "new_highs_lows", syncedAt),
     high_52w: "20",
     low_52w: "5",
+    day_high: "21",
+    day_low: "9",
     range_event: "new_high",
   };
   return [
