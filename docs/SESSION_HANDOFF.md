@@ -1,4 +1,10 @@
-# Session handoff — November 25, 2026 (ISS-034 finalize boundary diagnostics; PR pending)
+# Session handoff — November 25, 2026 (Layer C + Option B reconcile; PR pending)
+
+**GitHub `main`:** `97c2eb0348da33c6e0216aa743d9ca358b2f458b` (#273 merged). **Production:** Scanner Edge **v530**; Option B **ON**; fingerprint `4956c836e7b5f721957b632e739ff90ceb1d5c41df6c4075dfa1186326f55778`; recovery `07dbdf5c3b640149f621809f31f662b9cae663ac`; Lovable editor `48dfe1b1`; **11** consecutive pubs through **18:30 UTC** (107 rows, six evaluated tabs). PR #272 CHECK applied direct SQL **18:26:38 UTC** (ledger untouched). **ISS-043 CLOSED.** **Layer C unapplied** — git bundle: `20261116153000` + `20261125203000`; runbook `batch191-layer-c-option-b-activation-bundle-v1.md`. **No** SQL/Edge/Fly from this batch.
+
+---
+
+# Session handoff — November 25, 2026 (ISS-034 finalize boundary; historical)
 
 **Base:** `70fb72de835bed0517bb01faebfcab5a4bd3c066` (post–Batch B). **Landed (git only, not deployed):** durable finalize markers — `merge_selections` after selection work; `load_volume_baselines` after baseline load — to narrow Nov 24–25 opening-bell stalls between merge and volume load. **Root cause UNVERIFIED** (CPU/lease/DB not established; logs empty).
 

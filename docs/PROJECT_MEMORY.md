@@ -1,6 +1,15 @@
 # Project memory
 
-## Verified continuity checkpoint — November 25, 2026 (ISS-034 boundary fix; git only, no deploy)
+## Verified continuity checkpoint — November 25, 2026 (scanner v530 + Option B ON; Layer C pending)
+
+- **GitHub `main`:** `97c2eb0348da33c6e0216aa743d9ca358b2f458b` (#273 merged).
+- **Scanner Edge v530** (Nov 25): fingerprint `4956c836e7b5f721957b632e739ff90ceb1d5c41df6c4075dfa1186326f55778`; recovery source `07dbdf5c3b640149f621809f31f662b9cae663ac`; Lovable editor `48dfe1b1`; Option B **ON**; **11** consecutive successful publications through **18:30 UTC** (107 rows, six evaluated tabs).
+- **PR #272** alert CHECK applied direct Lovable SQL **2026-11-25 18:26:38 UTC**; eight event types validated; migration ledger **not** modified.
+- **ISS-043:** **CLOSED** (session window observed).
+- **ISS-024 Layer C:** **unapplied**; forward reconcile fix `20261125203000` prepared with `20261116153000` in activation bundle (Option B reconcile compatibility).
+- **Fly v50** preserved. **No** new Edge deploy required for Layer C if v530 remains compatible.
+
+## Verified continuity checkpoint — November 25, 2026 (ISS-034 boundary fix; historical)
 
 - **Nov 25 Lovable read-only (16:36 UTC):** Scanner pubs Nov 23 **63/68/48** PM/RTH/AH; Nov 24 **49/62/0**; Nov 25 partial **65/18** PM/RTH; Nov 24 **58** consecutive retains (Gappers). Opening Nov 24 **09:30** / Nov 25 **09:40**: **7/7**, last marker `finalize_stage:merge_selections`, ~12 s after chunks, stale abort ~30 min, **no** established CPU/lease/DB cause, **no** Edge logs. **Root cause UNVERIFIED.**
 - **Git fix (pending deploy):** Persist durable finalize marker after merge selection work + after `load_volume_baselines` — prior enter-only `merge_selections` marker misattributed kills in the merge→baseline gap.
