@@ -1,6 +1,15 @@
 ﻿# Changelog
 
-## 2026-11-25 — ISS-034 finalize merge/volume boundary diagnostics (PR pending)
+## 2026-11-25 — Layer C + Option B reconcile (PR pending; SQL not applied)
+
+- Forward migration `20261125203000`: `validate_screener_feed_reconcile_evidence_v1` + Option B–aware `reconcile_screener_sync_staged_publish_v1` (six-tab evaluated **or** canonical degraded Gappers with companion tabs evaluated and zero Gappers rows).
+- Activation bundle `docs/release/batch191-layer-c-option-b-activation-bundle-v1.md`. Postgres integration tests `batch191-layer-c-option-b-reconcile-postgres_test.ts`. **No** production SQL from Cursor.
+
+## 2026-11-25 — Production checkpoint (owner-verified; scanner v530)
+
+- GitHub `main` `97c2eb03`; Edge v530 Nov 25; Option B **ON**; fingerprint `4956c836…`; recovery source `07dbdf5c`; Lovable editor `48dfe1b1`; eleven consecutive publications through **18:30 UTC** (107 rows, six evaluated tabs). PR #272 alert CHECK applied outside ledger (**18:26:38 UTC**). ISS-043 **CLOSED**. Layer C **unapplied** — activation awaits this bundle.
+
+## 2026-11-25 — ISS-034 finalize merge/volume boundary diagnostics (#273 merged)
 
 - **ISS-034 (diagnostic defect):** Durable `finalize_stage:merge_selections` was written at stage *enter* before CPU-heavy selection work; `load_volume_baselines` was not durable — Nov 24–25 opening-bell jobs dying in that window were ambiguous. **Runtime kill mechanism remains UNVERIFIED** (no http_546; stale abort ~30 min). Fix: persist `merge_selections` after selection completes; add durable `load_volume_baselines` after baseline load. Deno: `iss034-finalize-merge-volume-boundary_test.ts` + `batch216-finalize-stage-marker_test.ts`. **Not deployed.**
 - **ISS-043:** Nov 23–25 read-only — generations within **04:00–19:55 ET**; closed-session cron classification **PASS** (no cron change).

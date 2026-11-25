@@ -93,4 +93,8 @@ runSql("20261116153000_screener_sync_generation_tab_evidence_v1.sql", join(
   migrationsDir,
   "20261116153000_screener_sync_generation_tab_evidence_v1.sql",
 ));
+runSql("20261125203000_screener_option_b_reconcile_evidence_v1.sql", join(
+  migrationsDir,
+  "20261125203000_screener_option_b_reconcile_evidence_v1.sql",
+));
 console.log("\nBootstrap complete.");

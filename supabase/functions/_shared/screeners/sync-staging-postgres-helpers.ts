@@ -119,6 +119,47 @@ export function layerCSixTabEvidenceEvaluated() {
   };
 }
 
+/** Option B: Gappers gap_input_coverage_incomplete; companion tabs evaluated on candidate. */
+export function layerCSixTabEvidenceOptionBDegradedGappers() {
+  const evaluatedSimple = {
+    status: "evaluated" as const,
+    universe_count: 100,
+    qualified_count: 10,
+    selected_count: 10,
+  };
+  return {
+    day_trade_radar: { ...evaluatedSimple, selected_count: 5 },
+    gappers: {
+      status: "prerequisite_unavailable" as const,
+      universe_count: 100,
+      volume_positive_count: 50,
+      gap_calculable_count: 48,
+      no_prior_session_count: 0,
+      split_scale_suppressed_count: 0,
+      unresolved_gap_input_count: 2,
+      qualified_count: 0,
+      selected_count: 0,
+      reason: "gap_input_coverage_incomplete",
+    },
+    gainers_losers: evaluatedSimple,
+    new_highs_lows: {
+      status: "evaluated" as const,
+      baseline_status: "available" as const,
+      baseline_quote_count: 1000,
+      universe_count: 100,
+      eligible_count: 20,
+      evaluated_count: 20,
+      policy_excluded_count: 0,
+      no_history_count: 0,
+      unresolved_count: 0,
+      qualified_count: 5,
+      selected_count: 5,
+    },
+    volume_spikes: evaluatedSimple,
+    unusual_volume: evaluatedSimple,
+  };
+}
+
 /** Six-tab evidence with legitimate blocked tabs (not forced evaluated). */
 export function layerCSixTabEvidenceLegitimateBlocked() {
   const genericBlocked = {
