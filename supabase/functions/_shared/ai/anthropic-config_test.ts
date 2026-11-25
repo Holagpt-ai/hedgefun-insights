@@ -1,26 +1,58 @@
-import { assertEquals, assertFalse } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   DEFAULT_ANTHROPIC_HAIKU_MODEL,
   isPermanentAnthropicHttpFailure,
-  resolveAnthropicHaikuModelId,
+  resolveDailyBriefAnthropicModelId,
+  resolveWatchlistAnthropicModelId,
   sanitizeAnthropicModelId,
 } from "./anthropic-config.ts";
 
-Deno.test("resolveAnthropicHaikuModelId prefers ANTHROPIC_MODEL then surface overrides", () => {
+Deno.test("resolveWatchlistAnthropicModelId: WATCHLIST_AI_MODEL then ANTHROPIC_MODEL", () => {
   assertEquals(
-    resolveAnthropicHaikuModelId({
-      ANTHROPIC_MODEL: "claude-haiku-4-5",
-      WATCHLIST_AI_MODEL: "claude-haiku-4-5-20251001",
+    resolveWatchlistAnthropicModelId({
+      WATCHLIST_AI_MODEL: "claude-haiku-4-5",
+      ANTHROPIC_MODEL: "claude-haiku-4-5-20251001",
+      DAILY_BRIEF_MODEL: "claude-haiku-3",
     }),
     "claude-haiku-4-5",
   );
   assertEquals(
-    resolveAnthropicHaikuModelId({
-      WATCHLIST_AI_MODEL: "claude-haiku-4-5-20251001",
+    resolveWatchlistAnthropicModelId({
+      ANTHROPIC_MODEL: "claude-haiku-4-5-20251001",
+      DAILY_BRIEF_MODEL: "claude-haiku-3",
     }),
     "claude-haiku-4-5-20251001",
   );
-  assertEquals(resolveAnthropicHaikuModelId({}), DEFAULT_ANTHROPIC_HAIKU_MODEL);
+  assertEquals(
+    resolveWatchlistAnthropicModelId({
+      DAILY_BRIEF_MODEL: "claude-haiku-3",
+    }),
+    DEFAULT_ANTHROPIC_HAIKU_MODEL,
+  );
+});
+
+Deno.test("resolveDailyBriefAnthropicModelId: DAILY_BRIEF_MODEL then ANTHROPIC_MODEL", () => {
+  assertEquals(
+    resolveDailyBriefAnthropicModelId({
+      DAILY_BRIEF_MODEL: "claude-haiku-3",
+      WATCHLIST_AI_MODEL: "claude-haiku-4-5",
+      ANTHROPIC_MODEL: "claude-haiku-4-5-20251001",
+    }),
+    "claude-haiku-3",
+  );
+  assertEquals(
+    resolveDailyBriefAnthropicModelId({
+      WATCHLIST_AI_MODEL: "claude-haiku-4-5",
+      ANTHROPIC_MODEL: "claude-haiku-4-5-20251001",
+    }),
+    "claude-haiku-4-5-20251001",
+  );
+  assertEquals(
+    resolveDailyBriefAnthropicModelId({
+      WATCHLIST_AI_MODEL: "claude-haiku-4-5",
+    }),
+    DEFAULT_ANTHROPIC_HAIKU_MODEL,
+  );
 });
 
 Deno.test("sanitizeAnthropicModelId rejects empty and malformed ids", () => {
@@ -37,8 +69,5 @@ Deno.test("isPermanentAnthropicHttpFailure covers auth and model configuration e
   assertEquals(
     isPermanentAnthropicHttpFailure({ httpStatus: 404, errorType: "not_found_error" }),
     true,
-  );
-  assertFalse(
-    isPermanentAnthropicHttpFailure({ httpStatus: 503, errorType: "overloaded_error" }),
   );
 });

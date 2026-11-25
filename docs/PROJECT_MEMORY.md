@@ -5,7 +5,7 @@
 - **GitHub `main`:** `9a86c34e0778f07bbd12db29e0a855d80737ff6c` (pre–authenticated-defects batch).
 - **Scanner Edge v530**; Option B **ON**; Fly **v50**; ISS-043 **CLOSED**.
 - **PR #272** eight-event alert CHECK + Layer C `20261116153000` + reconcile `20261125203000` applied **direct Lovable SQL outside migration ledger** @ **19:34:12 UTC** Nov 25; verification **19:34:12 UTC**; pubs **19:35** / **19:40** UTC (**107** / **108** rows, six durable tab evidence). **Migration ledger not marked applied.**
-- **Authenticated launch defects (Nov 25):** Watchlist AI `AI_PROVIDER_ERROR` at ~130–170 ms → treat as **configuration/auth/model** until owner verifies Lovable `ANTHROPIC_API_KEY` and model id; source fix consolidates env model resolution + fail-fast classification (pending PR deploy). Repeat Movers: **`market_behavior_episodes` stale since Oct 20** — ingestion/backfill is owner-authorized work, not client-only.
+- **Authenticated launch defects (Nov 25):** Watchlist AI `AI_PROVIDER_ERROR` at ~130–171 ms with batch exhaustion — **precise Anthropic cause UNVERIFIED** (auth/model/billing vs other) without sanitized HTTP status/type from Edge logs; PR #275 adds surface-isolated model env, batch provider-wide containment, and fail-fast single-request behavior. Repeat Movers: episode table **staleness since Oct 20 confirmed**; ingestion failure mechanism **UNVERIFIED**; backfill owner-authorized only.
 - **ISS-024 Layer D / ISS-034 / ISS-044** acceptance remain **OPEN** (degraded Gappers, opening-bell, closed-session).
 
 ## Verified continuity checkpoint — November 25, 2026 (ISS-034 boundary fix; historical)

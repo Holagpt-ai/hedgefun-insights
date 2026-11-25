@@ -8,7 +8,7 @@ import type { ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX } from "./sanitize.ts";
 import {
   DEFAULT_ANTHROPIC_HAIKU_MODEL,
-  resolveAnthropicHaikuModelId,
+  resolveWatchlistAnthropicModelId,
 } from "../ai/anthropic-config.ts";
 import { classifyHttpFailure, logAiRequest } from "../ai/normalized-failure.ts";
 import { failureCodeFromCategory } from "../ai/failure-codes.ts";
@@ -117,7 +117,7 @@ export function resolveWatchlistAiConfig(
   const fallbackRequested = (env.WATCHLIST_AI_FALLBACK ?? "off").trim().toLowerCase() === "on";
   return {
     provider,
-    model: resolveAnthropicHaikuModelId(env),
+    model: resolveWatchlistAnthropicModelId(env),
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() ?? "",
     fallbackEnabled: false,
     fallbackRequested,

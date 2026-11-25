@@ -1,8 +1,8 @@
 ﻿# Changelog
 
-## 2026-11-25 — Authenticated launch defect correction (PR pending)
+## 2026-11-25 — Authenticated launch defect correction (PR #275)
 
-- **Watchlist + Brief:** shared `anthropic-config.ts` model resolution (`ANTHROPIC_MODEL` / surface env keys); permanent HTTP failures no longer exhaust transport retries (404/400 → `COST_GUARD` brief state, fail-fast); missing `ANTHROPIC_API_KEY` → `AI_AUTH` on Watchlist adapter init.
+- **Watchlist + Brief:** surface-isolated model resolution (`resolveWatchlistAnthropicModelId` / `resolveDailyBriefAnthropicModelId`); permanent HTTP failures no longer exhaust transport retries; batch **provider-wide containment** in `run-watchlist-analysis-v2-batch` after confirmed auth/account/model signals (not ticker-scoped 400s); missing `ANTHROPIC_API_KEY` → `AI_AUTH`.
 - **Screeners:** `resolveScreenerMarketDataTrust` generation-age fallback → **Delayed** (15-minute quote policy) when feed telemetry absent — Gappers/NHL parity with Radar tabs (ISS-024 freshness).
 - **Repeat Movers:** Edge client sends publishable `apikey` separate from user JWT; backfill runbook only (no prod SQL).
 - **Tests:** Deno `anthropic-config_test`, `normalized-failure_test`, `generation-state_test`; Vitest trust-states + historical-context client.

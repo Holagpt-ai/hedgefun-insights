@@ -2,7 +2,7 @@
 
 **GitHub baseline:** `9a86c34e0778f07bbd12db29e0a855d80737ff6c`. **Branch:** `cursor/launch-authenticated-defects-nov25` — shared Anthropic config/classification (Watchlist + Daily Brief), screener delayed-data trust parity (Gappers/NHL vs Radar tabs), Repeat Movers Edge `apikey` + backfill runbook. **Deploy after merge:** Vercel frontend; Lovable Edge **`analyze-watchlist-tickers-v2`**, **`generate-daily-brief`** (verify `ANTHROPIC_API_KEY` + model). **No** SQL/Fly/cron/backfill from this batch.
 
-**Production preserved (Nov 25 evening):** Scanner Edge **v530**, Option B **ON**, Fly **v50**, ISS-043 **CLOSED**. Layer C `20261116153000` + reconcile `20261125203000` applied **direct SQL outside migration ledger** @ **19:34:12 UTC** (ledger **not** marked applied). Post-activation pubs **19:35** / **19:40** UTC (**107** / **108** rows). P0 Watchlist AI failures (~130 ms `AI_PROVIDER_ERROR`) likely **permanent provider configuration** — owner secrets check required.
+**Production preserved (Nov 25 evening):** Scanner Edge **v530**, Option B **ON**, Fly **v50**, ISS-043 **CLOSED**. Layer C + reconcile applied **direct SQL outside ledger** @ **19:34:12 UTC** (ledger **not** marked). P0 Watchlist: six runs / **0** AI successes, ~20–26 failures/run, ~130–171 ms `AI_PROVIDER_ERROR` — **specific upstream cause UNVERIFIED** until sanitized provider response (status + error type) is captured; fast latency proves repeated upstream rejection, not which class. Repeat Movers: **`market_behavior_episodes` stale since Oct 20** confirmed; ingestion mechanism **UNVERIFIED**.
 
 ---
 

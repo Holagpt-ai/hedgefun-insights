@@ -95,3 +95,12 @@ Deno.test("batch worker still reanalyzes every unique watchlist ticker including
   assert(!worker.includes("INSUFFICIENT_EVIDENCE"));
   assert(!worker.includes("failure_reason"));
 });
+
+Deno.test("batch worker halts slice on confirmed provider-wide AI failures", async () => {
+  const worker = await Deno.readTextFile(
+    new URL("../../run-watchlist-analysis-v2-batch/index.ts", import.meta.url),
+  );
+  assert(worker.includes("provider_wide_containment"));
+  assert(worker.includes("providerWideContainment"));
+  assert(worker.includes("WATCHLIST_BATCH_PROVIDER_WIDE_CONTAINMENT_THRESHOLD"));
+});

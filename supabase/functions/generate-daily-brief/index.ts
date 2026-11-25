@@ -61,7 +61,7 @@ import {
 } from "./telemetry.ts";
 import { createAiRequestId } from "../_shared/ai/request-context.ts";
 import { failureCodeFromCategory } from "../_shared/ai/failure-codes.ts";
-import { resolveAnthropicHaikuModelId } from "../_shared/ai/anthropic-config.ts";
+import { resolveDailyBriefAnthropicModelId } from "../_shared/ai/anthropic-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,9 +236,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const anthropicModel = resolveAnthropicHaikuModelId({
+    const anthropicModel = resolveDailyBriefAnthropicModelId({
       ANTHROPIC_MODEL: Deno.env.get("ANTHROPIC_MODEL"),
-      WATCHLIST_AI_MODEL: Deno.env.get("WATCHLIST_AI_MODEL"),
       DAILY_BRIEF_MODEL: Deno.env.get("DAILY_BRIEF_MODEL"),
     });
     if (!supabaseUrl || !supabaseServiceKey || !anthropicApiKey) {

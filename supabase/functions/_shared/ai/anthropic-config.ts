@@ -15,19 +15,29 @@ export function sanitizeAnthropicModelId(raw: string | undefined | null): string
   return trimmed;
 }
 
-/** Provider-neutral: reads shared then surface-specific env keys in priority order. */
-export function resolveAnthropicHaikuModelId(
+function resolveFromEnvKeys(
   env: Record<string, string | undefined>,
+  keys: readonly string[],
 ): string {
-  for (const key of [
-    "ANTHROPIC_MODEL",
-    "WATCHLIST_AI_MODEL",
-    "DAILY_BRIEF_MODEL",
-  ] as const) {
+  for (const key of keys) {
     const parsed = sanitizeAnthropicModelId(env[key]);
     if (parsed) return parsed;
   }
   return DEFAULT_ANTHROPIC_HAIKU_MODEL;
+}
+
+/** Watchlist: WATCHLIST_AI_MODEL → ANTHROPIC_MODEL → default (never DAILY_BRIEF_MODEL). */
+export function resolveWatchlistAnthropicModelId(
+  env: Record<string, string | undefined>,
+): string {
+  return resolveFromEnvKeys(env, ["WATCHLIST_AI_MODEL", "ANTHROPIC_MODEL"]);
+}
+
+/** Daily Brief: DAILY_BRIEF_MODEL → ANTHROPIC_MODEL → default (never WATCHLIST_AI_MODEL). */
+export function resolveDailyBriefAnthropicModelId(
+  env: Record<string, string | undefined>,
+): string {
+  return resolveFromEnvKeys(env, ["DAILY_BRIEF_MODEL", "ANTHROPIC_MODEL"]);
 }
 
 const PERMANENT_ERROR_TYPES = new Set([
