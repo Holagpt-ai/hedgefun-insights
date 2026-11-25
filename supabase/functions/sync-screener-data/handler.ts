@@ -23,6 +23,7 @@ import {
   shouldPersistFinalizeStageMarker,
   type FinalizeStage,
 } from "../_shared/screeners/sync-finalize-diagnostics.ts";
+import { finalizeStageEnterExitWithMarkerAfterWork } from "../_shared/screeners/sync-finalize-boundary-completion.ts";
 import { releaseFinalizeLeaseCas } from "../_shared/screeners/sync-finalize-lease-release.ts";
 import {
   prepareStagedFinalizeRetry,
@@ -777,44 +778,68 @@ async function finalizeStagedScreenerGeneration(
 
   finalizeTimer.advance("merge_selections");
   stage = "merge_selections";
-  await markBoundary("merge_selections", syncRunId);
-  const mainTabSelections = finalizeMainUniverseSelections(
-    job.merged.mainQualified,
-    extendedTabOpts,
-  );
-  const dayTradeSelected = mainTabSelections.day_trade_radar;
-  const gapperSelected = mainTabSelections.gappers;
-  const volumeSpikeSelected = mainTabSelections.volume_spikes;
-  const unusualSelected = mainTabSelections.unusual_volume;
-
-  const providerGainersLosers = [...job.gainers, ...job.losers];
-  const gainersLosersFromFullSnapshot = providerGainersLosers.length === 0;
-  const gainersLosersUniverse = gainersLosersFromFullSnapshot
-    ? job.allTickers
-    : providerGainersLosers;
-  const gainersLosersPick = selectGainersLosersFromUniverse(
-    gainersLosersUniverse,
-    undefined,
-    extendedTabOpts,
-  );
-  const gainersLosersSelected = gainersLosersPick.selected;
-  const gainersLosersVolumeActiveCount =
-    gainersLosersFromFullSnapshot &&
-      (observation.extendedSession || observation.observationSessionFields)
-      ? job.merged.primaryAccum.volumeActive
-      : undefined;
-  logFinalizeStageExit({
-    generationId: job.id,
+  const mergeSelections = await finalizeStageEnterExitWithMarkerAfterWork({
+    generationId,
     syncRunId,
     stage: "merge_selections",
-    detail:
-      `gl_universe=${gainersLosersUniverse.length} gl_selected=${gainersLosersSelected.length}`,
+    wallNowMs,
+    store,
+    work: () => {
+      const mainTabSelections = finalizeMainUniverseSelections(
+        job.merged.mainQualified,
+        extendedTabOpts,
+      );
+      const providerGainersLosers = [...job.gainers, ...job.losers];
+      const gainersLosersFromFullSnapshot = providerGainersLosers.length === 0;
+      const gainersLosersUniverse = gainersLosersFromFullSnapshot
+        ? job.allTickers
+        : providerGainersLosers;
+      const gainersLosersPick = selectGainersLosersFromUniverse(
+        gainersLosersUniverse,
+        undefined,
+        extendedTabOpts,
+      );
+      return {
+        mainTabSelections,
+        dayTradeSelected: mainTabSelections.day_trade_radar,
+        gapperSelected: mainTabSelections.gappers,
+        volumeSpikeSelected: mainTabSelections.volume_spikes,
+        unusualSelected: mainTabSelections.unusual_volume,
+        gainersLosersSelected: gainersLosersPick.selected,
+        gainersLosersVolumeActiveCount:
+          gainersLosersFromFullSnapshot &&
+            (observation.extendedSession || observation.observationSessionFields)
+            ? job.merged.primaryAccum.volumeActive
+            : undefined,
+        gainersLosersUniverse,
+        gainersLosersPick,
+      };
+    },
+    exitDetail: (picked) =>
+      `gl_universe=${picked.gainersLosersUniverse.length} gl_selected=${picked.gainersLosersSelected.length}`,
   });
+  const {
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    unusualSelected,
+    gainersLosersSelected,
+    gainersLosersVolumeActiveCount,
+    gainersLosersUniverse,
+    gainersLosersPick,
+  } = mergeSelections;
 
   finalizeTimer.advance("load_volume_baselines");
   stage = "load_volume_baselines";
-  await markBoundary("load_volume_baselines", syncRunId);
-  const volumeBaselines = await loadVolumeBaselines(sb);
+  const volumeBaselines = await finalizeStageEnterExitWithMarkerAfterWork({
+    generationId,
+    syncRunId,
+    stage: "load_volume_baselines",
+    wallNowMs,
+    store,
+    work: () => loadVolumeBaselines(sb),
+    exitDetail: "loaded",
+  });
   const volumeCtx = volumeContextFromOpts(extendedTabOpts);
   const nhlSelected = nhlBaseline.status === "available"
     ? finalizeNhlSelections(

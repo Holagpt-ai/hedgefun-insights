@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-25 — ISS-034 finalize merge/volume boundary diagnostics (PR pending)
+
+- **ISS-034 (diagnostic defect):** Durable `finalize_stage:merge_selections` was written at stage *enter* before CPU-heavy selection work; `load_volume_baselines` was not durable — Nov 24–25 opening-bell jobs dying in that window were ambiguous. **Runtime kill mechanism remains UNVERIFIED** (no http_546; stale abort ~30 min). Fix: persist `merge_selections` after selection completes; add durable `load_volume_baselines` after baseline load. Deno: `iss034-finalize-merge-volume-boundary_test.ts` + `batch216-finalize-stage-marker_test.ts`. **Not deployed.**
+- **ISS-043:** Nov 23–25 read-only — generations within **04:00–19:55 ET**; closed-session cron classification **PASS** (no cron change).
+- **Option B:** PR **#261** on `main`; compatible with pre–Layer C production DB; activation = Edge deploy (if not already at #261+) + owner secret `SCREENER_ALLOW_DEGRADED_GAPPERS_PUBLISH=true` + optional Vercel truth-state; **not authorized**.
+
 ## 2026-11-22 Launch Batch B — alert event-type constraint (PR pending; base `87f7fd81`)
 
 - **ISS-034 (no source change):** Nov 20 RTH zero publications / retained generations match existing Gappers preserve with Option B **OFF** (SONN unresolved gap input at 09:15 ET). The 09:35 `merge_selections` stop has no recorded cause; not treated as a confirmed code defect. Option B stays off.
