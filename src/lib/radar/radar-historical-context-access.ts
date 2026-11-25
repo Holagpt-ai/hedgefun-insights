@@ -3,6 +3,21 @@
  * Matches the Supabase browser client (publishable JWT) with legacy anon fallback.
  */
 
+/** Supabase Edge gateway `apikey` header (publishable or anon). Distinct from the user Bearer JWT. */
+export function resolveSupabaseEdgeApiKey(): string | null {
+  const publishable = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (typeof publishable === "string" && publishable.trim().length > 0) {
+    return publishable.trim();
+  }
+
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (typeof anon === "string" && anon.trim().length > 0) {
+    return anon.trim();
+  }
+
+  return null;
+}
+
 export function resolveRadarHistoricalContextAccessToken(
   sessionAccessToken: string | undefined | null,
 ): string | null {

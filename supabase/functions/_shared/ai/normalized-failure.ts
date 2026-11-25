@@ -23,12 +23,29 @@ export function classifyHttpFailure(input: {
   timedOut?: boolean;
   malformed?: boolean;
   schemaInvalid?: boolean;
+  /** Sanitized Anthropic `error.type` when available — never log raw provider bodies. */
+  errorType?: string | null;
 }): AiFailureCategory {
   if (input.malformed) return "MALFORMED_RESPONSE";
   if (input.schemaInvalid) return "SCHEMA_VALIDATION";
   if (input.timedOut || input.httpStatus === null) return "TIMEOUT";
+
+  const errorType = input.errorType?.trim().toLowerCase() ?? "";
+  if (errorType === "authentication_error" || errorType === "permission_error") {
+    return "AUTH";
+  }
+  if (
+    errorType === "not_found_error"
+    || errorType === "invalid_request_error"
+    || errorType === "request_too_large"
+  ) {
+    return "COST_GUARD";
+  }
+
   const status = input.httpStatus;
   if (status === 401 || status === 403) return "AUTH";
+  if (status === 402 || status === 404) return "COST_GUARD";
+  if (status === 400) return "COST_GUARD";
   if (status === 429) return "RATE_LIMIT";
   if (status >= 500) return "PROVIDER_5XX";
   if (status === 408) return "TIMEOUT";

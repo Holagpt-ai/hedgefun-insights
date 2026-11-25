@@ -1,6 +1,14 @@
-# Session handoff — November 25, 2026 (Layer C + Option B reconcile; PR pending)
+# Session handoff — November 25, 2026 (authenticated launch defects; PR pending)
 
-**GitHub `main`:** `97c2eb0348da33c6e0216aa743d9ca358b2f458b` (#273 merged). **Production:** Scanner Edge **v530**; Option B **ON**; fingerprint `4956c836e7b5f721957b632e739ff90ceb1d5c41df6c4075dfa1186326f55778`; recovery `07dbdf5c3b640149f621809f31f662b9cae663ac`; Lovable editor `48dfe1b1`; **11** consecutive pubs through **18:30 UTC** (107 rows, six evaluated tabs). PR #272 CHECK applied direct SQL **18:26:38 UTC** (ledger untouched). **ISS-043 CLOSED.** **Layer C unapplied** — git bundle: `20261116153000` + `20261125203000`; runbook `batch191-layer-c-option-b-activation-bundle-v1.md`. **No** SQL/Edge/Fly from this batch.
+**GitHub baseline:** `9a86c34e0778f07bbd12db29e0a855d80737ff6c`. **Branch:** `cursor/launch-authenticated-defects-nov25` — shared Anthropic config/classification (Watchlist + Daily Brief), screener delayed-data trust parity (Gappers/NHL vs Radar tabs), Repeat Movers Edge `apikey` + backfill runbook. **Deploy after merge:** Vercel frontend; Lovable Edge **`analyze-watchlist-tickers-v2`**, **`generate-daily-brief`** (verify `ANTHROPIC_API_KEY` + model). **No** SQL/Fly/cron/backfill from this batch.
+
+**Production preserved (Nov 25 evening):** Scanner Edge **v530**, Option B **ON**, Fly **v50**, ISS-043 **CLOSED**. Layer C + reconcile applied **direct SQL outside ledger** @ **19:34:12 UTC** (ledger **not** marked). P0 Watchlist: six runs / **0** AI successes, ~20–26 failures/run, ~130–171 ms `AI_PROVIDER_ERROR` — **specific upstream cause UNVERIFIED** until sanitized provider response (status + error type) is captured; fast latency proves repeated upstream rejection, not which class. Repeat Movers: **`market_behavior_episodes` stale since Oct 20** confirmed; ingestion mechanism **UNVERIFIED**.
+
+---
+
+# Session handoff — November 25, 2026 (Layer C + Option B reconcile; historical)
+
+**GitHub `main`:** `97c2eb0348da33c6e0216aa743d9ca358b2f458b` (#273 merged). **Production:** Scanner Edge **v530**; Option B **ON**; Layer C bundle applied direct SQL **19:34 UTC** (ledger untouched); PR #274 reconcile source on branch history.
 
 ---
 

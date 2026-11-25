@@ -14,6 +14,10 @@ import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v
 import { fetchWithOutcome } from "../_shared/watchlist-v2/market-data.ts";
 import { applyCursor, buildAnalysisScope, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
 import { WATCHLIST_BATCH_ANALYZER_INVOKE_TIMEOUT_MS } from "../_shared/watchlist-v2/execution-budget.ts";
+import {
+  isProviderWideWatchlistAiFailure,
+  WATCHLIST_BATCH_PROVIDER_WIDE_CONTAINMENT_THRESHOLD,
+} from "../_shared/watchlist-v2/provider-containment.ts";
 
 const MAX_TICKERS_PER_INVOCATION = 25;
 const MAX_CONCURRENCY = 5;
@@ -34,9 +38,10 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 interface AnalyzeOutcome {
-  status: "succeeded" | "unavailable" | "failed" | "not_applicable";
+  status: "succeeded" | "unavailable" | "failed" | "not_applicable" | "contained";
   errorCode?: string;
   httpStatus: number;
+  providerWideFailure?: boolean;
 }
 
 async function invokeAnalyzer(
@@ -79,7 +84,13 @@ async function invokeAnalyzer(
   const code = typeof body?.error_code === "string" ? body.error_code
     : typeof body?.error === "string" ? body.error
     : "UPSTREAM_ERROR";
-  return { status: "failed", errorCode: code, httpStatus: status };
+  const providerWideFailure = body?.provider_wide_failure === true
+    || isProviderWideWatchlistAiFailure({
+      errorCode: code,
+      httpStatus: status,
+      errorType: typeof body?.anthropic_error_type === "string" ? body.anthropic_error_type : null,
+    });
+  return { status: "failed", errorCode: code, httpStatus: status, providerWideFailure };
 }
 
 async function runBatch(
@@ -162,7 +173,10 @@ async function runBatch(
   let processed = 0;
   let budgetExhausted = false;
   let lastProcessedTicker = cursorStart;
-  const counters = { succeeded: 0, unavailable: 0, failed: 0, not_applicable: 0 };
+  const counters = { succeeded: 0, unavailable: 0, failed: 0, not_applicable: 0, contained: 0 };
+  let providerWideContainment = false;
+  let consecutiveProviderWide = 0;
+  let containmentCode = "AI_PROVIDER_ERROR";
 
   async function worker() {
     while (true) {
@@ -170,15 +184,43 @@ async function runBatch(
       const my = idx++;
       if (my >= slice.length) return;
       const item = slice[my];
+      if (providerWideContainment) {
+        counters.contained++;
+        await supabase.rpc("record_wl_v2_run_error", {
+          p_run_id: runId, p_ticker: item.ticker, p_code: containmentCode,
+        });
+        processed++;
+        if (item.ticker.localeCompare(lastProcessedTicker) > 0) lastProcessedTicker = item.ticker;
+        continue;
+      }
       const outcome = await invokeAnalyzer(supabaseUrl, secret, runId, item);
-      if (outcome.status === "succeeded") counters.succeeded++;
-      else if (outcome.status === "unavailable") counters.unavailable++;
-      else if (outcome.status === "not_applicable") counters.not_applicable++;
-      else {
+      if (outcome.status === "succeeded") {
+        counters.succeeded++;
+        consecutiveProviderWide = 0;
+      } else if (outcome.status === "unavailable") {
+        counters.unavailable++;
+        consecutiveProviderWide = 0;
+      } else if (outcome.status === "not_applicable") {
+        counters.not_applicable++;
+        consecutiveProviderWide = 0;
+      } else {
         counters.failed++;
         await supabase.rpc("record_wl_v2_run_error", {
           p_run_id: runId, p_ticker: item.ticker, p_code: outcome.errorCode ?? "UPSTREAM_ERROR",
         });
+        if (outcome.providerWideFailure) {
+          consecutiveProviderWide += 1;
+          if (
+            outcome.errorCode === "AI_AUTH"
+            || consecutiveProviderWide >= WATCHLIST_BATCH_PROVIDER_WIDE_CONTAINMENT_THRESHOLD
+          ) {
+            providerWideContainment = true;
+            containmentCode = outcome.errorCode ?? "AI_PROVIDER_ERROR";
+            console.warn(`${LOG_PREFIX} batch provider containment active code=${containmentCode}`);
+          }
+        } else {
+          consecutiveProviderWide = 0;
+        }
       }
       processed++;
       if (item.ticker.localeCompare(lastProcessedTicker) > 0) lastProcessedTicker = item.ticker;
@@ -209,6 +251,7 @@ async function runBatch(
     attempted: processed,
     counters,
     remaining_after: Math.max(0, remainingAfter),
+    provider_wide_containment: providerWideContainment,
   });
 }
 

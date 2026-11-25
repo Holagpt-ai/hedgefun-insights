@@ -32,6 +32,7 @@ export function stateFromProviderFailure(input: {
     httpStatus: input.httpStatus,
     timedOut: input.errorType === "timeout" || (input.httpStatus === null && input.outcome === "provider_error"),
     malformed: input.outcome === "parse_error",
+    errorType: input.errorType,
   });
   const retryable = input.outcome === "provider_error"
     && input.httpStatus !== 400

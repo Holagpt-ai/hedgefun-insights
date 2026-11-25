@@ -10,6 +10,8 @@ Deno.test("maps timeout, 5xx, auth, and malformed responses", () => {
   assertEquals(classifyHttpFailure({ httpStatus: 500 }), "PROVIDER_5XX");
   assertEquals(classifyHttpFailure({ httpStatus: 429 }), "RATE_LIMIT");
   assertEquals(classifyHttpFailure({ httpStatus: 401 }), "AUTH");
+  assertEquals(classifyHttpFailure({ httpStatus: 404, errorType: "not_found_error" }), "COST_GUARD");
+  assertEquals(classifyHttpFailure({ httpStatus: 400, errorType: "invalid_request_error" }), "COST_GUARD");
   assertEquals(classifyHttpFailure({ httpStatus: 200, malformed: true }), "MALFORMED_RESPONSE");
   assertEquals(classifyHttpFailure({ httpStatus: 200, schemaInvalid: true }), "SCHEMA_VALIDATION");
 });

@@ -47,6 +47,7 @@ import {
   type WatchlistAiCallMeta,
   type WatchlistTriggerType,
 } from "../_shared/watchlist-v2/ai-provider.ts";
+import { isProviderWideWatchlistAiFailure } from "../_shared/watchlist-v2/provider-containment.ts";
 import {
   resolveWatchlistProviderTimeoutMs,
   resolveWatchlistTransportWallClockBudgetMs,
@@ -477,6 +478,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     WATCHLIST_AI_MODEL: Deno.env.get("WATCHLIST_AI_MODEL"),
     WATCHLIST_AI_FALLBACK: Deno.env.get("WATCHLIST_AI_FALLBACK"),
     ANTHROPIC_API_KEY: Deno.env.get("ANTHROPIC_API_KEY"),
+    ANTHROPIC_MODEL: Deno.env.get("ANTHROPIC_MODEL"),
   });
 
   const marketStatus: MarketStatusFetcher = {
@@ -861,13 +863,18 @@ export async function handleRequest(req: Request): Promise<Response> {
         requestId,
       });
       if (!created.ok) {
+        const configCode = created.reason === "missing_anthropic_key" ? "AI_AUTH" : "UPSTREAM_ERROR";
         outcomeLog.outcome = "failed";
-        outcomeLog.failure_reason = "UPSTREAM_ERROR";
+        outcomeLog.failure_reason = configCode;
         outcomeLog.claude_decision = "error";
         outcomeLog.ai_provider = aiConfig.provider;
         outcomeLog.ai_model = aiConfig.model;
         outcomeLog.ai_fallback = "off";
-        return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+        console.error(`${LOG_PREFIX} ai_adapter_init ${JSON.stringify({ reason: created.reason })}`);
+        return finish(await failAndRespond(supabase, requestId, owner, runId, configCode, {
+          httpStatus: null,
+          anthropicErrorType: configCode === "AI_AUTH" ? "authentication_error" : null,
+        }));
       }
       const intended = after.kind === "call"
         ? after.decision
@@ -1002,7 +1009,10 @@ export async function handleRequest(req: Request): Promise<Response> {
         }
         outcomeLog.missing_evidence_count = evidence.missing.length;
         outcomeLog.claude_decision = "error";
-        return finish(await failAndRespond(supabase, requestId, owner, runId, code));
+        return finish(await failAndRespond(supabase, requestId, owner, runId, code, {
+          httpStatus: outcome.http_status,
+          anthropicErrorType: outcome.provider_error_type ?? null,
+        }));
       } else {
         outcomeLog.outcome = "failed";
         outcomeLog.failure_reason = "AI_VALIDATION_FAILED";
@@ -1236,14 +1246,24 @@ async function failAndRespond(
   owner: string,
   runId: string | null,
   code: ErrorCode,
+  hints?: { httpStatus?: number | null; anthropicErrorType?: string | null },
 ): Promise<Response> {
   await recordClaudeDecision(supabase, runId, "error");
   const { error } = await supabase.rpc("fail_watchlist_analysis_v2", {
     p_request_id: requestId, p_user_id: owner, p_error_code: code,
   });
   if (error) console.error(`${LOG_PREFIX} fail rpc error`);
+  const providerWideFailure = isProviderWideWatchlistAiFailure({
+    errorCode: code,
+    httpStatus: hints?.httpStatus ?? null,
+    errorType: hints?.anthropicErrorType ?? null,
+  });
   return jsonResponse(200, {
-    status: "failed", request_id: requestId, error_code: code, claude_decision: "error",
+    status: "failed",
+    request_id: requestId,
+    error_code: code,
+    claude_decision: "error",
+    provider_wide_failure: providerWideFailure,
   });
 }
 
