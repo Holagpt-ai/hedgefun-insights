@@ -65,13 +65,15 @@ export const FINALIZE_STAGE_MARKER_WRITE_OR_FILTER =
   "continue_last_error.is.null,continue_last_error.like.finalize_stage:*";
 
 /**
- * Durable DB markers are limited to kill-relevant boundaries so finalize does
- * not add a PostgREST round trip at every console stage enter.
+ * Durable DB markers are limited to kill-relevant boundaries (including the
+ * merge_selections / load_volume_baselines gap) so finalize does not add a
+ * PostgREST round trip at every console stage enter.
  */
 export const DURABLE_FINALIZE_STAGE_MARKERS: ReadonlySet<FinalizeStage> = new Set([
   "load_job",
   "claim_finalize_lease",
   "merge_selections",
+  "load_volume_baselines",
   "build_rows",
   "build_evidence",
   "atomic_publish",

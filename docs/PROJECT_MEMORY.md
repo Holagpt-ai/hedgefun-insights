@@ -1,5 +1,13 @@
 # Project memory
 
+## Verified continuity checkpoint — November 25, 2026 (ISS-034 boundary fix; git only, no deploy)
+
+- **Nov 25 Lovable read-only (16:36 UTC):** Scanner pubs Nov 23 **63/68/48** PM/RTH/AH; Nov 24 **49/62/0**; Nov 25 partial **65/18** PM/RTH; Nov 24 **58** consecutive retains (Gappers). Opening Nov 24 **09:30** / Nov 25 **09:40**: **7/7**, last marker `finalize_stage:merge_selections`, ~12 s after chunks, stale abort ~30 min, **no** established CPU/lease/DB cause, **no** Edge logs. **Root cause UNVERIFIED.**
+- **Git fix (pending deploy):** Persist durable finalize marker after merge selection work + after `load_volume_baselines` — prior enter-only `merge_selections` marker misattributed kills in the merge→baseline gap.
+- **ISS-043:** **PASS** Nov 23–25 (generations **04:00–19:55 ET**); no cron change.
+- **Option B:** PR **#261** merged on `main`; prod **OFF**; compatible pre–Layer C DB; activation = Edge + owner flag (+ optional Vercel), **not** authorized here.
+- **Preserved:** Nov 18 Edge fp e16fba30…; Fly v50; Layer C **BLOCKED**; PR **#272** migration **not applied**; ISS-034 **P0 OPEN**.
+
 ## Verified continuity checkpoint — November 22, 2026 (post-PR #265; docs-only, no deploy)
 
 - **GitHub main:** be8659df81157a8964f709cce1d4a4caacf24243 (PR #265 merged). **Fly Radar worker v50** deployed November 18 ~18:06 UTC from PR #264 / 47f2136b; Radar V2 writes HTTP 200 and bridge timeout_ms=130000. v49 image deployment-01M7JK8SMFV0RP648PH6VBDN4G is recovery reference. **ISS-049 OPEN** for natural-timeout/backoff acceptance and historical burst correlation; no further Fly deployment approved.
