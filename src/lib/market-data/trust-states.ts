@@ -71,6 +71,19 @@ export function classifyAgeAgainstStaleBoundary(
   return "FRESH";
 }
 
+/**
+ * Screener generation sync freshness vs delayed quote policy.
+ * A recent publication timestamp means the board updated; it does not imply real-time quotes.
+ */
+export function classifyScreenerGenerationMarketTrust(
+  ageMs: number,
+  staleAfterMs: number,
+): MarketDataTrustState {
+  if (!Number.isFinite(ageMs) || ageMs < 0) return "UNAVAILABLE";
+  if (ageMs > staleAfterMs) return "STALE";
+  return "DELAYED";
+}
+
 export function formatMarketDataTrustLine(
   state: MarketDataTrustState,
   sourceIso: string | null,
@@ -130,7 +143,7 @@ export function resolveScreenerMarketDataTrust(input: {
   const sourceMs = parseTrustSourceMs(sourceIso);
   if (sourceMs === null) return "UNAVAILABLE";
   const ageMs = nowMs - sourceMs;
-  return classifyAgeAgainstStaleBoundary(ageMs, SCREENER_STALE_AFTER_MS);
+  return classifyScreenerGenerationMarketTrust(ageMs, SCREENER_STALE_AFTER_MS);
 }
 
 export function resolveWatchlistMarketDataTrust(input: {

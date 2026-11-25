@@ -40,10 +40,8 @@ import {
 import { etClock } from "../_shared/briefs/am-window.ts";
 import {
   AM_MAX_TOKENS,
-  AM_MODEL,
   AM_V2_SYSTEM,
   PM_MAX_TOKENS,
-  PM_MODEL,
   PM_SYSTEM,
   buildAmUserPrompt,
   buildPmUserPrompt,
@@ -63,6 +61,7 @@ import {
 } from "./telemetry.ts";
 import { createAiRequestId } from "../_shared/ai/request-context.ts";
 import { failureCodeFromCategory } from "../_shared/ai/failure-codes.ts";
+import { resolveDailyBriefAnthropicModelId } from "../_shared/ai/anthropic-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -237,6 +236,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const anthropicModel = resolveDailyBriefAnthropicModelId({
+      ANTHROPIC_MODEL: Deno.env.get("ANTHROPIC_MODEL"),
+      DAILY_BRIEF_MODEL: Deno.env.get("DAILY_BRIEF_MODEL"),
+    });
     if (!supabaseUrl || !supabaseServiceKey || !anthropicApiKey) {
       return json({ error: "Server misconfigured" }, 500);
     }
@@ -404,7 +407,7 @@ serve(async (req) => {
         system: PM_SYSTEM,
         user: userPrompt,
         maxTokens: PM_MAX_TOKENS,
-        model: PM_MODEL,
+        model: anthropicModel,
         requestId,
       });
       if (!generated.ok) {
@@ -746,7 +749,7 @@ serve(async (req) => {
       system: AM_V2_SYSTEM,
       user: buildAmUserPrompt(bundle),
       maxTokens: AM_MAX_TOKENS,
-      model: AM_MODEL,
+      model: anthropicModel,
       requestId,
     });
     if (!generated.ok) {

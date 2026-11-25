@@ -61,6 +61,29 @@ describe("fetchRadarHistoricalContextBatch", () => {
     expect(batch.results[0]?.historicalContext).toBeNull();
   });
 
+  it("sends publishable apikey separately from the user Bearer token", async () => {
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test_key");
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [] }),
+    })) as unknown as typeof fetch;
+
+    await fetchRadarHistoricalContextBatch({
+      url: "https://example.test/radar-historical-context",
+      accessToken: "user-jwt-token",
+      requests: [...requests],
+      fetchImpl,
+    });
+
+    const mockedFetch = vi.mocked(fetchImpl);
+    const init = mockedFetch.mock.calls[0]?.[1] as RequestInit;
+    const hdrs = init.headers as Record<string, string>;
+    expect(hdrs.Authorization).toBe("Bearer user-jwt-token");
+    expect(hdrs.apikey).toBe("sb_publishable_test_key");
+    vi.unstubAllEnvs();
+  });
+
   it("omits Authorization when accessToken is not provided", async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,

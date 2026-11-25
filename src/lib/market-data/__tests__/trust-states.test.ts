@@ -386,14 +386,14 @@ describe("resolveScreenerMarketDataTrust", () => {
     ).toBe("DELAYED");
   });
 
-  it("generation fallback within 20m -> Fresh (not Delayed at 6m)", () => {
+  it("generation fallback within 20m -> Delayed (15m quote policy without feed telemetry)", () => {
     expect(
       resolveScreenerMarketDataTrust({
         status: "available",
         syncedAt: ISO(6 * 60_000),
         nowMs: NOW,
       }),
-    ).toBe("FRESH");
+    ).toBe("DELAYED");
   });
 
   it("generation fallback beyond 20m -> Stale", () => {
