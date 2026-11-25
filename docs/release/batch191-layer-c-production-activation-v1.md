@@ -2,7 +2,10 @@
 
 **GitHub `main` (merged):** `15aef76e3bc22650a6ccbd0286fb9d4cf3ab1017` (PR **#259**)  
 **Parent (pre–Layer C Edge/SQL rollback provenance):** `53a0ee4c5775f5f69c41164fffb74441cb8c9bf5`  
-**Migration (single file):** `supabase/migrations/20261116153000_screener_sync_generation_tab_evidence_v1.sql`  
+**Migrations (ordered bundle — see `batch191-layer-c-option-b-activation-bundle-v1.md`):**
+
+1. `supabase/migrations/20261116153000_screener_sync_generation_tab_evidence_v1.sql`
+2. `supabase/migrations/20261125203000_screener_option_b_reconcile_evidence_v1.sql` (**required same window** with Option B ON)  
 **Edge function:** `sync-screener-data` only (PR **#259** did **not** change handler source; deploy for **provenance / integration parity**, not a ranking change)  
 **Fly Radar worker:** **no change** — **v50** live (Nov 18); preserve deployed worker for ISS-044 **20:00 ET** acceptance (independent of Layer C; rollback **v49** owner-only)
 
