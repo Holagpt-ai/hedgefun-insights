@@ -6,6 +6,10 @@ import type { EvidenceCatalog } from "./ai-read.ts";
 import { makeAnthropicCaller, validateAiOutput, type AiReadResult } from "./ai-read.ts";
 import type { ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX } from "./sanitize.ts";
+import {
+  DEFAULT_ANTHROPIC_HAIKU_MODEL,
+  resolveAnthropicHaikuModelId,
+} from "../ai/anthropic-config.ts";
 import { classifyHttpFailure, logAiRequest } from "../ai/normalized-failure.ts";
 import { failureCodeFromCategory } from "../ai/failure-codes.ts";
 import {
@@ -17,7 +21,7 @@ import {
 export type WatchlistAiProviderId = "anthropic" | "qwen";
 
 export const DEFAULT_WATCHLIST_AI_PROVIDER: WatchlistAiProviderId = "anthropic";
-export const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+export const DEFAULT_ANTHROPIC_MODEL = DEFAULT_ANTHROPIC_HAIKU_MODEL;
 export const WATCHLIST_AI_MAX_REPAIR_RETRIES = 1;
 export const WATCHLIST_AI_FALLBACK_ENABLED = false;
 
@@ -113,7 +117,7 @@ export function resolveWatchlistAiConfig(
   const fallbackRequested = (env.WATCHLIST_AI_FALLBACK ?? "off").trim().toLowerCase() === "on";
   return {
     provider,
-    model: DEFAULT_ANTHROPIC_MODEL,
+    model: resolveAnthropicHaikuModelId(env),
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() ?? "",
     fallbackEnabled: false,
     fallbackRequested,
@@ -320,6 +324,7 @@ export async function generateWatchlistAnalysis(
       const transportCategory = classifyHttpFailure({
         httpStatus: failure.http_status,
         timedOut: failure.code === "PROVIDER_TIMEOUT" || failure.http_status === null,
+        errorType: failure.provider_error_type,
       });
       logWatchlistAiRequest({
         attempt: providerCallAttempt,
@@ -491,7 +496,7 @@ export function createWatchlistAiAdapter(
     ok: true,
     adapter: createAnthropicAdapter({
       apiKey: config.anthropicApiKey,
-      model: DEFAULT_ANTHROPIC_MODEL,
+      model: config.model,
       timeoutMs: runtime.timeoutMs,
       requestId: runtime.requestId,
     }),

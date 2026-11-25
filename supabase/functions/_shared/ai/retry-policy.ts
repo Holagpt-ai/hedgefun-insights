@@ -35,7 +35,13 @@ export function shouldRetryTransportFailure(input: {
   const max = input.maxAttempts ?? AI_MAX_TRANSPORT_ATTEMPTS;
   if (input.attempt >= max) return false;
   if (input.outcome !== "provider_error") return false;
-  if (input.httpStatus === 400 || input.httpStatus === 401 || input.httpStatus === 403) {
+  if (
+    input.httpStatus === 400
+    || input.httpStatus === 401
+    || input.httpStatus === 402
+    || input.httpStatus === 403
+    || input.httpStatus === 404
+  ) {
     return false;
   }
   const category = transportFailureCategory(input);

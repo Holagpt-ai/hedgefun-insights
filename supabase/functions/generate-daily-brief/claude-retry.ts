@@ -17,6 +17,7 @@ function failureCategory(err: ClaudeErr): AiFailureCategory {
     httpStatus: err.httpStatus,
     timedOut: err.errorType === "timeout" || (err.httpStatus === null && err.outcome === "provider_error"),
     malformed: err.outcome === "parse_error",
+    errorType: err.errorType,
   });
 }
 

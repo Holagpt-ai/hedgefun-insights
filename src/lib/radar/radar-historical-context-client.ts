@@ -1,5 +1,6 @@
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import type { RadarHistoricalContextEnrichmentRequest } from "@/lib/radar/radar-historical-context-types";
+import { resolveSupabaseEdgeApiKey } from "@/lib/radar/radar-historical-context-access";
 
 export interface RadarHistoricalContextBatchResponse {
   results: Array<{
@@ -39,7 +40,8 @@ export async function fetchRadarHistoricalContextBatch(input: {
   const token = input.accessToken?.trim();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-    headers.apikey = token;
+    const apiKey = resolveSupabaseEdgeApiKey();
+    if (apiKey) headers.apikey = apiKey;
   }
   const res = await fetchImpl(input.url, {
     method: "POST",

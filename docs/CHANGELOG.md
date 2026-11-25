@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-25 — Authenticated launch defect correction (PR pending)
+
+- **Watchlist + Brief:** shared `anthropic-config.ts` model resolution (`ANTHROPIC_MODEL` / surface env keys); permanent HTTP failures no longer exhaust transport retries (404/400 → `COST_GUARD` brief state, fail-fast); missing `ANTHROPIC_API_KEY` → `AI_AUTH` on Watchlist adapter init.
+- **Screeners:** `resolveScreenerMarketDataTrust` generation-age fallback → **Delayed** (15-minute quote policy) when feed telemetry absent — Gappers/NHL parity with Radar tabs (ISS-024 freshness).
+- **Repeat Movers:** Edge client sends publishable `apikey` separate from user JWT; backfill runbook only (no prod SQL).
+- **Tests:** Deno `anthropic-config_test`, `normalized-failure_test`, `generation-state_test`; Vitest trust-states + historical-context client.
+- **Deploy:** Vercel + Edge `analyze-watchlist-tickers-v2`, `generate-daily-brief`; owner Anthropic secret verification required.
+
 ## 2026-11-25 — Layer C + Option B reconcile (PR pending; SQL not applied)
 
 - Forward migration `20261125203000`: `validate_screener_feed_reconcile_evidence_v1` + Option B–aware `reconcile_screener_sync_staged_publish_v1` (six-tab evaluated **or** canonical degraded Gappers with companion tabs evaluated and zero Gappers rows).

@@ -1,13 +1,12 @@
 # Project memory
 
-## Verified continuity checkpoint — November 25, 2026 (scanner v530 + Option B ON; Layer C pending)
+## Verified continuity checkpoint — November 25, 2026 (scanner v530 + Option B ON; Layer C activated outside ledger)
 
-- **GitHub `main`:** `97c2eb0348da33c6e0216aa743d9ca358b2f458b` (#273 merged).
-- **Scanner Edge v530** (Nov 25): fingerprint `4956c836e7b5f721957b632e739ff90ceb1d5c41df6c4075dfa1186326f55778`; recovery source `07dbdf5c3b640149f621809f31f662b9cae663ac`; Lovable editor `48dfe1b1`; Option B **ON**; **11** consecutive successful publications through **18:30 UTC** (107 rows, six evaluated tabs).
-- **PR #272** alert CHECK applied direct Lovable SQL **2026-11-25 18:26:38 UTC**; eight event types validated; migration ledger **not** modified.
-- **ISS-043:** **CLOSED** (session window observed).
-- **ISS-024 Layer C:** **unapplied**; forward reconcile fix `20261125203000` prepared with `20261116153000` in activation bundle (Option B reconcile compatibility).
-- **Fly v50** preserved. **No** new Edge deploy required for Layer C if v530 remains compatible.
+- **GitHub `main`:** `9a86c34e0778f07bbd12db29e0a855d80737ff6c` (pre–authenticated-defects batch).
+- **Scanner Edge v530**; Option B **ON**; Fly **v50**; ISS-043 **CLOSED**.
+- **PR #272** eight-event alert CHECK + Layer C `20261116153000` + reconcile `20261125203000` applied **direct Lovable SQL outside migration ledger** @ **19:34:12 UTC** Nov 25; verification **19:34:12 UTC**; pubs **19:35** / **19:40** UTC (**107** / **108** rows, six durable tab evidence). **Migration ledger not marked applied.**
+- **Authenticated launch defects (Nov 25):** Watchlist AI `AI_PROVIDER_ERROR` at ~130–170 ms → treat as **configuration/auth/model** until owner verifies Lovable `ANTHROPIC_API_KEY` and model id; source fix consolidates env model resolution + fail-fast classification (pending PR deploy). Repeat Movers: **`market_behavior_episodes` stale since Oct 20** — ingestion/backfill is owner-authorized work, not client-only.
+- **ISS-024 Layer D / ISS-034 / ISS-044** acceptance remain **OPEN** (degraded Gappers, opening-bell, closed-session).
 
 ## Verified continuity checkpoint — November 25, 2026 (ISS-034 boundary fix; historical)
 

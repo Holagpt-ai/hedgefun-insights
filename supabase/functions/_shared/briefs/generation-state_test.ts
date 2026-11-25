@@ -90,6 +90,21 @@ Deno.test("provider 5xx persists temporarily unavailable and retryable", async (
   assertEquals(read.generation_status, "temporarily_unavailable");
 });
 
+Deno.test("model or request configuration failure maps to COST_GUARD and is not retryable", async () => {
+  const { admin, rows } = memoryWriter();
+  await writeBriefGenerationState(admin, stateFromProviderFailure({
+    briefType: "am",
+    briefDate: "2026-09-29",
+    httpStatus: 404,
+    outcome: "provider_error",
+    errorType: "not_found_error",
+    failedAt: AT,
+  }));
+  const stored = rows.get("am:2026-09-29");
+  assertEquals(stored?.failure_category, "COST_GUARD");
+  assertEquals(stored?.retryable, false);
+});
+
 Deno.test("auth failure persists temporarily unavailable and is not retryable", async () => {
   const { admin, rows } = memoryWriter();
   await writeBriefGenerationState(admin, stateFromProviderFailure({

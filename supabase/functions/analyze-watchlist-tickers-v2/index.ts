@@ -477,6 +477,8 @@ export async function handleRequest(req: Request): Promise<Response> {
     WATCHLIST_AI_MODEL: Deno.env.get("WATCHLIST_AI_MODEL"),
     WATCHLIST_AI_FALLBACK: Deno.env.get("WATCHLIST_AI_FALLBACK"),
     ANTHROPIC_API_KEY: Deno.env.get("ANTHROPIC_API_KEY"),
+    ANTHROPIC_MODEL: Deno.env.get("ANTHROPIC_MODEL"),
+    DAILY_BRIEF_MODEL: Deno.env.get("DAILY_BRIEF_MODEL"),
   });
 
   const marketStatus: MarketStatusFetcher = {
@@ -861,13 +863,15 @@ export async function handleRequest(req: Request): Promise<Response> {
         requestId,
       });
       if (!created.ok) {
+        const configCode = created.reason === "missing_anthropic_key" ? "AI_AUTH" : "UPSTREAM_ERROR";
         outcomeLog.outcome = "failed";
-        outcomeLog.failure_reason = "UPSTREAM_ERROR";
+        outcomeLog.failure_reason = configCode;
         outcomeLog.claude_decision = "error";
         outcomeLog.ai_provider = aiConfig.provider;
         outcomeLog.ai_model = aiConfig.model;
         outcomeLog.ai_fallback = "off";
-        return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+        console.error(`${LOG_PREFIX} ai_adapter_init ${JSON.stringify({ reason: created.reason })}`);
+        return finish(await failAndRespond(supabase, requestId, owner, runId, configCode));
       }
       const intended = after.kind === "call"
         ? after.decision

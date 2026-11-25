@@ -2,7 +2,9 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Production checkpoint — November 25, 2026 (v530 + Option B ON; 18:30 UTC):** Edge v530; Option B **ON**; **11** consecutive publications; PR #272 CHECK applied outside ledger; ISS-043 **CLOSED**; Layer C **unapplied** — activation package in git (`batch191-layer-c-option-b-activation-bundle-v1.md`).
+**Production checkpoint — November 25, 2026 (v530 + Option B ON; Layer C activated 19:34 UTC):** Edge v530; Option B **ON**; Layer C + reconcile SQL applied **direct outside ledger** @ **19:34:12 UTC** (ledger **not** marked); pubs **107**/**108** @ **19:35**/**19:40 UTC**; ISS-043 **CLOSED**. **P0 Watchlist AI:** six runs, **0** successes, `AI_PROVIDER_ERROR` ~130 ms — **configuration/auth/model** suspected; fix in `cursor/launch-authenticated-defects-nov25` (pending deploy). **P1 Brief:** `temporarily_unavailable` / `UNKNOWN` → reclassified `COST_GUARD` for model-not-found class. **P1 Repeat Movers:** episodes stale **Oct 20** — ingestion runbook `batch-nov25-repeat-movers-ingestion-runbook-v1.md`. **P1 ISS-024 tab delayed copy:** screener trust parity fix in same PR (Vercel).
+
+**Earlier checkpoint (18:30 UTC; superseded for Layer C):** Layer C was **unapplied** in git-only state before owner direct SQL activation.
 
 **Earlier Nov 25 read-only (16:36 UTC; superseded for deploy state):** Nov 23–25 publication ledger within expected ET windows; Nov 24 **58** consecutive `prior_generation_retained` (Gappers coverage); Nov 24 **09:30** / Nov 25 **09:40** **7/7** then stalled at pre-fix `finalize_stage:merge_selections` (~12 s), aborted ~30 min without recorded cause. **Diagnostic fix on branch (not deployed):** durable markers after merge selection + load volume baselines. **Kill mechanism UNVERIFIED.** ISS-034 **P0 OPEN**. **ISS-043 PASS** (session window 04:00–19:55 ET observed; no cron change). Option B **#261** on `main`, **OFF** in prod.
 
