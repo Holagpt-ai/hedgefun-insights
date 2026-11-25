@@ -36,6 +36,7 @@ function optionBRowsWithoutGappers(syncedAt: string) {
     ...validScreenerRow("NHL1", "new_highs_lows", syncedAt),
     high_52w: "20",
     low_52w: "5",
+    range_event: "new_high",
   };
   return [
     validScreenerRow("GL1", "gainers_losers", syncedAt),
