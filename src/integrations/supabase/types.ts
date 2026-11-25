@@ -8522,9 +8522,12 @@ export type Database = {
           observation: Json
           publish_rows_inserted: number | null
           publish_rpc_recorded_at: string | null
+          published_nhl_baseline_status: string | null
+          published_synced_at: string | null
           state_version: number
           status: string
           sync_run_id: string
+          tab_evaluation_evidence: Json | null
           total_chunks: number
           updated_at: string
         }
@@ -8550,9 +8553,12 @@ export type Database = {
           observation: Json
           publish_rows_inserted?: number | null
           publish_rpc_recorded_at?: string | null
+          published_nhl_baseline_status?: string | null
+          published_synced_at?: string | null
           state_version?: number
           status: string
           sync_run_id: string
+          tab_evaluation_evidence?: Json | null
           total_chunks: number
           updated_at?: string
         }
@@ -8578,9 +8584,12 @@ export type Database = {
           observation?: Json
           publish_rows_inserted?: number | null
           publish_rpc_recorded_at?: string | null
+          published_nhl_baseline_status?: string | null
+          published_synced_at?: string | null
           state_version?: number
           status?: string
           sync_run_id?: string
+          tab_evaluation_evidence?: Json | null
           total_chunks?: number
           updated_at?: string
         }
@@ -10381,6 +10390,10 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_items: Json; p_policy_version: string }
         Returns: Json
       }
+      assert_screener_tab_evaluation_evidence_v1: {
+        Args: { p_tab_evaluation_evidence: Json }
+        Returns: undefined
+      }
       behavior_profile_list_candidates_v1: {
         Args: { p_after_security_id: string; p_limit: number }
         Returns: {
@@ -11300,6 +11313,10 @@ export type Database = {
         Returns: boolean
       }
       try_screener_bar_numeric: { Args: { p_raw: string }; Returns: number }
+      validate_screener_feed_reconcile_evidence_v1: {
+        Args: { p_gappers_result_rows: number; p_tab_evaluation_evidence: Json }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
