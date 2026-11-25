@@ -32,9 +32,14 @@ async function ensureOptionBReconcileMigration(
 }
 
 function optionBRowsWithoutGappers(syncedAt: string) {
+  const nhl = {
+    ...validScreenerRow("NHL1", "new_highs_lows", syncedAt),
+    high_52w: "20",
+    low_52w: "5",
+  };
   return [
     validScreenerRow("GL1", "gainers_losers", syncedAt),
-    validScreenerRow("NHL1", "new_highs_lows", syncedAt),
+    nhl,
     validScreenerRow("DTR1", "day_trade_radar", syncedAt),
     validScreenerRow("VS1", "volume_spikes", syncedAt),
     validScreenerRow("UV1", "unusual_volume", syncedAt),
