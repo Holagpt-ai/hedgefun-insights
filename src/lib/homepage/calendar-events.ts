@@ -66,13 +66,5 @@ export function filterCatalystEventsForDay(
   return [];
 }
 
-/** Catalyst Calendar V4 handoff — consumers may read both query keys when V4 lands. */
-export function buildCalendarDeepLink(isoDate: string, tab: HomepageCalendarTab): string {
-  const params = new URLSearchParams({
-    [HOMEPAGE_CALENDAR_QUERY.date]: isoDate,
-    [HOMEPAGE_CALENDAR_QUERY.tab]: tab,
-  });
-  return `/earnings?${params.toString()}`;
-}
-
+export { buildCalendarV4Href as buildCalendarDeepLink } from "@/lib/calendar-v4/deep-link";
 export { buildHomepageCalendarOutbound } from "@/lib/homepage/calendar-outbound";

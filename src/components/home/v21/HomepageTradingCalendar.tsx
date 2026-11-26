@@ -50,7 +50,7 @@ export function HomepageTradingCalendar() {
   const selectedCell = grid.find((c) => c.iso === selectedDate);
   const outbound = buildHomepageCalendarOutbound(tab, selectedDate);
   const fullLinkLabel =
-    tab === "earnings" ? copy.calendarViewEarnings : tab === "catalyst" ? copy.calendarCatalystV4Soon : null;
+    tab === "earnings" ? copy.calendarViewEarnings : copy.calendarViewFullCatalyst;
 
   const shiftMonth = (delta: number) => {
     const d = new Date(viewYear, viewMonth - 1 + delta, 1);

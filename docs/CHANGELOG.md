@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 + homepage handoff (git only; PR pending)
+
+- Public `/calendar` (Muse-aligned modular UI): month/list, filters, legend, agenda, AI Day Brief (factual/cache-only), Week Snapshot, ticker preview, full chart dialog, watchlist/journal/AI Analyst handoffs.
+- Shared normalized contract under `src/lib/calendar-v4/`; homepage links to `/calendar?calDate=&calTab=&calFilter=`.
+- **Prepared (not applied):** `economic_events` migration + `sync-economic-calendar` Edge stub — macro tab remains empty until Lovable activates provider sync.
+- **Merged baseline:** Homepage PR **#277** @ `a7ddec2`. **Not deployed** to production.
+
+## 2026-11-26 — Homepage V21 merged to main (PR #277)
+
+- Merge commit **`a7ddec2`** on GitHub `main` (Vercel production SHA verification separate).
+
 ## 2026-11-26 — Homepage V21 owner preview fixes (PR #277; git only)
 
 - Header session pill (compact Muse styling), earnings Daily/Weekly views, homepage calendar outbound links, closed-session movers layout, footer width alignment.
