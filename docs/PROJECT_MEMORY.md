@@ -1,11 +1,12 @@
 # Project memory
 
-## Development checkpoint — November 26, 2026 (Catalyst Calendar V4 — PR #278)
+## Development checkpoint — November 26, 2026 (Catalyst Calendar V4 — merged; activation blocked)
 
-- **Homepage V21 merged:** GitHub `main` **`a7ddec2`** (PR **#277**). Vercel production SHA not re-verified in-repo every session.
-- **Catalyst Calendar V4:** Branch **`cursor/catalyst-calendar-v4`** / PR **#278** — public `/calendar`, Muse-aligned layout (`docs/design/catalyst-calendar-v4/`), shared `calendar-v4` contract with homepage (`calDate`, `calTab`, `calFilter`).
-- **Public catalyst read:** `public_catalyst_calendar_range_v1` RPC — no anon `SELECT` on `catalyst_events`. Homepage + `/calendar` use `fetchPublicCatalystCalendarRange`.
-- **Macro feed:** Finnhub adapter gated by `FINNHUB_ECONOMIC_ENABLED`; entitlement probe via GET `sync-economic-calendar`. US catalog fallback documented in Edge shared code. Migrations + sync **not applied** until Lovable.
+- **GitHub `main`:** PR **#278** merged **`5d45869905cdf77c5abe9d85f7ab660214797417`** (Catalyst Calendar V4). Homepage V21 **`a7ddec2`** (PR **#277**).
+- **Production activation:** Lovable attempt **stopped before SQL** (ledger ambiguity + missing `service_role` grants on `economic_events` / `economic_sync_status`). Recovery migration **`20261126250000_economic_calendar_service_role_grants_v1.sql`** + runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md` (five-file sequence).
+- **Public catalyst read:** `public_catalyst_calendar_range_v1` RPC — no anon `SELECT` on `catalyst_events`.
+- **Macro feed:** Finnhub gated by `FINNHUB_ECONOMIC_ENABLED`; entitlement via authorized POST `verify_only` only (GET does not probe Finnhub).
+- **Lovable security:** Critical report — **28** tables “broad access” — inventory **pending**; do **not** Fix All in calendar recovery (`docs/release/lovable-rls-broad-access-finding-2026-11-26.md`).
 - **AI on calendar:** `useCalendarCachedIntelligence` (read-only, no alerts/realtime); relevance guard for selected date. AI Analyst `prompt` handoff with scheduled vs reported tense.
 
 ## Verified continuity checkpoint — November 26, 2026 (Historical provider entitlement floor)
