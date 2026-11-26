@@ -2,6 +2,8 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
+**Historical catch-up backlog (Nov 26, confirmed):** **~4735** symbols eligible for **2026-11-25**; run 3 stalled on **head-of-line unresolved identities** (not provider throttling). **Fix in git (PR #276):** symbol cursor, provider taxonomy (HTTP 200 missing payload ≠ unsupported), campaign lock ownership, full per-run reservation before launch, verified Fly cleanup. **Operational:** no recurring schedule until external trigger per `recurring-catchup-operations-v1.md`.
+
 **Production checkpoint — November 25, 2026 (v530 + Option B ON; Layer C activated 19:34 UTC):** Edge v530; Option B **ON**; Layer C + reconcile SQL applied **direct outside ledger** @ **19:34:12 UTC** (ledger **not** marked); pubs **107**/**108** @ **19:35**/**19:40 UTC**; ISS-043 **CLOSED**. **P0 Watchlist AI:** six runs, **0** successes, `AI_PROVIDER_ERROR` ~130–171 ms — **precise upstream cause UNVERIFIED**; PR #275 adds containment + classification (pending Edge deploy). **P1 Brief:** `temporarily_unavailable` / `UNKNOWN` → reclassified `COST_GUARD` for model-not-found class. **P1 Repeat Movers:** episodes stale **Oct 20** — ingestion runbook `batch-nov25-repeat-movers-ingestion-runbook-v1.md`. **P1 ISS-024 tab delayed copy:** screener trust parity fix in same PR (Vercel).
 
 **Earlier checkpoint (18:30 UTC; superseded for Layer C):** Layer C was **unapplied** in git-only state before owner direct SQL activation.

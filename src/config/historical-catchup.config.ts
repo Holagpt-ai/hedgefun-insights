@@ -3,6 +3,8 @@
  * Secrets are never read here.
  */
 
+import { normalizeQueueAfterSymbol } from "@/lib/historical-backfill/catch-up-queue";
+
 export const HISTORICAL_CATCHUP_TARGET_ENV = "HISTORICAL_CATCHUP_TARGET_SESSION";
 
 /** Prior production rollout anchor (Sep 2026 pilot). Not a silent default at runtime. */
@@ -12,6 +14,13 @@ export const HISTORICAL_ROLLOUT_ANCHOR_SESSION = "2026-09-18";
 export const HISTORICAL_CATCHUP_DEFAULT_ELIGIBILITY_BATCH_SIZE = 100;
 
 export const HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV = "HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE";
+
+/** Exclusive cursor — resume after this symbol in the sorted eligible queue (persists across Fly runs). */
+export const HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV = "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL";
+
+/** Upper bound on eligibility scans per batch before advancing the queue cursor. */
+export const HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV =
+  "HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH";
 
 export const HISTORICAL_CATCHUP_LIMITS = {
   /** Max symbol batches started in one Fly process. */
@@ -69,6 +78,35 @@ function parseStrictLimit(
     throw new HistoricalCatchupLimitsError(`${envName} exceeds ceiling ${ceiling} (got ${n})`);
   }
   return n;
+}
+
+export function readHistoricalCatchupQueueAfterSymbolFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+): string | null {
+  const raw = env.get(HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV);
+  const symbol = normalizeQueueAfterSymbol(raw);
+  if (raw?.trim() && !symbol) {
+    throw new HistoricalCatchupLimitsError(
+      `${HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV} must be a valid ticker symbol`,
+    );
+  }
+  return symbol;
+}
+
+export function readHistoricalCatchupMaxResolutionScansPerBatchFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+  fallback: number,
+): number {
+  return parseStrictLimit(
+    HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV,
+    env.get(HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV),
+    fallback,
+    HISTORICAL_CATCHUP_LIMITS_CEILING.maxSymbolsPerRun,
+  );
 }
 
 export function readHistoricalCatchupEligibilityBatchSizeFromEnv(
