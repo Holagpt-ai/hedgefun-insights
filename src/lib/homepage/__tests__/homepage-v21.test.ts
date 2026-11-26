@@ -35,9 +35,9 @@ describe("homepage calendar event contract", () => {
   };
 
   it("routes earnings to the earnings tab only", () => {
-    const earnings = filterCatalystEventsForDay([sample], "2026-11-26", "earnings");
+    const earnings = filterCatalystEventsForDay([sample], "2026-11-26", "earnings", "2026-11-26");
     expect(earnings).toHaveLength(1);
-    const catalyst = filterCatalystEventsForDay([sample], "2026-11-26", "catalyst");
+    const catalyst = filterCatalystEventsForDay([sample], "2026-11-26", "catalyst", "2026-11-26");
     expect(catalyst).toHaveLength(0);
   });
 });

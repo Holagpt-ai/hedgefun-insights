@@ -1,46 +1,33 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TRENDING_EMPTY_MESSAGE,
   TRENDING_ERROR_MESSAGE,
-  mapTrendingStockRows,
 } from "@/lib/trending/trending-page-present";
 import { publicStockDetailPath } from "@/lib/public/public-workflow-links";
 import { cn } from "@/lib/utils";
 import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
+import { useHomepageTrending } from "@/hooks/useHomepageTrending";
 
 export function TrendingNowRail() {
   const navigate = useNavigate();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["homepage-trending-rail"],
-    queryFn: async () => {
-      const { data: rows, error } = await supabase
-        .from("stocks")
-        .select("symbol, name, market_cap, change_percent, volume, updated_at")
-        .not("volume", "is", null)
-        .gt("volume", 0)
-        .order("volume", { ascending: false })
-        .limit(8);
-      if (error) throw error;
-      return mapTrendingStockRows(rows);
-    },
-    staleTime: 300_000,
-  });
+  const { pathname } = useLocation();
+  const isEs = pathname.startsWith("/es");
+  const { data, isLoading, isError } = useHomepageTrending(8);
 
   return (
     <section aria-labelledby="trending-now-heading" className="hp-card px-3 py-3">
       <div className="mb-2 flex items-center justify-between px-1">
         <h2 id="trending-now-heading" className="text-sm font-extrabold">
-          Trending Now
+          {isEs ? "Tendencias ahora" : "Trending Now"}
         </h2>
         <Link to="/trending" className="text-xs font-bold text-[var(--hp-blue)]">
-          All →
+          {isEs ? "Todo →" : "All →"}
         </Link>
       </div>
       <p className="mb-2 px-1 text-[10px] text-[var(--hp-ink-3)]">
-        Volume-ranked · {PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}
+        {isEs ? "Por volumen · " : "Volume-ranked · "}
+        {PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}
       </p>
       {isLoading ? (
         <div className="space-y-2">

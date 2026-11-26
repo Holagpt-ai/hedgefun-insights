@@ -14,8 +14,8 @@ import { FeatureGridV21 } from "@/components/home/v21/FeatureGridV21";
 import { MarketNewsV21 } from "@/components/home/v21/MarketNewsV21";
 import { TrendingNowRail } from "@/components/home/v21/TrendingNowRail";
 import { AdvertisementSlot } from "@/components/home/v21/AdvertisementSlot";
-import { QuietProRail } from "@/components/home/v21/QuietProRail";
 import { HomepageV21Ipos } from "@/components/home/v21/HomepageV21Ipos";
+import { HomepageV21Footer } from "@/components/home/v21/HomepageV21Footer";
 import "@/components/home/v21/homepage-v21.css";
 
 const Index = () => {
@@ -33,45 +33,41 @@ const Index = () => {
 
       <HomepageHeroV21 />
 
-      <div className="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_336px] lg:gap-[18px] lg:items-start">
-        <div className="min-w-0 lg:col-span-2">
-          <StockIndexCarousel />
-        </div>
-        <div className="min-w-0">
-          <SignificantMarketMovesV21 />
-        </div>
-        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
-          <MyAssetsRail />
-        </div>
-        <div className="min-w-0">
+      <StockIndexCarousel />
+
+      <div className="top-band">
+        <div className="band-col band-col-left">
+          <div className="band-moves min-w-0">
+            <SignificantMarketMovesV21 />
+          </div>
           <MarketMoversV21 />
         </div>
-        <div className="min-w-0 lg:col-start-2">
+        <div className="band-col band-col-right">
+          <div className="band-assets min-w-0">
+            <MyAssetsRail />
+          </div>
           <HomepageTradingCalendar />
         </div>
-        <div className="min-w-0">
-          <FeatureGridV21 />
-        </div>
-        <div className="min-w-0">
+      </div>
+
+      <FeatureGridV21 />
+
+      <div className="layout-bottom hp-layout mt-[18px]">
+        <div className="hp-rail stack">
           <MarketNewsV21 />
-        </div>
-        <div className="min-w-0 lg:col-start-2">
-          <TrendingNowRail />
-        </div>
-        <div className="min-w-0 lg:col-span-1">
           <HomepageV21Ipos />
         </div>
-        <div className="min-w-0 lg:col-start-2">
+        <div className="hp-rail stack">
+          <TrendingNowRail />
           <AdvertisementSlot />
-        </div>
-        <div className="min-w-0 lg:col-start-2">
-          <QuietProRail />
         </div>
       </div>
 
       <div className="mt-6 px-1">
         <Disclaimer />
       </div>
+
+      <HomepageV21Footer />
     </div>
   );
 };

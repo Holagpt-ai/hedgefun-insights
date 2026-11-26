@@ -21,8 +21,17 @@ function impactFromEvent(event: CatalystEvent): HomepageCalendarEvent["impact"] 
   return "unknown";
 }
 
-export function catalystToHomepageEvent(event: CatalystEvent, tab: HomepageCalendarTab): HomepageCalendarEvent {
-  const reported = event.published_at && event.event_date <= new Date().toISOString().slice(0, 10);
+function eventStatus(event: CatalystEvent, etToday: string): HomepageCalendarEvent["status"] {
+  if (event.event_date > etToday) return "scheduled";
+  if (event.event_date < etToday) return "reported";
+  return "scheduled";
+}
+
+export function catalystToHomepageEvent(
+  event: CatalystEvent,
+  tab: HomepageCalendarTab,
+  etToday: string,
+): HomepageCalendarEvent {
   return {
     eventId: event.id,
     type: tab,
@@ -32,7 +41,7 @@ export function catalystToHomepageEvent(event: CatalystEvent, tab: HomepageCalen
     eventTime: event.event_time,
     impact: impactFromEvent(event),
     source: event.source_name,
-    status: reported ? "reported" : "scheduled",
+    status: eventStatus(event, etToday),
   };
 }
 
@@ -40,18 +49,19 @@ export function filterCatalystEventsForDay(
   events: CatalystEvent[] | undefined,
   isoDate: string,
   tab: HomepageCalendarTab,
+  etToday: string,
 ): HomepageCalendarEvent[] {
   if (!events?.length) return [];
   const dayRows = events.filter((e) => e.event_date === isoDate);
   if (tab === "earnings") {
     return dayRows
       .filter((e) => e.event_type === "earnings")
-      .map((e) => catalystToHomepageEvent(e, "earnings"));
+      .map((e) => catalystToHomepageEvent(e, "earnings", etToday));
   }
   if (tab === "catalyst") {
     return dayRows
       .filter((e) => e.event_type !== "earnings")
-      .map((e) => catalystToHomepageEvent(e, "catalyst"));
+      .map((e) => catalystToHomepageEvent(e, "catalyst", etToday));
   }
   return [];
 }

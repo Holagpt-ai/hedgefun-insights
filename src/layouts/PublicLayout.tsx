@@ -29,7 +29,7 @@ export default function PublicLayout() {
           <Outlet />
         </main>
       </div>
-      <Footer />
+      {pathname === "/" ? null : <Footer />}
       <MobileBottomNav />
       <MobileSidebarDrawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
       <ChatWidget />

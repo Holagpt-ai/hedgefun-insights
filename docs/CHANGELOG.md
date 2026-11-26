@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-26 — Homepage Muse V21 design fidelity (PR #277; git only)
+
+- Second pass on `cursor/homepage-v21-production-integration`: Muse layout bands, month calendar grid with `useHomepageCalendarMonth`, movers price filter, Muse six-card tools, editorial news, navy homepage footer, i18n copy bundle, removed duplicate Pro rail.
+- **Still missing:** public economic calendar data feed; Earnings page does not yet consume `calDate`/`calTab` handoff params.
+- **Not deployed** to production.
+
 ## 2026-11-26 — Homepage Muse V21 production integration (git only; PR pending)
 
 - Rebuilt public homepage per approved design package `docs/design/homepage-v21/` (visual reference V21; controlling spec: owner assignment).

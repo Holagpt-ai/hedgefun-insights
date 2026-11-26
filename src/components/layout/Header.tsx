@@ -22,6 +22,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 import { getEffectiveLanguage } from "@/config/locale-v1.policy";
 import { useShowPublicLanguageToggle } from "@/hooks/useEffectiveLanguage";
+import { HomepageSessionChip } from "@/components/home/v21/HomepageSessionChip";
 
 export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const navigate = useNavigate();
@@ -179,6 +180,11 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         </div>
 
         <div className="hidden md:flex items-center gap-2">
+          {pathname === "/" ? (
+            <div className="hidden lg:block max-w-[280px] shrink-0">
+              <HomepageSessionChip />
+            </div>
+          ) : null}
           {showLanguageToggle ? (
             <button
               onClick={() => setLanguage(language === "en" ? "es" : "en")}

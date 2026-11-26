@@ -1,65 +1,75 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCatalystEvents } from "@/hooks/useCatalystEvents";
 import {
   HOMEPAGE_V21_CALENDAR_TABS,
   type HomepageCalendarTab,
 } from "@/config/homepage-v21";
-import {
-  buildCalendarDeepLink,
-  filterCatalystEventsForDay,
-} from "@/lib/homepage/calendar-events";
-import { easternParts } from "@/lib/market-session";
+import { buildCalendarDeepLink, filterCatalystEventsForDay } from "@/lib/homepage/calendar-events";
+import { buildMonthGrid, etTodayParts, eventCountForDay } from "@/lib/homepage/calendar-month";
+import { useHomepageCalendarMonth } from "@/hooks/useHomepageCalendarMonth";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { homepageV21Copy, type HomepageV21Lang } from "@/lib/homepage/homepage-v21-copy";
+import { getEffectiveLanguage } from "@/config/locale-v1.policy";
+import { cn } from "@/lib/utils";
 
-function formatDayLabel(isoDate: string): string {
-  const d = new Date(`${isoDate}T12:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
+const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 
-function etTodayIso(): string {
-  const p = easternParts(Date.now());
-  if (!p) return new Date().toISOString().slice(0, 10);
-  const y = p.year;
-  const m = String(p.month).padStart(2, "0");
-  const day = String(p.day).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function shiftIsoDate(iso: string, deltaDays: number): string {
-  const d = new Date(`${iso}T12:00:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
+function monthTitle(year: number, month: number): string {
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/New_York",
+  });
 }
 
 export function HomepageTradingCalendar() {
+  const { pathname } = useLocation();
+  const { language } = useLanguage();
+  const lang = getEffectiveLanguage(language, pathname) as HomepageV21Lang;
+  const copy = homepageV21Copy(lang);
+  const today = etTodayParts();
+
   const [tab, setTab] = useState<HomepageCalendarTab>("catalyst");
-  const [selectedDate, setSelectedDate] = useState(etTodayIso);
+  const [viewYear, setViewYear] = useState(today.year);
+  const [viewMonth, setViewMonth] = useState(today.month);
+  const [selectedDate, setSelectedDate] = useState(today.iso);
 
-  const eventsQuery = useCatalystEvents({
-    recentDays: 3,
-    upcomingDays: 21,
-    limit: 500,
-    eventDateOrder: "asc",
-  });
-
-  const rows = useMemo(
-    () => filterCatalystEventsForDay(eventsQuery.data, selectedDate, tab),
-    [eventsQuery.data, selectedDate, tab],
+  const eventsQuery = useHomepageCalendarMonth(viewYear, viewMonth);
+  const grid = useMemo(
+    () => buildMonthGrid(viewYear, viewMonth, today.iso),
+    [viewYear, viewMonth, today.iso],
   );
 
+  const rows = useMemo(
+    () => filterCatalystEventsForDay(eventsQuery.data, selectedDate, tab, today.iso),
+    [eventsQuery.data, selectedDate, tab, today.iso],
+  );
+
+  const selectedCell = grid.find((c) => c.iso === selectedDate);
   const fullCalendarHref = buildCalendarDeepLink(selectedDate, tab);
 
+  const shiftMonth = (delta: number) => {
+    const d = new Date(viewYear, viewMonth - 1 + delta, 1);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth() + 1);
+  };
+
   return (
-    <section aria-labelledby="hp-calendar-heading" className="hp-card">
-      <div className="flex items-center gap-2 border-b border-[var(--hp-line)] px-4 pt-3 pb-2">
+    <section aria-labelledby="hp-calendar-heading" className="hp-card band-calendar flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
         <CalendarDays className="h-4 w-4 text-[var(--hp-blue)]" />
         <h2 id="hp-calendar-heading" className="text-base font-extrabold">
-          Trading Calendar
+          {copy.calendarTitle}
         </h2>
+        <div className="flex-1" />
+        <Link to={fullCalendarHref} className="text-xs font-bold text-[var(--hp-blue)]">
+          {copy.calendarViewFull}
+        </Link>
       </div>
-      <div className="flex gap-1 p-2" role="tablist">
+
+      <div className="cal-tabs flex gap-1 px-2 pb-2" role="tablist">
         {HOMEPAGE_V21_CALENDAR_TABS.map((t) => (
           <button
             key={t.id}
@@ -67,53 +77,103 @@ export function HomepageTradingCalendar() {
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold ${
-              tab === t.id ? "bg-[var(--hp-blue)] text-white" : "bg-muted/30 text-[var(--hp-ink-2)]"
-            }`}
+            className={cn(
+              "flex-1 rounded-lg px-2 py-1.5 text-xs font-bold",
+              tab === t.id ? "bg-[var(--hp-blue)] text-white" : "bg-muted/30 text-[var(--hp-ink-2)]",
+            )}
           >
             {t.label}
           </button>
         ))}
       </div>
-      <div className="flex items-center justify-between gap-2 border-y border-[var(--hp-line)] px-3 py-2">
+
+      <div className="flex items-center justify-between border-y border-[var(--hp-line)] px-3 py-2">
         <button
           type="button"
-          aria-label="Previous day"
-          onClick={() => setSelectedDate((d) => shiftIsoDate(d, -1))}
+          aria-label="Previous month"
+          onClick={() => shiftMonth(-1)}
           className="rounded-lg border border-[var(--hp-line)] p-1"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="text-xs font-extrabold text-[var(--hp-ink)]">
-          {formatDayLabel(selectedDate)}
-        </span>
+        <span className="text-xs font-extrabold text-[var(--hp-ink)]">{monthTitle(viewYear, viewMonth)}</span>
         <button
           type="button"
-          aria-label="Next day"
-          onClick={() => setSelectedDate((d) => shiftIsoDate(d, 1))}
+          aria-label="Next month"
+          onClick={() => shiftMonth(1)}
           className="rounded-lg border border-[var(--hp-line)] p-1"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      <div className="max-h-64 overflow-y-auto px-4 py-3">
+
+      {tab !== "economic" ? (
+        <>
+          <div className="tcal-grid px-3 pt-2">
+            {DOW.map((d) => (
+              <span key={d} className="tcal-dow text-center text-[10px] font-bold text-[var(--hp-ink-3)]">
+                {d}
+              </span>
+            ))}
+            {grid.map((cell) => {
+              const count = cell.inMonth ? eventCountForDay(eventsQuery.data, cell.iso, tab) : 0;
+              return (
+                <button
+                  key={cell.iso}
+                  type="button"
+                  className={cn(
+                    "tcal-day relative min-h-9 rounded-md text-xs font-semibold",
+                    !cell.inMonth && "opacity-40",
+                    cell.isWeekend && "text-[var(--hp-ink-3)]",
+                    cell.isToday && "ring-2 ring-[var(--hp-blue)]",
+                    selectedDate === cell.iso && "bg-[var(--hp-blue)] text-white",
+                    cell.holidayName && selectedDate !== cell.iso && "underline decoration-amber-500",
+                  )}
+                  onClick={() => cell.inMonth && setSelectedDate(cell.iso)}
+                  disabled={!cell.inMonth}
+                >
+                  {cell.day}
+                  {count > 0 && (
+                    <span
+                      className={cn(
+                        "absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full",
+                        selectedDate === cell.iso ? "bg-white" : "bg-[var(--hp-blue)]",
+                      )}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="px-4 py-1 text-[10px] text-[var(--hp-ink-3)]">
+            {selectedCell?.holidayName ? `${copy.calendarHoliday}: ${selectedCell.holidayName}` : null}
+            {!selectedCell?.holidayName && selectedCell?.earlyClose ? copy.calendarEarlyClose : null}
+          </div>
+        </>
+      ) : null}
+
+      <div className="day-label mx-4 mt-1 rounded-md border border-[var(--hp-line)] bg-muted/20 px-2 py-1 text-xs font-extrabold">
+        {selectedDate === today.iso ? `${copy.calendarToday} — ` : ""}
+        {new Date(`${selectedDate}T12:00:00`).toLocaleDateString(lang === "es" ? "es-US" : "en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
         {tab === "economic" ? (
-          <p className="text-sm text-[var(--hp-ink-2)]">
-            Economic calendar data is not connected yet. Missing dependency: verified macro economic
-            event feed (no production endpoint).
-          </p>
+          <p className="text-sm text-[var(--hp-ink-2)]">{copy.calendarEconomicUnavailable}</p>
         ) : eventsQuery.isLoading ? (
           <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />
             ))}
           </div>
         ) : eventsQuery.isError ? (
-          <p className="text-sm text-[var(--hp-ink-2)]">Calendar feed unavailable. Try again later.</p>
+          <p className="text-sm text-[var(--hp-ink-2)]">{copy.calendarFeedError}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-[var(--hp-ink-2)]">
-            No {tab === "earnings" ? "earnings" : "catalyst"} events on this day.
-          </p>
+          <p className="text-sm text-[var(--hp-ink-2)]">{copy.calendarNoEvents(tab)}</p>
         ) : (
           <ul className="space-y-2">
             {rows.slice(0, 12).map((ev) => (
@@ -121,19 +181,18 @@ export function HomepageTradingCalendar() {
                 <p className="text-sm font-semibold leading-snug">{ev.title}</p>
                 <p className="text-xs text-[var(--hp-ink-3)]">
                   {ev.symbols[0] ? `${ev.symbols[0]} · ` : ""}
-                  {ev.eventTime ?? "Time TBD"} ET · {ev.source} · {ev.status}
+                  {ev.eventTime ? `${ev.eventTime} ET` : "Time TBD"}
+                  {ev.impact !== "unknown" ? ` · ${ev.impact} impact` : ""}
+                  {" · "}
+                  {ev.source}
+                  {" · "}
+                  {ev.status}
                 </p>
               </li>
             ))}
           </ul>
         )}
       </div>
-      <Link
-        to={fullCalendarHref}
-        className="flex items-center justify-center gap-1 border-t border-[var(--hp-line)] py-2 text-xs font-bold text-[var(--hp-blue)]"
-      >
-        View full calendar →
-      </Link>
     </section>
   );
 }

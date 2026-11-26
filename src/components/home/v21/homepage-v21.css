@@ -87,3 +87,235 @@
     display: block;
   }
 }
+
+.homepage-v21 .hp-btn-blue {
+  background: var(--hp-blue);
+  color: #fff;
+}
+
+.homepage-v21 .hp-btn-blue:hover {
+  filter: brightness(0.95);
+}
+
+.homepage-v21 .top-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 336px;
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 18px;
+  width: 100%;
+}
+
+.homepage-v21 .band-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.homepage-v21 .band-col-left {
+  gap: 18px;
+}
+
+.homepage-v21 .band-col-right {
+  gap: 20px;
+}
+
+.homepage-v21 .band-col-right > .band-calendar {
+  flex: 1 1 auto;
+}
+
+.homepage-v21 .layout-bottom {
+  align-items: stretch;
+}
+
+.homepage-v21 .tools-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+  width: 100%;
+}
+
+.homepage-v21 .tool-card {
+  background: var(--hp-surface);
+  border: 1px solid var(--hp-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(14, 26, 43, 0.05), 0 8px 24px -12px rgba(14, 26, 43, 0.12);
+  padding: 15px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.homepage-v21 .tool-card:hover {
+  transform: translateY(-2px);
+}
+
+.homepage-v21 .tool-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.homepage-v21 .tool-card h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.homepage-v21 .tool-card p {
+  margin: 5px 0 11px;
+  font-size: 12.5px;
+  color: var(--hp-ink-2);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.homepage-v21 .tool-go {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hp-blue);
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.homepage-v21 .tool-card.pro {
+  background: linear-gradient(135deg, #0a1526, #0f2038);
+  border-color: var(--hp-navy);
+}
+
+.homepage-v21 .tool-card.pro h3 {
+  color: #fff;
+}
+
+.homepage-v21 .tool-card.pro p {
+  color: #aebdd2;
+}
+
+.homepage-v21 .tool-card.pro .tool-go {
+  color: #8fc1ff;
+}
+
+.homepage-v21 .tool-card.pro .tool-ic {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f2c14e;
+}
+
+.homepage-v21 .tcal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.homepage-v21 footer.hp-footer {
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+.homepage-v21 .store-chip {
+  border: 1px solid #26395a;
+  border-radius: 99px;
+  padding: 6px 13px;
+  font-size: 12px;
+  color: #aebdd2;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: transparent;
+}
+
+.homepage-v21 .hp-news .news-hero-img img {
+  border-radius: 0;
+}
+
+@media (max-width: 1180px) {
+  .homepage-v21 .top-band {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+
+@media (max-width: 960px) {
+  .homepage-v21 .top-band {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .homepage-v21 .band-col {
+    display: contents;
+  }
+
+  .homepage-v21 .band-moves {
+    order: 1;
+  }
+
+  .homepage-v21 .band-assets {
+    order: 2;
+  }
+
+  .homepage-v21 .band-movers {
+    order: 3;
+  }
+
+  .homepage-v21 .band-calendar {
+    order: 4;
+  }
+
+  .homepage-v21 .band-col-right > .band-calendar {
+    flex: none;
+  }
+
+  .homepage-v21 .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .homepage-v21 .hp-news .news-hero-img {
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .homepage-v21 .tools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 961px) and (max-width: 1200px) {
+  .homepage-v21 .tools-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dark .homepage-v21 .tool-card.pro {
+  background: #1d2a18;
+  border-color: #3d4d2a;
+}
+
+.dark .homepage-v21 .tool-card.pro h3 {
+  color: var(--hp-ink);
+}
+
+.dark .homepage-v21 .tool-card.pro p {
+  color: var(--hp-ink-2);
+}
+
+.dark .homepage-v21 .tool-card.pro .tool-go {
+  color: var(--hp-blue);
+}
+
+.dark .homepage-v21 .mini-select {
+  background: var(--hp-surface);
+  color: var(--hp-ink-2);
+}
