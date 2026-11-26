@@ -98,10 +98,22 @@ export function NewTradePage() {
   // populate the draft. Only the symbol field is written — other draft inputs stay.
   useEffect(() => {
     const raw = searchParams.get("symbol");
+    const catalyst = searchParams.get("catalyst");
+  const researchDate = searchParams.get("researchDate");
     if (raw === null) return;
     const symbol = validateSymbol(raw);
     if (symbol) {
-      setDraft((current) => (current.symbol === symbol ? current : { ...current, symbol }));
+      setDraft((current) => {
+        if (current.symbol === symbol && !catalyst && !researchDate) return current;
+        const thesisParts = [
+          catalyst ? `Catalyst: ${catalyst}` : null,
+          researchDate ? `Research date: ${researchDate}` : null,
+        ].filter(Boolean);
+        const thesis = thesisParts.length
+          ? [current.thesis.trim(), ...thesisParts].filter(Boolean).join("\n")
+          : current.thesis;
+        return { ...current, symbol, thesis: thesis.slice(0, 4000) };
+      });
       const securityIdParam = searchParams.get("securityId");
       const workflow =
         readHistoricalWorkflowContext(symbol)
@@ -112,6 +124,8 @@ export function NewTradePage() {
     }
     const next = new URLSearchParams(searchParams);
     next.delete("symbol");
+    next.delete("catalyst");
+    next.delete("researchDate");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }

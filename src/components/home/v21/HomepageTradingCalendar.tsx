@@ -6,9 +6,16 @@ import {
   HOMEPAGE_V21_CALENDAR_TABS,
   type HomepageCalendarTab,
 } from "@/config/homepage-v21";
-import { buildHomepageCalendarOutbound, filterCatalystEventsForDay } from "@/lib/homepage/calendar-events";
+import {
+  buildHomepageCalendarOutbound,
+  calendarV4ToHomepageEvent,
+  filterCatalystEventsForDay,
+} from "@/lib/homepage/calendar-events";
 import { buildMonthGrid, etTodayParts, eventCountForDay } from "@/lib/homepage/calendar-month";
 import { useHomepageCalendarMonth } from "@/hooks/useHomepageCalendarMonth";
+import { useEconomicCalendarMonth } from "@/hooks/useEconomicCalendarMonth";
+import { economicToCalendarV4Event } from "@/lib/calendar-v4/normalize";
+import { CALENDAR_MACRO_COVERAGE } from "@/lib/calendar-v4/customer-copy";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { homepageV21Copy, type HomepageV21Lang } from "@/lib/homepage/homepage-v21-copy";
 import { getEffectiveLanguage } from "@/config/locale-v1.policy";
@@ -37,20 +44,30 @@ export function HomepageTradingCalendar() {
   const [selectedDate, setSelectedDate] = useState(today.iso);
 
   const eventsQuery = useHomepageCalendarMonth(viewYear, viewMonth);
+  const economicQuery = useEconomicCalendarMonth(viewYear, viewMonth);
+  const economicEvents = useMemo(
+    () =>
+      (economicQuery.data?.events ?? []).map((row) => economicToCalendarV4Event(row, today.iso)),
+    [economicQuery.data?.events, today.iso],
+  );
   const grid = useMemo(
     () => buildMonthGrid(viewYear, viewMonth, today.iso),
     [viewYear, viewMonth, today.iso],
   );
 
-  const rows = useMemo(
-    () => filterCatalystEventsForDay(eventsQuery.data, selectedDate, tab, today.iso),
-    [eventsQuery.data, selectedDate, tab, today.iso],
-  );
+  const rows = useMemo(() => {
+    if (tab === "economic") {
+      return economicEvents
+        .filter((e) => e.eventDate === selectedDate)
+        .map(calendarV4ToHomepageEvent);
+    }
+    return filterCatalystEventsForDay(eventsQuery.data, selectedDate, tab, today.iso);
+  }, [eventsQuery.data, economicEvents, selectedDate, tab, today.iso]);
 
   const selectedCell = grid.find((c) => c.iso === selectedDate);
   const outbound = buildHomepageCalendarOutbound(tab, selectedDate);
   const fullLinkLabel =
-    tab === "earnings" ? copy.calendarViewEarnings : tab === "catalyst" ? copy.calendarCatalystV4Soon : null;
+    tab === "earnings" ? copy.calendarViewEarnings : copy.calendarViewFullCatalyst;
 
   const shiftMonth = (delta: number) => {
     const d = new Date(viewYear, viewMonth - 1 + delta, 1);
@@ -118,8 +135,7 @@ export function HomepageTradingCalendar() {
         </button>
       </div>
 
-      {tab !== "economic" ? (
-        <>
+      <>
           <div className="tcal-grid px-3 pt-2">
             {DOW.map((d) => (
               <span key={d} className="tcal-dow text-center text-[10px] font-bold text-[var(--hp-ink-3)]">
@@ -127,7 +143,11 @@ export function HomepageTradingCalendar() {
               </span>
             ))}
             {grid.map((cell) => {
-              const count = cell.inMonth ? eventCountForDay(eventsQuery.data, cell.iso, tab) : 0;
+              const count = cell.inMonth
+                ? tab === "economic"
+                  ? economicEvents.filter((e) => e.eventDate === cell.iso).length
+                  : eventCountForDay(eventsQuery.data, cell.iso, tab)
+                : 0;
               return (
                 <button
                   key={cell.iso}
@@ -161,7 +181,6 @@ export function HomepageTradingCalendar() {
             {!selectedCell?.holidayName && selectedCell?.earlyClose ? copy.calendarEarlyClose : null}
           </div>
         </>
-      ) : null}
 
       <div className="day-label mx-4 mt-1 rounded-md border border-[var(--hp-line)] bg-muted/20 px-2 py-1 text-xs font-extrabold">
         {selectedDate === today.iso ? `${copy.calendarToday} — ` : ""}
@@ -173,9 +192,19 @@ export function HomepageTradingCalendar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
-        {tab === "economic" ? (
-          <p className="text-sm text-[var(--hp-ink-2)]">{copy.calendarEconomicUnavailable}</p>
-        ) : eventsQuery.isLoading && !eventsQuery.isFetched ? (
+        {tab === "economic" && economicQuery.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : tab === "economic" && economicQuery.data?.status === "unavailable" ? (
+          <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.unavailable}</p>
+        ) : tab === "economic" && economicQuery.data?.status === "never_synced" ? (
+          <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.neverSynced}</p>
+        ) : tab === "economic" && economicQuery.data?.status === "empty_in_range" ? (
+          <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.emptyInRange}</p>
+        ) : eventsQuery.isLoading && !eventsQuery.isFetched && tab !== "economic" ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />

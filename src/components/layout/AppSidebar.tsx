@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
       { labelKey: "stockExchanges", route: "/stocks/exchanges" },
       { labelKey: "comparisonTool", route: "/stocks/compare" },
       { labelKey: "earningsCalendar", route: "/earnings" },
+      { labelKey: "catalystCalendar", route: "/calendar" },
       { labelKey: "byIndustry", route: "/stocks/industry" },
       { labelKey: "stockLists", route: "/stocks/lists" },
       { labelKey: "topAnalysts", route: "/stocks/analysts" },

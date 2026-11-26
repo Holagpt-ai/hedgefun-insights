@@ -1,5 +1,43 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 final economic ingestion (PR #278; git only)
+
+- FOMC: Federal Reserve monthly newsevents pages; statement on announcement day (e.g. Dec 9 14:00 ET for Dec 8–9 meeting).
+- BLS: `release-list` table parsing with official HTML fixtures; no cross-date name pairing.
+- US government sync: `ok: false` when all sources fail; partial coverage metadata; no success stamp on total failure.
+- Public catalyst RPC pagination: stable `ORDER BY … ce.id ASC`.
+
+## 2026-11-26 — Catalyst Calendar V4 release gate (PR #278; git only)
+
+- Economic GET: cached sync status only; entitlement via authorized POST `verify_only`.
+- US government macro ingest (BLS + Fed schedules); Finnhub gated by `FINNHUB_ECONOMIC_ENABLED`.
+- Paginated public catalyst RPC + evidence-based event status; sync status persist checks.
+
+## 2026-11-26 — Catalyst Calendar V4 consolidated corrections (PR #278; git only)
+
+- Secure public catalyst: `public_catalyst_calendar_range_v1` RPC; client `fetchPublicCatalystCalendarRange`.
+- Economic: Finnhub ingest fixes, sync auth hardening, entitlement GET probe, `economic_sync_status`, `FINNHUB_ECONOMIC_ENABLED` gate, US catalog fallback metadata.
+- Calendar AI: `useCalendarCachedIntelligence` (bounded); relevance guard; week-range query expansion.
+- Muse: filter count badges, list-row cached AI take, chart stats/related chips, mobile sheet polish.
+- Runbook: `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
+
+## 2026-11-26 — Catalyst Calendar V4 completion pass (PR #278; git only)
+
+- Muse layout: navy day brief, toggleable legend, day view + persistent pinned ticker card, power-sources footer; customer-facing availability copy.
+- **Economic:** Finnhub `calendar/economic` adapter (`sync-economic-calendar`, shared economic parsers, hardened `economic_events` migration).
+- **AI:** Cached watchlist analysis in day brief; AI Analyst `symbol`+`prompt` handoff; journal `catalyst`/`researchDate` prefill.
+- Homepage economic tab shares `economic_events` query when table exists.
+- **Guest read:** migration `20261126220000_catalyst_events_public_calendar_read_v1.sql` — anon `provider_reported` catalyst rows (Lovable apply required for populated public grid).
+
+## 2026-11-26 — Catalyst Calendar V4 foundation (PR #278; git only)
+
+- Public `/calendar` shell: month/list, filters, chart preview, shared contract with homepage.
+- **Merged baseline:** Homepage PR **#277** @ `a7ddec2`.
+
+## 2026-11-26 — Homepage V21 merged to main (PR #277)
+
+- Merge commit **`a7ddec2`** on GitHub `main` (Vercel production SHA verification separate).
+
 ## 2026-11-26 — Homepage V21 owner preview fixes (PR #277; git only)
 
 - Header session pill (compact Muse styling), earnings Daily/Weekly views, homepage calendar outbound links, closed-session movers layout, footer width alignment.

@@ -35,6 +35,7 @@ const translations: Translations = {
   stockJournal: { en: "Trading Journal", es: "Diario de trading" },
   tradingJournal: { en: "Trading Journal", es: "Diario de trading" },
   earningsCalendar: { en: "Earnings Calendar", es: "Calendario de ganancias" },
+  catalystCalendar: { en: "Catalyst Calendar", es: "Calendario de catalizadores" },
   dividends: { en: "Dividends", es: "Dividendos" },
   ipoList: { en: "IPO List", es: "Lista de OPV" },
   splitHistory: { en: "Split History", es: "Historial de splits" },

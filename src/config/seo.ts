@@ -36,6 +36,7 @@ export const STATIC_SITEMAP_PATHS = [
   "/trending",
   "/screener",
   "/earnings",
+  "/calendar",
   "/stocks",
   "/chart",
   "/tools",

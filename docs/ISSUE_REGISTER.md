@@ -2,7 +2,9 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Homepage Muse V21 (Nov 26, git only):** Branch `cursor/homepage-v21-production-integration` — full V21 layout in `src/components/home/v21/`. **Economic** calendar tab blocked on verified macro feed (honest unavailable in UI). **Not deployed.** Catalyst Calendar V4 is next after owner preview approval.
+**Catalyst Calendar V4 (Nov 26, PR #278):** Muse layout + RPC public catalyst contract + Finnhub macro adapter (gated) + activation runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Production activation OPEN:** migrations `20261126180000`, `20261126220000` (RPC — not table GRANT), `20261126230000`; deploy `sync-economic-calendar`; verify Finnhub entitlement; set `FINNHUB_ECONOMIC_ENABLED` only if entitled; bounded POST sync. **Homepage V21 merged** `a7ddec2` (#277).
+
+**Homepage Muse V21 (Nov 26, merged):** PR **#277** on `main`. Economic tab reads `economic_events` when present; otherwise customer-facing unavailable copy.
 
 **Historical catch-up backlog (Nov 26, confirmed):** **~4735** symbols eligible for **2026-11-25**. PR **#276** merged and deployed Fly **v57**. Pre-v57 durable writes preserved (**599** / **340,797** / **32,939**). **v57 halt:** cursor cycles at **`BKH`** — repeated 200-symbol empty windows (**~150** `ambiguous_identity`, **~50** `unsupported_ticker`); no new jobs. Campaign **16/20**; provider **7432+7500/50000**. Worker **0**, preflight **on**. **Do not resume** until wrap/cursor cycling on still-eligible deferred symbols is fixed. No recurring schedule.
 

@@ -49,6 +49,7 @@ import {
   LazyArticleDetailPage,
   LazyNewsPage,
   LazyEarningsPage,
+  LazyCatalystCalendarPage,
 } from "@/lazyPages";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -163,6 +164,7 @@ const App = () => (
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<LazyEarningsPage />} />
+                  <Route path="/calendar" element={<LazyCatalystCalendarPage />} />
                   <Route path="/pro" element={<ProPage />} />
                   <Route path="/news" element={<LazyNewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />

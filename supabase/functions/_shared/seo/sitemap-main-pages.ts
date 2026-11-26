@@ -18,6 +18,7 @@ export const SITEMAP_MAIN_PAGES: ReadonlyArray<{
   { path: "/trending", pri: "0.8", freq: "daily" },
   { path: "/screener", pri: "0.7", freq: "daily" },
   { path: "/earnings", pri: "0.7", freq: "daily" },
+  { path: "/calendar", pri: "0.8", freq: "daily" },
   { path: "/stocks", pri: "0.8", freq: "daily" },
   { path: "/chart", pri: "0.6", freq: "weekly" },
   { path: "/tools", pri: "0.6", freq: "monthly" },
