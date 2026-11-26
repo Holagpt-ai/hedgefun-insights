@@ -37,7 +37,7 @@
 2. **GET** (public): returns cached `economic_sync_status` + US catalog links — **does not call Finnhub**.
 3. **POST** with `{"verify_only":true}` and `Authorization: Bearer <SYNC_SECRET or service role>` — Finnhub entitlement probe only.
 4. Keep `FINNHUB_ECONOMIC_ENABLED` **false** until commercial redistribution is confirmed.
-5. With Finnhub disabled, **POST** sync ingests **US government** schedules (BLS + Federal Reserve HTML) into `economic_events` (dates only — no fabricated values).
+5. With Finnhub disabled, **POST** sync ingests **US government** schedules (BLS `current_year.htm` + Federal Reserve **monthly** newsevents pages) into `economic_events` (dates only — no fabricated values). Response includes `partial_coverage` / `sources_failed`; **502 + `ok: false`** when **all** sources fail (no `last_success_at` advance).
 6. Set `FINNHUB_ECONOMIC_ENABLED=true` only after successful `verify_only` and owner sign-off.
 
 ## 5. Edge deploy

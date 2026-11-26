@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 final economic ingestion (PR #278; git only)
+
+- FOMC: Federal Reserve monthly newsevents pages; statement on announcement day (e.g. Dec 9 14:00 ET for Dec 8–9 meeting).
+- BLS: `release-list` table parsing with official HTML fixtures; no cross-date name pairing.
+- US government sync: `ok: false` when all sources fail; partial coverage metadata; no success stamp on total failure.
+- Public catalyst RPC pagination: stable `ORDER BY … ce.id ASC`.
+
 ## 2026-11-26 — Catalyst Calendar V4 release gate (PR #278; git only)
 
 - Economic GET: cached sync status only; entitlement via authorized POST `verify_only`.

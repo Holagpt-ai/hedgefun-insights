@@ -1,6 +1,6 @@
 # Session handoff — November 26, 2026 (Catalyst Calendar V4 — consolidated PR)
 
-**GitHub `main` baseline:** **`a7ddec2`** (Homepage PR **#277** merged). **Branch:** `cursor/catalyst-calendar-v4` / **PR #278** @ **`25756357`** (release gate pass). **Scope:** `public_catalyst_calendar_range_v1` RPC, economic adapter hardening + entitlement probe, `FINNHUB_ECONOMIC_ENABLED` gate, sync status coverage, calendar-only cached AI hook, Muse filter badges/list AI take/chart stats/mobile sheet. **Runbook:** `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Not production:** SQL/Edge/cron. **Next:** push head → owner review → Lovable ordered migration apply + Edge deploy.
+**GitHub `main` baseline:** **`a7ddec2`** (Homepage PR **#277** merged). **Branch:** `cursor/catalyst-calendar-v4` / **PR #278** — final economic ingestion correction (Fed monthly FOMC announcement day/time, BLS `release-list` fixtures, US gov partial/all-failed sync semantics, catalyst RPC `ce.id` pagination tie-breaker). **Runbook:** `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Not production:** SQL/Edge/cron. **Next:** owner review → Lovable ordered migration apply + Edge deploy.
 
 ---
 

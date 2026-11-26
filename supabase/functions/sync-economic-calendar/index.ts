@@ -9,7 +9,10 @@ import {
 } from "../_shared/economic/finnhub-economic-calendar.ts";
 import { upsertEconomicEventBatches } from "../_shared/economic/persist-economic-events.ts";
 import { US_ECONOMIC_RELEASE_CATALOG } from "../_shared/economic/us-economic-release-fallback.ts";
-import { fetchUsGovernmentEconomicReleases } from "../_shared/economic/us-government-economic-ingest.ts";
+import {
+  fetchUsGovernmentEconomicReleases,
+  summarizeUsGovernmentSyncOutcome,
+} from "../_shared/economic/us-government-economic-ingest.ts";
 import { verifyFinnhubEconomicEntitlement } from "../_shared/economic/verify-finnhub-economic-entitlement.ts";
 import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
 
@@ -148,7 +151,36 @@ serve(async (req) => {
 
     if (!finnhubEnabled) {
       const gov = await fetchUsGovernmentEconomicReleases(from, to);
+      const outcome = summarizeUsGovernmentSyncOutcome(gov);
       const fetchedAt = new Date().toISOString();
+
+      if (!outcome.shouldPersistSuccessMetadata) {
+        await recordSyncStatus(sb, {
+          provider: "us_government",
+          last_error_class: gov.errors.length ? gov.errors.join(",") : "all_sources_failed",
+        });
+        logSync("us_government_all_sources_failed", {
+          errors: gov.errors.join(","),
+          elapsed_ms: Date.now() - started,
+        });
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            provider: "us_government",
+            window: { from, to },
+            upserted: 0,
+            sources_succeeded: gov.sourcesSucceeded,
+            sources_failed: gov.sourcesFailed,
+            fetch_errors: gov.errors,
+            all_sources_failed: true,
+            partial_coverage: false,
+            finnhub_ingest: "disabled",
+            sync_status_persisted: true,
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const persist = gov.rows.length
         ? await upsertEconomicEventBatches({ supabase: sb, rows: gov.rows, fetchedAt })
         : { upserted: 0, batches: 0, failedBatches: 0 };
@@ -163,8 +195,10 @@ serve(async (req) => {
       });
 
       logSync("us_government_complete", {
-        sources: gov.sources.join(","),
+        sources_succeeded: gov.sourcesSucceeded.join(","),
+        sources_failed: gov.sourcesFailed.join(","),
         upserted: persist.upserted,
+        partial_coverage: outcome.partialCoverage,
         errors: gov.errors.join(","),
         elapsed_ms: Date.now() - started,
       });
@@ -176,7 +210,10 @@ serve(async (req) => {
           window: { from, to },
           upserted: persist.upserted,
           fetched_at: fetchedAt,
-          sources: gov.sources,
+          sources_succeeded: gov.sourcesSucceeded,
+          sources_failed: gov.sourcesFailed,
+          partial_coverage: outcome.partialCoverage,
+          all_sources_failed: false,
           fetch_errors: gov.errors,
           finnhub_ingest: "disabled",
           sync_status_persisted: true,

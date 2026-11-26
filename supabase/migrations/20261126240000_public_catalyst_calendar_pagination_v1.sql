@@ -82,7 +82,7 @@ BEGIN
     WHERE ce.verification_state = 'provider_reported'
       AND ce.event_date >= p_from
       AND ce.event_date <= p_to
-    ORDER BY ce.event_date ASC, ce.event_time ASC NULLS LAST, ce.title ASC
+    ORDER BY ce.event_date ASC, ce.event_time ASC NULLS LAST, ce.title ASC, ce.id ASC
     LIMIT v_limit
     OFFSET v_offset
   ) t;

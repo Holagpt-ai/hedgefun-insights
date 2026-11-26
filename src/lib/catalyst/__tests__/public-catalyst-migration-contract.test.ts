@@ -23,5 +23,6 @@ describe("public catalyst migration contract", () => {
     expect(sql).toContain("event_status");
     expect(sql).toContain("impact_level");
     expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.public_catalyst_calendar_range_v1");
+    expect(sql).toContain("ORDER BY ce.event_date ASC, ce.event_time ASC NULLS LAST, ce.title ASC, ce.id ASC");
   });
 });
