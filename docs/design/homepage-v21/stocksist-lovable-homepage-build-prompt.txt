@@ -1,0 +1,719 @@
+STOCKSIST HOMEPAGE — LOVABLE BUILD PROMPT (FINAL HANDOFF PACKAGE, DELIVERABLE 4)
+========================================================================
+Copy everything below this line into Lovable and send it with the uploaded
+files. This is Deliverable 4 of the Stocksist FINAL handoff package. It
+covers the SAME approved design and infrastructure requirements as
+Deliverable 3 (Cursor prompt). Read both prompts as one package: the
+design, data rules, config / flexibility rules, and conflicts section
+are the same in both. Where the two prompts differ, the difference is
+the TOOL'S ROLE — not the design.
+
+ROLE OF LOVABLE IN THIS PACKAGE — READ FIRST
+- Cursor is the PRIMARY implementation tool for the homepage.
+  Lovable is BACKEND / DEPLOYMENT SUPPORT only: it supports the
+  existing Lovable project, its Supabase / Lovable Cloud wiring,
+  and its Vercel preview / deployment path. Lovable must NOT
+  independently redesign the homepage, must NOT duplicate the
+  database, must NOT replace integrations, and must NOT publish
+  directly to production.
+- Cursor and Lovable must NOT simultaneously modify the same files.
+  You must not simultaneously modify files Cursor is working on.
+  Before editing any file, confirm it is not part of the active
+  Cursor work. If a file is in Cursor's scope, leave it alone and
+  say so in your summary. Work only in the files assigned to
+  Lovable, and only one tool touches a given file at a time.
+- do not publish. Do NOT publish to the live site and do NOT make
+  live site edits. Preview only. Publishing to production happens
+  only on the owner's explicit authorization, after preview review.
+- If Lovable's project copy and GitHub main disagree, GitHub main
+  is the authoritative production source — flag the disagreement
+  and do NOT overwrite GitHub main from Lovable.
+
+SOURCE OF TRUTH — LATEST ONLY
+- Homepage: approved mockup v21 (approved 2026-11-18, owner: "looks good").
+  Mockup file: stocksist-homepage-mockup-v21.html. Visual spec: the v21 PDF.
+  If the v21 HTML and the PDF disagree, follow the HTML for structure and
+  content, and the PDF for visual styling. Flag the conflict in your summary.
+- Catalyst Calendar: approved v4 (Month | List toggle, List agenda
+  Mon Nov 16 → Fri Nov 27, 658 catalysts, 37 high impact). Mockup file:
+  stocksist-catalyst-calendar-mockup-v4.html. Visual spec: the v4 PDF.
+  The full Catalyst Calendar page is STEP 2. The homepage is STEP 1.
+  Build and preview-approve the homepage first. Do NOT build the full
+  calendar page in this step — support only the homepage Trading
+  Calendar module (Section G below) and keep its "Catalyst picks"
+  link pointing at the full calendar page.
+- Website: https://stocksist.com
+- GitHub: https://github.com/Holagpt-ai/hedgefun-insights
+- GitHub main is the authoritative production source.
+
+ROLE AND ORDER OF WORK
+1. Read the v21 HTML mockup first. It is the source of truth for
+   structure, content, order, and behaviour. Use the v21 PDF only as
+   the visual spec — colours, spacing, typography, alignment, and
+   responsive behaviour.
+2. Work in the EXISTING Lovable project. This is a build-to-match
+   task, not a redesign. Follow the approved v21 mockup exactly.
+   Do not invent a new layout, do not improve the design on your own,
+   and do not change any other page or route.
+3. Confirm, before editing, which files are in Cursor's active scope
+   and which are Lovable's. Do NOT touch a file Cursor is modifying.
+   You must not simultaneously modify the same files as Cursor.
+4. Support the homepage build from the Lovable side: keep the
+   existing project's Supabase / Lovable Cloud wiring, routing,
+   auth, and market-data wiring intact; keep the Lovable project
+   in sync with GitHub main; surface any drift between the Lovable
+   project and GitHub main instead of silently resolving it.
+5. Build / support the homepage only, in the existing project.
+   Preview before publish. Do NOT publish to the live site and do
+   NOT make live site edits. do not publish.
+6. If you think of an improvement, do NOT apply it. Stop, list it,
+   and bring it back for approval first. The rule is: change the
+   mockup first, then the builder follows the updated mockup.
+
+PROJECT CONTEXT — DO NOT BREAK
+- Repo: Holagpt-ai/hedgefun-insights
+- Stack: React + TypeScript + Vite, approximately 101 routes.
+- Frontend: Vercel. Backend: Fly.io worker stocksist-radar-v22-worker.
+  Supabase / Lovable Cloud: database, auth, edge functions.
+- Preserve all existing routing, Supabase wiring, and market-data
+  wiring exactly.
+- The frontend never calls Massive directly. All market data comes
+  via the market-data edge function.
+- Homepage only. Do not touch other routes, pages, navigation
+  destinations, auth flows, or backend logic except where this
+  prompt explicitly says to wire the homepage to existing data.
+- Do NOT create a separate website, database, auth system, AI
+  pipeline, or market-data pipeline. Do NOT duplicate the database
+  (no second Supabase project, no copied tables, no parallel schema).
+  Do NOT replace integrations (Supabase, Fly.io worker, Massive /
+  Polygon, Anthropic, Vercel) with alternatives. There is ONE of
+  each already; this task wires the homepage into them.
+- All numbers, prices, percentages, dates, and catalyst copy in the
+  mockup are PLACEHOLDERS. Wire them to real data. Do NOT hard-code
+  them into components.
+
+DESIGN LOCKED — DO NOT REDESIGN, RESTRUCTURE, OR SIMPLIFY
+- This is a build-to-match task, not a redesign. Follow approved
+  mockup v21 exactly. Do not invent a new layout, do not improve
+  the design on your own, do not reorder sections, do not merge
+  sections, and do not simplify the design to make the build easier.
+- White premium design. Background: #f4f6f9. Cards: white.
+- Primary blue: Stocksist blue #1663d9. Font: Public Sans throughout.
+- No black ticker bar. No Finplify panel. No mockup banner.
+- No "15-minute delayed" text anywhere on the page (see Conflict 1
+  in "Recommendations / conflicts requiring owner approval" below —
+  the mockup removed it; the brief says preserve delayed-data
+  disclosures; do NOT resolve this yourself).
+- No second market-closed message. The top-nav after-hours pill is
+  the only market-status message.
+- No Pro card in the right rail.
+- Footer: dark navy footer per the final handoff brief (see
+  Section N and Conflict 3 — document any mockup-vs-brief footer
+  difference; do not silently change it).
+- Market clocks: hidden with display:none. Do NOT delete them.
+  (The 7 clocks — New York, London, Frankfurt, Shanghai, Hong Kong,
+  Tokyo, Sydney — stay in the code, hidden on all breakpoints.)
+
+ALL MOCKUP NUMBERS ARE ILLUSTRATIVE — NO HARD-CODED MARKET DATA
+- Every price, percentage, volume, index value, date, count, time,
+  and catalyst line in the v21 and v4 mockups is a PLACEHOLDER.
+  Wire it to real data. Do NOT hard-code mockup values into
+  components, config, or tests as if they were real data.
+- AI must not fabricate catalysts. Movement and catalyst verification
+  are SEPARATE: a large move is a fact about price; a catalyst is a
+  fact only when a source (SEC EDGAR filing, news wire, company
+  release) confirms it. An unverified move shows
+  "No confirmed catalyst linked yet" — never invent a reason, a
+  headline, or a filing. The mockup's ABR card label
+  "No catalyst linked yet" is the same state; use the mockup label
+  on the card and the "No confirmed catalyst linked yet" wording
+  wherever an unverified state is described in copy.
+- Do NOT add Kalshi / prediction-market content. Do NOT reopen
+  AI Trader (removed from the homepage entirely). Do NOT activate
+  ads (the ad slot in Section L is a reserved, inactive placement
+  only — see Section L). Do NOT modify production, GitHub main,
+  Supabase, or Fly.io without authorization.
+
+SECTIONS A–N — BUILD / SUPPORT EXACTLY, IN THIS ORDER (DESKTOP)
+Desktop order: A Header / top nav, B Left nav (persistent), C Hero,
+D Index carousel, E Significant Market Moves, F My Assets (right rail,
+top), G Trading Calendar (right rail, below My Assets), H Market
+Movers (left/centre column, beside the right rail), I Tool cards,
+J Market News, K Trending Now, L Ad slot (right rail, bottom),
+M IPOs, N Footer. On mobile the stacking order is Section
+"Mobile-first" below, which is the same order re-stacked, not a
+different page.
+
+A. HEADER / TOP NAVIGATION — EXACT, WITH MARKET-SESSION STATES
+- Search in the top nav (working, wired to existing search).
+- After-hours pill (the ONLY market-status message): "After-hours ·
+  4:00–8:00 PM ET · ends in 1h 01m" — wire the countdown to real
+  after-hours timing; the time shown in the mockup is a placeholder.
+- Market-session states — the pill and any session label must handle
+  ALL of these correctly, driven by real market-calendar data, never
+  by a hard-coded string: pre-market, regular session, after-hours,
+  closed (including weekends and holidays), and early close. Each
+  state shows the correct session name, hours, and a live countdown
+  to the next transition. Weekends and holidays are closed, not
+  after-hours. An early-close day shows early-close hours, not
+  regular hours.
+- Language selector: EN | ES.
+- Moon dark/light toggle that WORKS. Light mode shows a moon icon.
+  Dark mode shows a sun icon. Toggling switches the theme and
+  persists the choice.
+- "Log In" link and a blue "Sign Up" button.
+- NO "Create free account" in the top nav. NO avatar in the top nav.
+- The hero keeps its own "Create free account" button (Section C).
+
+B. LEFT NAVIGATION — EXACT
+- Left nav = the existing stocksist.com nav. Preserve its items,
+  order, links, and destinations exactly as they exist in the
+  project / GitHub main.
+- Per the brief: Home is the only top-level nav item; Dashboard sits
+  directly under Home. Dashboard is a normal nav item with a small
+  PRO badge. Clicking Dashboard triggers the EXISTING paywall gate.
+  Do not build a new paywall and do not bypass the existing one.
+- A quiet Pro tile sits at the bottom of the left nav / drawer.
+- On mobile (<1024px) the left nav collapses into a hamburger drawer
+  (see "Mobile-first"). Log In and EN | ES move into the drawer on
+  phone; the moon toggle and Sign Up stay in the top bar.
+- If the left-nav list in the project differs from the brief (extra,
+  missing, or differently ordered items), document the difference in
+  your summary under Conflict 3 — do NOT silently change the nav
+  to match the brief, and do NOT silently keep a nav the brief
+  contradicts. Owner decides.
+
+C. HERO
+- Headline, exact text: "Stock Market Intelligence for Every Investor"
+- Do NOT use "Active Investors" or any other headline variant.
+- Large hero search input with a Search button (working, wired to
+  existing search; trending pills act as search shortcuts).
+- Trending searches under the hero search: NVDA / MSFT / PLTR / HIMS
+  (placeholder tickers — wire to real trending data if the existing
+  trending service provides it; otherwise render from config, never
+  hard-code as live data).
+- Link under the hero: "New here? Start with the basics →"
+- Hero button: "Create free account" (the ONLY "Create free account"
+  CTA on the page).
+
+D. INDEX CAROUSEL (StockIndexes)
+- Exactly 10 indexes over 2 pages, 5 at a time.
+- Label, exact: "10 indexes · 5 at a time". Page indicator, exact
+  format: "1 / 2". Carousel controls move between page 1 and page 2
+  and redraw the strip correctly.
+- Chart: 70px high, Yahoo-style candlestick chart, with a dotted
+  prev-close baseline. Reuse the existing chart component / data
+  (Massive/Polygon via the market-data edge function) wherever it
+  exists.
+- Typography per index card: name 13px blue, price 12px bold black,
+  change 11px (red for down, green for up).
+- Page 1: S&P 500 — 7,561.67, -30.73, -0.40%; Dow 30 — 52,347.55,
+  +50.45, +0.10%; Nasdaq — 25,136.27, -229.83, -0.91%;
+  Nasdaq 100 — 27,943.74, -1.22%; Russell 2000 — 2,790.49, -8.57,
+  -0.31%. Page 2: 10-Yr Bond — 5.15, +0.05, +1.00%; VIX — 19.30,
+  +0.60, +3.21%; Gold — 3,886.30, +1.00, +0.03%; Bitcoin USD —
+  65,432.20, -1,353.11, -2.03%; Crude Oil Dec 26 — 88.56, -0.18,
+  -0.20%. ALL values are placeholders — wire to live index data.
+- KNOWN FIX REQUIRED — DO NOT REPRODUCE THE BUG: Since v14,
+  "Nasdaq 100" and "Russell 2000" names have been clipped by 3–9px
+  in the carousel. Fix the clipping in this build. Give the name
+  enough width, allow it to fit on one line, and verify both names
+  render in full on desktop and mobile. Do not shrink the font to
+  fix it — fix the container / space.
+
+E. SIGNIFICANT MARKET MOVES (SignificantMarketMoves)
+- Heading: "Significant Market Moves"
+- 3 detailed cards (placeholder values — wire to real data):
+  TTD — +13.79%, $15.68, Vol 8.42M, "Catalyst found";
+  AVGO — +13.67%, $347.01, Vol 3.18M, "Catalyst found";
+  ABR — -20.50%, $1.28, Vol 6.10M, "No catalyst linked yet".
+- "Also moving" pills: AMD / STM / FSLR / SEDG / BABA / NXT / QLYS.
+- "What is a catalyst?" explainer — include it exactly as in the
+  mockup.
+- Clicking a Move card opens that single move's modal. One move per
+  modal. Do not open a list or a different move. On phone the modal
+  presents as a bottom sheet (see "Mobile-first").
+- Catalyst status is verification-gated: "Catalyst found" only when
+  a source confirms a catalyst; otherwise "No confirmed catalyst
+  linked yet" (mockup card label: "No catalyst linked yet"). Never
+  fabricate a catalyst to fill a card.
+
+F. MY ASSETS (MyAssets) — RIGHT RAIL, TOP
+- Sign-in box with the heading/text "Track your favorite assets".
+- Blue "Sign in" button, wired to the existing sign-in flow.
+- Calendar (Section G) sits approximately 20px below My Assets.
+  Keep that gap exact on desktop.
+
+G. TRADING CALENDAR (HomepageTradingCalendar) — ONE TABBED MODULE
+- ONE tabbed Calendar module only: Catalyst / Earnings / Economic,
+  in the right rail directly below My Assets.
+- Catalyst tab (default): November 2026 month grid; SPCX feature
+  for Mon Nov 16; "Today — Mon Nov 16" section with 8 bulletins.
+  Clicking a date opens that date's pop-up, showing that date's
+  related catalysts, with Month / Week view options.
+- "Catalyst picks" link opens the full Catalyst Calendar page on
+  its own — link to the existing full-page calendar (Step 2, v4).
+  Do NOT build the full calendar page in this step.
+- Earnings tab: 9 rows. Next-report fallback when a company has no
+  next report date — show the fallback, do not leave a blank or
+  broken row.
+- Economic tab: Act. / Est. / Prev. columns aligned.
+- Positioning: Calendar top is ~20px below My Assets. Calendar
+  bottom must end exactly flush with the Market Movers bottom.
+  No gap, no overshoot, no overlap.
+- Calendar v4 (Step 2) carries the full-page rules that this module
+  must stay consistent with: Month | List toggle on the full page,
+  List agenda Mon Nov 16 → Fri Nov 27, 658 catalysts, 37 high
+  impact, SPCX hover / sparkline preview, separate full chart
+  pop-up (1D default), AI trader voice (catalyst first, prev close
+  vs current vs VWAP, key levels, timestamped intraday action,
+  stance from WAIT / LONG BIAS / AVOID / NO TRADE only),
+  Watchlist / Journal buttons in both the chart pop-up and the
+  hover card / day view (Journal = the EXISTING Dashboard Trading
+  Journal — do NOT build a new journal), Kalshi REMOVED, FREE
+  throughout, no Pro gate on the calendar. Do NOT pre-build any
+  of the Step 2 full-page behaviour into the homepage module.
+- AI voice for calendar copy — behaviour example only, NOT literal
+  copy. The mockup text is an example of the voice, not text to
+  paste in. Stance enum only: WAIT / LONG BIAS / AVOID / NO TRADE.
+  Plain trader language. No bullish/neutral percentage fluff.
+- Toasts are mobile-first.
+
+H. MARKET MOVERS (MarketMovers)
+- Tabbed table: Gainers / Losers / Most active.
+- Price > $1 filter, working, applying to all tabs.
+- 10 rows per tab.
+- Columns, exact order: Symbol / Name / Price / Change / Volume.
+- Session selector, working.
+- Tabs switch content without a page reload and without breaking
+  the table layout.
+
+I. TOOL CARDS (FeatureGrid) — 6 CARDS, HORIZONTAL ROW
+- 6 cards in a horizontal row: Watchlist, Stock Screener,
+  Market Movers, Calendars, Trending, Stocksist Pro.
+- Stocksist Pro is a QUIET tile: pale outline, not the heaviest
+  block on the row. Do not make it the boldest or darkest card.
+
+J. MARKET NEWS (MarketNews)
+- Hero news story at the top of the section.
+- Google-style 2-column news layout below the hero story.
+- News sources are config-driven (see "Modular / config
+  architecture"). News comes from existing news wires; never
+  fabricate headlines.
+
+K. TRENDING NOW (TrendingNow)
+- Trending Now section in the right rail (per the v21 desktop
+  layout), below the Calendar and above the ad slot. Wire to the
+  existing trending data / service where available; render from
+  config otherwise. Never hard-code trending tickers as live data.
+  On mobile it follows the main-column stacking order (see
+  "Mobile-first").
+
+L. ADVERTISEMENT SLOT (AdvertisementSlot) — RESERVED, INACTIVE
+- 336x280 Large Rectangle, bottom of the right rail.
+- Bottom of the ad is square with the IPOs bottom.
+- Ad size 336x280 is a config value, not hard-coded in the component.
+- Do NOT activate ads. No ad network, no ad script, no live ad
+  call, no tracking pixel is to be added in this build. The slot
+  is a reserved placement only, rendered as an empty / placeholder
+  slot that takes no ad traffic. Activating ads is a separate owner
+  decision.
+- On phone (<1024px) the ad is hidden entirely (display:none).
+  No placeholder box, no reserved gap, no empty space.
+
+M. IPOS (IpoOverview)
+- Recent IPOs: dates on one line, fixed-width, so dates do not wrap
+  or misalign.
+- Upcoming IPOs: collapses when empty. Do not show an empty box or
+  a broken section.
+
+N. FOOTER (HomepageFooter) — DARK NAVY
+- Dark navy footer per the final handoff brief. Preserve the
+  existing footer links, structure, and destinations; restyle to
+  the dark navy footer treatment in the brief / mockup.
+- If the v21 mockup or the Lovable project shows a footer that is
+  NOT dark navy, document the difference under Conflict 3 — do NOT
+  silently change it and do NOT silently keep the old footer.
+  Owner decides.
+- On mobile the footer stacks to a single column, full-width,
+  link rows min 40px tall.
+
+SHARED DATA ARCHITECTURE
+- One quote object per security. Price, change, change %, volume,
+  prev close, VWAP, market cap, and every AI number for a ticker
+  must all derive from that single quote object. Do not create
+  separate hard-coded values for the same ticker in different
+  components. If two surfaces disagree in the mockup (for example
+  the SPCX $139.94 vs $137 prev-close mismatch in the calendar
+  mockup), that is a placeholder artefact — the live build must not
+  reproduce it.
+- The frontend never calls Massive / Polygon directly. All market
+  data comes via the existing market-data edge function / Fly.io
+  worker (stocksist-radar-v22-worker). Reuse the existing
+  market-data service / hook; do not add a direct Massive/Polygon
+  client to the frontend.
+- AI is cached. No paid AI request per visitor, per refresh, per
+  ticker, or per calendar interaction. AI reads (calendar AI voice,
+  AI Day Brief, catalyst lines) are generated once, cached
+  server-side (existing Supabase / edge-function cache where it
+  exists), and reused across visitors and refreshes until the
+  underlying data changes. If no cache exists yet, flag it
+  explicitly as missing infrastructure in your summary — do NOT
+  make a live Anthropic call from the browser, and do NOT make a
+  fresh paid AI call on every page load.
+- Sources: market prices / quotes / indexes / movers — Massive
+  (Polygon) via the market-data edge function; company / filing
+  catalysts — SEC EDGAR; news — news wires; macro — macro calendar.
+- Do NOT create a separate website / database / auth / AI /
+  market-data pipeline. Do NOT duplicate the database. Do NOT
+  replace integrations.
+
+DATA TRANSPARENCY — LOADING / EMPTY / ERROR / DELAYED / STALE STATES
+- Build every one of these states; do not leave a section blank,
+  broken, or silently showing placeholder numbers as if real:
+  loading (skeleton where a chart or list loads), empty (next
+  event / next catalyst state, Upcoming IPOs collapses, empty
+  calendar day shows a next-catalyst state), error (feed-error
+  day cell, provider-error state with a retry), delayed (show the
+  delay honestly where the brief requires it — see Conflict 1;
+  never present delayed data as live), stale (mark data stale
+  with its as-of time when it is older than its freshness window),
+  provider error (name the provider surface that failed in plain
+  language, do not invent a reason), closed market (session states
+  in Section A — weekends, holidays, and early close included).
+- Never fabricate prices, volume, catalysts, or headlines. If data
+  is unavailable, say so in the UI. An "AI read pending" panel is
+  shown while an AI read loads — never fake a template read.
+- Every AI read carries an "as of [time] ET" stamp.
+
+MODULAR / CONFIG ARCHITECTURE
+- Proposed components (reuse existing components wherever
+  appropriate — do not rename an existing component just to match
+  this list; map existing → proposed in your summary):
+  HomepageHero, StockIndexes, SignificantMarketMoves, MyAssets,
+  HomepageTradingCalendar, MarketMovers, FeatureGrid, MarketNews,
+  TrendingNow, AdvertisementSlot, IpoOverview, HomepageFooter.
+  Entry: src/pages/Index.tsx. Components: src/components/home/.
+  Do not put the whole homepage in one file.
+- Design tokens: colours, spacing, and typography live in design
+  tokens. Do not scatter hex codes, font sizes, or spacing values
+  through components.
+- Centralized config, NOT code, for: section order / visibility;
+  index groups (the 10 indexes, order, pages); Movers filters
+  (tabs, Price > $1, session selector); calendar categories
+  (Catalyst / Earnings / Economic tabs, event types, filters,
+  legend); feature cards (the 6 tool cards, order, labels, links);
+  ad placements (including 336x280); news categories / sources;
+  navigation (left-nav items, footer links); translations
+  (EN | ES strings); feature flags; design tokens.
+- Future updates without rebuilding the whole homepage: change the
+  mockup and/or the config → edit only that component and/or that
+  config file → preview → publish. No rebuild of the whole homepage,
+  no edits across unrelated components. Explain this pattern in
+  your summary.
+- No new admin CMS. Config files are the mechanism. Do not build
+  a content-management UI, an admin panel, or a database-backed
+  settings screen in this step. In particular, do NOT duplicate the
+  database to support a new CMS — the existing Supabase / Lovable
+  Cloud schema stays as it is.
+
+DESIGN TOKENS
+- Stocksist blue #1663d9 (primary). White premium: page background
+  #f4f6f9, cards white. Dark navy footer (Section N).
+- Font: Public Sans throughout.
+- Body text 13–14px. Captions minimum 12px. No text below 12px
+  anywhere. Tap targets 32–40px (primary actions 40px minimum).
+- All colours, spacing, and typography live in design tokens
+  (see "Modular / config architecture").
+
+MOBILE-FIRST — PROMINENT
+- Build mobile-first. Base styles are for 375px. Larger breakpoints
+  add columns and the right rail — they never rearrange the mobile
+  order. Desktop is the wide version of the mobile order, not the
+  other way round.
+- Mobile stacking order, top to bottom, EXACTLY:
+  1. Hero search
+  2. Index carousel — swipeable, 1 card visible at a time
+  3. Moves — stacked 1-by-1
+  4. My Assets
+  5. Movers table
+  6. Calendar
+  7. Tool cards — 2 across
+  8. News
+  9. IPOs
+  10. Footer
+  (Trending Now follows the main-column order on mobile; the ad is
+  hidden on phone — see Section L.)
+- Breakpoints: 375 / 390 / 768 / 1024 / 1440 / 1920. Test at each.
+  No horizontal overflow at any of them. Page padding 16px
+  left/right at 375px (content width 343px). Section gaps 16px.
+- Phone top bar (375px, height 56px): hamburger + logo + moon +
+  compact blue Sign Up only. Log In and EN | ES live inside the
+  hamburger drawer (Log In near the top, EN | ES near the bottom,
+  above the quiet Pro tile). No "Create free account" in the top nav.
+  After-hours pill: full-width thin strip directly below the top
+  bar, centred text, wraps to two lines if needed, must not push
+  the hero down more than one strip height.
+- Index carousel on mobile: swipe one index at a time through all
+  10 in page order; arrows jump one full page (5 indexes); dots =
+  2 pages; indicator "1 / 2" updates on page boundary, plus card
+  position (for example "1 of 10"). Names never clipped — including
+  Nasdaq 100 and Russell 2000.
+- Movers table on mobile: horizontal-scroll inside its own
+  container only (min table width 560px), Symbol column sticky on
+  the left, page itself never scrolls sideways. Price / Change
+  14px minimum, Volume 13px minimum, row height min 44px.
+- Calendar month grid on mobile: stays a grid, fits 375px, 7
+  columns, each cell min 32×32px tap target, day number 13px
+  minimum. Date tap opens a day pop-up as a full-screen or
+  near-full-screen sheet (not a cut-off tooltip).
+- Moves tap on mobile: single-move modal as a bottom sheet with
+  drag handle and close X; background page does not scroll while
+  open.
+- Tool cards on mobile: 2 across (~165px each at 375px). News:
+  1 column, hero story on top. IPOs and footer: stacked full-width.
+- Search input is 16px text on phone (prevents iOS auto-zoom).
+- At 768px: still single main column, same order; tool cards
+  3 across; news hero + 2-column list; ad still hidden.
+- At 1024px: two-column layout starts (main column + narrow right
+  rail: My Assets, Calendar, Trending Now, Ad at the bottom);
+  left nav returns as a visible left nav; top bar shows EN | ES,
+  moon, Log In, blue Sign Up.
+- At 1440px / 1920px: same two-column layout, centred in a
+  max-width container (per the v21 desktop mockup, do not stretch
+  full-bleed). Right-rail width fixed; ad remains 336x280.
+
+INTERACTIONS THAT MUST WORK (verify in the preview)
+1. Index carousel: page 1 ↔ page 2 redraws correctly, "1 / 2"
+   updates, all 10 indexes reachable; swipe on mobile.
+2. Single-move modal: clicking TTD, AVGO, or ABR opens only that move.
+3. Dashboard paywall gate: clicking Dashboard in the left nav
+   triggers the existing PRO paywall.
+4. Calendar date pop-up: clicking a date opens that date's pop-up
+   with related catalysts and Month / Week options.
+5. "Catalyst picks" link: opens the full Catalyst Calendar page on
+   its own (Step 2, v4).
+6. Moon toggle: switches light/dark theme, swaps moon/sun icon
+   correctly, and persists.
+7. Movers tabs: Gainers / Losers / Most active switch correctly,
+   with the Price > $1 filter and session selector working.
+8. Hero search and top-nav search work; trending pills act as
+   search shortcuts.
+9. My Assets "Sign in" goes to the existing sign-in flow.
+10. Watchlist / Journal buttons work from both the chart pop-up
+    and the hover card / day view (Journal = existing Dashboard
+    Trading Journal).
+11. Chart hover chip → sparkline preview; "View full chart" →
+    large pop-up, 1D default, Key events toggle, prev-close +
+    VWAP lines (1D / 5D only).
+12. Market-session pill shows the correct state and countdown for
+    pre-market, regular, after-hours, closed, weekend, holiday,
+    and early-close cases.
+
+MISSING INFRASTRUCTURE — REPORT SEPARATELY, DO NOT INVENT
+- In your summary, list under this exact heading anything the
+  homepage genuinely needs that does not already exist in the
+  project / GitHub main (for example a missing market-data field,
+  a missing index feed, a missing AI cache, a missing calendar
+  feed field). For each item state: what is missing, which section
+  needs it, what you built instead (loading / empty / honest
+  fallback state), and what the owner must approve or provide
+  before it can be wired for real. Do NOT invent the
+  infrastructure, duplicate the database to fake it, replace an
+  integration to work around it, or silently downgrade the section.
+
+RECOMMENDATIONS / CONFLICTS REQUIRING OWNER APPROVAL
+Do NOT resolve any of these yourself. Document them, build the
+mockup as specified, and bring them back for the owner's decision.
+1. DELAYED-DATA DISCLOSURE — OPEN OWNER DECISION. The v21 mockup
+   removed ALL "15-minute delayed" references, and this prompt
+   instructs you not to add that text anywhere. The brief, however,
+   says to preserve delayed-data disclosures. These two instructions
+   conflict. The mockup is illustrative on this point: build the
+   page WITHOUT the "15-minute delayed" text (per the mockup), show
+   data freshness honestly through the loading / delayed / stale /
+   as-of states in "Data transparency", and flag this conflict for
+   the owner to decide whether a delayed-data disclosure returns,
+   where it sits, and what it says. Do NOT add the text back on
+   your own, and do NOT delete the data-freshness states.
+2. NASDAQ 100 / RUSSELL 2000 CLIPPING — FIX, DO NOT REPRODUCE.
+   Since v14, "Nasdaq 100" and "Russell 2000" names have been
+   clipped by 3–9px in the index carousel. This is a known bug, not
+   a design choice. Fix the container / space so both names render
+   in full on desktop and mobile (see Section D). Do not shrink
+   the font to fix it. Verify visually at 375px and at desktop
+   widths before sign-off, and report how you fixed it.
+3. MOCKUP-VS-BRIEF NAV / FOOTER DIFFERENCES — DOCUMENT, DO NOT
+   SILENTLY CHANGE. If the v21 mockup, the brief, and the Lovable
+   project / GitHub main disagree on the left-nav list (items,
+   order, or the position of Dashboard / the Pro tile) or on the
+   footer (dark navy per the final handoff brief vs unchanged /
+   another treatment in the mockup or in the project), document
+   each difference exactly — what each source says, and what you
+   built — and bring it back for the owner to decide. Do NOT
+   silently change the nav or the footer to match one source, and
+   do NOT silently keep a version the brief contradicts.
+
+DO NOT
+- Do NOT redesign, restructure, simplify, reorder, or merge sections.
+- Do NOT hard-code prices, percentages, index values, dates, counts,
+  or catalyst copy. Do NOT duplicate quote data — one quote object
+  per ticker, derived not duplicated.
+- Do NOT call Massive / Polygon directly from the frontend.
+- Do NOT change routing, Supabase wiring, Fly.io wiring, or
+  market-data wiring. Do NOT change any other page or route.
+- Do NOT create a separate website, database, auth system, AI
+  pipeline, or market-data pipeline. Do NOT duplicate the database.
+  Do NOT replace integrations.
+- Do NOT build the full Catalyst Calendar page in this step
+  (Step 2, v4). Do NOT rebuild the homepage inside the calendar step.
+- Do NOT add Kalshi / prediction-market content. Do NOT reopen
+  AI Trader. Do NOT activate ads.
+- Do NOT add "Create free account" to the top nav, and do NOT add
+  an avatar to the top nav. Do NOT add a Pro card to the right rail,
+  a Finplify panel, a black ticker, or a mockup banner.
+- Do NOT add "15-minute delayed" text anywhere (see Conflict 1),
+  and do NOT add a second market-closed message.
+- Do NOT delete the market clocks — hide them with display:none only.
+- Do NOT build a new journal — use the existing Dashboard Trading
+  Journal. Do NOT build a new admin CMS.
+- Do NOT use the headline "Active Investors" or any headline other
+  than the exact v21 headline.
+- Do NOT leave Upcoming IPOs as an empty box when it has no items
+  — it collapses. Do NOT make the Stocksist Pro tool tile the
+  heaviest block — it is the quiet pale-outline tile.
+- Do NOT reproduce the Nasdaq 100 / Russell 2000 name clipping.
+- Do NOT apply your own design improvements. Bring them back first.
+- do not publish. Do NOT publish to the live site, do NOT make live
+  site edits, and do NOT modify production, GitHub main, Supabase,
+  or Fly.io without authorization.
+- You must not simultaneously modify the same files as Cursor.
+  Lovable is backend/deployment support; Cursor is the primary
+  implementation. One tool touches a given file at a time.
+
+OUTPUT REQUESTED
+1. Implement / support the v21 homepage in the existing Lovable
+   project, homepage only, in Lovable's assigned files only.
+2. Provide a preview link. Do NOT publish live. do not publish.
+3. Provide a short summary: what changed, which files/components
+   were touched (map existing components to the proposed list in
+   "Modular / config architecture"), which files were left to
+   Cursor and why, how the Nasdaq 100 / Russell 2000 clipping was
+   fixed, how data is wired (one quote object per ticker, frontend
+   never calls Massive directly, AI cached), how the market-session
+   states were implemented, any drift between the Lovable project
+   and GitHub main, and any conflicts between the HTML and PDF.
+4. List genuine missing infrastructure separately (see "Missing
+   infrastructure"), and list any suggested improvements separately,
+   unapplied, for approval first.
+5. List the three conflicts in "Recommendations / conflicts
+   requiring owner approval" with what you built and what the owner
+   must decide.
+6. Confirm the acceptance checklist below, item by item, with
+   pass/fail and what you checked.
+
+V21 ACCEPTANCE CHECKLIST — CHECK EVERY ITEM IN PREVIEW
+1. Headline is exactly "Stock Market Intelligence for Every Investor".
+2. White premium design, Stocksist blue #1663d9, Public Sans,
+   background #f4f6f9, white cards.
+3. Top nav has search, after-hours pill, EN | ES, working moon
+   toggle, Log In, and blue Sign Up — and NO "Create free account"
+   and NO avatar.
+4. After-hours pill shows the correct session state and live
+   countdown; pre-market / regular / after-hours / closed /
+   weekend / holiday / early-close states are all handled.
+5. Moon toggle works: light mode shows moon, dark mode shows sun,
+   theme switches and persists.
+6. Hero has large search + Search button, trending NVDA/MSFT/PLTR/
+   HIMS, "New here? Start with the basics →", and "Create free
+   account".
+7. Left nav is the stocksist.com nav with Dashboard directly under
+   Home, Dashboard is a normal item with a small PRO badge, and
+   clicking it triggers the existing paywall gate.
+8. Index carousel shows exactly 10 indexes over 2 pages, 5 at a
+   time, labelled "10 indexes · 5 at a time" with "1 / 2" indicator.
+9. Page 1 is S&P 500, Dow 30, Nasdaq, Nasdaq 100, Russell 2000;
+   Page 2 is 10-Yr Bond, VIX, Gold, Bitcoin USD, Crude Oil Dec 26.
+10. Index charts are 70px Yahoo-style with a dotted prev-close
+    baseline; name 13px blue, price 12px bold black, change 11px.
+11. Nasdaq 100 and Russell 2000 names are NOT clipped — full names
+    visible on desktop and mobile, no 3–9px cut-off.
+12. Index carousel redraws correctly when paging 1 ↔ 2.
+13. Significant Market Moves shows TTD +13.79% $15.68 Vol 8.42M
+    "Catalyst found", AVGO +13.67% $347.01 Vol 3.18M "Catalyst
+    found", ABR -20.50% $1.28 Vol 6.10M "No catalyst linked yet"
+    (values wired to live data, not hard-coded).
+14. "Also moving" pills show AMD / STM / FSLR / SEDG / BABA / NXT /
+    QLYS, and the "What is a catalyst?" explainer is present.
+15. Clicking a Move opens only that move's modal.
+16. Market Movers has working Gainers / Losers / Most active tabs,
+    Price > $1 filter, 10 rows per tab, columns Symbol / Name /
+    Price / Change / Volume, and a working session selector.
+17. My Assets shows "Track your favorite assets" with a blue Sign
+    in button wired to existing sign-in.
+18. Calendar is ONE tabbed module (Catalyst / Earnings / Economic)
+    in the right rail.
+19. Catalyst tab shows the November 2026 month grid, SPCX Mon Nov
+    16 feature, and "Today — Mon Nov 16" with 8 bulletins.
+20. Clicking a calendar date opens that date's pop-up with related
+    catalysts and Month / Week options.
+21. "Catalyst picks" opens the full Catalyst Calendar page on its
+    own; the full page was NOT rebuilt in this step.
+22. Earnings tab has 9 rows with a next-report fallback where
+    needed; Economic tab has aligned Act. / Est. / Prev. columns.
+23. Calendar top is ~20px below My Assets.
+24. Calendar bottom ends exactly flush with the Market Movers
+    bottom — no gap, no overshoot, no overlap.
+25. Calendar journal entries go into the existing Dashboard Trading
+    Journal — no new journal was built.
+26. Calendar AI voice follows the behaviour example (catalyst
+    first, prev close vs current vs VWAP, key levels, timestamped
+    intraday action, conditional WAIT / LONG BIAS / AVOID / NO
+    TRADE, plain trader language) and is not a literal copy of
+    mockup text.
+27. Kalshi is absent from the page, with re-add notes/code only.
+28. 6 tool cards are in a horizontal row (Watchlist, Stock
+    Screener, Market Movers, Calendars, Trending, Stocksist Pro)
+    and Stocksist Pro is the quiet pale-outline tile, not the
+    heaviest block.
+29. Market News has a hero story plus Google 2-column layout.
+30. Trending Now is present in the right rail.
+31. Recent IPOs dates are on one line, fixed-width; Upcoming IPOs
+    collapses when empty.
+32. Ad is 336x280 Large Rectangle at the bottom of the right rail,
+    bottom square with IPOs, and is NOT activated (no ad network,
+    no live ad call).
+33. Footer is the dark navy footer; clocks are hidden with
+    display:none, not deleted.
+34. No "15-minute delayed" text anywhere; no second market-closed
+    message; no Pro card in the right rail; no Finplify panel; no
+    black ticker; no mockup banner.
+35. Mobile stacking order is exactly: 1 hero search, 2 index
+    carousel (swipe, 1 card at a time), 3 Moves stacked 1-by-1,
+    4 My Assets, 5 Movers table, 6 Calendar, 7 tool cards
+    (2 across), 8 news, 9 IPOs, then footer.
+36. No horizontal overflow at 375 / 390 / 768 / 1024 / 1440 / 1920;
+    body 13–14px; captions minimum 12px; tap targets 32–40px;
+    Movers table horizontal-scrolls; Calendar grid fits at 375px.
+37. Components are separate (HomepageHero, StockIndexes,
+    SignificantMarketMoves, MyAssets, HomepageTradingCalendar,
+    MarketMovers, FeatureGrid, MarketNews, TrendingNow,
+    AdvertisementSlot, IpoOverview, HomepageFooter — reusing
+    existing components wherever appropriate) with design tokens
+    and centralized config for section order/visibility, index
+    groups, Movers filters, calendar categories, feature cards,
+    ad placements, news categories, navigation, translations,
+    feature flags, and design tokens. No new admin CMS, no
+    duplicated database, no replaced integrations.
+38. No hard-coded prices, percentages, dates, or catalyst copy in
+    components — all from props, config, or API, with one quote
+    object per ticker, derived not duplicated.
+39. Routing, Supabase wiring, Fly.io wiring, and market-data wiring
+    are preserved; frontend does not call Massive directly; no
+    other route was changed; no separate website / database / auth /
+    AI / market-data pipeline was created.
+40. Preview only — nothing was published live, Lovable did not
+    modify the same files as Cursor, and any suggested improvements
+    are listed separately, unapplied.
+========================================================================
+END OF LOVABLE PROMPT

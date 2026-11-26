@@ -22,6 +22,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 import { getEffectiveLanguage } from "@/config/locale-v1.policy";
 import { useShowPublicLanguageToggle } from "@/hooks/useEffectiveLanguage";
+import { HomepageSessionChip } from "@/components/home/v21/HomepageSessionChip";
 
 export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const navigate = useNavigate();
@@ -179,6 +180,11 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         </div>
 
         <div className="hidden md:flex items-center gap-2">
+          {pathname === "/" ? (
+            <div className="hidden min-w-0 max-w-[min(100%,22rem)] shrink md:flex md:items-center">
+              <HomepageSessionChip />
+            </div>
+          ) : null}
           {showLanguageToggle ? (
             <button
               onClick={() => setLanguage(language === "en" ? "es" : "en")}
@@ -253,6 +259,12 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
           )}
         </div>
       </header>
+
+      {pathname === "/" ? (
+        <div className="flex justify-center border-b border-border bg-surface-card px-4 py-2 md:hidden">
+          <HomepageSessionChip className="max-w-full" />
+        </div>
+      ) : null}
 
       <AuthModals
         mode={authMode}
