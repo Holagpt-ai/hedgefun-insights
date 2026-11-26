@@ -2,6 +2,8 @@ import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
 import { marketPulseDelayDisclosure } from "@/lib/markets/market-pulse-select";
 import { HOMEPAGE_V21_HEADLINE } from "@/config/homepage-v21";
+import { resolveMarketSession } from "@/lib/price-utils";
+import { cn } from "@/lib/utils";
 import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import Disclaimer from "@/components/layout/Disclaimer";
 import { HomepageHeroV21 } from "@/components/home/v21/HomepageHeroV21";
@@ -19,6 +21,9 @@ import { HomepageV21Footer } from "@/components/home/v21/HomepageV21Footer";
 import "@/components/home/v21/homepage-v21.css";
 
 const Index = () => {
+  const marketSession = resolveMarketSession();
+  const compactMoversBand = marketSession === "closed";
+
   usePageSeo({
     title: `${BRAND.name} — ${HOMEPAGE_V21_HEADLINE}`,
     description: `Discover session movers, research stocks, and continue into the Stocksist dashboard. ${marketPulseDelayDisclosure()}`,
@@ -35,7 +40,7 @@ const Index = () => {
 
       <StockIndexCarousel />
 
-      <div className="top-band">
+      <div className={cn("top-band", compactMoversBand && "top-band--compact")}>
         <div className="band-col band-col-left">
           <div className="band-moves min-w-0">
             <SignificantMarketMovesV21 />

@@ -1,5 +1,5 @@
 import type { CatalystEvent } from "@/types/catalyst";
-import type { HomepageCalendarTab } from "@/config/homepage-v21";
+import { HOMEPAGE_CALENDAR_QUERY, type HomepageCalendarTab } from "@/config/homepage-v21";
 
 /** Normalized homepage calendar row — shared contract for Catalyst Calendar V4. */
 export interface HomepageCalendarEvent {
@@ -66,10 +66,13 @@ export function filterCatalystEventsForDay(
   return [];
 }
 
+/** Catalyst Calendar V4 handoff — consumers may read both query keys when V4 lands. */
 export function buildCalendarDeepLink(isoDate: string, tab: HomepageCalendarTab): string {
   const params = new URLSearchParams({
-    calDate: isoDate,
-    calTab: tab,
+    [HOMEPAGE_CALENDAR_QUERY.date]: isoDate,
+    [HOMEPAGE_CALENDAR_QUERY.tab]: tab,
   });
   return `/earnings?${params.toString()}`;
 }
+
+export { buildHomepageCalendarOutbound } from "@/lib/homepage/calendar-outbound";

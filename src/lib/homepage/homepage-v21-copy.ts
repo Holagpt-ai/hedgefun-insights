@@ -18,6 +18,9 @@ type HomepageV21CopyBundle = {
   calendarNoEvents: (tab: HomepageCalendarTab) => string;
   calendarFeedError: string;
   calendarViewFull: string;
+  calendarViewEarnings: string;
+  calendarCatalystV4Soon: string;
+  calendarHandoffDate: string;
   calendarToday: string;
   calendarHoliday: string;
   calendarEarlyClose: string;
@@ -57,6 +60,9 @@ const en: HomepageV21CopyBundle = {
     tab === "earnings" ? "No earnings on this day." : "No catalyst events on this day.",
   calendarFeedError: "Calendar is temporarily unavailable.",
   calendarViewFull: "View full calendar →",
+  calendarViewEarnings: "View earnings calendar →",
+  calendarCatalystV4Soon: "Full catalyst calendar — coming in V4",
+  calendarHandoffDate: "Selected date",
   calendarToday: "Today",
   calendarHoliday: "Market holiday",
   calendarEarlyClose: "Early close",
@@ -129,6 +135,9 @@ const es: HomepageV21CopyBundle = {
     tab === "earnings" ? "No hay ganancias este día." : "No hay catalizadores este día.",
   calendarFeedError: "El calendario no está disponible temporalmente.",
   calendarViewFull: "Ver calendario completo →",
+  calendarViewEarnings: "Ver calendario de ganancias →",
+  calendarCatalystV4Soon: "Calendario de catalizadores — próximamente (V4)",
+  calendarHandoffDate: "Fecha seleccionada",
   calendarToday: "Hoy",
   calendarHoliday: "Feriado bursátil",
   calendarEarlyClose: "Cierre anticipado",

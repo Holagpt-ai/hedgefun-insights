@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { HOMEPAGE_V21_HEADLINE, HOMEPAGE_V21_INDEX_SYMBOLS } from "@/config/homepage-v21";
 import { filterCatalystEventsForDay } from "@/lib/homepage/calendar-events";
+import { buildHomepageCalendarOutbound } from "@/lib/homepage/calendar-outbound";
 import type { CatalystEvent } from "@/types/catalyst";
 
 describe("Homepage V21 config", () => {
@@ -33,6 +34,16 @@ describe("homepage calendar event contract", () => {
     facts: {},
     published_at: null,
   };
+
+  it("links earnings tab to earnings calendar with calDate only", () => {
+    const out = buildHomepageCalendarOutbound("earnings", "2026-11-26");
+    expect(out).toEqual({ kind: "link", href: "/earnings?calDate=2026-11-26" });
+  });
+
+  it("does not send catalyst tab to earnings calendar", () => {
+    const out = buildHomepageCalendarOutbound("catalyst", "2026-11-26");
+    expect(out).toEqual({ kind: "info" });
+  });
 
   it("routes earnings to the earnings tab only", () => {
     const earnings = filterCatalystEventsForDay([sample], "2026-11-26", "earnings", "2026-11-26");

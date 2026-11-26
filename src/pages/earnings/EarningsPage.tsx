@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
@@ -7,13 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import {
+  earningsTimeLabel,
+  selectEarningsForView,
+  type EarningsTimeFilter,
+  type EarningsViewMode,
+} from "@/lib/earnings/earnings-calendar-present";
+import { HOMEPAGE_CALENDAR_QUERY } from "@/config/homepage-v21";
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
@@ -28,7 +38,16 @@ function getWeekDates(refDate: Date): Date[] {
 }
 
 function fmtDate(d: Date) {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseIsoDate(iso: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function fmtDisplay(d: Date) {
@@ -51,14 +70,21 @@ function abbreviateNumber(n: number | null | undefined): string {
 
 const EarningsPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"Daily" | "Weekly">("Daily");
+  const [viewMode, setViewMode] = useState<EarningsViewMode>("Daily");
   const [searchValue, setSearchValue] = useState("");
-  const [timeFilter, setTimeFilter] = useState("All");
+  const [timeFilter, setTimeFilter] = useState<EarningsTimeFilter>("All");
 
-  const weekDates = useMemo(() => getWeekDates(selectedDate), [fmtDate(selectedDate)]);
+  useEffect(() => {
+    const fromUrl = searchParams.get(HOMEPAGE_CALENDAR_QUERY.date);
+    if (!fromUrl) return;
+    const parsed = parseIsoDate(fromUrl);
+    if (parsed) setSelectedDate(parsed);
+  }, [searchParams]);
 
-  // Fetch earnings for the whole week
+  const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate.getTime()]);
+
   const weekStart = fmtDate(weekDates[0]);
   const weekEnd = fmtDate(weekDates[4]);
 
@@ -76,7 +102,6 @@ const EarningsPage = () => {
     },
   });
 
-  // Also join with stocks for market_cap
   const symbols = useMemo(() => (weekEarnings || []).map((e) => e.symbol), [weekEarnings]);
   const { data: stocksMap } = useQuery({
     queryKey: ["earnings-stocks", symbols.join(",")],
@@ -87,13 +112,14 @@ const EarningsPage = () => {
         .select("symbol, market_cap, revenue")
         .in("symbol", symbols);
       const map: Record<string, { market_cap: number | null; revenue: number | null }> = {};
-      (data || []).forEach((s) => { map[s.symbol] = { market_cap: s.market_cap, revenue: s.revenue }; });
+      (data || []).forEach((s) => {
+        map[s.symbol] = { market_cap: s.market_cap, revenue: s.revenue };
+      });
       return map;
     },
     enabled: symbols.length > 0,
   });
 
-  // Count per day
   const countByDate = useMemo(() => {
     const counts: Record<string, number> = {};
     (weekEarnings || []).forEach((e) => {
@@ -102,25 +128,25 @@ const EarningsPage = () => {
     return counts;
   }, [weekEarnings]);
 
-  // Filter for selected date
-  const dayEarnings = useMemo(() => {
-    let items = (weekEarnings || []).filter((e) => e.report_date === fmtDate(selectedDate));
-    if (timeFilter !== "All") {
-      const dbVal = timeFilter === "Before Open" ? "before_open" : "after_close";
-      items = items.filter((e) => e.time_of_day === dbVal);
-    }
-    if (searchValue) {
-      const q = searchValue.toLowerCase();
-      items = items.filter((e) => e.symbol.toLowerCase().includes(q) || e.company_name.toLowerCase().includes(q));
-    }
-    // Sort by market cap desc
-    items.sort((a, b) => {
+  const selectedDateStr = fmtDate(selectedDate);
+
+  const displayedEarnings = useMemo(() => {
+    const rows = selectEarningsForView(weekEarnings || [], {
+      viewMode,
+      selectedDateIso: selectedDateStr,
+      timeFilter,
+      searchValue,
+    });
+    rows.sort((a, b) => {
+      if (viewMode === "Weekly" && a.report_date !== b.report_date) {
+        return a.report_date.localeCompare(b.report_date);
+      }
       const mcA = stocksMap?.[a.symbol]?.market_cap ?? 0;
       const mcB = stocksMap?.[b.symbol]?.market_cap ?? 0;
       return mcB - mcA;
     });
-    return items;
-  }, [weekEarnings, selectedDate, timeFilter, searchValue, stocksMap]);
+    return rows;
+  }, [weekEarnings, viewMode, selectedDateStr, timeFilter, searchValue, stocksMap]);
 
   const shiftWeek = (dir: number) => {
     const d = new Date(selectedDate);
@@ -128,10 +154,8 @@ const EarningsPage = () => {
     setSelectedDate(d);
   };
 
-  const selectedDateStr = fmtDate(selectedDate);
-
   const handleDownload = () => {
-    const rows = dayEarnings;
+    const rows = displayedEarnings;
     if (!rows.length) {
       toast("No data to download");
       return;
@@ -147,29 +171,31 @@ const EarningsPage = () => {
         "",
         "",
         e.time_of_day ?? "",
-      ].join(",")
+      ].join(","),
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `earnings_${fmtDate(selectedDate)}.csv`;
+    a.download = `earnings_${viewMode === "Weekly" ? `${weekStart}_${weekEnd}` : selectedDateStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Earnings data downloaded successfully.");
   };
+
   const dayCount = countByDate[selectedDateStr] || 0;
+  const weekTotal = (weekEarnings || []).length;
 
   usePageSeo({
     title: "Earnings Calendar — Upcoming & Recent Reports | Stocksist",
-    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on Stocksist.",
+    description:
+      "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on Stocksist.",
   });
 
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <h1 className="text-[1.375rem] font-bold text-foreground">Earnings Calendar</h1>
           <div className="flex items-center gap-2 flex-wrap">
@@ -184,22 +210,30 @@ const EarningsPage = () => {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">Time Of Day</Button>
+                <Button variant="outline" size="sm">
+                  Time Of Day {timeFilter !== "All" ? `· ${timeFilter}` : ""}
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {["All", "Before Open", "After Close"].map((t) => (
-                  <DropdownMenuItem key={t} onClick={() => setTimeFilter(t)}>{t}</DropdownMenuItem>
+                {(["All", "Before Open", "After Close"] as const).map((t) => (
+                  <DropdownMenuItem key={t} onClick={() => setTimeFilter(t)}>
+                    {t}
+                  </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="flex rounded-md border border-border overflow-hidden">
+            <div className="flex rounded-md border border-border overflow-hidden" role="group" aria-label="View mode">
               {(["Daily", "Weekly"] as const).map((m) => (
                 <button
                   key={m}
+                  type="button"
                   onClick={() => setViewMode(m)}
+                  aria-pressed={viewMode === m}
                   className={cn(
                     "px-3 py-1.5 text-sm font-medium transition-colors",
-                    viewMode === m ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted"
+                    viewMode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-foreground hover:bg-muted",
                   )}
                 >
                   {m}
@@ -209,9 +243,12 @@ const EarningsPage = () => {
           </div>
         </div>
 
-        {/* Week Navigation */}
         <div className="flex items-stretch border border-border rounded-[var(--radius)] bg-surface mb-6 overflow-hidden">
-          <button onClick={() => shiftWeek(-1)} className="px-3 flex items-center hover:bg-muted transition-colors border-r border-border">
+          <button
+            type="button"
+            onClick={() => shiftWeek(-1)}
+            className="px-3 flex items-center hover:bg-muted transition-colors border-r border-border"
+          >
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
           <div className="flex flex-1">
@@ -222,12 +259,13 @@ const EarningsPage = () => {
               return (
                 <button
                   key={ds}
+                  type="button"
                   onClick={() => setSelectedDate(d)}
                   className={cn(
                     "flex-1 py-3 px-2 text-center transition-colors border-b-2",
                     isActive
                       ? "bg-accent-blue-light border-b-accent-blue"
-                      : "border-b-transparent hover:bg-muted"
+                      : "border-b-transparent hover:bg-muted",
                   )}
                 >
                   <div className="text-[0.8125rem] font-bold text-foreground">{fmtDisplay(d)}</div>
@@ -237,55 +275,97 @@ const EarningsPage = () => {
               );
             })}
           </div>
-          <button onClick={() => shiftWeek(1)} className="px-3 flex items-center hover:bg-muted transition-colors border-l border-border">
+          <button
+            type="button"
+            onClick={() => shiftWeek(1)}
+            className="px-3 flex items-center hover:bg-muted transition-colors border-l border-border"
+          >
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Daily Results Heading */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-foreground">
-            {selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {dayCount} Earnings
+            {viewMode === "Daily" ? (
+              <>
+                {selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {dayCount} Earnings
+              </>
+            ) : (
+              <>
+                Week of {fmtDisplay(weekDates[0])} – {fmtDisplay(weekDates[4])} · {weekTotal} Earnings
+              </>
+            )}
           </h2>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
               <Download className="h-3.5 w-3.5" /> Download
             </Button>
-            <button onClick={() => navigate("/screener")} className="text-sm text-primary hover:underline">
+            <button
+              type="button"
+              onClick={() => navigate("/screener")}
+              className="text-sm text-primary hover:underline"
+            >
               Screener →
             </button>
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto mb-8">
           {isLoading ? (
             <div className="space-y-2">
-              {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              {Array.from({ length: 12 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
             </div>
-          ) : dayEarnings.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No earnings data for this date.</p>
+          ) : displayedEarnings.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              {viewMode === "Daily"
+                ? "No earnings data for this date."
+                : "No earnings data for this week."}
+            </p>
           ) : (
             <table className="w-full text-sm border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-border">
+                  {viewMode === "Weekly" ? (
+                    <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                      Date
+                    </th>
+                  ) : null}
                   <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">Symbol</th>
-                  <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">Company Name</th>
-                  <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">Earnings Time</th>
-                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">Market Cap</th>
-                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">Revenue Estimate</th>
-                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">EPS Estimate</th>
+                  <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                    Company Name
+                  </th>
+                  <th className="text-left py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                    Earnings Time
+                  </th>
+                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                    Market Cap
+                  </th>
+                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                    Revenue Estimate
+                  </th>
+                  <th className="text-right py-2 px-3 text-[0.8125rem] font-semibold text-muted-foreground">
+                    EPS Estimate
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {dayEarnings.map((e) => {
+                {displayedEarnings.map((e) => {
                   const stock = stocksMap?.[e.symbol];
+                  const timeLabel = earningsTimeLabel(e.time_of_day);
                   const isAfterClose = e.time_of_day === "after_close";
                   const isBeforeOpen = e.time_of_day === "before_open";
                   return (
                     <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
+                      {viewMode === "Weekly" ? (
+                        <td className="py-2 px-3 text-[0.8125rem] text-muted-foreground whitespace-nowrap">
+                          {e.report_date}
+                        </td>
+                      ) : null}
                       <td className="py-2 px-3">
                         <button
+                          type="button"
                           onClick={() => navigate(`/stocks/${tickerToSlug(e.symbol)}`)}
                           className="text-primary font-semibold hover:underline text-[0.875rem]"
                         >
@@ -294,20 +374,16 @@ const EarningsPage = () => {
                       </td>
                       <td className="py-2 px-3 text-[0.875rem] text-foreground">{e.company_name}</td>
                       <td className="py-2 px-3">
-                        {e.time_of_day ? (
-                          <span
-                            className={cn(
-                              "inline-block text-[0.75rem] px-1.5 py-0.5 rounded font-medium",
-                              isAfterClose && "bg-green-bg text-green",
-                              isBeforeOpen && "bg-accent-blue-light text-accent-blue",
-                              !isAfterClose && !isBeforeOpen && "text-muted-foreground"
-                            )}
-                          >
-                            {e.time_of_day === "before_open" ? "Before Open" : e.time_of_day === "after_close" ? "After Close" : e.time_of_day}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-[0.75rem]">—</span>
-                        )}
+                        <span
+                          className={cn(
+                            "inline-block text-[0.75rem] px-1.5 py-0.5 rounded font-medium",
+                            isAfterClose && "bg-green-bg text-green",
+                            isBeforeOpen && "bg-accent-blue-light text-accent-blue",
+                            !isAfterClose && !isBeforeOpen && "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {timeLabel}
+                        </span>
                       </td>
                       <td className="py-2 px-3 text-right text-[0.875rem] tabular-nums">
                         {abbreviateNumber(stock?.market_cap)}
@@ -327,7 +403,6 @@ const EarningsPage = () => {
         </div>
       </div>
 
-      
       <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
         <AdBanner slot="bottom" />
       </div>

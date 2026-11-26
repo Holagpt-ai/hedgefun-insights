@@ -6,7 +6,7 @@ import {
   HOMEPAGE_V21_CALENDAR_TABS,
   type HomepageCalendarTab,
 } from "@/config/homepage-v21";
-import { buildCalendarDeepLink, filterCatalystEventsForDay } from "@/lib/homepage/calendar-events";
+import { buildHomepageCalendarOutbound, filterCatalystEventsForDay } from "@/lib/homepage/calendar-events";
 import { buildMonthGrid, etTodayParts, eventCountForDay } from "@/lib/homepage/calendar-month";
 import { useHomepageCalendarMonth } from "@/hooks/useHomepageCalendarMonth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -48,7 +48,9 @@ export function HomepageTradingCalendar() {
   );
 
   const selectedCell = grid.find((c) => c.iso === selectedDate);
-  const fullCalendarHref = buildCalendarDeepLink(selectedDate, tab);
+  const outbound = buildHomepageCalendarOutbound(tab, selectedDate);
+  const fullLinkLabel =
+    tab === "earnings" ? copy.calendarViewEarnings : tab === "catalyst" ? copy.calendarCatalystV4Soon : null;
 
   const shiftMonth = (delta: number) => {
     const d = new Date(viewYear, viewMonth - 1 + delta, 1);
@@ -64,9 +66,18 @@ export function HomepageTradingCalendar() {
           {copy.calendarTitle}
         </h2>
         <div className="flex-1" />
-        <Link to={fullCalendarHref} className="text-xs font-bold text-[var(--hp-blue)]">
-          {copy.calendarViewFull}
-        </Link>
+        {fullLinkLabel && outbound.kind === "link" ? (
+          <Link to={outbound.href} className="text-xs font-bold text-[var(--hp-blue)]">
+            {fullLinkLabel}
+          </Link>
+        ) : fullLinkLabel ? (
+          <span
+            className="text-xs font-semibold text-[var(--hp-ink-3)]"
+            title={`${copy.calendarHandoffDate}: ${selectedDate}`}
+          >
+            {fullLinkLabel}
+          </span>
+        ) : null}
       </div>
 
       <div className="cal-tabs flex gap-1 px-2 pb-2" role="tablist">
@@ -164,7 +175,7 @@ export function HomepageTradingCalendar() {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
         {tab === "economic" ? (
           <p className="text-sm text-[var(--hp-ink-2)]">{copy.calendarEconomicUnavailable}</p>
-        ) : eventsQuery.isLoading ? (
+        ) : eventsQuery.isLoading && !eventsQuery.isFetched ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />

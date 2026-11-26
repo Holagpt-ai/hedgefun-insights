@@ -181,7 +181,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
         <div className="hidden md:flex items-center gap-2">
           {pathname === "/" ? (
-            <div className="hidden lg:block max-w-[280px] shrink-0">
+            <div className="hidden min-w-0 max-w-[min(100%,22rem)] shrink md:flex md:items-center">
               <HomepageSessionChip />
             </div>
           ) : null}

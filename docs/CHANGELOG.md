@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 2026-11-26 — Homepage V21 owner preview fixes (PR #277; git only)
+
+- Header session pill (compact Muse styling), earnings Daily/Weekly views, homepage calendar outbound links, closed-session movers layout, footer width alignment.
+
 ## 2026-11-26 — Homepage Muse V21 design fidelity (PR #277; git only)
 
 - Second pass on `cursor/homepage-v21-production-integration`: Muse layout bands, month calendar grid with `useHomepageCalendarMonth`, movers price filter, Muse six-card tools, editorial news, navy homepage footer, i18n copy bundle, removed duplicate Pro rail.

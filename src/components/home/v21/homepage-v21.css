@@ -124,6 +124,23 @@
   flex: 1 1 auto;
 }
 
+.homepage-v21 .top-band--compact {
+  align-items: start;
+}
+
+.homepage-v21 .top-band--compact .band-col-left > #moversCard {
+  flex: 0 0 auto;
+}
+
+.homepage-v21 .top-band--compact .band-col-right > .band-calendar {
+  flex: 1 1 auto;
+}
+
+.homepage-v21 .hp-mkt-pill {
+  box-shadow: none;
+  outline: none;
+}
+
 .homepage-v21 .layout-bottom {
   align-items: stretch;
 }
@@ -218,10 +235,11 @@
 }
 
 .homepage-v21 footer.hp-footer {
-  width: 100vw;
-  max-width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
 }
 
 .homepage-v21 .store-chip {

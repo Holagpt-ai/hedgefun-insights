@@ -59,6 +59,7 @@ export function MarketMoversV21() {
 
   const isLoading = tab === "active" ? activeQuery.isLoading : moversQuery.isLoading;
   const isError = tab === "active" ? activeQuery.isError : moversQuery.isError;
+  const isClosedSession = session === "closed";
   const provenance =
     tab === "active" ? activeQuery.data?.provenance : moversQuery.data?.combinedProvenance;
 
@@ -73,7 +74,10 @@ export function MarketMoversV21() {
     <section
       id="moversCard"
       aria-labelledby="hp-movers-heading"
-      className="band-movers hp-card flex min-h-0 flex-1 flex-col overflow-hidden"
+      className={cn(
+        "band-movers hp-card flex min-h-0 flex-col overflow-hidden",
+        !isClosedSession && "flex-1",
+      )}
     >
       <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
         <h2 id="hp-movers-heading" className="text-base font-extrabold">
@@ -115,7 +119,7 @@ export function MarketMoversV21() {
         {provenance?.sessionLine ? <p>{provenance.sessionLine}</p> : null}
         <p className="text-[var(--hp-ink-3)]">{filterLabel}</p>
       </div>
-      <div className="card-body min-h-0 flex-1 overflow-x-auto">
+      <div className={cn("card-body overflow-x-auto", !isClosedSession && "min-h-0 flex-1")}>
         {isLoading ? (
           <div className="space-y-1 p-4">
             {Array.from({ length: 8 }).map((_, i) => (
