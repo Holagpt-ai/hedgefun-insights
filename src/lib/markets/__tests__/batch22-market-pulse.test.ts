@@ -160,12 +160,11 @@ describe("Batch 22 — market pulse", () => {
 
   it("wires Market Pulse into the homepage after market clocks", () => {
     const index = readFileSync(resolve("src/pages/Index.tsx"), "utf8");
-    const pulse = readFileSync(resolve("src/components/home/MarketPulse.tsx"), "utf8");
-    expect(index).toContain("<MarketPulse />");
+    const pulse = readFileSync(resolve("src/components/home/v21/SignificantMarketMovesV21.tsx"), "utf8");
+    expect(index).toContain("SignificantMarketMovesV21");
     expect(index).not.toContain("AiTraderLivePreview");
-    expect(index.indexOf("GlobalMarketClocks")).toBeLessThan(index.indexOf("<MarketPulse />"));
+    expect(index.indexOf("GlobalMarketClocks")).toBeLessThan(index.indexOf("SignificantMarketMovesV21"));
     expect(pulse).toContain("Significant Market Moves");
-    expect(pulse).toContain("flex flex-col gap-2");
     expect(pulse).toContain("stockDetailPath");
   });
 

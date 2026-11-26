@@ -18,8 +18,7 @@ describe("Batch 189 — homepage AI Trader removal", () => {
     const index = readFileSync(resolve("src/pages/Index.tsx"), "utf8");
     expect(index).not.toContain("AiTraderLivePreview");
     expect(index).not.toMatch(/Watch AI Trader/i);
-    expect(index).toContain("<RecentIpos");
-    expect(index).toContain("<UpcomingIpos");
+    expect(index).toContain("HomepageV21Ipos");
     expect(index).toContain("<Disclaimer");
   });
 });
