@@ -6,6 +6,7 @@
 - **Economic:** Finnhub `calendar/economic` adapter (`sync-economic-calendar`, shared economic parsers, hardened `economic_events` migration).
 - **AI:** Cached watchlist analysis in day brief; AI Analyst `symbol`+`prompt` handoff; journal `catalyst`/`researchDate` prefill.
 - Homepage economic tab shares `economic_events` query when table exists.
+- **Guest read:** migration `20261126220000_catalyst_events_public_calendar_read_v1.sql` — anon `provider_reported` catalyst rows (Lovable apply required for populated public grid).
 
 ## 2026-11-26 — Catalyst Calendar V4 foundation (PR #278; git only)
 
