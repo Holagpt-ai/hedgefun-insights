@@ -1,4 +1,4 @@
-> **2026-11-26 Catalyst Calendar V4 consolidated (PR #278; git only; NOT production):** RPC `public_catalyst_calendar_range_v1`, gated Finnhub macro sync + activation runbook; migrations `20261126180000`, `20261126220000`, `20261126230000` **not applied**; Edge **not deployed**. Homepage PR **#277** @ `a7ddec2`. Scanner v530 / Radar v50 / historical suspension unchanged.
+> **2026-11-26 Catalyst Calendar V4 merged (PR #278 @ `5d458699`); production activation BLOCKED:** Lovable stopped before SQL (ledger ambiguity + economic table `service_role` grants). Recovery migration `20261126250000` prepared; five-file runbook. Edge **not deployed**. Lovable 28-table RLS finding **pending classification**. Scanner v530 / Radar v50 / Option B ON / Layer C / historical suspension unchanged.
 >
 > **2026-11-26 Homepage Muse V21:** Merged **`a7ddec2`** on GitHub `main`; Vercel production deploy not re-verified here. Scanner v530 / Radar v50 / historical worker state unchanged.
 

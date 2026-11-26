@@ -106,7 +106,7 @@ Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyVi
 
 Desktop Day Trade Radar workspace tabs (Batch 183): `MultiRadarWorkspace` on desktop shows one of Live Radar, Momentum, Historical, Signals, or Settings via `desktop-radar-workspace-tabs.ts`. Existing `RadarPanelBoard` / carryover / repeat-movers components are reused; mobile keeps per-panel tabs. Status rail and qualification counts stay above the workspace.
 
-**Public catalyst calendar (V4):** `/calendar` and `HomepageTradingCalendar` call `public_catalyst_calendar_range_v1` via `fetchPublicCatalystCalendarRange` (no direct guest `catalyst_events` SELECT). Contract in `src/lib/calendar-v4/`. Handoff: `calDate`, `calTab`, `calFilter`. Macro: `economic_events` + `economic_sync_status`; `sync-economic-calendar` (Finnhub, gated by `FINNHUB_ECONOMIC_ENABLED`). Activation: `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
+**Public catalyst calendar (V4):** `/calendar` and `HomepageTradingCalendar` call `public_catalyst_calendar_range_v1` via `fetchPublicCatalystCalendarRange` (no direct guest `catalyst_events` SELECT). Contract in `src/lib/calendar-v4/`. Handoff: `calDate`, `calTab`, `calFilter`. Macro: `economic_events` + `economic_sync_status` (`service_role` SELECT/INSERT/UPDATE via migration `20261126250000`); `sync-economic-calendar` (Finnhub gated by `FINNHUB_ECONOMIC_ENABLED`; entitlement POST `verify_only`). Activation: `docs/release/catalyst-calendar-v4-production-activation-v1.md` (five migrations; production apply **blocked** Nov 26).
 
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 

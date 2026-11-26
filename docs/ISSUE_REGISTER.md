@@ -2,7 +2,9 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Catalyst Calendar V4 (Nov 26, PR #278):** Muse layout + RPC public catalyst contract + Finnhub macro adapter (gated) + activation runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Production activation OPEN:** migrations `20261126180000`, `20261126220000` (RPC — not table GRANT), `20261126230000`; deploy `sync-economic-calendar`; verify Finnhub entitlement; set `FINNHUB_ECONOMIC_ENABLED` only if entitled; bounded POST sync. **Homepage V21 merged** `a7ddec2` (#277).
+**Catalyst Calendar V4 (Nov 26, merged PR #278 @ `5d458699`):** Muse layout + RPC public catalyst + Finnhub macro adapter (gated). **Production activation BLOCKED (Lovable):** stopped before SQL — ledger ambiguity + missing `service_role` grants. **Recovery:** five migrations including `20261126250000_economic_calendar_service_role_grants_v1.sql`; runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`. Finnhub entitlement via POST `verify_only` only. Edge `sync-economic-calendar` **not deployed**.
+
+**Lovable RLS report (Nov 26, reported):** Critical — “some access rules let everyone through”, **28** tables — exact policy inventory **pending** (`docs/release/lovable-rls-broad-access-finding-2026-11-26.md`). **Do not Fix All** in calendar recovery. **Not dismissed** as false positive. **Separate critical blocker** only if unauthorized **private user** write/read is evidenced.
 
 **Homepage Muse V21 (Nov 26, merged):** PR **#277** on `main`. Economic tab reads `economic_events` when present; otherwise customer-facing unavailable copy.
 

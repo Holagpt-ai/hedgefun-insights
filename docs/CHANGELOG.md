@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 production activation recovery (post-merge `5d458699`)
+
+- PR **#278** merged to `main`; Lovable activation stopped before SQL.
+- Corrective migration `20261126250000_economic_calendar_service_role_grants_v1.sql`.
+- Deterministic five-migration activation runbook + pgTAP privilege tests.
+- Lovable 28-table RLS finding recorded; pending classification (no Fix All).
+
+## 2026-11-26 — Catalyst Calendar V4 merged (PR #278 @ `5d458699`)
+
+- Muse calendar V4, public catalyst RPC pagination, US government + gated Finnhub economic sync.
+
 ## 2026-11-26 — Catalyst Calendar V4 final economic ingestion (PR #278; git only)
 
 - FOMC: Federal Reserve monthly newsevents pages; statement on announcement day (e.g. Dec 9 14:00 ET for Dec 8–9 meeting).
