@@ -1,5 +1,18 @@
 ﻿# Changelog
 
+## 2026-11-26 — Homepage Muse V21 production integration (git only; PR pending)
+
+- Rebuilt public homepage per approved design package `docs/design/homepage-v21/` (visual reference V21; controlling spec: owner assignment).
+- Shared reuse: `useHomepagePublicMovers`, Market Pulse catalyst enrichment, `catalyst_events`, watchlist table, `ToolGrid`, IPO/news modules.
+- **Gap documented:** verified macro **economic** calendar feed — Economic tab shows unavailable state until backend contract lands.
+- **Not deployed** — Vercel preview from PR branch only.
+
+## 2026-11-26 — Historical worker v57 deploy + catch-up halt (ops)
+
+- PR **#276** merged `main` **`5c99f08a`**. Fly **`stocksist-historical-backfill-job` v57** `deployment-01M8CCYWZQZHBNJ9FDMAP6N2CK`. Preflight **PASS** (target **2026-11-25**, floor **2021-11-29**, caps **600/3/2500**, eligibility **200**).
+- Writing: run 4 statement-timeout exit 1; runs 5–15 exit 0 empty windows (**0** new jobs; **~150** ambiguous / **~50** unsupported per 200-symbol scan); cursor stuck at **`BKH`**. Run 16 stopped for repeated lack of progress.
+- Preserved durable totals: **599** securities, **340,797** daily rows, **32,939** episodes. Jobs: `d3e927ae-…`, `e644da93-…`, `c9f2bb21-…`, `d3abb1e8-…` (+ pilot `c35c4f06-…`). Worker **0** machines; preflight restored.
+
 ## 2026-11-26 — Historical catch-up queue starvation fix (git; PR pending)
 
 - Symbol cursor `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` (no numeric offset); provider outcome taxonomy; campaign state JSON + lock; recurring catch-up driver script (not scheduled).

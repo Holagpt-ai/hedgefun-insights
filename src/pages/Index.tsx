@@ -1,88 +1,75 @@
-import MarketTicker from "@/components/layout/MarketTicker";
-import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
-import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
-import { MarketPulse } from "@/components/home/MarketPulse";
-import { HeroSearch } from "@/components/home/HeroSearch";
-import { ToolGrid } from "@/components/home/ToolGrid";
-import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
-import { MarketNews } from "@/components/home/MarketNews";
-import { RecentIpos, UpcomingIpos } from "@/components/home/IpoTables";
-import Disclaimer from "@/components/layout/Disclaimer";
-import { resolveMarketSession } from "@/lib/price-utils";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
 import { marketPulseDelayDisclosure } from "@/lib/markets/market-pulse-select";
-import { PUBLIC_EXTENDED_HOURS_POSITIONING } from "@/lib/public/public-market-copy";
-
-function useSessionMoversLabels() {
-  const session = resolveMarketSession();
-  if (session === "pre-market") return { gainers: "Pre-Market Gainers", losers: "Pre-Market Losers" };
-  if (session === "market") return { gainers: "Top Gainers", losers: "Top Losers" };
-  if (session === "after-hours") return { gainers: "After-Hours Gainers", losers: "After-Hours Losers" };
-  return { gainers: "Top Gainers", losers: "Top Losers" };
-}
+import { HOMEPAGE_V21_HEADLINE } from "@/config/homepage-v21";
+import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
+import Disclaimer from "@/components/layout/Disclaimer";
+import { HomepageHeroV21 } from "@/components/home/v21/HomepageHeroV21";
+import { StockIndexCarousel } from "@/components/home/v21/StockIndexCarousel";
+import { SignificantMarketMovesV21 } from "@/components/home/v21/SignificantMarketMovesV21";
+import { MarketMoversV21 } from "@/components/home/v21/MarketMoversV21";
+import { MyAssetsRail } from "@/components/home/v21/MyAssetsRail";
+import { HomepageTradingCalendar } from "@/components/home/v21/HomepageTradingCalendar";
+import { FeatureGridV21 } from "@/components/home/v21/FeatureGridV21";
+import { MarketNewsV21 } from "@/components/home/v21/MarketNewsV21";
+import { TrendingNowRail } from "@/components/home/v21/TrendingNowRail";
+import { AdvertisementSlot } from "@/components/home/v21/AdvertisementSlot";
+import { QuietProRail } from "@/components/home/v21/QuietProRail";
+import { HomepageV21Ipos } from "@/components/home/v21/HomepageV21Ipos";
+import "@/components/home/v21/homepage-v21.css";
 
 const Index = () => {
-  const labels = useSessionMoversLabels();
   usePageSeo({
-    title: `${BRAND.name} — Market pulse, stock research & trading dashboard`,
-    description: `Discover session movers, research individual stocks, and continue into the Stocksist dashboard. ${marketPulseDelayDisclosure()}`,
+    title: `${BRAND.name} — ${HOMEPAGE_V21_HEADLINE}`,
+    description: `Discover session movers, research stocks, and continue into the Stocksist dashboard. ${marketPulseDelayDisclosure()}`,
     canonical: "/",
   });
+
   return (
-    <div className="flex flex-col">
-      <MarketTicker />
-      {/* 14A — Index Sparkline Cards */}
-      <IndexSparklineCards />
-
-      {/* 14A2 — Global Market Clocks */}
-      <GlobalMarketClocks />
-
-      <MarketPulse />
-
-      <section
-        aria-labelledby="stocksist-overview-heading"
-        className="bg-surface px-4 pt-6 pb-1 text-center"
-      >
-        <h1
-          id="stocksist-overview-heading"
-          className="text-[1.375rem] md:text-[1.75rem] font-bold text-foreground leading-tight max-w-[40rem] mx-auto"
-        >
-          Stock Market Intelligence for Active Investors and Traders
-        </h1>
-        <p className="mt-3 text-sm md:text-base text-foreground leading-relaxed max-w-[40rem] mx-auto">
-          Stocksist helps you research stocks, monitor session movers, and continue into screeners, watchlists, and catalyst tools after sign-in. Public quotes use {marketPulseDelayDisclosure().toLowerCase()}.
-        </p>
-        <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-[40rem] mx-auto">
-          {PUBLIC_EXTENDED_HOURS_POSITIONING} Workspace features such as AI Analyst and Radar require a free account; some capabilities remain in preview.
-        </p>
-      </section>
-
-      {/* 14B — Hero Search */}
-      <HeroSearch />
-
-      {/* 14C — Tool Grid */}
-      <ToolGrid />
-
-      {/* 14D & 14E — Gainers / Losers */}
-      <div className="px-4 py-4 grid md:grid-cols-2 gap-6 min-w-0">
-        <TopGainersTable title={labels.gainers} />
-        <TopLosersTable title={labels.losers} />
+    <div className="homepage-v21 mx-auto min-h-full w-full min-w-0 max-w-[1460px] px-3 py-4 sm:px-5 md:px-6">
+      <div className="hidden" aria-hidden>
+        <GlobalMarketClocks />
       </div>
 
-      {/* 14F — Market News */}
-      <div className="px-4 py-4">
-        <MarketNews />
+      <HomepageHeroV21 />
+
+      <div className="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_336px] lg:gap-[18px] lg:items-start">
+        <div className="min-w-0 lg:col-span-2">
+          <StockIndexCarousel />
+        </div>
+        <div className="min-w-0">
+          <SignificantMarketMovesV21 />
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
+          <MyAssetsRail />
+        </div>
+        <div className="min-w-0">
+          <MarketMoversV21 />
+        </div>
+        <div className="min-w-0 lg:col-start-2">
+          <HomepageTradingCalendar />
+        </div>
+        <div className="min-w-0">
+          <FeatureGridV21 />
+        </div>
+        <div className="min-w-0">
+          <MarketNewsV21 />
+        </div>
+        <div className="min-w-0 lg:col-start-2">
+          <TrendingNowRail />
+        </div>
+        <div className="min-w-0 lg:col-span-1">
+          <HomepageV21Ipos />
+        </div>
+        <div className="min-w-0 lg:col-start-2">
+          <AdvertisementSlot />
+        </div>
+        <div className="min-w-0 lg:col-start-2">
+          <QuietProRail />
+        </div>
       </div>
 
-      {/* 14G & 14H — IPOs */}
-      <div className="px-4 py-4 grid md:grid-cols-2 gap-6 min-w-0">
-        <RecentIpos />
-        <UpcomingIpos />
-      </div>
-
-      {/* Disclaimer */}
-      <div className="px-4 py-6">
+      <div className="mt-6 px-1">
         <Disclaimer />
       </div>
     </div>

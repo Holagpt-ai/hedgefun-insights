@@ -1,0 +1,89 @@
+/* Scoped to `.homepage-v21` — does not alter dashboard or other public routes. */
+.homepage-v21 {
+  --hp-bg: #f4f6f9;
+  --hp-surface: #ffffff;
+  --hp-ink: #0e1a2b;
+  --hp-ink-2: #42556e;
+  --hp-ink-3: #71809a;
+  --hp-line: #e2e8f0;
+  --hp-blue: #1663d9;
+  --hp-navy: #0a1526;
+  --hp-up: #0a8a4d;
+  --hp-down: #d43a2f;
+  background: var(--hp-bg);
+  color: var(--hp-ink);
+  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark .homepage-v21 {
+  --hp-bg: hsl(var(--background));
+  --hp-surface: hsl(var(--card));
+  --hp-ink: hsl(var(--foreground));
+  --hp-ink-2: hsl(var(--muted-foreground));
+  --hp-ink-3: hsl(var(--muted-foreground));
+  --hp-line: hsl(var(--border));
+}
+
+.homepage-v21 .hp-card {
+  background: var(--hp-surface);
+  border: 1px solid var(--hp-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(14, 26, 43, 0.05), 0 8px 24px -12px rgba(14, 26, 43, 0.12);
+}
+
+.homepage-v21 .hp-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.homepage-v21 .hp-hero-title {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.homepage-v21 .hp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 336px;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .homepage-v21 .hp-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.homepage-v21 .hp-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.homepage-v21 .hp-index-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.homepage-v21 footer.hp-footer {
+  background: var(--hp-navy);
+  color: #aebdd2;
+  margin-top: 26px;
+}
+
+.homepage-v21 .hp-ad-slot {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .homepage-v21 .hp-ad-slot {
+    display: block;
+  }
+}

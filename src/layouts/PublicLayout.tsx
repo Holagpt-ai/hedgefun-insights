@@ -19,7 +19,13 @@ export default function PublicLayout() {
       {showTicker && <MarketTicker />}
       <div className="flex">
         <AppSidebar />
-        <main className="flex-1 min-w-0 pb-16 md:pb-0">
+        <main
+          className={
+            pathname === "/"
+              ? "flex-1 min-w-0 pb-16 md:pb-0 bg-[#f4f6f9] dark:bg-background"
+              : "flex-1 min-w-0 pb-16 md:pb-0"
+          }
+        >
           <Outlet />
         </main>
       </div>

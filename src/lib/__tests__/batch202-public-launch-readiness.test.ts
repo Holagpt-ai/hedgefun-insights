@@ -70,8 +70,8 @@ describe("Batch 202 — 23×5 extended-hours positioning", () => {
     expect(PUBLIC_EXTENDED_HOURS_POSITIONING).toMatch(/4:00–9:30/);
     expect(PUBLIC_EXTENDED_HOURS_POSITIONING).toMatch(/4:00–8:00/);
     expect(PUBLIC_EXTENDED_HOURS_POSITIONING.toLowerCase()).toMatch(/overnight scanning is not active/);
-    const index = readFileSync(resolve("src/pages/Index.tsx"), "utf8");
-    expect(index).toContain("PUBLIC_EXTENDED_HOURS_POSITIONING");
+    const hero = readFileSync(resolve("src/components/home/v21/HomepageHeroV21.tsx"), "utf8");
+    expect(hero).toContain("PUBLIC_EXTENDED_HOURS_POSITIONING");
   });
 });
 
@@ -91,8 +91,9 @@ describe("Batch 202 — conversion tracking on public auth CTAs", () => {
 describe("Batch 202 — SEO & homepage integrity (regression)", () => {
   it("reuses established homepage modules", () => {
     const index = readFileSync(resolve("src/pages/Index.tsx"), "utf8");
-    expect(index).toContain("<MarketPulse");
+    expect(index).toContain("SignificantMarketMovesV21");
     expect(index).toContain("<GlobalMarketClocks");
+    expect(index).toContain("HOMEPAGE_V21_HEADLINE");
     expect(index).not.toContain("AiTraderLivePreview");
   });
 
