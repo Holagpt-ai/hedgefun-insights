@@ -13,6 +13,13 @@ export const HISTORICAL_CATCHUP_DEFAULT_ELIGIBILITY_BATCH_SIZE = 100;
 
 export const HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV = "HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE";
 
+/** Symbol index into the eligible queue (persisted across Fly runs via operator secret rotation). */
+export const HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV = "HISTORICAL_CATCHUP_QUEUE_OFFSET";
+
+/** Upper bound on eligibility scans per batch before advancing the queue cursor. */
+export const HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV =
+  "HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH";
+
 export const HISTORICAL_CATCHUP_LIMITS = {
   /** Max symbol batches started in one Fly process. */
   maxBatchesPerRun: 3,
@@ -69,6 +76,35 @@ function parseStrictLimit(
     throw new HistoricalCatchupLimitsError(`${envName} exceeds ceiling ${ceiling} (got ${n})`);
   }
   return n;
+}
+
+export function readHistoricalCatchupQueueOffsetFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+): number {
+  const trimmed = env.get(HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV)?.trim();
+  if (!trimmed) return 0;
+  if (!/^\d+$/.test(trimmed)) {
+    throw new HistoricalCatchupLimitsError(
+      `${HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV} must be a non-negative integer`,
+    );
+  }
+  return Number.parseInt(trimmed, 10);
+}
+
+export function readHistoricalCatchupMaxResolutionScansPerBatchFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+  fallback: number,
+): number {
+  return parseStrictLimit(
+    HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV,
+    env.get(HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV),
+    fallback,
+    HISTORICAL_CATCHUP_LIMITS_CEILING.maxSymbolsPerRun,
+  );
 }
 
 export function readHistoricalCatchupEligibilityBatchSizeFromEnv(

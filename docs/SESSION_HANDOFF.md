@@ -1,3 +1,9 @@
+# Session handoff — November 26, 2026 (Historical queue fix + partial catch-up)
+
+**Fly `stocksist-historical-backfill-job`:** production image `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z` (**v48**). **Zero machines**; **`HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1`**. Floor **`2021-11-29`**; target **`2026-11-25`**. **Ops:** pilot + **2/20** campaign runs through **~4735** eligible remaining; run 3 exit **1** (queue head starvation — `eligible.slice(0,n)` + `maxEmptyResolutionBatches=1`). **Git fix (PR pending):** queue offset + scan window, deferred resolution reporting, finite `unresolvable_queue_window` stop — see `docs/historical-intelligence/recurring-catchup-operations-v1.md`. **Campaign budget (retain):** runs **3/20** (failed run 3 counts); provider **~3410/50000** (3010 success + ~400 estimated run 3 reference scans). **After image deploy:** set **`HISTORICAL_CATCHUP_QUEUE_OFFSET=1200`** (symbols attempted in runs 1–2) or read `catch_up_queue_state` from next preflight log; unset preflight; resume campaign script. **No recurring scheduler activated.**
+
+---
+
 # Session handoff — November 25, 2026 (authenticated launch defects; PR pending)
 
 **GitHub baseline:** `9a86c34e0778f07bbd12db29e0a855d80737ff6c`. **Branch:** `cursor/launch-authenticated-defects-nov25` — shared Anthropic config/classification (Watchlist + Daily Brief), screener delayed-data trust parity (Gappers/NHL vs Radar tabs), Repeat Movers Edge `apikey` + backfill runbook. **Deploy after merge:** Vercel frontend; Lovable Edge **`analyze-watchlist-tickers-v2`**, **`generate-daily-brief`** (verify `ANTHROPIC_API_KEY` + model). **No** SQL/Fly/cron/backfill from this batch.
