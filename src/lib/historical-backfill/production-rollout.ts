@@ -291,17 +291,21 @@ async function resolveSymbolForCatchUp(
     });
   }
   if (classified.kind !== "resolved") {
-    const kind = classified.kind === "provider_invalid_response" ? "ambiguous_identity" : classified.kind;
-    return { symbol, kind, providerStatus: classified.providerStatus, providerHttpStatus: classified.providerHttpStatus };
+    return {
+      symbol,
+      kind: classified.kind,
+      providerStatus: classified.providerStatus,
+      providerHttpStatus: classified.providerHttpStatus,
+    };
   }
   const row = details.results && typeof details.results === "object" ? details.results as Record<string, unknown> : null;
   if (!row || row.ticker == null) {
-    return {
+    throw new CatchUpProviderResolutionError({
+      kind: "provider_invalid_response",
       symbol,
-      kind: "unsupported_ticker",
-      providerStatus: typeof details.status === "string" ? details.status : null,
       providerHttpStatus: detailsRes.httpStatus,
-    };
+      providerStatus: typeof details.status === "string" ? details.status : null,
+    });
   }
   const listDate = typeof row.list_date === "string" ? row.list_date.slice(0, 10) : null;
   const listYear = listDate ? Number(listDate.slice(0, 4)) : NaN;
@@ -1204,7 +1208,9 @@ export async function runHistoricalCatchUpRollout(
             ? "provider_rate_limited"
             : error.kind === "provider_entitlement"
               ? "provider_entitlement_failure"
-              : "provider_transient";
+              : error.kind === "provider_invalid_response"
+                ? "provider_invalid_response"
+                : "provider_transient";
           stopReason = reason;
           resolutionStopped = true;
           logEvent({

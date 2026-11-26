@@ -4,6 +4,7 @@
 
 - Symbol cursor `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` (no numeric offset); provider outcome taxonomy; campaign state JSON + lock; recurring catch-up driver script (not scheduled).
 - Recurring catch-up operations doc + `resolve-catchup-target.ts` (not activated). Vitest: `batch33-9-queue-starvation.test.ts`.
+- Operational safeguards (same PR): one atomic lock owner (nested recurring does not steal/cleanup foreign locks); persist full per-run provider reservation before machine launch; Fly cleanup verifies exit codes, zero machines, and restored preflight; HTTP 200 missing/malformed reference payloads classify as `provider_invalid_response`. PowerShell orchestration tests: `scripts/historical/__tests__/catchup-orchestration.tests.ps1`.
 
 ## 2026-11-26 — Historical consolidated catch-up campaign (ops only; partial)
 

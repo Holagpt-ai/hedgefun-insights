@@ -3,8 +3,12 @@ import { HISTORICAL_CATCHUP_LIMITS } from "@/config/historical-catchup.config";
 import {
   applyCampaignRunOutcome,
   assertCampaignCanStart,
+  CatchUpCampaignBudgetError,
   parseCatchUpCampaignState,
   providerBudgetTotal,
+  remainingProviderBudget,
+  reconcileCampaignRun,
+  reserveCampaignRun,
 } from "@/lib/historical-backfill/catch-up-campaign-state";
 import {
   findQueueStartIndex,
@@ -55,8 +59,20 @@ describe("Batch 33.9 catch-up queue and campaign corrections", () => {
         body: { status: "NOT_AUTHORIZED", message: "past historical entitlements" },
       }).kind,
     ).toBe("provider_entitlement");
+    expect(classifyPolygonReferenceResponse({ httpStatus: 200, body: {} }).kind)
+      .toBe("provider_invalid_response");
+    expect(classifyPolygonReferenceResponse({ httpStatus: 200, body: { status: "OK" } }).kind)
+      .toBe("provider_invalid_response");
+    expect(
+      classifyPolygonReferenceResponse({
+        httpStatus: 200,
+        body: { status: "OK", results: { name: "Missing ticker field" } },
+      }).kind,
+    ).toBe("provider_invalid_response");
     expect(isRetryableCatchUpResolutionKind("provider_transient")).toBe(true);
+    expect(isRetryableCatchUpResolutionKind("provider_invalid_response")).toBe(true);
     expect(isDeferrableCatchUpResolutionKind("unsupported_ticker")).toBe(true);
+    expect(isDeferrableCatchUpResolutionKind("provider_invalid_response")).toBe(false);
   });
 
   it("restores and enforces campaign budget after prior runs", () => {
@@ -90,12 +106,53 @@ describe("Batch 33.9 catch-up queue and campaign corrections", () => {
       maxProviderRequests: 50000,
       queueAfterSymbol: null,
     });
-    const after = applyCampaignRunOutcome(state, {
-      exitCode: 1,
+    const reserved = reserveCampaignRun(state, HISTORICAL_CATCHUP_LIMITS.maxProviderRequestsPerRun);
+    expect(reserved.executionsCompleted).toBe(4);
+    expect(reserved.pendingRun).toBe(true);
+    expect(reserved.providerReservedUncertain).toBe(2900);
+    expect(reserved.providerUsed).toBe(3010);
+    const after = reconcileCampaignRun(reserved, {
       runProvider: null,
       providerMeasurementReliable: false,
     });
-    expect(after.providerReservedUncertain).toBe(401);
+    expect(after.providerReservedUncertain).toBe(2900);
+    expect(after.pendingRun).toBe(false);
+    expect(after.providerUsed).toBe(3010);
+  });
+
+  it("blocks a run when remaining budget is below per-run allowance", () => {
+    const state = parseCatchUpCampaignState({
+      campaignId: "nov26",
+      executionsCompleted: 3,
+      maxExecutions: 20,
+      providerUsed: 48000,
+      providerReservedUncertain: 400,
+      maxProviderRequests: 50000,
+      queueAfterSymbol: null,
+    });
+    expect(remainingProviderBudget(state)).toBe(1600);
+    expect(() => assertCampaignCanStart(state, HISTORICAL_CATCHUP_LIMITS.maxProviderRequestsPerRun))
+      .toThrow(CatchUpCampaignBudgetError);
+  });
+
+  it("keeps measured campaign consumption when applying a successful outcome", () => {
+    const state = parseCatchUpCampaignState({
+      campaignId: "nov26",
+      executionsCompleted: 3,
+      maxExecutions: 20,
+      providerUsed: 3010,
+      providerReservedUncertain: 400,
+      maxProviderRequests: 50000,
+      queueAfterSymbol: null,
+    });
+    const after = applyCampaignRunOutcome(state, {
+      exitCode: 0,
+      runProvider: 15,
+      providerMeasurementReliable: true,
+    });
+    expect(after.executionsCompleted).toBe(4);
+    expect(after.providerUsed).toBe(3025);
+    expect(after.providerReservedUncertain).toBe(400);
   });
 
   it("resolves completed session using ET after-hours boundary", () => {

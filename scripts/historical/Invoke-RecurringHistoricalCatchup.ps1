@@ -1,33 +1,52 @@
 ﻿# Recurring historical catch-up driver (NOT activated as a schedule — run manually or from external scheduler).
+# Single lock owner for this process. Nested campaign uses -AssumeLockHeld and must not release this lock.
 param(
   [switch]$Execute,
   [string]$App = "stocksist-historical-backfill-job",
   [string]$StatePath = "",
   [string]$CampaignScript = "",
-  [int]$MaxWaitMinutes = 52
+  [string]$LockPath = "",
+  [string]$LockOwnerId = "",
+  [int]$MaxWaitMinutes = 52,
+  [string]$FlyExe = "fly",
+  [string]$TargetSession = "",
+  [switch]$SkipTargetResolve,
+  [int]$ScaleSettleSeconds = 8,
+  [int]$PollSeconds = 25,
+  [int]$LogSettleSeconds = 8,
+  [int]$ScaleZeroSettleSeconds = 4
 )
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "catchup-ops.ps1")
+
 if (-not $StatePath) { $StatePath = Join-Path $PSScriptRoot "campaign-state.nov26.json" }
 if (-not $CampaignScript) { $CampaignScript = Join-Path $PSScriptRoot "run-fly-catchup-campaign.ps1" }
-$lockPath = Join-Path $PSScriptRoot ".historical-catchup.lock"
+if (-not $LockPath) { $LockPath = Join-Path $PSScriptRoot ".historical-catchup.lock" }
+if (-not $LockOwnerId) { $LockOwnerId = [guid]::NewGuid().ToString("N") }
 
+$ownsLock = $false
 $plan = @{}
 try {
-  if (Test-Path $lockPath) {
-    throw "another historical catch-up invocation holds $lockPath"
+  if (-not (Acquire-CatchupLock -LockPath $LockPath -OwnerId $LockOwnerId)) {
+    throw "another historical catch-up invocation holds $LockPath"
   }
-  New-Item -ItemType File -Path $lockPath -Force | Out-Null
+  $ownsLock = $true
 
-  $machines = @(& fly machines list -a $App --json 2>&1 | ConvertFrom-Json)
-  if ($machines.Count -gt 0) {
-    throw "refusing to start: $App still has $($machines.Count) machine(s)"
+  Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
+
+  if ($SkipTargetResolve) {
+    if (-not $TargetSession) { $TargetSession = "2026-11-25" }
+    $target = $TargetSession
+  } else {
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+    Push-Location $repoRoot
+    try {
+      $targetJson = & npx vite-node --config vitest.config.ts scripts/historical/resolve-catchup-target.ts 2>&1 | Select-Object -Last 1
+    } finally {
+      Pop-Location
+    }
+    $target = ($targetJson | ConvertFrom-Json).targetSession
   }
-
-  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-  Push-Location $repoRoot
-  $targetJson = & npx vite-node --config vitest.config.ts scripts/historical/resolve-catchup-target.ts 2>&1 | Select-Object -Last 1
-  Pop-Location
-  $target = ($targetJson | ConvertFrom-Json).targetSession
   $plan.targetSession = $target
 
   if (-not $Execute) {
@@ -36,10 +55,29 @@ try {
     exit 0
   }
 
-  & fly secrets set -a $App "HISTORICAL_CATCHUP_TARGET_SESSION=$target" 2>&1 | Out-Null
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $CampaignScript `
-    -StatePath $StatePath -MaxRuns 1 -SingleRun -MaxWaitMinutes $MaxWaitMinutes
+  $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_TARGET_SESSION=$target")
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $CampaignScript `
+    -StatePath $StatePath `
+    -LockPath $LockPath `
+    -LockOwnerId $LockOwnerId `
+    -AssumeLockHeld `
+    -MaxRuns 1 `
+    -SingleRun `
+    -MaxWaitMinutes $MaxWaitMinutes `
+    -FlyExe $FlyExe `
+    -App $App `
+    -ScaleSettleSeconds $ScaleSettleSeconds `
+    -PollSeconds $PollSeconds `
+    -LogSettleSeconds $LogSettleSeconds `
+    -ScaleZeroSettleSeconds $ScaleZeroSettleSeconds
+  $campaignExit = $LASTEXITCODE
+  if ($null -eq $campaignExit) { $campaignExit = 0 }
+  if ($campaignExit -ne 0) {
+    throw "campaign script exited $campaignExit"
+  }
 }
 finally {
-  if (Test-Path $lockPath) { Remove-Item -Force $lockPath }
+  if ($ownsLock) {
+    Release-CatchupLock -LockPath $LockPath -OwnerId $LockOwnerId
+  }
 }

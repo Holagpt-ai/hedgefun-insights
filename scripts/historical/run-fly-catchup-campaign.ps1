@@ -2,40 +2,36 @@
 param(
   [int]$MaxRuns = 20,
   [int]$MaxCumulativeProvider = 50000,
+  [int]$MaxProviderPerRun = 2500,
   [string]$App = "stocksist-historical-backfill-job",
   [string]$LogOut = "",
   [string]$StatePath = "",
+  [string]$LockPath = "",
+  [string]$LockOwnerId = "",
+  [switch]$AssumeLockHeld,
   [switch]$SingleRun,
-  [int]$MaxWaitMinutes = 52
+  [int]$MaxWaitMinutes = 52,
+  [string]$FlyExe = "fly",
+  [int]$ScaleSettleSeconds = 8,
+  [int]$PollSeconds = 25,
+  [int]$LogSettleSeconds = 8,
+  [int]$ScaleZeroSettleSeconds = 4
 )
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "catchup-ops.ps1")
+
 if (-not $LogOut) { $LogOut = Join-Path $PSScriptRoot "_campaign-nov26.jsonl" }
 if (-not $StatePath) { $StatePath = Join-Path $PSScriptRoot "campaign-state.nov26.json" }
+if (-not $LockPath) { $LockPath = Join-Path $PSScriptRoot ".historical-catchup.lock" }
+if (-not $LockOwnerId) { $LockOwnerId = [guid]::NewGuid().ToString("N") }
 
 function Get-ProviderTotal($Provider) {
   if (-not $Provider) { return $null }
   return [int]$Provider.dailyRequests + [int]$Provider.referenceRequests + [int]$Provider.nextPages
 }
 
-function Assert-ZeroMachines {
-  $list = @(& fly machines list -a $App --json 2>&1 | ConvertFrom-Json)
-  if ($list.Count -gt 0) { throw "expected zero machines on $App" }
-}
-
-function Ensure-ScaleZero {
-  $scaled = & fly scale count 0 --process-group backfill -a $App --yes 2>&1 | Out-String
-  Start-Sleep 4
-  $list = @(& fly machines list -a $App --json 2>&1 | ConvertFrom-Json)
-  if ($list.Count -gt 0) { throw "scale to zero failed: $($list.Count) machine(s) remain" }
-  return $scaled
-}
-
-function Restore-PreflightGuard {
-  & fly secrets set -a $App HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1 2>&1 | Out-Null
-}
-
 function Get-LatestRunEvents([string]$MachineId) {
-  $raw = & fly logs -a $App --no-tail 2>&1 | Out-String
+  $raw = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
   $events = @()
   foreach ($line in ($raw -split "`n")) {
     if ($line -notmatch $MachineId -or $line -notmatch '\{.*event.*\}') { continue }
@@ -49,40 +45,74 @@ function Get-LatestRunEvents([string]$MachineId) {
   return $events
 }
 
-if (-not (Test-Path $StatePath)) { throw "missing campaign state: $StatePath" }
-$state = Get-Content $StatePath -Raw | ConvertFrom-Json
-$runStart = [int]$state.executionsCompleted + 1
-$maxRuns = [Math]::Min($MaxRuns, [int]$state.maxExecutions - [int]$state.executionsCompleted)
-if ($SingleRun) { $maxRuns = 1 }
-$providerBudget = [int]$state.providerUsed + [int]$state.providerReservedUncertain
-if ([int]$state.executionsCompleted -ge [int]$state.maxExecutions) { throw "execution budget exhausted" }
-if ($providerBudget -ge [int]$state.maxProviderRequests) { throw "provider budget exhausted ($providerBudget)" }
+if (-not (Test-Path -LiteralPath $StatePath)) { throw "missing campaign state: $StatePath" }
+$state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
+if ($null -eq $state.pendingRun) { $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false }
+if ($null -eq $state.pendingProviderReservation) { $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0 }
 
 $haltReason = $null
 $terminal = $null
-$lockPath = Join-Path $PSScriptRoot ".historical-catchup.lock"
+$ownsLock = $false
+$ownsCampaign = $false
+$cleanupFailed = $false
+$cleanupError = $null
+$runError = $null
 
 try {
-  if (Test-Path $lockPath) { throw "campaign lock exists: $lockPath" }
-  New-Item -ItemType File -Path $lockPath -Force | Out-Null
-  Assert-ZeroMachines
+  if ($AssumeLockHeld) {
+    Assert-CatchupLockOwner -LockPath $LockPath -OwnerId $LockOwnerId
+    $ownsCampaign = $true
+  } else {
+    if (-not (Acquire-CatchupLock -LockPath $LockPath -OwnerId $LockOwnerId)) {
+      throw "campaign lock exists: $LockPath"
+    }
+    $ownsLock = $true
+    $ownsCampaign = $true
+  }
+
+  Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
+
+  if ($state.pendingRun -eq $true) {
+    $state.pendingRun = $false
+    $state.pendingProviderReservation = 0
+    Save-CatchupCampaignStateFile -StatePath $StatePath -State $state
+  }
+
+  $runStart = [int]$state.executionsCompleted + 1
+  $maxRuns = [Math]::Min($MaxRuns, [int]$state.maxExecutions - [int]$state.executionsCompleted)
+  if ($SingleRun) { $maxRuns = 1 }
+  $providerBudget = [int]$state.providerUsed + [int]$state.providerReservedUncertain
+  if ([int]$state.executionsCompleted -ge [int]$state.maxExecutions) { throw "execution budget exhausted" }
+  $providerCap = [Math]::Min([int]$state.maxProviderRequests, $MaxCumulativeProvider)
+  $remaining = $providerCap - $providerBudget
+  if ($remaining -lt $MaxProviderPerRun) {
+    throw "remaining provider budget $remaining is below next run allowance $MaxProviderPerRun"
+  }
 
   if ($state.queueAfterSymbol) {
-    & fly secrets set -a $App "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)" 2>&1 | Out-Null
+    $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
   }
-  & fly secrets unset -a $App HISTORICAL_CATCHUP_PREFLIGHT_ONLY 2>&1 | Out-Null
+  $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "unset", "-a", $App, "HISTORICAL_CATCHUP_PREFLIGHT_ONLY")
 
   for ($run = $runStart; $run -lt ($runStart + $maxRuns); $run++) {
     $providerBudget = [int]$state.providerUsed + [int]$state.providerReservedUncertain
-    if ($providerBudget -ge $MaxCumulativeProvider -or $providerBudget -ge [int]$state.maxProviderRequests) {
+    $remaining = [Math]::Min([int]$state.maxProviderRequests, $MaxCumulativeProvider) - $providerBudget
+    if ($remaining -lt $MaxProviderPerRun) {
       $haltReason = "campaign_provider_budget"
       break
     }
 
-    Assert-ZeroMachines
-    $null = & fly scale count 1 --process-group backfill -a $App --yes 2>&1
-    Start-Sleep 8
-    $machines = @(& fly machines list -a $App --json 2>&1 | ConvertFrom-Json)
+    Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
+
+    $state.executionsCompleted = [int]$state.executionsCompleted + 1
+    $state.providerReservedUncertain = [int]$state.providerReservedUncertain + $MaxProviderPerRun
+    $state.pendingRun = $true
+    $state.pendingProviderReservation = $MaxProviderPerRun
+    Save-CatchupCampaignStateFile -StatePath $StatePath -State $state
+
+    $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("scale", "count", "1", "--process-group", "backfill", "-a", $App, "--yes")
+    if ($ScaleSettleSeconds -gt 0) { Start-Sleep -Seconds $ScaleSettleSeconds }
+    $machines = @(Get-FlyMachines -FlyExe $FlyExe -App $App)
     if ($machines.Count -lt 1) {
       $haltReason = "scale_up_failed"
       break
@@ -94,19 +124,29 @@ try {
     $outcomeKnown = $false
 
     while ((Get-Date) -lt $deadline) {
-      Start-Sleep 25
-      $list = @(& fly machines list -a $App --json 2>&1 | ConvertFrom-Json)
-      $logsTail = & fly logs -a $App --no-tail 2>&1 | Out-String
+      if ($PollSeconds -gt 0) { Start-Sleep -Seconds $PollSeconds } else { break }
+      $list = Get-FlyMachines -FlyExe $FlyExe -App $App
+      $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
       if ($logsTail -match "$machineId.*catch_up_partial_stop" `
         -or $logsTail -match "$machineId.*rollout_complete" `
         -or $logsTail -match "$machineId.*catch_up_stop") {
-        Start-Sleep 8
+        if ($LogSettleSeconds -gt 0) { Start-Sleep -Seconds $LogSettleSeconds }
         $outcomeKnown = $true
         break
       }
       if ($list.Count -eq 0 -and $logsTail -match "$machineId.*Main child exited") {
         $outcomeKnown = $true
         break
+      }
+    }
+
+    if (-not $outcomeKnown -and $MaxWaitMinutes -le 0) {
+      $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
+      if ($logsTail -match "$machineId.*catch_up_partial_stop" `
+        -or $logsTail -match "$machineId.*rollout_complete" `
+        -or $logsTail -match "$machineId.*catch_up_stop" `
+        -or $logsTail -match "$machineId.*Main child exited") {
+        $outcomeKnown = $true
       }
     }
 
@@ -125,32 +165,30 @@ try {
     $providerReliable = $false
     if ($null -ne $runProvider -and $runProvider -gt 0) {
       $providerReliable = $true
-    } elseif ($exitCode -eq 1 -and ($logsTail -match "$machineId.*batch_skipped.*scanned.:([0-9]+)")) {
-      $runProvider = [int]$Matches[1] * 2
-      $providerReliable = $false
     }
 
     if (-not $outcomeKnown -and $null -eq $exitCode) {
       $haltReason = "unknown_machine_outcome"
-      Ensure-ScaleZero | Out-Null
-      throw "machine $machineId outcome unknown after $MaxWaitMinutes minutes"
     }
 
-    Ensure-ScaleZero | Out-Null
+    Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
 
-    $state.executionsCompleted = [int]$state.executionsCompleted + 1
+    $reserved = [int]$state.pendingProviderReservation
+    if ($reserved -lt 1) { $reserved = $MaxProviderPerRun }
+    $state.pendingRun = $false
+    $state.pendingProviderReservation = 0
+    $state.providerReservedUncertain = [int]$state.providerReservedUncertain - $reserved
     if ($providerReliable) {
       $state.providerUsed = [int]$state.providerUsed + [int]$runProvider
     } else {
-      $reserve = if ($null -ne $runProvider -and $runProvider -gt 0) { [int]$runProvider } else { 1 }
-      $state.providerReservedUncertain = [int]$state.providerReservedUncertain + $reserve
+      $state.providerReservedUncertain = [int]$state.providerReservedUncertain + $reserved
     }
     if ($queueState -and $queueState.queueAfterSymbol) {
       $state.queueAfterSymbol = [string]$queueState.queueAfterSymbol
-      Ensure-ScaleZero | Out-Null
-      & fly secrets set -a $App "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)" 2>&1 | Out-Null
+      Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
+      $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
     }
-    $state | ConvertTo-Json -Depth 6 | Set-Content -Path $StatePath -Encoding utf8
+    Save-CatchupCampaignStateFile -StatePath $StatePath -State $state
 
     $record = @{
       run = $run
@@ -163,22 +201,49 @@ try {
     }
     Add-Content -Path $LogOut -Value ($record | ConvertTo-Json -Compress -Depth 8)
 
+    if ($haltReason -eq "unknown_machine_outcome") {
+      throw "machine $machineId outcome unknown after $MaxWaitMinutes minutes"
+    }
     if ($null -ne $exitCode -and $exitCode -ne 0) {
       $haltReason = "worker_exit_$exitCode"
       break
     }
     if ($terminal -and $terminal.event -eq 'rollout_complete') { $haltReason = "queue_exhausted"; break }
     if ($terminal -and $terminal.eligibleSymbolsRemaining -eq 0) { $haltReason = "queue_exhausted"; break }
-    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','unresolvable_queue_window','provider_rate_limited','provider_transient','provider_entitlement_failure')) {
+    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','unresolvable_queue_window','provider_rate_limited','provider_transient','provider_entitlement_failure','provider_invalid_response')) {
       $haltReason = $terminal.stopReason
       break
     }
   }
 }
+catch {
+  $runError = $_
+}
 finally {
-  if (Test-Path $lockPath) { Remove-Item -Force $lockPath }
-  try { Ensure-ScaleZero | Out-Null } catch { }
-  try { Restore-PreflightGuard } catch { }
+  if ($ownsCampaign) {
+    try {
+      Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
+    } catch {
+      $cleanupFailed = $true
+      $cleanupError = "scale-down cleanup failed: $($_.Exception.Message)"
+    }
+    try {
+      Restore-FlyPreflightGuard -FlyExe $FlyExe -App $App
+    } catch {
+      $cleanupFailed = $true
+      if ($cleanupError) { $cleanupError = "$cleanupError; $($_.Exception.Message)" }
+      else { $cleanupError = "preflight restoration failed: $($_.Exception.Message)" }
+    }
+  }
+  if ($ownsLock) {
+    try {
+      Release-CatchupLock -LockPath $LockPath -OwnerId $LockOwnerId
+    } catch {
+      $cleanupFailed = $true
+      if ($cleanupError) { $cleanupError = "$cleanupError; $($_.Exception.Message)" }
+      else { $cleanupError = "lock release failed: $($_.Exception.Message)" }
+    }
+  }
 }
 
 $summary = @{
@@ -186,8 +251,16 @@ $summary = @{
   haltReason = $haltReason
   state = $state
   lastEligibleRemaining = $terminal.eligibleSymbolsRemaining
+  cleanupFailed = $cleanupFailed
+  cleanupError = $cleanupError
 } | ConvertTo-Json -Compress -Depth 8
 Add-Content -Path $LogOut -Value $summary
 Write-Output $summary
+if ($cleanupFailed) {
+  [Console]::Error.WriteLine("CLEANUP FAILED: $cleanupError")
+  exit 3
+}
 if ($haltReason -eq "unknown_machine_outcome") { exit 2 }
 if ($haltReason -match '^worker_exit_') { exit 1 }
+if ($haltReason -eq "scale_up_failed") { exit 1 }
+if ($runError) { throw $runError }

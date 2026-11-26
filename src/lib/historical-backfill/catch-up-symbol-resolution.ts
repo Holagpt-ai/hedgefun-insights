@@ -31,6 +31,7 @@ const RETRYABLE_KINDS = new Set<CatchUpSymbolResolutionKind>([
   "provider_entitlement",
   "provider_rate_limited",
   "provider_transient",
+  "provider_invalid_response",
 ]);
 
 export function isDeferrableCatchUpResolutionKind(
@@ -109,7 +110,10 @@ export function classifyPolygonReferenceResponse(input: {
     if (status === "NOT_AUTHORIZED") {
       return { kind: "provider_entitlement", providerStatus: status, providerHttpStatus: input.httpStatus };
     }
-    return { kind: "unsupported_ticker", providerStatus: status, providerHttpStatus: input.httpStatus };
+    if (input.httpStatus === 200) {
+      return { kind: "provider_invalid_response", providerStatus: status, providerHttpStatus: input.httpStatus };
+    }
+    return { kind: "ambiguous_identity", providerStatus: status, providerHttpStatus: input.httpStatus };
   }
 
   if (input.httpStatus === 200) {

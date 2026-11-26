@@ -18,8 +18,8 @@
 
 ## Executable driver (not scheduled)
 
-- `scripts/historical/Invoke-RecurringHistoricalCatchup.ps1` — dry-run by default; pass `-Execute` for one bounded campaign iteration (lock file + zero-machine guard).
-- `scripts/historical/run-fly-catchup-campaign.ps1` — restores `campaign-state.nov26.json` across invocations (Nov 26 campaign: 3/20 runs, ~3410 provider budget used).
+- `scripts/historical/Invoke-RecurringHistoricalCatchup.ps1` — dry-run by default; pass `-Execute` for one bounded campaign iteration. This process is the sole lock owner; it calls the campaign script with `-AssumeLockHeld` and never lets a nested invocation delete a foreign lock or scale down another run.
+- `scripts/historical/run-fly-catchup-campaign.ps1` — restores `campaign-state.nov26.json` across invocations (Nov 26 campaign: 3/20 runs, ~3410 provider budget used). Reserves the full per-run provider allowance before scale-up; unknown consumption keeps that reservation. Cleanup checks Fly exit codes and verifies zero machines plus restored `HISTORICAL_CATCHUP_PREFLIGHT_ONLY`.
 
 ## What not to do without owner authorization
 

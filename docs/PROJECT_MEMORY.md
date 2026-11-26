@@ -3,7 +3,7 @@
 ## Verified continuity checkpoint — November 26, 2026 (Historical provider entitlement floor)
 
 - **Polygon/Massive (current key, no upgrade):** verified earliest daily SPY access **`2021-11-29`**; sessions before that return timeframe / `NOT_AUTHORIZED`. Fly secret **`HISTORICAL_PROVIDER_ENTITLEMENT_FLOOR_DATE=2021-11-29`**. Owner policy caps history at **five rolling years** or subscription limit — **whichever is shorter**; floor is a **rolling operational boundary** (re-probe with bounded SPY aggs), not a permanent constant. Stored rows **before** the floor are **preserved** (gap semantics only for new fetches).
-- **Historical catch-up Nov 26:** pilot + **2×** consolidated Fly runs; **~4735** eligible remain. Root cause of run 3 stall: **head-of-line eligibility** (always `slice(0, size)`; unresolved symbols stay eligible). **Fix in git (not deployed):** `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` + scan window; `campaign-state.nov26.json`; `Invoke-RecurringHistoricalCatchup.ps1` (scheduler **not** activated).
+- **Historical catch-up Nov 26:** pilot + **2×** consolidated Fly runs; **~4735** eligible remain. Root cause of run 3 stall: **head-of-line eligibility** (always `slice(0, size)`; unresolved symbols stay eligible). **Fix in git (not deployed):** `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` + scan window; `campaign-state.nov26.json`; `Invoke-RecurringHistoricalCatchup.ps1` (scheduler **not** activated). PR **#276** also: one lock owner, full per-run provider reservation before launch, verified Fly cleanup, HTTP 200 invalid payloads ≠ unsupported ticker.
 
 ## Verified continuity checkpoint — November 25, 2026 (scanner v530 + Option B ON; Layer C activated outside ledger)
 
