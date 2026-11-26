@@ -2,7 +2,7 @@
 
 ## 2026-11-26 — Historical catch-up queue starvation fix (git; PR pending)
 
-- Advance eligibility queue via `HISTORICAL_CATCHUP_QUEUE_OFFSET` and per-batch scan window; classify unsupported vs ambiguous reference outcomes; stop with `unresolvable_queue_window` instead of fatal exit on empty resolution tranche.
+- Symbol cursor `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` (no numeric offset); provider outcome taxonomy; campaign state JSON + lock; recurring catch-up driver script (not scheduled).
 - Recurring catch-up operations doc + `resolve-catchup-target.ts` (not activated). Vitest: `batch33-9-queue-starvation.test.ts`.
 
 ## 2026-11-26 — Historical consolidated catch-up campaign (ops only; partial)

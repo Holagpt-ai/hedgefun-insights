@@ -5,16 +5,20 @@ import {
   readHistoricalCatchupEligibilityBatchSizeFromEnv,
   readHistoricalCatchupLimitsFromEnv,
   readHistoricalCatchupMaxResolutionScansPerBatchFromEnv,
-  readHistoricalCatchupQueueOffsetFromEnv,
+  readHistoricalCatchupQueueAfterSymbolFromEnv,
   readHistoricalCatchupResumeOnlyFromEnv,
   type HistoricalCatchupLimits,
 } from "@/config/historical-catchup.config";
 import {
+  findQueueStartIndex,
   resolveCatchUpScanBudget,
-  sliceEligibleQueue,
+  sliceEligibleQueueFromIndex,
 } from "@/lib/historical-backfill/catch-up-queue";
 import {
-  classifyPolygonReferenceRow,
+  CatchUpProviderResolutionError,
+  classifyPolygonReferenceResponse,
+  isDeferrableCatchUpResolutionKind,
+  isRetryableCatchUpResolutionKind,
   summarizeDeferredByKind,
   type CatchUpSymbolResolution,
 } from "@/lib/historical-backfill/catch-up-symbol-resolution";
@@ -274,12 +278,21 @@ async function resolveSymbolForCatchUp(
   const eventsRes = await polygon(budget, counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
   const details = detailsRes.body;
   const events = eventsRes.body;
-  const classified = classifyPolygonReferenceRow({
+  const classified = classifyPolygonReferenceResponse({
     httpStatus: detailsRes.httpStatus,
     body: details,
   });
+  if (isRetryableCatchUpResolutionKind(classified.kind)) {
+    throw new CatchUpProviderResolutionError({
+      kind: classified.kind,
+      symbol,
+      providerHttpStatus: classified.providerHttpStatus ?? detailsRes.httpStatus,
+      providerStatus: classified.providerStatus ?? null,
+    });
+  }
   if (classified.kind !== "resolved") {
-    return { symbol, ...classified };
+    const kind = classified.kind === "provider_invalid_response" ? "ambiguous_identity" : classified.kind;
+    return { symbol, kind, providerStatus: classified.providerStatus, providerHttpStatus: classified.providerHttpStatus };
   }
   const row = details.results && typeof details.results === "object" ? details.results as Record<string, unknown> : null;
   if (!row || row.ticker == null) {
@@ -1121,7 +1134,7 @@ export async function runHistoricalCatchUpRollout(
   let emptyResolutionBatches = 0;
   const deferredUnresolved: CatchUpSymbolResolution[] = [];
 
-  let queueOffset = readHistoricalCatchupQueueOffsetFromEnv();
+  let queueAfterSymbol = readHistoricalCatchupQueueAfterSymbolFromEnv();
   const maxScansDefault = limits.maxSymbolsPerRun;
   const maxScansPerBatch = readHistoricalCatchupMaxResolutionScansPerBatchFromEnv(
     { get: (name) => process.env[name] },
@@ -1137,10 +1150,6 @@ export async function runHistoricalCatchUpRollout(
     const eligible = await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS);
     if (eligible.length === 0) break;
 
-    if (queueOffset >= eligible.length) {
-      queueOffset = 0;
-    }
-
     const trancheSize = resolveEligibilityTrancheSize({
       batchesRun,
       eligibilityBatchSize,
@@ -1152,19 +1161,20 @@ export async function runHistoricalCatchUpRollout(
       remainingSymbolBudget: limits.maxSymbolsPerRun - symbolsAttempted,
       maxScansPerBatch,
     });
-  const { window: batchSymbols, nextOffset: offsetAfterScan } = sliceEligibleQueue(
-      eligible,
-      queueOffset,
-      scanBudget,
-    );
+    const queueStartIndex = findQueueStartIndex(eligible, queueAfterSymbol);
+    const { window: batchSymbols } = sliceEligibleQueueFromIndex(eligible, queueStartIndex, scanBudget);
+    if (batchSymbols.length === 0) break;
+
     const batchNumber = batchesRun + 1;
     const batchStarted = Date.now();
     const recordedAt = new Date().toISOString();
     const securityIds: SecurityId[] = [];
     const batchDeferred: CatchUpSymbolResolution[] = [];
     let resolutionStopped = false;
+    let lastInspectedSymbol: string | null = null;
     for (let symbolIndex = 0; symbolIndex < batchSymbols.length; symbolIndex += 1) {
       const symbol = batchSymbols[symbolIndex]!;
+      lastInspectedSymbol = symbol;
       symbolsAttempted += 1;
       try {
         const outcome = await resolveSymbolForCatchUp(
@@ -1180,12 +1190,34 @@ export async function runHistoricalCatchUpRollout(
         if (outcome.kind === "resolved" && outcome.securityId) {
           securityIds.push(outcome.securityId);
           symbolsResolved += 1;
-        } else {
+        } else if (isDeferrableCatchUpResolutionKind(outcome.kind)) {
           symbolsSkipped += 1;
           batchDeferred.push(outcome);
           deferredUnresolved.push(outcome);
+        } else {
+          symbolsSkipped += 1;
+          batchDeferred.push(outcome);
         }
       } catch (error) {
+        if (error instanceof CatchUpProviderResolutionError) {
+          const reason = error.kind === "provider_rate_limited"
+            ? "provider_rate_limited"
+            : error.kind === "provider_entitlement"
+              ? "provider_entitlement_failure"
+              : "provider_transient";
+          stopReason = reason;
+          resolutionStopped = true;
+          logEvent({
+            event: "catch_up_stop",
+            reason: stopReason,
+            symbol: error.symbol,
+            providerHttpStatus: error.providerHttpStatus,
+            providerStatus: error.providerStatus,
+            counters,
+            phase: "symbol_resolution",
+          });
+          break;
+        }
         if (isProviderBudgetExhausted(error)) {
           stopReason = "provider_request_limit";
           resolutionStopped = true;
@@ -1208,7 +1240,9 @@ export async function runHistoricalCatchUpRollout(
         throw error;
       }
     }
-    queueOffset = offsetAfterScan;
+    if (lastInspectedSymbol) {
+      queueAfterSymbol = lastInspectedSymbol;
+    }
     if (resolutionStopped) break;
     if (securityIds.length === 0) {
       emptyResolutionBatches += 1;
@@ -1216,7 +1250,8 @@ export async function runHistoricalCatchUpRollout(
         event: "batch_skipped",
         batch: batchNumber,
         reason: "no_resolvable_identities",
-        queueOffset,
+        queueAfterSymbol,
+        queueStartIndex,
         scanned: batchSymbols.length,
         deferredByKind: summarizeDeferredByKind(batchDeferred),
       });
@@ -1225,7 +1260,7 @@ export async function runHistoricalCatchUpRollout(
         logEvent({
           event: "catch_up_stop",
           reason: stopReason,
-          queueOffset,
+          queueAfterSymbol,
           emptyResolutionBatches,
         });
         break;
@@ -1318,15 +1353,15 @@ export async function runHistoricalCatchUpRollout(
     interruptedJobId: interruptedStill,
     provider: counters,
     unresolvedDeferred: summarizeDeferredByKind(deferredUnresolved),
-    queueOffset,
+    queueAfterSymbol,
     elapsedMs: Date.now() - startedAt,
   });
   logEvent({
     event: "catch_up_queue_state",
     targetSession,
-    queueOffset,
+    queueAfterSymbol,
     eligibleTotal: eligibleRemaining,
-    note: "persist HISTORICAL_CATCHUP_QUEUE_OFFSET before next Fly run",
+    note: "persist HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL before next Fly run",
   });
   await persistence.close();
   return {

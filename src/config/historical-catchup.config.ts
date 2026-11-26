@@ -3,6 +3,8 @@
  * Secrets are never read here.
  */
 
+import { normalizeQueueAfterSymbol } from "@/lib/historical-backfill/catch-up-queue";
+
 export const HISTORICAL_CATCHUP_TARGET_ENV = "HISTORICAL_CATCHUP_TARGET_SESSION";
 
 /** Prior production rollout anchor (Sep 2026 pilot). Not a silent default at runtime. */
@@ -13,8 +15,8 @@ export const HISTORICAL_CATCHUP_DEFAULT_ELIGIBILITY_BATCH_SIZE = 100;
 
 export const HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV = "HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE";
 
-/** Symbol index into the eligible queue (persisted across Fly runs via operator secret rotation). */
-export const HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV = "HISTORICAL_CATCHUP_QUEUE_OFFSET";
+/** Exclusive cursor — resume after this symbol in the sorted eligible queue (persists across Fly runs). */
+export const HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV = "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL";
 
 /** Upper bound on eligibility scans per batch before advancing the queue cursor. */
 export const HISTORICAL_CATCHUP_MAX_RESOLUTION_SCANS_PER_BATCH_ENV =
@@ -78,19 +80,19 @@ function parseStrictLimit(
   return n;
 }
 
-export function readHistoricalCatchupQueueOffsetFromEnv(
+export function readHistoricalCatchupQueueAfterSymbolFromEnv(
   env: { get(name: string): string | undefined } = {
     get: (name) => process.env[name],
   },
-): number {
-  const trimmed = env.get(HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV)?.trim();
-  if (!trimmed) return 0;
-  if (!/^\d+$/.test(trimmed)) {
+): string | null {
+  const raw = env.get(HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV);
+  const symbol = normalizeQueueAfterSymbol(raw);
+  if (raw?.trim() && !symbol) {
     throw new HistoricalCatchupLimitsError(
-      `${HISTORICAL_CATCHUP_QUEUE_OFFSET_ENV} must be a non-negative integer`,
+      `${HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL_ENV} must be a valid ticker symbol`,
     );
   }
-  return Number.parseInt(trimmed, 10);
+  return symbol;
 }
 
 export function readHistoricalCatchupMaxResolutionScansPerBatchFromEnv(

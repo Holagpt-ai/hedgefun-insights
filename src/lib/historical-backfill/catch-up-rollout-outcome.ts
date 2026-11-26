@@ -9,7 +9,10 @@ export type CatchUpStopReason =
   | "job_paused"
   | "no_progress"
   | "interrupted_job_incomplete"
-  | "unresolvable_queue_window";
+  | "unresolvable_queue_window"
+  | "provider_rate_limited"
+  | "provider_transient"
+  | "provider_entitlement_failure";
 
 export type CatchUpRolloutOutcome = "complete" | "partial";
 

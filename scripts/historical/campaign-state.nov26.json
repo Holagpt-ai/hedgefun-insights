@@ -1,0 +1,9 @@
+{
+  "campaignId": "nov26-historical-2026-11-25",
+  "executionsCompleted": 3,
+  "maxExecutions": 20,
+  "providerUsed": 3010,
+  "providerReservedUncertain": 400,
+  "maxProviderRequests": 50000,
+  "queueAfterSymbol": null
+}

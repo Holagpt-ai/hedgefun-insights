@@ -10,7 +10,7 @@ import {
   isHistoricalCatchupResumeOnlyEnabled,
   readHistoricalCatchupEligibilityBatchSizeFromEnv,
 } from "@/config/historical-catchup.config";
-import { sliceEligibleQueue } from "@/lib/historical-backfill/catch-up-queue";
+import { findQueueStartIndex, sliceEligibleQueueFromIndex } from "@/lib/historical-backfill/catch-up-queue";
 import {
   resolveEligibilityTrancheSize,
   resumeInterruptedJobById,
@@ -94,7 +94,7 @@ describe("Batch 33.7 eligibility batch size", () => {
       limits: { ...HISTORICAL_CATCHUP_LIMITS, maxSymbolsPerRun: 600 },
       symbolsAttempted: 0,
     });
-    const { window } = sliceEligibleQueue(eligible, 0, size);
+    const { window } = sliceEligibleQueueFromIndex(eligible, findQueueStartIndex(eligible, null), size);
     expect([...window]).toEqual(["AAA", "BBB", "CCC"]);
   });
 

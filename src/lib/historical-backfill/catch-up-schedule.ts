@@ -1,41 +1,19 @@
 /**
  * Post-session catch-up target resolution (operator / external scheduler — not activated in prod).
  */
-import {
-  isMarketHoliday,
-  isTradingDay,
-  isWeekendDate,
-  previousTradingDay,
-} from "@/lib/market-calendar";
+import { lastCompletedUsTradingSession } from "@/lib/radar/carryover-session";
 
-function utcYmd(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function weekdayForDate(date: string): number {
-  const [y, m, d] = date.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-}
-
-/** Latest completed U.S. equity session at or before {@link now} (UTC). */
+/** Latest completed U.S. equity session (ET boundaries, after-hours end). */
 export function resolveLatestCompletedTradingSession(now: Date = new Date()): string {
-  let cursor = utcYmd(now);
-  for (let i = 0; i < 12; i += 1) {
-    const wd = weekdayForDate(cursor);
-    if (isTradingDay(cursor, wd) && !isMarketHoliday(cursor)) {
-      return cursor;
-    }
-    cursor = previousTradingDay(cursor).date;
-  }
-  throw new Error("could not resolve a completed trading session within 12 days");
+  return lastCompletedUsTradingSession(now).sessionDate;
 }
 
 /** Five-year rolling floor (calendar) from a reference session — policy cap only. */
 export function rollingFiveYearEntitlementFloorCap(referenceSession: string): string {
   const [y, m, d] = referenceSession.split("-").map(Number);
   const floor = new Date(Date.UTC(y - 5, m - 1, d));
-  return utcYmd(floor);
+  const y2 = floor.getUTCFullYear();
+  const m2 = String(floor.getUTCMonth() + 1).padStart(2, "0");
+  const d2 = String(floor.getUTCDate()).padStart(2, "0");
+  return `${y2}-${m2}-${d2}`;
 }

@@ -1,16 +1,26 @@
 /**
- * Catch-up eligibility queue helpers — avoid head-of-line blocking when unresolved
- * symbols remain eligible without daily history (Batch 33.9).
+ * Catch-up eligibility queue — symbol cursor over a shrinking sorted eligible list (Batch 33.9).
  */
 
-export function sliceEligibleQueue(
+export function findQueueStartIndex(eligible: readonly string[], afterSymbol: string | null): number {
+  if (!afterSymbol?.trim()) return 0;
+  const marker = afterSymbol.trim().toUpperCase();
+  for (let i = 0; i < eligible.length; i += 1) {
+    const sym = eligible[i]!;
+    if (sym === marker) return i + 1;
+    if (sym > marker) return i;
+  }
+  return 0;
+}
+
+export function sliceEligibleQueueFromIndex(
   eligible: readonly string[],
-  offset: number,
+  startIndex: number,
   scanSize: number,
-): { window: readonly string[]; nextOffset: number } {
-  const boundedOffset = Math.min(Math.max(0, offset), eligible.length);
-  const end = Math.min(boundedOffset + Math.max(0, scanSize), eligible.length);
-  return { window: eligible.slice(boundedOffset, end), nextOffset: end };
+): { window: readonly string[]; endIndex: number } {
+  const start = Math.min(Math.max(0, startIndex), eligible.length);
+  const end = Math.min(start + Math.max(0, scanSize), eligible.length);
+  return { window: eligible.slice(start, end), endIndex: end };
 }
 
 /** Max symbols to scan from the queue per batch (>= tranche size). */
@@ -23,15 +33,9 @@ export function resolveCatchUpScanBudget(input: {
   return Math.max(1, cap);
 }
 
-export function readCatchUpQueueOffset(
-  raw: string | undefined,
-  eligibleLength: number,
-): number {
-  const trimmed = raw?.trim();
-  if (!trimmed) return 0;
-  if (!/^\d+$/.test(trimmed)) return 0;
-  const n = Number.parseInt(trimmed, 10);
-  if (n < 0) return 0;
-  if (n >= eligibleLength) return 0;
-  return n;
+export function normalizeQueueAfterSymbol(raw: string | undefined): string | null {
+  const trimmed = raw?.trim().toUpperCase();
+  if (!trimmed) return null;
+  if (!/^[A-Z][A-Z0-9.\-]{0,11}$/.test(trimmed)) return null;
+  return trimmed;
 }
