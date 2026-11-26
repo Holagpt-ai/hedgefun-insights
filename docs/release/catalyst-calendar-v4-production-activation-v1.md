@@ -7,41 +7,43 @@
 | Order | File | Purpose |
 | --- | --- | --- |
 | 1 | `20261126180000_economic_events_calendar.sql` | `economic_events` table + public read |
-| 2 | `20261126220000_catalyst_events_public_calendar_read_v1.sql` | `public_catalyst_calendar_range_v1` RPC (no anon table SELECT) |
+| 2 | `20261126220000_catalyst_events_public_calendar_read_v1.sql` | Revoke anon `catalyst_events` SELECT |
 | 3 | `20261126230000_economic_sync_status_v1.sql` | Sync coverage singleton |
+| 4 | `20261126240000_public_catalyst_calendar_pagination_v1.sql` | Paginated `public_catalyst_calendar_range_v1` JSON RPC |
 
-**Compatibility:** Each file is idempotent where noted. Do **not** apply older broad anon `GRANT SELECT ON catalyst_events TO anon` policies.
+**Compatibility:** Do **not** re-grant anon `SELECT` on `catalyst_events`. Authenticated Catalyst Intelligence continues to use direct table reads under existing RLS.
 
 ## 2. Transactional apply (bounded)
 
-- Use a single transaction per migration file with `statement_timeout = '120s'`.
-- Verify ledger entry after each apply (production history may omit ledger rows — record owner attestation separately).
+- One transaction per file, `statement_timeout = '120s'`.
+- After apply, confirm `REVOKE SELECT ON public.catalyst_events FROM anon` and RPC `GRANT EXECUTE` to `anon, authenticated`.
 
 ## 3. Access verification (read-only)
 
 **Anonymous**
 
-- `SELECT public.public_catalyst_calendar_range_v1('2026-11-01', '2026-11-30')` returns rows (no direct `catalyst_events` SELECT).
-- `SELECT` from `economic_events` allowed when table exists.
-- `SELECT` from `economic_sync_status` returns singleton.
+- `SELECT public.public_catalyst_calendar_range_v1('2026-11-01', '2026-11-30', 500, 0)` returns JSON with `rows`, `total_count`, `coverage_incomplete`.
+- Direct `SELECT` on `catalyst_events` as `anon` must **fail**.
+- `economic_events` and `economic_sync_status` public read per migration policies.
 
 **Authenticated**
 
-- Existing `catalyst_events` authenticated policy unchanged for Catalyst Intelligence surfaces.
-- Calendar homepage and `/calendar` use the **RPC** contract only.
+- `useCatalystEvents`, summary counts, AI Analyst: direct `catalyst_events` (unchanged).
+- Homepage and `/calendar`: RPC only.
 
 ## 4. Economic provider entitlement
 
-1. Ensure `FINNHUB_API_KEY` is set in Lovable Edge secrets.
-2. Deploy `sync-economic-calendar` from this PR branch after merge.
-3. **GET** (no auth) on `sync-economic-calendar` runs `verifyFinnhubEconomicEntitlement` — review JSON before ingest.
-4. Only after owner confirms entitlement, set `FINNHUB_ECONOMIC_ENABLED=true`.
-5. If Finnhub is not entitled, keep flag **false**; UI shows `never_synced` / catalog links (BLS, BEA, Census, Federal Reserve) — no fabricated values.
+1. Deploy `sync-economic-calendar` after merge.
+2. **GET** (public): returns cached `economic_sync_status` + US catalog links — **does not call Finnhub**.
+3. **POST** with `{"verify_only":true}` and `Authorization: Bearer <SYNC_SECRET or service role>` — Finnhub entitlement probe only.
+4. Keep `FINNHUB_ECONOMIC_ENABLED` **false** until commercial redistribution is confirmed.
+5. With Finnhub disabled, **POST** sync ingests **US government** schedules (BLS + Federal Reserve HTML) into `economic_events` (dates only — no fabricated values).
+6. Set `FINNHUB_ECONOMIC_ENABLED=true` only after successful `verify_only` and owner sign-off.
 
 ## 5. Edge deploy
 
-- Deploy **only** `sync-economic-calendar` (no other Edge functions in this batch).
-- Required env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FINNHUB_API_KEY`, optional `SYNC_SECRET`, optional `FINNHUB_ECONOMIC_ENABLED`.
+- Deploy **only** `sync-economic-calendar`.
+- Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `SYNC_SECRET`, optional `FINNHUB_API_KEY`, optional `FINNHUB_ECONOMIC_ENABLED`.
 
 ## 6. Initial bounded sync
 
@@ -53,29 +55,29 @@ Content-Type: application/json
 {"from":"2026-11-01","to":"2026-11-30"}
 ```
 
-- Window max **60 days**; inverted ranges rejected.
-- Confirm `economic_sync_status.last_success_at` updates.
+- Response must include `ok: true` and `sync_status_persisted` / updated `sync_status` on subsequent GET.
+- If `sync_status_persist_failed` in logs, treat ingest as **failed** even when rows upserted.
 
 ## 7. Coverage verification
 
-- `/calendar` macro filter: status not `never_synced` after successful sync.
-- Empty month with valid sync → `empty_in_range` copy (not “no releases exist”).
-- Catalyst month grid populates via RPC (guest).
+- Catalyst grid loads via paginated RPC; UI warns when `coverage_incomplete`.
+- Macro: `never_synced` vs `empty_in_range` vs `ready`.
+- US government path populates scheduled releases without Finnhub.
 
 ## 8. Recurring refresh
 
-- Owner cron or scheduled Lovable job: daily POST sync with default window (14d past / 45d future).
-- Monitor `last_error_class` on `economic_sync_status`.
+- Daily authorized POST (Finnhub off → US government; Finnhub on → Finnhub path).
+- Monitor `economic_sync_status.last_error_class`.
 
 ## 9. Recovery
 
 | Symptom | Action |
 | --- | --- |
-| `403` on sync POST | Verify `SYNC_SECRET` or service role header |
-| `provider_auth` | Finnhub key or entitlement; keep `FINNHUB_ECONOMIC_ENABLED` false until fixed |
-| Guest calendar empty | Confirm RPC migration applied; do not re-grant anon table SELECT |
-| Macro always `never_synced` | Run initial POST sync after migrations |
+| Guest calendar empty | Apply migrations 2 + 4; verify RPC |
+| `sync_status_persist_failed` | Fix RLS/grants on `economic_sync_status` |
+| Finnhub 403 | Keep `FINNHUB_ECONOMIC_ENABLED` false; use US government POST |
+| Summary counts work but calendar empty | Expected until RPC applied; counts use authenticated reads |
 
 ## 10. Out of scope
 
-- Fly workers, scanner Edge, Layer C, historical worker, DNS, Vercel production merge (separate owner step).
+- Fly, scanner Edge, Layer C, historical worker, DNS, Vercel prod merge.

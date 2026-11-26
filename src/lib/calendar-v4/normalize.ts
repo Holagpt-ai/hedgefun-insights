@@ -5,6 +5,10 @@ import { catalystFeedCategoryForEvent } from "@/lib/catalyst/catalyst-filters";
 import { isHighSignalCatalystEvent } from "@/lib/catalyst/catalyst-discovery-priority";
 import type { CalendarV4Event, CalendarV4EventStatus, CalendarV4Impact } from "@/lib/calendar-v4/contract";
 import type { EconomicCalendarRow } from "@/lib/calendar-v4/economic-types";
+import {
+  resolveCatalystCalendarStatus,
+  resolveEconomicCalendarStatus,
+} from "@/lib/calendar-v4/calendar-event-status";
 
 function impactFromFacts(event: CatalystEvent): { impact: CalendarV4Impact; evidence: boolean } {
   const facts = event.facts ?? {};
@@ -18,12 +22,8 @@ function impactFromFacts(event: CatalystEvent): { impact: CalendarV4Impact; evid
   return { impact: "unknown", evidence: false };
 }
 
-function statusForCatalyst(event: CatalystEvent, etToday: string): CalendarV4EventStatus {
-  if (event.event_date > etToday) return "scheduled";
-  if (event.event_date < etToday) return "reported";
-  const canceled =
-    typeof event.facts?.status === "string" && event.facts.status.toLowerCase() === "cancelled";
-  return canceled ? "cancelled" : "scheduled";
+function statusForCatalyst(event: CatalystEvent, _etToday: string): CalendarV4EventStatus {
+  return resolveCatalystCalendarStatus(event);
 }
 
 function legendFromCatalyst(event: CatalystEvent): CalendarV4LegendCategory {
@@ -93,8 +93,7 @@ function economicImportanceToImpact(importance: string | null | undefined): Cale
 
 export function economicToCalendarV4Event(row: EconomicCalendarRow, etToday: string): CalendarV4Event {
   const impact = economicImportanceToImpact(row.importance);
-  const status: CalendarV4EventStatus =
-    row.event_date > etToday ? "scheduled" : row.event_date < etToday ? "reported" : "scheduled";
+  const status = resolveEconomicCalendarStatus(row, etToday);
   return {
     eventId: row.id,
     dedupeKey: row.dedupe_key ?? null,

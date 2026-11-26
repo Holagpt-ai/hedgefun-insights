@@ -4,6 +4,8 @@ import { hydrateCatalystEvents } from "@/lib/catalyst/catalyst-event-verificatio
 
 export const PUBLIC_CATALYST_CALENDAR_RPC = "public_catalyst_calendar_range_v1";
 export const PUBLIC_CATALYST_MAX_RANGE_DAYS = 62;
+export const PUBLIC_CATALYST_PAGE_SIZE = 500;
+export const PUBLIC_CATALYST_MAX_PAGES = 12;
 
 export type PublicCatalystCalendarRow = {
   id: string;
@@ -23,6 +25,24 @@ export type PublicCatalystCalendarRow = {
   published_at: string | null;
   attribution_class: string | null;
   ticker_specific: boolean | null;
+  event_status: string | null;
+  impact_level: string | null;
+  has_impact_evidence: boolean | null;
+};
+
+export type PublicCatalystFeedResult = {
+  events: CatalystEvent[];
+  totalCount: number;
+  coverageIncomplete: boolean;
+};
+
+type RpcPage = {
+  rows: PublicCatalystCalendarRow[];
+  total_count: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  coverage_incomplete: boolean;
 };
 
 function assertYmd(value: string): void {
@@ -45,6 +65,12 @@ function rowToCatalystEvent(row: PublicCatalystCalendarRow): CatalystEvent {
   const facts: Record<string, unknown> = {};
   if (row.attribution_class) facts.attribution_class = row.attribution_class;
   if (row.ticker_specific !== null) facts.ticker_specific = row.ticker_specific;
+  if (row.impact_level) facts.impact = row.impact_level;
+  if (row.event_status === "cancelled") facts.status = "cancelled";
+  if (row.event_status === "reported") facts.earnings_disposition = "results_reported";
+  if (row.event_status === "scheduled") facts.earnings_disposition = "schedule_announced";
+  if (row.has_impact_evidence) facts.impact_score = 1;
+
   return {
     id: row.id,
     dedupe_key: row.dedupe_key,
@@ -68,19 +94,53 @@ function rowToCatalystEvent(row: PublicCatalystCalendarRow): CatalystEvent {
   } as CatalystEvent;
 }
 
-/** Canonical public-safe catalyst feed (homepage + /calendar). */
-export async function fetchPublicCatalystCalendarRange(from: string, to: string): Promise<CatalystEvent[]> {
-  assertPublicCatalystRange(from, to);
+async function fetchPublicCatalystPage(
+  from: string,
+  to: string,
+  limit: number,
+  offset: number,
+): Promise<RpcPage> {
   const { data, error } = await (supabase as unknown as {
     rpc: (
       fn: string,
-      args: { p_from: string; p_to: string },
+      args: { p_from: string; p_to: string; p_limit: number; p_offset: number },
     ) => Promise<{ data: unknown; error: { message: string } | null }>;
   }).rpc(PUBLIC_CATALYST_CALENDAR_RPC, {
     p_from: from,
     p_to: to,
+    p_limit: limit,
+    p_offset: offset,
   });
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as PublicCatalystCalendarRow[];
-  return hydrateCatalystEvents(rows.map(rowToCatalystEvent));
+  return (data ?? {
+    rows: [],
+    total_count: 0,
+    has_more: false,
+    coverage_incomplete: false,
+  }) as RpcPage;
+}
+
+/** Canonical public-safe catalyst feed (homepage + /calendar) with paginated RPC. */
+export async function fetchPublicCatalystCalendarRange(from: string, to: string): Promise<PublicCatalystFeedResult> {
+  assertPublicCatalystRange(from, to);
+  const allRows: PublicCatalystCalendarRow[] = [];
+  let offset = 0;
+  let totalCount = 0;
+  let coverageIncomplete = false;
+
+  for (let page = 0; page < PUBLIC_CATALYST_MAX_PAGES; page += 1) {
+    const result = await fetchPublicCatalystPage(from, to, PUBLIC_CATALYST_PAGE_SIZE, offset);
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    allRows.push(...rows);
+    totalCount = Number(result.total_count ?? allRows.length);
+    coverageIncomplete = Boolean(result.coverage_incomplete) || totalCount > allRows.length;
+    if (!result.has_more || rows.length < PUBLIC_CATALYST_PAGE_SIZE) break;
+    offset += PUBLIC_CATALYST_PAGE_SIZE;
+  }
+
+  return {
+    events: hydrateCatalystEvents(allRows.map(rowToCatalystEvent)),
+    totalCount,
+    coverageIncomplete,
+  };
 }

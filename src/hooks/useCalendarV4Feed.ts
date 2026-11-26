@@ -26,7 +26,7 @@ export function useCalendarV4Feed(viewYear: number, viewMonth: number, selectedD
     : null;
 
   const events = useMemo((): CalendarV4Event[] => {
-    const catalystRows = (catalystQuery.data ?? []).map((e) =>
+    const catalystRows = (catalystQuery.data?.events ?? []).map((e) =>
       catalystToCalendarV4Event(e, etToday, retrievedAt),
     );
     const economicRows = (economicQuery.data?.events ?? []).map((row) =>
@@ -39,7 +39,7 @@ export function useCalendarV4Feed(viewYear: number, viewMonth: number, selectedD
       if (ta !== tb) return ta.localeCompare(tb);
       return a.title.localeCompare(b.title);
     });
-  }, [catalystQuery.data, economicQuery.data?.events, etToday, retrievedAt]);
+  }, [catalystQuery.data?.events, economicQuery.data?.events, etToday, retrievedAt]);
 
   const isLoading = catalystQuery.isLoading;
   const isError = catalystQuery.isError;
@@ -56,5 +56,7 @@ export function useCalendarV4Feed(viewYear: number, viewMonth: number, selectedD
     economicStatus,
     economicMessage: economicQuery.data?.message,
     highImpactCount: events.filter((e) => e.hasImpactEvidence && e.impact === "high").length,
+    catalystCoverageIncomplete: catalystQuery.data?.coverageIncomplete ?? false,
+    catalystTotalCount: catalystQuery.data?.totalCount ?? 0,
   };
 }

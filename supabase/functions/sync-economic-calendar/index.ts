@@ -8,10 +8,8 @@ import {
   parseFinnhubEconomicCalendarPayload,
 } from "../_shared/economic/finnhub-economic-calendar.ts";
 import { upsertEconomicEventBatches } from "../_shared/economic/persist-economic-events.ts";
-import {
-  summarizeUsFallbackCatalog,
-  US_ECONOMIC_RELEASE_CATALOG,
-} from "../_shared/economic/us-economic-release-fallback.ts";
+import { US_ECONOMIC_RELEASE_CATALOG } from "../_shared/economic/us-economic-release-fallback.ts";
+import { fetchUsGovernmentEconomicReleases } from "../_shared/economic/us-government-economic-ingest.ts";
 import { verifyFinnhubEconomicEntitlement } from "../_shared/economic/verify-finnhub-economic-entitlement.ts";
 import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
 
@@ -46,11 +44,24 @@ async function recordSyncStatus(
   sb: ReturnType<typeof createClient>,
   patch: Record<string, unknown>,
 ): Promise<void> {
-  await sb.from("economic_sync_status").upsert({
+  const { error } = await sb.from("economic_sync_status").upsert({
     id: 1,
     updated_at: new Date().toISOString(),
     ...patch,
   });
+  if (error) throw new Error(`sync_status_persist_failed:${error.message}`);
+}
+
+async function readCachedSyncStatus(
+  sb: ReturnType<typeof createClient>,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await sb
+    .from("economic_sync_status")
+    .select("provider,last_success_at,last_window_from,last_window_to,last_row_count,last_error_class,updated_at")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as Record<string, unknown> | null) ?? null;
 }
 
 serve(async (req) => {
@@ -59,19 +70,20 @@ serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
-    const enabled = (Deno.env.get("FINNHUB_ECONOMIC_ENABLED") ?? "").toLowerCase() === "true";
-    const probe = enabled ? await verifyFinnhubEconomicEntitlement(finnhubKey) : {
-      ok: false,
-      http_status: null,
-      class: "missing_key" as const,
-      sample_count: 0,
-      message: "FINNHUB_ECONOMIC_ENABLED is not true — Finnhub ingest disabled",
-    };
+    const finnhubEnabled = (Deno.env.get("FINNHUB_ECONOMIC_ENABLED") ?? "").toLowerCase() === "true";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    let cachedStatus: Record<string, unknown> | null = null;
+    if (supabaseUrl && serviceRole) {
+      const sb = createClient(supabaseUrl, serviceRole);
+      cachedStatus = await readCachedSyncStatus(sb);
+    }
     return new Response(
       JSON.stringify({
-        finnhub_economic_enabled: enabled,
-        entitlement: probe,
+        finnhub_economic_enabled: finnhubEnabled,
+        finnhub_ingest: finnhubEnabled ? "active_when_sync_post_succeeds" : "disabled",
+        entitlement_probe: "Use authorized POST {\"verify_only\":true} — GET does not call Finnhub.",
+        sync_status: cachedStatus,
         us_fallback_catalog: US_ECONOMIC_RELEASE_CATALOG.map((e) => ({
           event_name: e.event_name,
           source_url: e.source_url,
@@ -108,9 +120,6 @@ serve(async (req) => {
       });
     }
 
-    const finnhubEnabled = (Deno.env.get("FINNHUB_ECONOMIC_ENABLED") ?? "").toLowerCase() === "true";
-    const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceRole) {
@@ -135,27 +144,48 @@ serve(async (req) => {
       });
     }
 
+    const finnhubEnabled = (Deno.env.get("FINNHUB_ECONOMIC_ENABLED") ?? "").toLowerCase() === "true";
+
     if (!finnhubEnabled) {
-      logSync("finnhub_disabled", { us_fallback: summarizeUsFallbackCatalog().slice(0, 120) });
+      const gov = await fetchUsGovernmentEconomicReleases(from, to);
+      const fetchedAt = new Date().toISOString();
+      const persist = gov.rows.length
+        ? await upsertEconomicEventBatches({ supabase: sb, rows: gov.rows, fetchedAt })
+        : { upserted: 0, batches: 0, failedBatches: 0 };
+
       await recordSyncStatus(sb, {
-        provider: "us_catalog_only",
-        last_error_class: "finnhub_disabled",
+        provider: "us_government",
+        last_success_at: fetchedAt,
+        last_window_from: from,
+        last_window_to: to,
+        last_row_count: persist.upserted,
+        last_error_class: gov.errors.length ? gov.errors.join(",") : null,
       });
+
+      logSync("us_government_complete", {
+        sources: gov.sources.join(","),
+        upserted: persist.upserted,
+        errors: gov.errors.join(","),
+        elapsed_ms: Date.now() - started,
+      });
+
       return new Response(
         JSON.stringify({
-          ok: false,
-          error: "provider_disabled",
-          reason: "FINNHUB_ECONOMIC_ENABLED is not true",
-          us_fallback_catalog_count: US_ECONOMIC_RELEASE_CATALOG.length,
-          activation:
-            "Set FINNHUB_ECONOMIC_ENABLED=true after Finnhub economic calendar entitlement is verified (GET /sync-economic-calendar).",
+          ok: true,
+          provider: "us_government",
+          window: { from, to },
+          upserted: persist.upserted,
+          fetched_at: fetchedAt,
+          sources: gov.sources,
+          fetch_errors: gov.errors,
+          finnhub_ingest: "disabled",
+          sync_status_persisted: true,
         }),
-        { status: 503,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
     if (!finnhubKey) {
       return new Response(
         JSON.stringify({
@@ -190,14 +220,13 @@ serve(async (req) => {
       logSync("provider_http_error", { finnhub_status: res.status, class: classified, elapsed_ms: Date.now() - started });
       return new Response(JSON.stringify({ error: classified, status: res.status }), {
         status: res.status === 429 ? 429 : 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const parsed = parseFinnhubEconomicCalendarPayload(json);
     if (parsed.providerError) {
       await recordSyncStatus(sb, { provider: "finnhub", last_error_class: "provider_payload" });
-      logSync("provider_payload_error", { reason: parsed.providerError, elapsed_ms: Date.now() - started });
       return new Response(JSON.stringify({ error: "finnhub_payload_error", reason: parsed.providerError }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -207,26 +236,20 @@ serve(async (req) => {
     const countryFilter = typeof body.country === "string" && body.country.trim()
       ? body.country.trim().toUpperCase()
       : null;
-
     const filtered = countryFilter
       ? parsed.items.filter((i) => (i.country ?? "").toUpperCase() === countryFilter)
       : parsed.items;
 
     const built = buildEconomicRowsFromFinnhubItems(filtered);
     const fetchedAt = new Date().toISOString();
-
-    const persist = await upsertEconomicEventBatches({
-      supabase: sb,
-      rows: built.rows,
-      fetchedAt,
-    });
+    const persist = await upsertEconomicEventBatches({ supabase: sb, rows: built.rows, fetchedAt });
 
     await recordSyncStatus(sb, {
       provider: "finnhub",
       last_success_at: fetchedAt,
       last_window_from: from,
       last_window_to: to,
-      last_row_count: built.rows.length,
+      last_row_count: persist.upserted,
       last_error_class: null,
     });
 
@@ -243,13 +266,12 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         provider: "finnhub",
-        endpoint: "/api/v1/calendar/economic",
         window: { from, to },
         provider_count: built.providerCount,
         rejected: built.rejected,
         upserted: persist.upserted,
         fetched_at: fetchedAt,
-        coverage_note: countryFilter ? `filtered_country=${countryFilter}` : "all_countries",
+        sync_status_persisted: true,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

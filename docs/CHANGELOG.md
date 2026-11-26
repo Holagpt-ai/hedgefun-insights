@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 release gate (PR #278; git only)
+
+- Economic GET: cached sync status only; entitlement via authorized POST `verify_only`.
+- US government macro ingest (BLS + Fed schedules); Finnhub gated by `FINNHUB_ECONOMIC_ENABLED`.
+- Paginated public catalyst RPC + evidence-based event status; sync status persist checks.
+
 ## 2026-11-26 — Catalyst Calendar V4 consolidated corrections (PR #278; git only)
 
 - Secure public catalyst: `public_catalyst_calendar_range_v1` RPC; client `fetchPublicCatalystCalendarRange`.

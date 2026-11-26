@@ -14,7 +14,7 @@ export function useHomepageCalendarMonth(year: number, month: number) {
   const { from, to } = monthBounds(year, month);
   return useQuery<CatalystEvent[]>({
     queryKey: ["public-catalyst-calendar", from, to],
-    queryFn: () => fetchPublicCatalystCalendarRange(from, to),
+    queryFn: async () => (await fetchPublicCatalystCalendarRange(from, to)).events,
     staleTime: 60_000,
   });
 }

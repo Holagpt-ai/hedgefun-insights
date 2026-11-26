@@ -171,6 +171,12 @@ export default function CatalystCalendarPage() {
             (evidence-backed)
           </p>
           {macroStatusLine ? <p className="text-xs text-muted-foreground mt-1">{macroStatusLine}</p> : null}
+          {feed.catalystCoverageIncomplete ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+              Catalyst feed truncated — showing {feed.events.length} of {feed.catalystTotalCount} events in range. Narrow
+              the month or filter to see more.
+            </p>
+          ) : null}
         </div>
         <div className="cal-v4-toggle" role="group" aria-label="Calendar view">
           <button type="button" aria-pressed={url.view === "month"} onClick={() => url.setView("month")}>
