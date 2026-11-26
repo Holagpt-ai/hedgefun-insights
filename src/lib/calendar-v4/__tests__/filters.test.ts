@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCalendarPrimaryFilter, countHighImpact } from "@/lib/calendar-v4/filters";
+import { applyCalendarPrimaryFilter, countHighImpact, primaryFilterCounts } from "@/lib/calendar-v4/filters";
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 
 const base = (over: Partial<CalendarV4Event>): CalendarV4Event => ({
@@ -41,5 +41,16 @@ describe("calendar v4 filters", () => {
     const events = [base({ symbols: ["AAA"] }), base({ eventId: "2", symbols: ["ZZZ"] })];
     const filtered = applyCalendarPrimaryFilter(events, "watchlist", new Set(["AAA"]));
     expect(filtered.map((e) => e.eventId)).toEqual(["1"]);
+  });
+
+  it("primary filter counts match visible buckets", () => {
+    const events = [
+      base({ feedType: "earnings", legendCategory: "earnings" }),
+      base({ eventId: "2", feedType: "economic", legendCategory: "economic" }),
+    ];
+    const counts = primaryFilterCounts(events, null);
+    expect(counts.all).toBe(2);
+    expect(counts.earnings).toBe(1);
+    expect(counts.macro).toBe(1);
   });
 });

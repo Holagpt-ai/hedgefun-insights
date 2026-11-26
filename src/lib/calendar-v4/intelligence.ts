@@ -1,6 +1,7 @@
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
-import type { WatchlistAIAnalysis } from "@/hooks/useWatchlistAI";
+import type { CalendarCachedAnalysis } from "@/hooks/useCalendarCachedIntelligence";
 import { CALENDAR_AI_BRIEF } from "@/lib/calendar-v4/customer-copy";
+import { isCachedAnalysisRelevantForCalendarDay } from "@/lib/calendar-v4/calendar-ai-relevance";
 
 export interface CalendarDayBriefModel {
   mode: "cached" | "factual";
@@ -25,7 +26,7 @@ function topSymbols(events: CalendarV4Event[], limit = 6): string[] {
 export function buildCalendarDayBrief(
   day: string,
   events: CalendarV4Event[],
-  cached: Record<string, WatchlistAIAnalysis>,
+  cached: Record<string, CalendarCachedAnalysis>,
 ): CalendarDayBriefModel {
   if (!events.length) {
     return {
@@ -44,7 +45,10 @@ export function buildCalendarDayBrief(
   for (const sym of symbols) {
     const row = cached[sym];
     if (!row?.summary?.trim()) continue;
-    cachedLines.push(`${sym}: ${row.summary.trim()}`);
+    if (!isCachedAnalysisRelevantForCalendarDay(day, row.analyzed_at)) continue;
+    cachedLines.push(
+      `${sym} (watchlist analysis ${row.analyzed_at.slice(0, 10)}): ${row.summary.trim()}`,
+    );
     if (cachedLines.length >= 3) break;
   }
 
@@ -83,11 +87,10 @@ export function buildCalendarDayBrief(
 }
 
 export function buildWeekSnapshot(events: CalendarV4Event[], anchorIso: string): WeekSnapshotRow[] {
-  const anchor = new Date(`${anchorIso}T12:00:00`);
   const rows: WeekSnapshotRow[] = [];
+  const startMs = Date.parse(`${anchorIso}T12:00:00Z`);
   for (let i = 0; i < 5; i++) {
-    const d = new Date(anchor);
-    d.setDate(anchor.getDate() + i);
+    const d = new Date(startMs + i * 86_400_000);
     const iso = d.toISOString().slice(0, 10);
     const dayEvents = events.filter((e) => e.eventDate === iso);
     rows.push({

@@ -51,7 +51,7 @@ export function CalendarTickerPreview({ symbol, event, mobileSheet, onViewFullCh
   );
 
   if (mobileSheet) {
-    return <div className="cal-preview-sheet">{body}</div>;
+    return <div className="cal-preview-sheet cal-mobile-sheet">{body}</div>;
   }
 
   return <div className="cal-preview-popover">{body}</div>;

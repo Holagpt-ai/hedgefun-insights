@@ -2,7 +2,7 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Catalyst Calendar V4 (Nov 26, PR #278):** Public `/calendar` + homepage handoff implemented; Muse HTML/PDF in `docs/design/catalyst-calendar-v4/`. **Production activation OPEN:** apply migrations `20261126220000_catalyst_events_public_calendar_read_v1.sql` (anon read for `provider_reported` rows — required for guest calendar), `20261126180000_economic_events_calendar.sql`, deploy `sync-economic-calendar`, run authorized Finnhub sync (`FINNHUB_API_KEY` already used elsewhere). Until then macro tab may be empty; guest catalyst grid may show errors or zero rows if anon policy not applied. **Homepage V21 merged** `a7ddec2` (#277); Vercel prod parity **not verified** here.
+**Catalyst Calendar V4 (Nov 26, PR #278):** Muse layout + RPC public catalyst contract + Finnhub macro adapter (gated) + activation runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Production activation OPEN:** migrations `20261126180000`, `20261126220000` (RPC — not table GRANT), `20261126230000`; deploy `sync-economic-calendar`; verify Finnhub entitlement; set `FINNHUB_ECONOMIC_ENABLED` only if entitled; bounded POST sync. **Homepage V21 merged** `a7ddec2` (#277).
 
 **Homepage Muse V21 (Nov 26, merged):** PR **#277** on `main`. Economic tab reads `economic_events` when present; otherwise customer-facing unavailable copy.
 

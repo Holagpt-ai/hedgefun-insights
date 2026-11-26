@@ -1,9 +1,11 @@
 export const CALENDAR_MACRO_COVERAGE = {
   loading: "Loading macro releases…",
-  empty:
-    "No macro releases are scheduled in this range. U.S. releases from the economic calendar will appear here after the next authorized sync.",
+  emptyInRange:
+    "No macro releases fall in this month within the last synced provider window. This does not mean no U.S. releases exist — check official BLS, BEA, Census, and Federal Reserve schedules.",
+  neverSynced:
+    "Macro releases have not been synced yet in this environment. After Lovable applies the economic migrations and runs an authorized sync, scheduled releases will appear here.",
   unavailable:
-    "Macro calendar data is not available in this environment. Scheduled releases are stored when the economic sync runs in production.",
+    "Macro calendar storage is not active in this environment. Economic data requires the prepared migrations and Edge sync in Lovable Cloud.",
   error: "Macro releases could not be loaded. Try again shortly.",
   stale: (asOf: string) => `Macro feed last updated ${asOf}.`,
 } as const;

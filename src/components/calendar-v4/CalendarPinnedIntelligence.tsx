@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { V2IntradayChart } from "@/components/watchlist-v2/V2IntradayChart";
 import { useCalendarTickerPreview } from "@/hooks/useCalendarTickerPreview";
 import { useCalendarCachedIntelligence } from "@/hooks/useCalendarCachedIntelligence";
+import { isCachedAnalysisRelevantForCalendarDay } from "@/lib/calendar-v4/calendar-ai-relevance";
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 import { buildCalendarAiAnalystHref, buildCalendarAiHandoffContext } from "@/lib/calendar-v4/ai-handoff";
 import { buildCalendarJournalHref } from "@/lib/calendar-v4/journal-handoff";
@@ -20,10 +21,18 @@ interface Props {
 export function CalendarPinnedIntelligence({ symbol, event, onOpenChart }: Props) {
   const upper = symbol?.toUpperCase() ?? "";
   const { snapshot, details, sparkline, isLoading, isError } = useCalendarTickerPreview(upper, !!upper);
-  const { analysis, loading: intelLoading } = useCalendarCachedIntelligence(upper ? [upper] : []);
+  const eventDate = event?.eventDate ?? "";
+  const { data: analysis = {}, isLoading: intelLoading } = useCalendarCachedIntelligence(
+    upper ? [upper] : [],
+    eventDate,
+  );
   const { add, isAdded } = useAddToWatchlist();
 
-  const cached = upper ? analysis[upper] : undefined;
+  const cachedRow = upper ? analysis[upper] : undefined;
+  const cached =
+    cachedRow && isCachedAnalysisRelevantForCalendarDay(eventDate, cachedRow.analyzed_at)
+      ? cachedRow
+      : undefined;
   const price = snapshot?.day?.c ?? snapshot?.prevDay?.c;
   const change = snapshot?.todaysChangePerc ?? snapshot?.change_percent;
   const volume = snapshot ? providerDayVolume(snapshot as never) : null;
@@ -42,7 +51,13 @@ export function CalendarPinnedIntelligence({ symbol, event, onOpenChart }: Props
     );
   }
 
-  const handoff = event ? buildCalendarAiHandoffContext(event, obs ? new Date(obs).toISOString() : null) : null;
+  const handoff = event
+    ? buildCalendarAiHandoffContext(
+        event,
+        obs ? new Date(obs).toISOString() : null,
+        upper,
+      )
+    : null;
 
   return (
     <aside className="cal-panel cal-pin-panel" aria-label={`Pinned ticker ${upper}`}>
@@ -106,7 +121,7 @@ export function CalendarPinnedIntelligence({ symbol, event, onOpenChart }: Props
         ) : null}
         {cached?.summary ? (
           <p className="text-xs text-muted-foreground border border-border rounded-lg p-2 mt-2">
-            <span className="font-bold text-foreground">Cached analysis:</span> {cached.summary}
+            <span className="font-bold text-foreground">Cached watchlist analysis</span> ({cached.analyzed_at.slice(0, 16).replace("T", " ")} UTC): {cached.summary}
           </p>
         ) : intelLoading ? (
           <p className="text-xs text-muted-foreground mt-2">Checking cached analysis…</p>
@@ -130,7 +145,7 @@ export function CalendarPinnedIntelligence({ symbol, event, onOpenChart }: Props
           ) : null}
           {handoff ? (
             <Button asChild variant="ghost" size="sm" className="h-8">
-              <Link to={buildCalendarAiAnalystHref(handoff)}>AI Analyst</Link>
+              <Link to={buildCalendarAiAnalystHref(handoff, event.status)}>AI Analyst</Link>
             </Button>
           ) : null}
         </div>

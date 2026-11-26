@@ -5,16 +5,32 @@ import {
 } from "@/config/calendar-v4";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
+import { primaryFilterCounts } from "@/lib/calendar-v4/filters";
+import { useMemo } from "react";
 
 interface Props {
   filter: CalendarV4PrimaryFilter;
   onFilter: (f: CalendarV4PrimaryFilter) => void;
   tickerSearch: string;
   onTickerSearch: (q: string) => void;
+  monthEvents: CalendarV4Event[];
+  watchlistSymbols: ReadonlySet<string> | null;
 }
 
-export function CalendarFilters({ filter, onFilter, tickerSearch, onTickerSearch }: Props) {
+export function CalendarFilters({
+  filter,
+  onFilter,
+  tickerSearch,
+  onTickerSearch,
+  monthEvents,
+  watchlistSymbols,
+}: Props) {
   const { user } = useAuth();
+  const counts = useMemo(
+    () => primaryFilterCounts(monthEvents, watchlistSymbols),
+    [monthEvents, watchlistSymbols],
+  );
 
   return (
     <div className="cal-v4-toolbar" data-testid="calendar-v4-filters">
@@ -30,6 +46,7 @@ export function CalendarFilters({ filter, onFilter, tickerSearch, onTickerSearch
               onClick={() => onFilter(id)}
             >
               {CALENDAR_V4_PRIMARY_FILTER_LABEL[id]}
+              <span className="cal-filter-count">{counts[id]}</span>
             </button>
           );
         })}

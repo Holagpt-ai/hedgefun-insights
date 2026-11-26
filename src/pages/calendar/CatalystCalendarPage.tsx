@@ -8,6 +8,8 @@ import { canonicalUrl } from "@/config/seo";
 import { useCalendarV4Feed } from "@/hooks/useCalendarV4Feed";
 import { useCalendarUrlState } from "@/hooks/useCalendarUrlState";
 import { useCalendarWatchlistSymbols } from "@/hooks/useCalendarWatchlistSymbols";
+import { useCalendarCachedIntelligence } from "@/hooks/useCalendarCachedIntelligence";
+import { calendarCatalystQueryRange } from "@/lib/calendar-v4/calendar-range";
 import {
   applyCalendarPrimaryFilter,
   applyLegendCategoryFilter,
@@ -43,7 +45,7 @@ export default function CatalystCalendarPage() {
   const url = useCalendarUrlState();
   const today = etTodayParts();
   const watchlist = useCalendarWatchlistSymbols();
-  const feed = useCalendarV4Feed(url.viewYear, url.viewMonth);
+  const feed = useCalendarV4Feed(url.viewYear, url.viewMonth, url.selectedDate);
 
   const [hiddenLegend, setHiddenLegend] = useState<Set<CalendarV4LegendCategory>>(new Set());
   const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
@@ -142,7 +144,21 @@ export default function CatalystCalendarPage() {
         ? CALENDAR_MACRO_COVERAGE.error
         : feed.economicStatus === "unavailable"
           ? CALENDAR_MACRO_COVERAGE.unavailable
-          : null;
+          : feed.economicStatus === "never_synced"
+            ? CALENDAR_MACRO_COVERAGE.neverSynced
+            : feed.economicStatus === "empty_in_range"
+              ? CALENDAR_MACRO_COVERAGE.emptyInRange
+              : null;
+
+  const monthEventsForCounts = useMemo(() => {
+    const { from, to } = calendarCatalystQueryRange(url.viewYear, url.viewMonth, url.selectedDate);
+    return feed.events.filter((e) => e.eventDate >= from && e.eventDate <= to);
+  }, [feed.events, url.viewYear, url.viewMonth, url.selectedDate]);
+
+  const listCached = useCalendarCachedIntelligence(
+    filteredEvents.flatMap((e) => e.symbols).slice(0, 12),
+    url.selectedDate,
+  );
 
   return (
     <div className="cal-v4-page cal-muse">
@@ -171,6 +187,8 @@ export default function CatalystCalendarPage() {
         onFilter={url.setPrimaryFilter}
         tickerSearch={url.tickerSearch}
         onTickerSearch={url.setTickerSearch}
+        monthEvents={monthEventsForCounts}
+        watchlistSymbols={watchlist}
       />
 
       <div className="cal-v4-toolbar">
@@ -212,6 +230,8 @@ export default function CatalystCalendarPage() {
         ) : (
           <CalendarListView
             events={filteredEvents}
+            cachedAnalysis={listCached.data ?? {}}
+            selectedDate={url.selectedDate}
             highlightedEventId={url.highlightedEventId}
             onSelectEvent={(ev) => {
               url.setSelectedDate(ev.eventDate);

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { EconomicCalendarRow, EconomicFeedResult } from "@/lib/calendar-v4/economic-types";
+import { CALENDAR_MACRO_COVERAGE } from "@/lib/calendar-v4/customer-copy";
 
 function monthBounds(year: number, month: number): { from: string; to: string } {
   const from = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -12,9 +13,6 @@ function monthBounds(year: number, month: number): { from: string; to: string } 
 const ECONOMIC_SELECT =
   "id,dedupe_key,event_name,country,event_date,event_time,importance,actual_value,consensus_estimate,previous_value,units,source,source_url,provider,description,actual_reported_at,fetched_at";
 
-/**
- * Reads `economic_events` when deployed; otherwise returns unavailable without failing the calendar.
- */
 export function useEconomicCalendarMonth(year: number, month: number) {
   const { from, to } = monthBounds(year, month);
   return useQuery<EconomicFeedResult>({
@@ -30,9 +28,16 @@ export function useEconomicCalendarMonth(year: number, month: number) {
                 };
               };
             };
+            limit: (n: number) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
           };
         };
       };
+
+      const statusRes = await client
+        .from("economic_sync_status")
+        .select("last_success_at,last_window_from,last_window_to,provider")
+        .limit(1);
+
       const { data, error } = await client
         .from("economic_events")
         .select(ECONOMIC_SELECT)
@@ -47,18 +52,52 @@ export function useEconomicCalendarMonth(year: number, month: number) {
           return {
             status: "unavailable",
             events: [],
-            message:
-              "Macro calendar storage is not active in this environment. Economic releases will appear after the sync worker is authorized in Lovable Cloud.",
+            message: CALENDAR_MACRO_COVERAGE.unavailable,
           };
         }
-        return { status: "error", events: [], message: error.message };
+        return { status: "error", events: [], message: CALENDAR_MACRO_COVERAGE.error };
       }
 
       const events = ((data ?? []) as unknown) as EconomicCalendarRow[];
+      const syncRow = (statusRes.data as Record<string, unknown>[] | null)?.[0] as
+        | {
+            last_success_at?: string | null;
+            last_window_from?: string | null;
+            last_window_to?: string | null;
+          }
+        | undefined;
+
+      const lastSyncAt = syncRow?.last_success_at ?? null;
+      const coverageWindow =
+        syncRow?.last_window_from && syncRow?.last_window_to
+          ? { from: String(syncRow.last_window_from), to: String(syncRow.last_window_to) }
+          : null;
+
+      if (!lastSyncAt && events.length === 0) {
+        return {
+          status: "never_synced",
+          events: [],
+          message: CALENDAR_MACRO_COVERAGE.neverSynced,
+          lastSyncAt,
+          coverageWindow,
+        };
+      }
+
+      if (events.length === 0) {
+        return {
+          status: "empty_in_range",
+          events: [],
+          message: CALENDAR_MACRO_COVERAGE.emptyInRange,
+          lastSyncAt,
+          coverageWindow,
+        };
+      }
+
       return {
-        status: events.length ? "ready" : "empty",
+        status: "ready",
         events,
-        message: events.length ? undefined : "No macro releases in range for the selected month.",
+        lastSyncAt,
+        coverageWindow,
       };
     },
     staleTime: 120_000,

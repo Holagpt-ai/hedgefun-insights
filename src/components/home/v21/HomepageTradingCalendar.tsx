@@ -200,6 +200,10 @@ export function HomepageTradingCalendar() {
           </div>
         ) : tab === "economic" && economicQuery.data?.status === "unavailable" ? (
           <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.unavailable}</p>
+        ) : tab === "economic" && economicQuery.data?.status === "never_synced" ? (
+          <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.neverSynced}</p>
+        ) : tab === "economic" && economicQuery.data?.status === "empty_in_range" ? (
+          <p className="text-sm text-[var(--hp-ink-2)]">{CALENDAR_MACRO_COVERAGE.emptyInRange}</p>
         ) : eventsQuery.isLoading && !eventsQuery.isFetched && tab !== "economic" ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (

@@ -9,8 +9,11 @@ interface Props {
 }
 
 export function CalendarAIPanel({ symbol, event, quoteObservedAt }: Props) {
-  const ctx = event ? buildCalendarAiHandoffContext(event, quoteObservedAt) : null;
-  const href = ctx ? buildCalendarAiAnalystHref(ctx) : `/dashboard/ai?symbol=${encodeURIComponent(symbol)}`;
+  const ctx = event ? buildCalendarAiHandoffContext(event, quoteObservedAt, symbol) : null;
+  const href =
+    ctx && event
+      ? buildCalendarAiAnalystHref(ctx, event.status)
+      : `/dashboard/ai?symbol=${encodeURIComponent(symbol)}`;
 
   return (
     <section className="rounded-lg border border-border p-3 bg-muted/20" aria-label="AI Analyst handoff">

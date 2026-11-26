@@ -19,10 +19,17 @@ export interface EconomicCalendarRow {
   fetched_at: string | null;
 }
 
-export type EconomicFeedStatus = "ready" | "empty" | "unavailable" | "error";
+export type EconomicFeedStatus =
+  | "ready"
+  | "empty_in_range"
+  | "never_synced"
+  | "unavailable"
+  | "error";
 
 export interface EconomicFeedResult {
   status: EconomicFeedStatus;
   events: EconomicCalendarRow[];
   message?: string;
+  lastSyncAt?: string | null;
+  coverageWindow?: { from: string; to: string } | null;
 }

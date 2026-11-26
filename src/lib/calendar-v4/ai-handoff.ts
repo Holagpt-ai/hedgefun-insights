@@ -15,9 +15,14 @@ export interface CalendarAiHandoffContext {
 export function buildCalendarAiHandoffContext(
   event: CalendarV4Event,
   quoteObservedAt: string | null,
+  selectedSymbol?: string | null,
   now = new Date(),
 ): CalendarAiHandoffContext | null {
-  const symbol = event.symbols[0]?.toUpperCase();
+  const preferred = selectedSymbol?.toUpperCase();
+  const symbol =
+    (preferred && event.symbols.map((s) => s.toUpperCase()).includes(preferred)
+      ? preferred
+      : event.symbols[0]?.toUpperCase()) ?? null;
   if (!symbol) return null;
   const marketSession = resolveMarketSessionAt(now.getTime());
   return {
@@ -33,11 +38,28 @@ export function buildCalendarAiHandoffContext(
 }
 
 /** AI Analyst consumes `symbol` and optional `prompt` (Free: prefill; Pro: auto-send). */
-export function buildCalendarAiAnalystHref(ctx: CalendarAiHandoffContext): string {
+export function buildCalendarAiAnalystHref(
+  ctx: CalendarAiHandoffContext,
+  eventStatus: CalendarV4Event["status"],
+): string {
+  const etToday = nowEtIsoDate();
+  const tense =
+    eventStatus === "reported" || ctx.eventDate < etToday
+      ? "retrospective"
+      : eventStatus === "scheduled" || ctx.eventDate >= etToday
+        ? "upcoming"
+        : "context";
+  const scheduleLine =
+    tense === "retrospective"
+      ? `Reported: ${ctx.eventDate}${ctx.eventTime ? ` ${ctx.eventTime} ET` : ""} (verify against sources)`
+      : `Scheduled: ${ctx.eventDate}${ctx.eventTime ? ` ${ctx.eventTime} ET` : ""}`;
+
   const lines = [
-    `Analyze ${ctx.symbol} ahead of this catalyst.`,
+    tense === "retrospective"
+      ? `Review how ${ctx.symbol} traded around this catalyst.`
+      : `Analyze ${ctx.symbol} ahead of this catalyst.`,
     `Event: ${ctx.eventTitle}`,
-    `Scheduled: ${ctx.eventDate}${ctx.eventTime ? ` ${ctx.eventTime} ET` : ""}`,
+    scheduleLine,
     `Source: ${ctx.source}`,
     `Market session: ${ctx.marketSession}`,
     ctx.quoteObservedAt ? `Quote observed: ${ctx.quoteObservedAt}` : null,
@@ -48,4 +70,13 @@ export function buildCalendarAiAnalystHref(ctx: CalendarAiHandoffContext): strin
     prompt: lines.join("\n"),
   });
   return `/dashboard/ai?${params.toString()}`;
+}
+
+function nowEtIsoDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }

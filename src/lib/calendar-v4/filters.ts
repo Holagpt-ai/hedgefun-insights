@@ -45,6 +45,19 @@ export function countHighImpact(events: CalendarV4Event[]): number {
   return events.filter((e) => e.hasImpactEvidence && e.impact === "high").length;
 }
 
+export function primaryFilterCounts(
+  events: CalendarV4Event[],
+  watchlistSymbols: ReadonlySet<string> | null,
+): Record<CalendarV4PrimaryFilter, number> {
+  return {
+    all: events.length,
+    earnings: applyCalendarPrimaryFilter(events, "earnings", watchlistSymbols).length,
+    macro: applyCalendarPrimaryFilter(events, "macro", watchlistSymbols).length,
+    high_impact: applyCalendarPrimaryFilter(events, "high_impact", watchlistSymbols).length,
+    watchlist: applyCalendarPrimaryFilter(events, "watchlist", watchlistSymbols).length,
+  };
+}
+
 export function applyLegendCategoryFilter(
   events: CalendarV4Event[],
   hidden: ReadonlySet<CalendarV4LegendCategory>,

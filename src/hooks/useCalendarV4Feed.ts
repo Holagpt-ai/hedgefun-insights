@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { useHomepageCalendarMonth } from "@/hooks/useHomepageCalendarMonth";
+import { useQuery } from "@tanstack/react-query";
 import { useEconomicCalendarMonth } from "@/hooks/useEconomicCalendarMonth";
 import { etTodayParts } from "@/lib/homepage/calendar-month";
+import { fetchPublicCatalystCalendarRange } from "@/lib/catalyst/public-catalyst-calendar";
+import { calendarCatalystQueryRange } from "@/lib/calendar-v4/calendar-range";
 import {
   catalystToCalendarV4Event,
   dedupeCalendarEvents,
@@ -9,9 +11,14 @@ import {
 } from "@/lib/calendar-v4/normalize";
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 
-export function useCalendarV4Feed(viewYear: number, viewMonth: number) {
+export function useCalendarV4Feed(viewYear: number, viewMonth: number, selectedDate: string) {
   const etToday = etTodayParts().iso;
-  const catalystQuery = useHomepageCalendarMonth(viewYear, viewMonth);
+  const { from, to } = calendarCatalystQueryRange(viewYear, viewMonth, selectedDate);
+  const catalystQuery = useQuery({
+    queryKey: ["public-catalyst-calendar", from, to],
+    queryFn: () => fetchPublicCatalystCalendarRange(from, to),
+    staleTime: 60_000,
+  });
   const economicQuery = useEconomicCalendarMonth(viewYear, viewMonth);
 
   const retrievedAt = catalystQuery.dataUpdatedAt

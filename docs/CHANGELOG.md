@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-26 — Catalyst Calendar V4 consolidated corrections (PR #278; git only)
+
+- Secure public catalyst: `public_catalyst_calendar_range_v1` RPC; client `fetchPublicCatalystCalendarRange`.
+- Economic: Finnhub ingest fixes, sync auth hardening, entitlement GET probe, `economic_sync_status`, `FINNHUB_ECONOMIC_ENABLED` gate, US catalog fallback metadata.
+- Calendar AI: `useCalendarCachedIntelligence` (bounded); relevance guard; week-range query expansion.
+- Muse: filter count badges, list-row cached AI take, chart stats/related chips, mobile sheet polish.
+- Runbook: `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
+
 ## 2026-11-26 — Catalyst Calendar V4 completion pass (PR #278; git only)
 
 - Muse layout: navy day brief, toggleable legend, day view + persistent pinned ticker card, power-sources footer; customer-facing availability copy.

@@ -124,6 +124,76 @@
   background: color-mix(in srgb, var(--hp-blue, #2563eb) 8%, transparent);
 }
 
+.cal-filter-count {
+  margin-left: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 900;
+  opacity: 0.75;
+}
+
+.cal-list-ai-take {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.cal-chart-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  font-size: 0.68rem;
+  margin: 0.5rem 0;
+}
+
+.cal-chart-stats-grid dt {
+  color: hsl(var(--muted-foreground));
+  font-weight: 700;
+}
+
+.cal-chart-stats-grid dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.cal-chart-marker {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--hp-blue, #2563eb);
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.cal-related-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+
+.cal-related-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+}
+
+@media (max-width: 767px) {
+  .cal-mobile-sheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    max-height: 72vh;
+    border-radius: 1rem 1rem 0 0;
+    background: hsl(var(--background));
+    box-shadow: 0 -8px 32px rgb(0 0 0 / 0.2);
+    padding: 0.75rem 1rem 1.25rem;
+    z-index: 51;
+  }
+}
+
 .cal-month-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

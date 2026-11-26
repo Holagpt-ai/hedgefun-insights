@@ -10,7 +10,7 @@ interface Props {
 
 export function CalendarAIDayBrief({ date, events }: Props) {
   const symbols = events.flatMap((e) => e.symbols).slice(0, 8);
-  const { analysis } = useCalendarCachedIntelligence(symbols);
+  const { data: analysis = {} } = useCalendarCachedIntelligence(symbols, date);
   const brief = buildCalendarDayBrief(date, events, analysis);
 
   return (

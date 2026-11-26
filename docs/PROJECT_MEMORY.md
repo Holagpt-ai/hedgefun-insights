@@ -4,8 +4,9 @@
 
 - **Homepage V21 merged:** GitHub `main` **`a7ddec2`** (PR **#277**). Vercel production SHA not re-verified in-repo every session.
 - **Catalyst Calendar V4:** Branch **`cursor/catalyst-calendar-v4`** / PR **#278** — public `/calendar`, Muse-aligned layout (`docs/design/catalyst-calendar-v4/`), shared `calendar-v4` contract with homepage (`calDate`, `calTab`, `calFilter`).
-- **Macro feed:** Finnhub adapter in `sync-economic-calendar` + `economic_events` migration prepared; **not applied** until Lovable authorizes migration + Edge deploy + initial sync. UI shows honest empty/unavailable states — never fabricated consensus.
-- **AI on calendar:** Day brief uses cached `watchlist_ai_analysis` when available; factual schedule otherwise. AI Analyst handoff uses `symbol` + structured `prompt` (confirmed consumer in `AIAnalystChat`).
+- **Public catalyst read:** `public_catalyst_calendar_range_v1` RPC — no anon `SELECT` on `catalyst_events`. Homepage + `/calendar` use `fetchPublicCatalystCalendarRange`.
+- **Macro feed:** Finnhub adapter gated by `FINNHUB_ECONOMIC_ENABLED`; entitlement probe via GET `sync-economic-calendar`. US catalog fallback documented in Edge shared code. Migrations + sync **not applied** until Lovable.
+- **AI on calendar:** `useCalendarCachedIntelligence` (read-only, no alerts/realtime); relevance guard for selected date. AI Analyst `prompt` handoff with scheduled vs reported tense.
 
 ## Verified continuity checkpoint — November 26, 2026 (Historical provider entitlement floor)
 

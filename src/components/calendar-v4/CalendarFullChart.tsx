@@ -78,11 +78,45 @@ export function CalendarFullChart({ open, onOpenChange, symbol, event }: Props) 
           positive={positive}
           prevClose={prevClose}
         />
+        <dl className="cal-chart-stats-grid">
+          <div>
+            <dt>Last</dt>
+            <dd>{snapshot?.day?.c != null ? `$${Number(snapshot.day.c).toFixed(2)}` : "—"}</dd>
+          </div>
+          <div>
+            <dt>Change</dt>
+            <dd>
+              {snapshot?.todaysChangePerc != null
+                ? `${snapshot.todaysChangePerc >= 0 ? "+" : ""}${Number(snapshot.todaysChangePerc).toFixed(2)}%`
+                : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt>Volume</dt>
+            <dd>
+              {snapshot?.day?.v != null ? Number(snapshot.day.v).toLocaleString() : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt>VWAP</dt>
+            <dd>{snapshot?.day?.vw != null ? `$${Number(snapshot.day.vw).toFixed(2)}` : "—"}</dd>
+          </div>
+        </dl>
         {event ? (
           <p className="text-xs text-muted-foreground border-l-2 border-[var(--hp-blue,#2563eb)] pl-2">
+            <span className="cal-chart-marker" aria-hidden />
             Event: {event.title}
-            {event.eventTime ? ` · ${event.eventTime.slice(0, 5)} ET` : ""}
+            {event.eventTime ? ` · ${event.eventTime.slice(0, 5)} ET` : ""} · {event.status}
           </p>
+        ) : null}
+        {event?.symbols && event.symbols.length > 1 ? (
+          <div className="cal-related-grid" aria-label="Related tickers">
+            {event.symbols.map((s) => (
+              <span key={s} className="cal-related-chip">
+                {s}
+              </span>
+            ))}
+          </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => add(upper)} disabled={isAdded(upper)}>
