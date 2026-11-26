@@ -260,6 +260,12 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         </div>
       </header>
 
+      {pathname === "/" ? (
+        <div className="flex justify-center border-b border-border bg-surface-card px-4 py-2 md:hidden">
+          <HomepageSessionChip className="max-w-full" />
+        </div>
+      ) : null}
+
       <AuthModals
         mode={authMode}
         onClose={() => setAuthMode(null)}
