@@ -10,12 +10,12 @@ import StockChart from "@/components/stock/StockChart";
 import { fetchChartAggregateBars } from "@/lib/stock-chart/fetch-aggregates";
 import { getTickerDetails, getTickerSnapshot } from "@/lib/polygon";
 import { CalendarAIPanel } from "@/components/calendar-v4/CalendarAIPanel";
+import { buildCalendarJournalHref } from "@/lib/calendar-v4/journal-handoff";
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Star, NotebookPen } from "lucide-react";
-import { catalystSymbolWorkflowHref } from "@/lib/catalyst/sec-edgar-events";
 
 interface Props {
   open: boolean;
@@ -54,11 +54,12 @@ export function CalendarFullChart({ open, onOpenChange, symbol, event }: Props) 
   const prevClose = snapshot?.prevDay?.c ?? null;
   const chartData = (chartBundle?.bars ?? []).map((b) => ({ t: b.utcMs, c: b.close }));
 
-  const journalParams = new URLSearchParams({
-    symbol: upper,
-    researchDate: event?.eventDate ?? "",
-    catalyst: event?.title?.slice(0, 120) ?? "",
-  });
+  const journalHref = event
+    ? buildCalendarJournalHref({ symbol: upper, eventTitle: event.title, eventDate: event.eventDate })
+    : `/journal/trades/new?symbol=${encodeURIComponent(upper)}`;
+  const quoteObservedAt = snapshot?.updated
+    ? new Date(snapshot.updated).toISOString()
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,16 +90,13 @@ export function CalendarFullChart({ open, onOpenChange, symbol, event }: Props) 
             {isAdded(upper) ? "On watchlist" : "Add to watchlist"}
           </Button>
           <Button asChild variant="outline" size="sm" className="h-8 gap-1">
-            <Link to={`/journal/trades/new?${journalParams.toString()}`}>
+            <Link to={journalHref}>
               <NotebookPen className="h-3.5 w-3.5" />
               Trading journal
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm" className="h-8">
-            <Link to={catalystSymbolWorkflowHref(upper, "ai")}>Open AI Analyst</Link>
-          </Button>
         </div>
-        <CalendarAIPanel symbol={upper} event={event} />
+        <CalendarAIPanel symbol={upper} event={event} quoteObservedAt={quoteObservedAt} />
       </DialogContent>
     </Dialog>
   );

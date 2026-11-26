@@ -36,7 +36,9 @@ export function useCalendarV4Feed(viewYear: number, viewMonth: number) {
 
   const isLoading = catalystQuery.isLoading;
   const isError = catalystQuery.isError;
-  const economicStatus = economicQuery.data?.status ?? (economicQuery.isLoading ? "loading" : "unavailable");
+  const economicStatus = economicQuery.isLoading
+    ? "loading"
+    : economicQuery.data?.status ?? "unavailable";
 
   return {
     events,

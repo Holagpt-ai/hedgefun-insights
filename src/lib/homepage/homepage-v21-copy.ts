@@ -55,7 +55,7 @@ const en: HomepageV21CopyBundle = {
   searchSearching: "Searching…",
   calendarTitle: "Calendar",
   calendarEconomicUnavailable:
-    "Economic releases are not available on the homepage yet. Check back after the macro data feed is connected.",
+    "No macro releases are listed for this day. U.S. economic calendar data appears here when synced to production.",
   calendarNoEvents: (tab: HomepageCalendarTab) =>
     tab === "earnings" ? "No earnings on this day." : "No catalyst events on this day.",
   calendarFeedError: "Calendar is temporarily unavailable.",

@@ -1,4 +1,4 @@
-import type { CalendarV4PrimaryFilter } from "@/config/calendar-v4";
+import type { CalendarV4LegendCategory, CalendarV4PrimaryFilter } from "@/config/calendar-v4";
 import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 
 export function applyCalendarPrimaryFilter(
@@ -43,4 +43,12 @@ export function eventsForDay(events: CalendarV4Event[], iso: string): CalendarV4
 
 export function countHighImpact(events: CalendarV4Event[]): number {
   return events.filter((e) => e.hasImpactEvidence && e.impact === "high").length;
+}
+
+export function applyLegendCategoryFilter(
+  events: CalendarV4Event[],
+  hidden: ReadonlySet<CalendarV4LegendCategory>,
+): CalendarV4Event[] {
+  if (!hidden.size) return events;
+  return events.filter((e) => !hidden.has(e.legendCategory));
 }

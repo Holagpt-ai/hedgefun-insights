@@ -1,0 +1,272 @@
+STOCKSIST CATALYST CALENDAR — BUILD TO MATCH APPROVED MOCKUP v4
+Copy everything below this line into Lovable and send it with the uploaded files.
+========================================================================
+
+ROLE AND ORDER OF WORK
+You are building the Stocksist Catalyst Calendar page in the EXISTING Lovable project. This is a build-to-match task, not a redesign. Follow the approved v4 mockup exactly. Do not invent a new layout, do not improve the design on your own, and do not change any other page or route.
+
+Order of work:
+1. STEP 1 IS THE HOMEPAGE. Build the homepage (v21 package) first and get it preview-approved before you start this calendar page. This calendar page is STEP 2.
+2. Read the v4 HTML mockup first. It is the source of truth for structure, content, order, and behaviour.
+3. Use the v4 PDF only as the visual spec — colours, spacing, typography, alignment, and responsive behaviour.
+4. Build the calendar page only, in the existing project. Preview before publish. Do NOT publish to the live site and do NOT make live site edits.
+5. If you think of an improvement, do NOT apply it. Stop, list it, and bring it back for approval first. The rule is: change the mockup first, then the builder follows the updated mockup.
+
+PROJECT CONTEXT — DO NOT BREAK
+- Repo: Holagpt-ai/hedgefun-insights
+- Stack: React + Vite, approximately 101 routes.
+- Frontend: Vercel. Backend: Fly.io worker stocksist-radar-v22-worker. Supabase edge functions.
+- Preserve all existing routing, Supabase wiring, and market-data wiring exactly.
+- The frontend never calls Massive directly. All market data comes via the market-data edge function.
+- Calendar page only in this step. Do not touch other routes, pages, navigation destinations, auth flows, or backend logic except where this prompt explicitly says to wire the calendar page to existing data.
+- This page must have its own URL, shareable and crawlable. The homepage "Catalyst picks" link opens this page on its own (in a new tab in the mockup).
+- All numbers, prices, percentages, dates, and catalyst copy in the mockup are PLACEHOLDERS. Wire them to real data. Do NOT hard-code them into components.
+
+FILES
+- Source of truth: approved v4 mockup HTML (stocksist-catalyst-calendar-mockup-v4.html).
+- Visual spec: v4 PDF (stocksist-lovable-build-prompt-calendar-v4.pdf).
+- Homepage: already built in Step 1 (v21 package). Do NOT rebuild the homepage in this step. Keep the homepage "Catalyst picks" link pointing at this calendar page.
+- If the v4 HTML and the PDF disagree, follow the HTML for structure and content, and the PDF for visual styling. Flag the conflict in your summary.
+
+GLOBAL STYLE
+- White premium design. Background: #f4f6f9. Cards: white.
+- Primary blue: Stocksist blue #1663d9.
+- Font: Public Sans throughout.
+- FREE throughout. No Pro gate anywhere on this page. No "Premium" lock line, no "525 more with Premium" gate.
+- No black ticker bar. No Finplify panel. No mockup banner.
+- No "15-minute delayed" text anywhere on the page.
+- No bullish / neutral percentage fluff anywhere, on any surface. The pinned card's old "38.1% bullish / 48.9% neutral / 13.0% bearish" outlook strip is REMOVED in v3 and must not come back.
+- Footer: unchanged from the existing site.
+
+PAGE LAYOUT — DESKTOP, TOP TO BOTTOM
+1. Top nav (same as the homepage: search, after-hours pill, EN | ES, working moon dark/light toggle, Log In, blue Sign Up — NO "Create free account" in the top nav, NO avatar)
+2. Left nav (same as stocksist.com nav, Dashboard directly under Home, small PRO badge, existing paywall gate)
+3. Page header: "Catalyst Calendar" + month label "November 2026" + counts "658 catalysts, 37 high impact"
+4. View toggle + filters: Month | List toggle at the top of the page, Month is the default view. Filters: All / Watchlist / Earnings / Macro / High Impact + ticker search + month navigation (previous / next month, "Today" returns to Mon Nov 16)
+5. Month grid: November 2026, Sun–Sat, every day filled with colour-coded event chips + "+N more" counts
+6. Event-type legend, toggleable: Earnings / Product / Dividend / FDA / Legal / M&A / Macro / Lockup / Sentiment / Other
+7. AI Day Brief + day view for the selected day (Mon Nov 16 selected by default): day view ranks 10 catalysts by AI impact, SPCX post-launch watch on top
+8. Pinned SPCX AI card beside the day view
+9. Week Snapshot
+10. "How Stocksist powers this calendar" section (Massive/Polygon, SEC EDGAR, news wires, AI Analyst)
+11. Footer
+
+MONTH GRID — EXACT SPEC
+- November 2026, Sun–Sat columns, every day filled.
+- Counts, exact: "658 catalysts" this month, "37 high impact".
+- Each day cell shows colour-coded chips by event type + "+more" where there are more events than fit.
+- Clicking a day cell selects that day and updates the day view / AI Day Brief for that day. Clicking a different day (for example Nov 18) must work, not just Nov 16.
+- Legend type toggles must work: toggling an event type on/off filters the chips shown in the grid.
+- Month navigation must work: next month shows December 2026 (Dec 1 = Tuesday, 698 catalysts in the mockup), "Today" returns to Mon Nov 16.
+- Ticker search must work: searching a ticker (for example SPCX, NVDA) finds it and pins its AI card.
+- All counts and dates in the mockup are placeholders. Wire to live catalyst data. Do not hard-code them.
+
+LIST VIEW — GOOGLE CALENDAR-STYLE AGENDA (NEW IN v4)
+- The List view is a Google Calendar-style agenda: one chronological column, date header per day, then event rows under it. It is NOT a month grid, and it does NOT replace the month grid — Month and List are two views of the SAME catalyst feed, switched by the Month | List toggle.
+- List view runs Mon Nov 16 → Fri Nov 27 in the mockup (forward from today), 3–5 rows per day. Each day: date header (for example "Mon, Nov 16"), then event rows.
+- Each List row shows: time, blue ticker, event title / catalyst line, event-type pill (Earnings / Macro / FDA / Legal / Product / etc.), High / Med / Low impact dot, one-line AI take in the trader voice (catalyst first, prev close vs current vs VWAP where relevant, key level, conditional stance from WAIT / LONG BIAS / AVOID / NO TRADE), plus "Add to Watchlist" and "Add to Trading Journal" buttons.
+- List order in the mockup: SPCX post-launch watch leads Mon Nov 16, then Empire State 8:30 AM, NVDA earnings-week preview, HD earnings-eve; FOMC Minutes Wed Nov 18 2:00 PM; jobless claims Thu Nov 19 8:30 AM; HD / NVDA / WMT earnings wrap Fri Nov 20. All of these events are already in the calendar feed — wire them to live data, do not hard-code them.
+- List view has its own "Today" button at the top: tapping it jumps back to today (Mon Nov 16 in the mockup) and scrolls / flashes to that day.
+- The shared filters work in List view exactly as in Month view: All / Watchlist / Earnings / Macro / High Impact, plus the event-type legend and ticker search. Filtering in List view hides rows that do not match (for example Earnings hides a MACRO row); switching back to All restores them.
+- Tapping a List row opens the SAME day pop-up / sparkline preview and the SAME separate full chart pop-up (1D default) as tapping a ticker chip in the Month grid. Do not build a second, different pop-up for List view.
+- List view is the better view on phone: at mobile width it stacks full-width, rows are full-width, tap targets 32–40px, no horizontal overflow, no tiny month-grid cells. Month view on phone stays a compact grid.
+- The view mode (Month / List) is CONFIG-DRIVEN: the toggle, the default view (Month), and which views are available must be changeable as config, not a rebuild. A future "Week" view, if added, must be a new view component on the same feed, not a rebuild of the page.
+- Kalshi is NOT in List view either. No prediction-market cards in List view, no odds, no question cards. The re-add note stays in code comments only.
+
+FILTERS — CONFIG-DRIVEN, NEVER HARD-CODED
+- Filters: All / Watchlist / Earnings / Macro / High Impact.
+- ALL event types are included: earnings, macro, FDA, legal, product, lockups, sentiment, dividend, M&A, and others.
+- Event types, filters, and the legend are CONFIG-DRIVEN and flexible — they must be changeable as settings/config, not a rebuild. Adding, renaming, or removing an event type must not require editing components.
+- The High Impact filter must work and must show only high-impact catalysts.
+
+DAY VIEW — MON NOV 16 DEFAULT
+- Mon Nov 16 is selected by default.
+- AI Day Brief leads the day view.
+- Day view ranks 10 catalysts by AI impact, SPCX post-launch watch on top.
+- Each day-view row shows: time, ticker, catalyst, impact (High / Med / Low), and the Watchlist / Journal buttons (see below).
+- Clicking a date in the month grid updates the day view to that date, with that date's related catalysts.
+- Empty days / days with no events show a next-catalyst state, not a blank or broken box.
+
+SPCX AI HOVER CARD / SPARKLINE PREVIEW
+- Hovering (desktop) or tapping (mobile) any ticker chip in the month grid pops a sparkline preview card.
+- The preview shows: ticker, price, change, a small sparkline/area chart (red down / green up, dotted prev-close baseline), VWAP / volume, and one AI catalyst line.
+- The preview has: "View full chart" link, "Add to Watchlist" button, "Add to Trading Journal" button. All three must work.
+- On mobile the hover card becomes a bottom sheet.
+- The weak chart squeezed into the bottom of a hover card is GONE in v3. Do not bring it back.
+
+FULL CHART POP-UP — TOTALLY SEPARATE, LARGE
+- "View full chart" opens a TOTALLY SEPARATE, large Google Finance-style chart pop-up. It is not the hover card, and not a chart inside the hover card.
+- The pop-up opens on 1D by default. For recent / intraday catalysts, default 1D / 5D. Do NOT default to 6M — 6M contradicts the intraday AI voice.
+- Timeframe tabs that redraw the chart: 1D / 5D / 1M / 6M / YTD / 1Y / 5Y / MAX.
+- Key events toggle, working. When on, key-event markers are shown on the chart.
+- Prev-close and VWAP lines are drawn ONLY on 1D / 5D. Do not draw them on longer ranges.
+- Y-axis price labels must be present. No bare axis.
+- Chart tooltip / crosshair: hover shows price, change, and date at that point, and states its baseline (for example "since May 2026"). The tooltip must also work by touch drag on mobile — it must not be mousemove-only.
+- Key-event markers must be interrogable: hovering or tapping a marker shows that catalyst and its date.
+- Stats grid under the chart (Google-style): Open, High, Low, Mkt cap, Avg vol, 52-wk high / low, EPS, shares outstanding. Replace the old Employees field and the empty P/E field with Next earnings and Implied move (only if the data confirms them).
+- Related stocks under the chart (for SPCX: PLTR, RKLB, TSLA, AMZN, each with a mini chart). Each related stock carries a one-line reason why it is related, and clicking it swaps the pop-up to that ticker.
+- The dead "Chart open — you are here" blue button is GONE in v3. It is now a passive chip ("Full chart · SPCX"). Do not rebuild a button that does nothing. Drop the "FULL CHART" eyebrow.
+- Close time is rounded: "4:00 PM", not "4:00:01 PM".
+- Escape closes the pop-up. Closing the pop-up returns to the calendar page, with the day still selected.
+
+AI ANALYST BOT PANEL — BEHAVIOUR SPEC (EXAMPLE, NOT LITERAL COPY)
+- The AI Analyst bot panel sits in the chart pop-up (and the same voice appears on the pinned card and in the day view).
+- The SPCX paragraph in the mockup is Tony's EXAMPLE of the behaviour wanted. It is NOT literal live copy, and every number in it is a placeholder. Do NOT paste the mockup paragraph into the live build as if it were real.
+- The behaviour, which the live AI must follow:
+  1. Name the catalyst first — why it is moving.
+  2. State prev close vs current vs VWAP — where it actually is.
+  3. Name key levels — sell wall / support / resistance.
+  4. Narrate intraday action with timestamps (for example, in the SPCX example: broke 140 at 12:05 PM, reversed back to 137).
+  5. Give a clear conditional stance — wait for a break AND support at the level, don't chase.
+  6. Plain trader language, specific numbers. No generic bullish / neutral percentage fluff.
+- Stance enum, defined — use only these: WAIT / LONG BIAS / AVOID / NO TRADE.
+- ONE AI voice everywhere: the same trader voice on the pinned card, the chart pop-up bot, and the day view. No bullish/neutral percentage fluff anywhere.
+- Every AI read carries an "as of [time] ET" stamp (for example the mockup shows "as of 12:47 PM ET").
+- Where the data can't support a full read, the panel says less — "AI read pending — levels unavailable" — instead of faking a template read.
+- SPCX example numbers, PLACEHOLDERS ONLY, and deliberately inconsistent in the mockup — flag this, do not reproduce it as fact: the Google-style stats show prev close $139.94 and price $139.11 (-0.59%), while the AI behaviour example uses prev close $137, current $139, VWAP $138.20, sell wall $140, support $137. If $137 were the real prev close, SPCX would be up about +1.5%, not down -0.59%, and the whole red/green story flips. The live build must derive every number from ONE quote object per ticker (see Data below). The AI numbers must come from that same object.
+
+WATCHLIST + TRADING JOURNAL — IN BOTH PLACES, AND WORKING
+- "Add to Watchlist" and "Add to Trading Journal" must appear in ALL FOUR places: (a) hover / sparkline preview card, (b) full chart pop-up, (c) pinned AI card, (d) day-view rows. Not just one place.
+- They must WORK, not be decorative.
+- Watchlist: one tap saves the ticker to the user's Watchlist, with its catalyst context attached (catalyst + AI levels saved with it), so it shows up filtered in the calendar later. The button toggles to "In Watchlist ✓" (amber).
+- Watchlist toast, MOBILE-FIRST: copy "catalyst and AI levels attached", with Undo + View Watchlist buttons, 5.5 second dwell, top-centre on phones. Toast copy must state the benefit, not just "added".
+- Trading Journal: opens a journal entry PRE-FILLED with ticker, price, catalyst, AI levels, date, and thesis. The user adds their own plan / notes.
+- Journal destination — LOCKED: the calendar journal form is an entry point into the EXISTING Stocksist backend parent journal — the Dashboard Trading Journal. Do NOT build a new journal. Saving lands in the main Dashboard journal, the same one executed trades are copied into.
+- Journal save must persist catalyst + AI levels as STRUCTURED fields (not just free text), plus stance, and optional Entry / Stop / Target / Size fields.
+- Journal save must warn on duplicate same-day entries for the same ticker, and offer "View in Dashboard" after saving.
+
+KALSHI — REMOVED FOR NOW, DO NOT BUILD
+- Prediction-market / Kalshi cards are FULLY REMOVED in v3. Do not render them in the pop-up or the pinned card.
+- Leave the re-add note / code where the module was: an HTML comment in the mockup says to re-add later by wiring the Kalshi API for live implied % + 24h change, rendering ONE module under Related stocks in the chart pop-up and pinned card, with the on-module disclaimer "Prediction markets are crowd odds, not Stocksist analysis." Do not re-add odds-less question cards.
+- In the live build, keep that re-add note in code comments only. Do not build Kalshi, do not add a Kalshi API dependency, do not render any prediction-market cards in this step.
+
+LOADING / EMPTY / ERROR STATES
+- Design and build these states, do not leave them blank:
+  - Skeleton chart while the chart loads.
+  - "AI read pending" panel while the AI read loads.
+  - Feed-error day cell when the catalyst feed fails for a day.
+  - Empty day / no events: next-catalyst state, not a blank box.
+  - Empty tab: next event, not a blank box.
+
+WEEK SNAPSHOT + "HOW STOCKSIST POWERS THIS CALENDAR"
+- Week Snapshot section: present, as in the mockup.
+- "How Stocksist powers this calendar" section: present, naming Massive/Polygon, SEC EDGAR, news wires, and AI Analyst as the sources.
+
+DATA PIPELINE — HOW THE CALENDAR IS POWERED
+- Ingest: Massive/Polygon prices + earnings, SEC EDGAR filings / IPOs, news wires, macro calendar.
+- Classify + score: event type, ticker, AI impact High / Med / Low.
+- Verify: price-verified vs catalyst-verified, source linked, NO invented catalysts. A catalyst must have a source. Do not invent one.
+- AI brief: AI Analyst, one-line why-it-matters, in the behaviour voice above.
+- Personalise: My Assets / Watchlist, alerts.
+- Data rule: ONE quote object per ticker, derived not duplicated. Price, change, change %, volume, prev close, VWAP, market cap, and all AI numbers for a ticker must all derive from that single quote object. Do not create separate hard-coded values for the same ticker in different components. If two surfaces disagree (for example the $139.94 vs $137 prev-close mismatch in the mockup), that is a placeholder artefact — the live build must not reproduce it.
+- Sources:
+  - Market prices / quotes / indexes: Massive (Polygon) via the market-data edge function. Frontend never calls Massive directly.
+  - Company / filing catalysts: SEC EDGAR.
+  - News: news wires.
+  - Macro: macro calendar.
+- If live data is unavailable in preview, show a clear loading/empty state. Do not silently keep placeholder numbers as if they were real.
+
+RESPONSIVE / MOBILE-FIRST — PROMINENT
+- Build mobile-first. Desktop is the wide version of the mobile layout, not the other way round.
+- Mobile, top to bottom: header + Month | List toggle + filters (collapsible), month grid in Month view (compact grid that fits 375px, no clipped dates, tap a day to select it) OR the List agenda in List view (full-width chronological rows, date headers, tap a row to open the pop-up), AI Day Brief + day view stacked, pinned AI card stacked below the day view, sparkline preview as a bottom sheet, chart pop-up full-screen, Week Snapshot stacked, "How Stocksist powers this calendar" stacked, footer.
+- Month grid on phone stays a grid (compact), not a list, unless the grid cannot fit — if it cannot fit, use a compact list and say so in your summary.
+- Breakpoints: 375 / 768 / 1024 / 1440.
+- No horizontal overflow at 375px. Test at 375px and fix any overflow.
+- Body text 13–14px. Captions minimum 12px.
+- Tap targets 32–40px. Calendar day cells, tab pills, and filter chips must be at least 32px tall.
+- Chart pop-up on mobile: full-screen, touch drag for the crosshair/tooltip, key-event markers tappable, timeframe tabs tappable.
+- Toast is mobile-first: top-centre on phones, Undo + View Watchlist, 5.5s dwell.
+
+FLEXIBILITY FOR FUTURE UPDATES — PROMINENT
+Tony will make more updates after v4. Build so the next update is a small change, not a rebuild.
+- Component-based: build separate components for MonthGrid, ListView, DayView, AIDayBrief, SparklinePreview, FullChartPopup, AIBotPanel, WatchlistButton, JournalForm, WeekSnapshot, and Filters/Legend. Do not put the whole calendar page in one file.
+- Design tokens: colours, spacing, and typography live in design tokens. Do not scatter hex codes, font sizes, or spacing values through components.
+- Config files, NOT code, for:
+  - Event types and filters (all types, legend, filter list)
+  - Impact levels (High / Med / Low)
+  - Stance enum (WAIT / LONG BIAS / AVOID / NO TRADE)
+  - Timeframe tabs (1D / 5D / 1M / 6M / YTD / 1Y / 5Y / MAX)
+  - View mode (Month / List toggle, default view Month)
+  - Tab lists and legend lists
+  - News sources
+- No hard-coded prices, percentages, dates, or catalyst copy in components. All of it comes from props, config, or the API.
+- Responsive behaviour comes from the mobile-first layout above, not from a desktop-only layout with phone patched on afterwards.
+- How future updates work — follow this pattern and explain it in your summary:
+  Change the mockup and/or the config → edit only that component and/or that config file → preview → publish. No rebuild of the whole calendar page, no edits across unrelated components.
+
+DO NOT
+- Do NOT rebuild the homepage in this step. Homepage is Step 1 (v21 package).
+- Do NOT hard-code prices, percentages, index values, dates, or catalyst copy.
+- Do NOT duplicate quote data — one quote object per ticker, derived not duplicated.
+- Do NOT call Massive / Polygon directly from the frontend.
+- Do NOT change routing, Supabase wiring, or market-data wiring.
+- Do NOT change any other page or route.
+- Do NOT publish live or make live site edits. Preview only.
+- Do NOT build Kalshi / prediction-market cards — leave re-add notes/code only.
+- Do NOT put the bullish/neutral percentage outlook strip back — no "38.1% bullish / 48.9% neutral / 13.0% bearish" anywhere.
+- Do NOT paste the SPCX AI behaviour example into the live build as literal copy — it is a behaviour example, numbers are placeholders.
+- Do NOT default the chart to 6M. Default is 1D.
+- Do NOT draw prev-close / VWAP lines on ranges other than 1D / 5D.
+- Do NOT build a new journal — use the existing Dashboard Trading Journal.
+- Do NOT apply your own design improvements. Bring them back first.
+- Do NOT leave a blank box for empty days, empty tabs, or a failed feed — build the loading / empty / error states.
+- Do NOT make the calendar Pro-gated. It is FREE throughout.
+- Do NOT build List view as a second, separate calendar page or a second feed — Month and List are two views of the SAME feed, same filters, same pop-ups.
+- Do NOT remove the Month grid when adding List view. Month is the default view and must stay exactly as in v3.
+- Do NOT put Kalshi / prediction-market cards in List view.
+- Do NOT rebuild the dead "Chart open — you are here" button. It is a passive chip in v3.
+- Do NOT use "4:00:01 PM" — close time is rounded to "4:00 PM".
+
+OUTPUT REQUESTED
+1. Implement the v4 Catalyst Calendar page in the existing Lovable project, calendar page only, AFTER the homepage build.
+2. Provide a preview link. Do NOT publish live.
+3. Provide a short summary: what changed, which files/components were touched, how data is wired (one quote object per ticker), how the $139.94 vs $137 placeholder inconsistency was resolved, and any conflicts between the HTML and PDF.
+4. List any suggested improvements separately, unapplied, for approval first.
+5. Confirm the acceptance checklist below, item by item, with pass/fail and what you checked.
+
+V4 ACCEPTANCE CHECKLIST — CHECK EVERY ITEM IN PREVIEW
+1. Page is a full dedicated Catalyst Calendar page on its own URL, shareable and crawlable — not a modal on the homepage.
+2. White premium design, Stocksist blue #1663d9, Public Sans, background #f4f6f9, white cards.
+3. Header shows "Catalyst Calendar", "November 2026", "658 catalysts, 37 high impact" (values wired to live data, not hard-coded).
+4. Month grid is November 2026, Sun–Sat, every day filled with colour-coded chips + "+more".
+5. Filters All / Watchlist / Earnings / Macro / High Impact work; High Impact shows only high-impact catalysts.
+6. Legend toggles work: toggling an event type on/off filters the chips in the grid.
+7. All event types are included and config-driven/flexible — Earnings, Product, Dividend, FDA, Legal, M&A, Macro, Lockup, Sentiment, Other — changeable as config, not a rebuild.
+8. Month navigation works: next month shows December 2026, "Today" returns to Mon Nov 16.
+9. Ticker search works: searching a ticker finds it and pins its AI card.
+10. Clicking a day cell selects that day and updates the day view; clicking a different day (for example Nov 18) works, not just Nov 16.
+11. Mon Nov 16 is selected by default; AI Day Brief leads; day view ranks 10 catalysts by AI impact, SPCX on top.
+12. Hover/tap a ticker chip opens the sparkline preview card: price, change, sparkline + dotted prev-close, VWAP/volume, AI catalyst line, "View full chart", Watchlist and Journal buttons — all working.
+13. "View full chart" opens a TOTALLY SEPARATE large chart pop-up, not a chart inside the hover card.
+14. Chart pop-up opens on 1D by default (not 6M); timeframe tabs 1D / 5D / 1M / 6M / YTD / 1Y / 5Y / MAX redraw the chart.
+15. Prev-close and VWAP lines appear ONLY on 1D / 5D.
+16. Y-axis price labels are present; tooltip states its baseline and works by touch drag; key-event markers show the catalyst and date on hover/tap.
+17. Key events toggle works; related stocks each carry a one-line reason and clicking one swaps the pop-up to that ticker.
+18. Stats grid shows Open, High, Low, Mkt cap, Avg vol, 52-wk high/low, EPS, shares outstanding, Next earnings, Implied move (where data confirms them); no Employees field, no empty P/E field.
+19. Dead "Chart open — you are here" button is gone; it is a passive "Full chart · SPCX" chip; no "FULL CHART" eyebrow; close time reads "4:00 PM".
+20. AI Analyst bot panel follows the behaviour spec: catalyst first, prev close vs current vs VWAP, key levels, timestamped intraday action, conditional stance from WAIT / LONG BIAS / AVOID / NO TRADE only, plain trader language, "as of [time] ET" stamp — and is NOT a literal copy of the mockup paragraph.
+21. One AI voice everywhere: pinned card, chart pop-up bot, and day view all use the same trader voice; no bullish/neutral percentage fluff anywhere; no "38.1% bullish / 48.9% neutral / 13.0% bearish" strip.
+22. Numbers derive from one quote object per ticker; the $139.94 vs $137 prev-close inconsistency is resolved (no two different prev closes for the same ticker on the same page).
+23. Watchlist button works in all four places (hover preview, chart pop-up, pinned AI card, day-view rows); toggles to "In Watchlist ✓"; saves ticker with catalyst context attached.
+24. Watchlist toast is mobile-first: "catalyst and AI levels attached", Undo + View Watchlist buttons, 5.5s dwell, top-centre on phones.
+25. Journal button works in all four places; opens a pre-filled entry (ticker, price, catalyst, AI levels, date, thesis) with optional Entry / Stop / Target / Size.
+26. Journal saves into the EXISTING Dashboard Trading Journal — no new journal was built; catalyst + AI levels persist as structured fields plus stance; duplicate same-day entries warn; "View in Dashboard" is offered after saving.
+27. Kalshi / prediction-market cards are absent from the pop-up and the pinned card; only the re-add note remains in code comments.
+28. Loading / empty / error states are built: skeleton chart, "AI read pending" panel, feed-error day cell, next-catalyst state for empty days.
+29. Week Snapshot is present; "How Stocksist powers this calendar" section is present (Massive/Polygon, SEC EDGAR, news wires, AI Analyst).
+30. Page is FREE throughout — no Pro gate, no "Premium" lock line, no "525 more with Premium" gate.
+31. Escape closes the chart pop-up and returns to the calendar with the day still selected.
+32. Mobile-first: month grid fits at 375px with no overflow and no clipped dates; day view, pinned card, and Week Snapshot stack; sparkline preview is a bottom sheet; chart pop-up is full-screen with touch drag; tap targets 32–40px; body 13–14px; captions minimum 12px.
+33. No horizontal overflow at 375px; breakpoints 375 / 768 / 1024 / 1440 all render without overlap or clipping.
+34. Components are separate (MonthGrid, DayView, AIDayBrief, SparklinePreview, FullChartPopup, AIBotPanel, WatchlistButton, JournalForm, WeekSnapshot, Filters/Legend) with design tokens and config files for event types/filters, impact levels, stance enum, timeframe tabs, tab lists, and news sources.
+35. No hard-coded prices, percentages, dates, or catalyst copy in components — all from props, config, or API, with one quote object per ticker, derived not duplicated.
+36. Routing, Supabase wiring, and market-data wiring are preserved; frontend does not call Massive directly; no other route was changed; homepage was not rebuilt in this step.
+37. Preview only — nothing was published live, and any suggested improvements are listed separately, unapplied.
+38. Month | List toggle is present at the top of the page; Month is the default view; switching to List hides the month grid and shows the agenda, switching back to Month restores the grid unchanged from v3.
+39. List view is chronological Mon Nov 16 → Fri Nov 27 in the mockup, date header per day, 3–5 rows per day, each row with time, blue ticker, catalyst title, event-type pill, High / Med / Low impact dot, one-line trader-voice AI take, and Watchlist + Journal buttons.
+40. List view "Today" button works: it jumps back to today (Mon Nov 16 in the mockup) and scrolls to that day.
+41. Filters work in List view: All / Watchlist / Earnings / Macro / High Impact, legend, and ticker search filter List rows exactly as they filter the Month grid; switching back to All restores all rows.
+42. Tapping a List row opens the same sparkline preview and the same separate full chart pop-up (1D default) as tapping a ticker chip in Month view — no second pop-up, no different behaviour.
+43. List view on phone: full-width rows, no horizontal overflow at 375px, tap targets 32–40px, date headers and rows fully readable; Month grid on phone is unchanged from v3.
+========================================================================
+END OF PROMPT

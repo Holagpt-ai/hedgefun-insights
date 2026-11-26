@@ -30,4 +30,15 @@ create policy "economic_events_public_read"
   to anon, authenticated
   using (true);
 
+-- Writes are service-role only (sync-economic-calendar Edge function).
+revoke insert, update, delete, truncate on public.economic_events from anon, authenticated;
+grant select on public.economic_events to anon, authenticated;
+
+create index if not exists economic_events_country_date_idx
+  on public.economic_events (country, event_date);
+
+alter table public.economic_events
+  add constraint economic_events_importance_check
+  check (importance is null or importance in ('high', 'medium', 'low'));
+
 comment on table public.economic_events is 'US and global macro releases for Catalyst Calendar V4 (provider-synced; no fabricated values).';

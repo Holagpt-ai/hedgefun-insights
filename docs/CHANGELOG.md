@@ -1,11 +1,16 @@
 ﻿# Changelog
 
-## 2026-11-26 — Catalyst Calendar V4 + homepage handoff (git only; PR pending)
+## 2026-11-26 — Catalyst Calendar V4 completion pass (PR #278; git only)
 
-- Public `/calendar` (Muse-aligned modular UI): month/list, filters, legend, agenda, AI Day Brief (factual/cache-only), Week Snapshot, ticker preview, full chart dialog, watchlist/journal/AI Analyst handoffs.
-- Shared normalized contract under `src/lib/calendar-v4/`; homepage links to `/calendar?calDate=&calTab=&calFilter=`.
-- **Prepared (not applied):** `economic_events` migration + `sync-economic-calendar` Edge stub — macro tab remains empty until Lovable activates provider sync.
-- **Merged baseline:** Homepage PR **#277** @ `a7ddec2`. **Not deployed** to production.
+- Muse layout: navy day brief, toggleable legend, day view + persistent pinned ticker card, power-sources footer; customer-facing availability copy.
+- **Economic:** Finnhub `calendar/economic` adapter (`sync-economic-calendar`, shared economic parsers, hardened `economic_events` migration).
+- **AI:** Cached watchlist analysis in day brief; AI Analyst `symbol`+`prompt` handoff; journal `catalyst`/`researchDate` prefill.
+- Homepage economic tab shares `economic_events` query when table exists.
+
+## 2026-11-26 — Catalyst Calendar V4 foundation (PR #278; git only)
+
+- Public `/calendar` shell: month/list, filters, chart preview, shared contract with homepage.
+- **Merged baseline:** Homepage PR **#277** @ `a7ddec2`.
 
 ## 2026-11-26 — Homepage V21 merged to main (PR #277)
 

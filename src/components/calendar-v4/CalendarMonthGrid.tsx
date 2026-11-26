@@ -14,9 +14,10 @@ interface Props {
   selectedDate: string;
   events: CalendarV4Event[];
   onSelectDate: (iso: string) => void;
+  onChipSymbol?: (symbol: string, event: CalendarV4Event) => void;
 }
 
-export function CalendarMonthGrid({ year, month, selectedDate, events, onSelectDate }: Props) {
+export function CalendarMonthGrid({ year, month, selectedDate, events, onSelectDate, onChipSymbol }: Props) {
   const today = etTodayParts().iso;
   const grid = useMemo(() => buildMonthGrid(year, month, today), [year, month, today]);
 
@@ -59,6 +60,21 @@ export function CalendarMonthGrid({ year, month, selectedDate, events, onSelectD
               {chips.map((ev) => (
                 <span
                   key={ev.eventId}
+                  role={ev.symbols[0] && onChipSymbol ? "button" : undefined}
+                  tabIndex={ev.symbols[0] && onChipSymbol ? 0 : undefined}
+                  onClick={(e) => {
+                    if (ev.symbols[0] && onChipSymbol) {
+                      e.stopPropagation();
+                      onChipSymbol(ev.symbols[0], ev);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (ev.symbols[0] && onChipSymbol && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onChipSymbol(ev.symbols[0], ev);
+                    }
+                  }}
                   className={cn("cal-month-chip", chipClassForCategory(ev.legendCategory))}
                   title={ev.title}
                 >

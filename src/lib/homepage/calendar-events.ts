@@ -1,5 +1,6 @@
 import type { CatalystEvent } from "@/types/catalyst";
 import { HOMEPAGE_CALENDAR_QUERY, type HomepageCalendarTab } from "@/config/homepage-v21";
+import type { CalendarV4Event } from "@/lib/calendar-v4/contract";
 
 /** Normalized homepage calendar row — shared contract for Catalyst Calendar V4. */
 export interface HomepageCalendarEvent {
@@ -42,6 +43,20 @@ export function catalystToHomepageEvent(
     impact: impactFromEvent(event),
     source: event.source_name,
     status: eventStatus(event, etToday),
+  };
+}
+
+export function calendarV4ToHomepageEvent(event: CalendarV4Event): HomepageCalendarEvent {
+  return {
+    eventId: event.eventId,
+    type: event.feedType === "earnings" ? "earnings" : event.feedType === "economic" ? "economic" : "catalyst",
+    title: event.title,
+    symbols: event.symbols,
+    eventDate: event.eventDate,
+    eventTime: event.eventTime,
+    impact: event.impact,
+    source: event.source,
+    status: event.status === "cancelled" ? "unknown" : event.status,
   };
 }
 

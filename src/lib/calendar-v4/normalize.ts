@@ -104,7 +104,16 @@ export function economicToCalendarV4Event(row: EconomicCalendarRow, etToday: str
     feedType: "economic",
     legendCategory: "economic",
     title: row.event_name,
-    description: row.description,
+    description:
+      row.description ??
+      ([
+        row.actual_value ? `Actual ${row.actual_value}${row.units ? ` ${row.units}` : ""}` : null,
+        row.consensus_estimate ? `Consensus ${row.consensus_estimate}` : null,
+        row.previous_value ? `Previous ${row.previous_value}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") ||
+        null),
     eventDate: row.event_date,
     eventTime: row.event_time,
     publishedAt: row.actual_reported_at,

@@ -1,4 +1,4 @@
-> **2026-11-26 Catalyst Calendar V4 (git only; NOT production):** Branch `cursor/catalyst-calendar-v4` from **`main` `a7ddec2`** — public `/calendar`, homepage handoff, prepared `economic_events` migration + `sync-economic-calendar` stub; **no** Lovable SQL/Edge apply, **no** Vercel production verification in this session. Homepage PR **#277** merged on GitHub; production Vercel SHA may still lag.
+> **2026-11-26 Catalyst Calendar V4 (PR #278; git only; NOT production):** Branch `cursor/catalyst-calendar-v4` from **`main` `a7ddec2`** — Muse-aligned `/calendar`, Finnhub `sync-economic-calendar` adapter, pinned ticker + cached AI brief; migration `20261126180000_economic_events_calendar.sql` **not applied**; Edge **not deployed**; macro data empty until Lovable activation. Vercel **preview** QA on PR branch — not production. Homepage PR **#277** merged on GitHub; production Vercel SHA may still lag.
 >
 > **2026-11-26 Homepage Muse V21:** Merged **`a7ddec2`** on GitHub `main`; Vercel production deploy not re-verified here. Scanner v530 / Radar v50 / historical worker state unchanged.
 

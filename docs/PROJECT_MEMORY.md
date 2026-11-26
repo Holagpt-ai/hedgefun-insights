@@ -1,10 +1,11 @@
 # Project memory
 
-## Development checkpoint — November 26, 2026 (Muse Homepage V21 — git only)
+## Development checkpoint — November 26, 2026 (Catalyst Calendar V4 — PR #278)
 
-- **Approved visual reference:** `docs/design/homepage-v21/` (Muse Homepage **V21**). Implementation branch **`cursor/homepage-v21-production-integration`**; **not merged**, **not** Vercel production.
-- **Next public UX batch after owner preview approval:** Catalyst Calendar **V4** (full Month/List); homepage widget uses `buildCalendarDeepLink` contract (`calDate`, `calTab`).
-- **Known gap:** Economic calendar tab requires verified macro event feed — unavailable state in UI until backend exists.
+- **Homepage V21 merged:** GitHub `main` **`a7ddec2`** (PR **#277**). Vercel production SHA not re-verified in-repo every session.
+- **Catalyst Calendar V4:** Branch **`cursor/catalyst-calendar-v4`** / PR **#278** — public `/calendar`, Muse-aligned layout (`docs/design/catalyst-calendar-v4/`), shared `calendar-v4` contract with homepage (`calDate`, `calTab`, `calFilter`).
+- **Macro feed:** Finnhub adapter in `sync-economic-calendar` + `economic_events` migration prepared; **not applied** until Lovable authorizes migration + Edge deploy + initial sync. UI shows honest empty/unavailable states — never fabricated consensus.
+- **AI on calendar:** Day brief uses cached `watchlist_ai_analysis` when available; factual schedule otherwise. AI Analyst handoff uses `symbol` + structured `prompt` (confirmed consumer in `AIAnalystChat`).
 
 ## Verified continuity checkpoint — November 26, 2026 (Historical provider entitlement floor)
 
