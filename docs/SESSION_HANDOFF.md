@@ -1,6 +1,6 @@
 # Session handoff — November 26, 2026 (Catalyst Calendar V4 — consolidated PR)
 
-**GitHub `main` baseline:** **`a7ddec2`** (Homepage PR **#277** merged). **Branch:** `cursor/catalyst-calendar-v4` / **PR #278**. **Scope:** Muse-fidelity layout (brief, month/list, legend toggles, day view + **pinned ticker**), Finnhub **`sync-economic-calendar`** implementation, cached AI day brief, prompt-based AI Analyst handoff, journal `catalyst` prefill, homepage macro tab wiring. **Design assets:** `docs/design/catalyst-calendar-v4/` (HTML + PDF + prompt). **Not production:** migration apply, Edge deploy, economic sync cron. **Credentials:** existing `FINNHUB_API_KEY` + `SYNC_SECRET` / service role for sync POST. **Next:** merge #278 after review; Lovable activate economic pipeline; Vercel production check `/calendar`.
+**GitHub `main` baseline:** **`a7ddec2`** (Homepage PR **#277** merged). **Branch:** `cursor/catalyst-calendar-v4` / **PR #278** @ **`a1b9833b`**. **Scope:** Muse-fidelity layout (brief, month/list, legend toggles, day view + **pinned ticker**), Finnhub **`sync-economic-calendar`** implementation, cached AI day brief, prompt-based AI Analyst handoff, journal `catalyst` prefill, homepage macro tab wiring. **Design assets:** `docs/design/catalyst-calendar-v4/` (HTML + PDF + prompt). **Not production:** migration apply, Edge deploy, economic sync cron. **Credentials:** existing `FINNHUB_API_KEY` + `SYNC_SECRET` / service role for sync POST. **Next:** merge #278 after review; Lovable activate economic pipeline; Vercel production check `/calendar`.
 
 ---
 
