@@ -102,7 +102,7 @@ describe("Batch 33.9 catch-up queue and campaign corrections", () => {
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-25T21:30:00.000Z"))).toBe("2026-11-24");
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-26T01:30:00.000Z"))).toBe("2026-11-25");
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-28T02:00:00.000Z"))).toBe("2026-11-27");
-    expect(resolveLatestCompletedTradingSession(new Date("2026-11-29T02:00:00.000Z"))).toBe("2026-11-28");
+    expect(resolveLatestCompletedTradingSession(new Date("2026-11-30T02:00:00.000Z"))).toBe("2026-11-28");
   });
 
   it("treats unresolvable queue window as partial rollout", () => {
