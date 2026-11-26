@@ -99,10 +99,22 @@ describe("Batch 33.9 catch-up queue and campaign corrections", () => {
   });
 
   it("resolves completed session using ET after-hours boundary", () => {
+    // Before after-hours end on a trading day → prior session.
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-25T21:30:00.000Z"))).toBe("2026-11-24");
+    // UTC calendar rolls before ET session completes → still prior session.
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-26T01:30:00.000Z"))).toBe("2026-11-25");
+    // After 8 PM ET Friday → that session.
     expect(resolveLatestCompletedTradingSession(new Date("2026-11-28T02:00:00.000Z"))).toBe("2026-11-27");
-    expect(resolveLatestCompletedTradingSession(new Date("2026-11-30T02:00:00.000Z"))).toBe("2026-11-28");
+    // Thanksgiving (full holiday) → last completed session is day before holiday.
+    expect(resolveLatestCompletedTradingSession(new Date("2026-11-26T18:00:00.000Z"))).toBe("2026-11-25");
+    // Early-close Friday before 8 PM ET → prior session (Wed pre-Thanksgiving).
+    expect(resolveLatestCompletedTradingSession(new Date("2026-11-27T19:00:00.000Z"))).toBe("2026-11-25");
+    // Early-close Friday after 8 PM ET → early-close session counts complete.
+    expect(resolveLatestCompletedTradingSession(new Date("2026-11-28T01:30:00.000Z"))).toBe("2026-11-27");
+    // Weekend evening ET → last trading day (Fri early close after Thanksgiving week).
+    expect(resolveLatestCompletedTradingSession(new Date("2026-11-30T02:00:00.000Z"))).toBe("2026-11-27");
+    // Regular session still open (3 PM ET) → not today's session.
+    expect(resolveLatestCompletedTradingSession(new Date("2026-10-14T19:00:00.000Z"))).toBe("2026-10-13");
   });
 
   it("treats unresolvable queue window as partial rollout", () => {
