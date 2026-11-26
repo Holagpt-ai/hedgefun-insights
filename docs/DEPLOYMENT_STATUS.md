@@ -1,3 +1,5 @@
+> **2026-11-26 Historical Intelligence (ops + git pending deploy):** Fly app **zero machines**, preflight **on**, image **`deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z`**. Campaign **2/20** + failed run 3; **~3410/50000** provider budget used. Queue starvation fix **not** on live image until `fly deploy --config fly.historical-backfill.toml` after PR merge + owner authorization.
+
 > **2026-11-25 evening (owner-verified; preserve):** Edge v530; Option B **ON**; Fly v50; ISS-043 **CLOSED**. Layer C `20261116153000` + reconcile `20261125203000` applied **direct Lovable SQL outside migration ledger** @ **19:34:12 UTC**; verification complete; publications **19:35** / **19:40** UTC (**107** / **108** rows, six tab evidence). **Ledger not marked applied.** PR pending: authenticated launch defects (Watchlist/Brief AI, screener delayed trust, Repeat Movers client) — **Vercel + Edge deploy after merge**, not executed here.
 
 > **2026-11-25 scanner v530 + Option B ON (18:30 UTC; partial):** Eleven publications through **18:30 UTC**; Layer C activation completed later @ **19:34 UTC** (see above).

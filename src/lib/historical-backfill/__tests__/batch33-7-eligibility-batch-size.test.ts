@@ -10,6 +10,7 @@ import {
   isHistoricalCatchupResumeOnlyEnabled,
   readHistoricalCatchupEligibilityBatchSizeFromEnv,
 } from "@/config/historical-catchup.config";
+import { findQueueStartIndex, sliceEligibleQueueFromIndex } from "@/lib/historical-backfill/catch-up-queue";
 import {
   resolveEligibilityTrancheSize,
   resumeInterruptedJobById,
@@ -85,7 +86,7 @@ describe("Batch 33.7 eligibility batch size", () => {
     ).toBe(150);
   });
 
-  it("preserves eligible symbol ordering via head slice", () => {
+  it("preserves eligible symbol ordering at queue offset zero", () => {
     const eligible = ["AAA", "BBB", "CCC", "DDD", "EEE"];
     const size = resolveEligibilityTrancheSize({
       batchesRun: 0,
@@ -93,7 +94,8 @@ describe("Batch 33.7 eligibility batch size", () => {
       limits: { ...HISTORICAL_CATCHUP_LIMITS, maxSymbolsPerRun: 600 },
       symbolsAttempted: 0,
     });
-    expect(eligible.slice(0, size)).toEqual(["AAA", "BBB", "CCC"]);
+    const { window } = sliceEligibleQueueFromIndex(eligible, findQueueStartIndex(eligible, null), size);
+    expect([...window]).toEqual(["AAA", "BBB", "CCC"]);
   });
 
   it("honors remaining symbol budget on later batches", () => {

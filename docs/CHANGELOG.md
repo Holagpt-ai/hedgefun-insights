@@ -1,5 +1,23 @@
 ﻿# Changelog
 
+## 2026-11-26 — Historical catch-up queue starvation fix (git; PR pending)
+
+- Symbol cursor `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` (no numeric offset); provider outcome taxonomy; campaign state JSON + lock; recurring catch-up driver script (not scheduled).
+- Recurring catch-up operations doc + `resolve-catchup-target.ts` (not activated). Vitest: `batch33-9-queue-starvation.test.ts`.
+- Operational safeguards (same PR): one atomic lock owner (nested recurring does not steal/cleanup foreign locks); persist full per-run provider reservation before machine launch; Fly cleanup verifies exit codes, zero machines, and restored preflight; HTTP 200 missing/malformed reference payloads classify as `provider_invalid_response`. PowerShell orchestration tests: `scripts/historical/__tests__/catchup-orchestration.tests.ps1`.
+
+## 2026-11-26 — Historical consolidated catch-up campaign (ops only; partial)
+
+- Two successful Fly executions at **600/3/2500** caps (~**340.8k** rows, **~32.9k** episodes, **3010** provider calls); **`eligibleSymbolsRemaining` ~4735** after run 2.
+- Job IDs: `d3e927ae-d1bd-461d-9cf7-8c986a9af0fe`, `e644da93-58f2-4d5f-ba84-5c4776a938d7`, `c9f2bb21-536b-4838-97bb-3a78bf65d12b`, `d3abb1e8-d9ff-4f5d-b597-e17afd95cb5b` (plus pilot `c35c4f06-d2f6-4219-a678-9e21d2f0bd04`).
+- Run 3 halted: `batch_skipped` / `no_resolvable_identities`; worker **0**, preflight **on**.
+
+## 2026-11-26 — Historical catch-up entitlement + bounded pilot (ops only; no git deploy)
+
+- Verified Polygon entitlement earliest SPY daily session **2021-11-29**; Fly `HISTORICAL_PROVIDER_ENTITLEMENT_FLOOR_DATE` updated from failing **2021-10-25** (no subscription upgrade, no image rebuild — **v48** digest `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z`).
+- Non-writing preflight **`catch_up_preflight_ok`** (target **2026-11-25**); authorized bounded pilot wrote **132** daily rows + **29** episodes (`jobId` `c35c4f06-d2f6-4219-a678-9e21d2f0bd04`); **5325** eligible symbols remain.
+- Worker scaled to **0**; **`HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1`** restored. Consolidated catch-up: adjust caps + scale-up loop (documented in `SESSION_HANDOFF.md`).
+
 ## 2026-11-25 — Authenticated launch defect correction (PR #275)
 
 - **Watchlist + Brief:** surface-isolated model resolution (`resolveWatchlistAnthropicModelId` / `resolveDailyBriefAnthropicModelId`); permanent HTTP failures no longer exhaust transport retries; batch **provider-wide containment** in `run-watchlist-analysis-v2-batch` after confirmed auth/account/model signals (not ticker-scoped 400s); missing `ANTHROPIC_API_KEY` → `AI_AUTH`.

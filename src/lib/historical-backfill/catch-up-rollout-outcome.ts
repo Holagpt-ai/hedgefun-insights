@@ -8,7 +8,12 @@ export type CatchUpStopReason =
   | "fly_run_limits"
   | "job_paused"
   | "no_progress"
-  | "interrupted_job_incomplete";
+  | "interrupted_job_incomplete"
+  | "unresolvable_queue_window"
+  | "provider_rate_limited"
+  | "provider_transient"
+  | "provider_entitlement_failure"
+  | "provider_invalid_response";
 
 export type CatchUpRolloutOutcome = "complete" | "partial";
 
