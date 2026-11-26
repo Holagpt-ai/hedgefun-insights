@@ -106,6 +106,8 @@ Day Trade Five Pillars transparency (Batch 182): `buildFivePillarsTransparencyVi
 
 Desktop Day Trade Radar workspace tabs (Batch 183): `MultiRadarWorkspace` on desktop shows one of Live Radar, Momentum, Historical, Signals, or Settings via `desktop-radar-workspace-tabs.ts`. Existing `RadarPanelBoard` / carryover / repeat-movers components are reused; mobile keeps per-panel tabs. Status rail and qualification counts stay above the workspace.
 
+**Public catalyst calendar (V4):** `/calendar` and `HomepageTradingCalendar` call `public_catalyst_calendar_range_v1` via `fetchPublicCatalystCalendarRange` (no direct guest `catalyst_events` SELECT). Contract in `src/lib/calendar-v4/`. Handoff: `calDate`, `calTab`, `calFilter`. Macro: `economic_events` + `economic_sync_status`; `sync-economic-calendar` (Finnhub, gated by `FINNHUB_ECONOMIC_ENABLED`). Activation: `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
+
 Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.

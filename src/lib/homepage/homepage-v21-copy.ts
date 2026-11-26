@@ -19,7 +19,7 @@ type HomepageV21CopyBundle = {
   calendarFeedError: string;
   calendarViewFull: string;
   calendarViewEarnings: string;
-  calendarCatalystV4Soon: string;
+  calendarViewFullCatalyst: string;
   calendarHandoffDate: string;
   calendarToday: string;
   calendarHoliday: string;
@@ -55,13 +55,13 @@ const en: HomepageV21CopyBundle = {
   searchSearching: "Searching…",
   calendarTitle: "Calendar",
   calendarEconomicUnavailable:
-    "Economic releases are not available on the homepage yet. Check back after the macro data feed is connected.",
+    "No macro releases are listed for this day. U.S. economic calendar data appears here when synced to production.",
   calendarNoEvents: (tab: HomepageCalendarTab) =>
     tab === "earnings" ? "No earnings on this day." : "No catalyst events on this day.",
   calendarFeedError: "Calendar is temporarily unavailable.",
   calendarViewFull: "View full calendar →",
   calendarViewEarnings: "View earnings calendar →",
-  calendarCatalystV4Soon: "Full catalyst calendar — coming in V4",
+  calendarViewFullCatalyst: "View Full Calendar →",
   calendarHandoffDate: "Selected date",
   calendarToday: "Today",
   calendarHoliday: "Market holiday",
@@ -136,7 +136,7 @@ const es: HomepageV21CopyBundle = {
   calendarFeedError: "El calendario no está disponible temporalmente.",
   calendarViewFull: "Ver calendario completo →",
   calendarViewEarnings: "Ver calendario de ganancias →",
-  calendarCatalystV4Soon: "Calendario de catalizadores — próximamente (V4)",
+  calendarViewFullCatalyst: "Ver calendario completo →",
   calendarHandoffDate: "Fecha seleccionada",
   calendarToday: "Hoy",
   calendarHoliday: "Feriado bursátil",

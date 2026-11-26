@@ -16,7 +16,8 @@ Dynamic segments (`:ticker`, `:slug`, `:symbol`, `:type`, journal ids) are real 
 | `/movers`, `/movers/:type` | Movers |
 | `/markets/gainers`, `/markets/losers`, `/markets/active`, `/markets/premarket`, `/markets/after-hours`, `/markets/heatmap` | Market boards |
 | `/ipos`, `/ipos/recent`, `/ipos/calendar`, `/ipos/upcoming`, `/ipos/statistics`, `/ipos/news`, `/ipos/screener`, `/ipos/spac` | IPO section |
-| `/earnings` | Earnings |
+| `/earnings` | Earnings calendar |
+| `/calendar` | Public Catalyst Calendar V4 (month/list, filters, chart handoffs) |
 | `/news` | News |
 | `/trending` | Trending |
 | `/articles`, `/articles/:slug` | Articles |

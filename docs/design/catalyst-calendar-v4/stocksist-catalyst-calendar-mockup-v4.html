@@ -1,0 +1,1931 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="data:," />
+    <title>Stocksist Catalyst Calendar Mockup v4 — List / Agenda View</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js" integrity="sha384-hJnF5AwidE18GSWTAGHv3ByzzvfNZ1Tcx5y1UUV3WkauuMCEzBJBMSwSt/PUPXnM" crossorigin="anonymous"></script>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+      :root{
+        --bg:#f4f6f9; --surface:#ffffff; --ink:#0e1a2b; --ink-2:#43536b; --ink-3:#71809a;
+        --line:#e2e8f0; --line-soft:#edf1f6;
+        --blue:#1663d9; --blue-dark:#0d47a1; --blue-soft:#e8f1fd;
+        --up:#0a8a4d; --up-soft:#e6f6ee; --down:#d43a2f; --down-soft:#fdecea;
+        --amber:#b7791f; --amber-soft:#fdf3e0; --navy:#0a1526;
+        --radius:14px;
+        --shadow:0 1px 2px rgba(14,26,43,.05),0 8px 24px -12px rgba(14,26,43,.12);
+        --shadow-lg:0 24px 64px -16px rgba(10,21,38,.35);
+        --font:"Public Sans",-apple-system,"Segoe UI",sans-serif;
+        --mono:"IBM Plex Mono",ui-monospace,monospace;
+      }
+      html{ -webkit-text-size-adjust:100%; }
+      body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--font); font-size:15px; line-height:1.5; }
+      h1,h2,h3,p,ul,ol,figure{ margin:0; } ul,ol{ padding:0; list-style:none; }
+      button{ font-family:inherit; cursor:pointer; }
+      a{ color:var(--blue); text-decoration:none; }
+      a:hover{ text-decoration:underline; }
+      .lucide{ width:16px; height:16px; stroke-width:2; flex:none; }
+
+      /* ---------- site chrome (the Stocksist site this page lives in) ---------- */
+      .sitebar{ background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:40; }
+      .sitebar-in{ max-width:1340px; margin:0 auto; padding:0 20px; min-height:58px; display:flex; align-items:center; gap:22px; }
+      .brand{ font-weight:800; font-size:19px; color:var(--ink); letter-spacing:-.02em; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+      .brand:hover{ text-decoration:none; }
+      .brand .brand-mark{ width:28px; height:28px; border-radius:8px; background:var(--blue); color:#fff; display:grid; place-items:center; font-family:var(--mono); font-size:16px; font-weight:700; }
+      .brand em{ font-style:normal; color:var(--blue); }
+      .sitenav{ display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; min-width:0; flex:0 1 auto; }
+      .sitenav::-webkit-scrollbar{ display:none; }
+      .sitenav a{ color:var(--ink-2); font-size:13.5px; font-weight:600; padding:8px 10px; border-radius:8px; white-space:nowrap; }
+      .sitenav a:hover{ text-decoration:none; background:var(--bg); color:var(--ink); }
+      .sitenav a.active{ color:var(--blue-dark); background:var(--blue-soft); }
+      .sitebar-right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
+      .ticksearch{ position:relative; }
+      .ticksearch .lucide{ position:absolute; left:10px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-3); }
+      .ticksearch input{ width:210px; padding:7px 10px 7px 32px; border:1px solid var(--line); border-radius:999px; background:var(--bg); font:inherit; font-size:13px; color:var(--ink); }
+      .ticksearch input:focus{ outline:2px solid var(--blue); outline-offset:0; background:#fff; }
+      .nyse-pill{ display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--up); background:var(--up-soft); padding:6px 11px; border-radius:999px; white-space:nowrap; }
+      .nyse-pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--up); }
+      .avatar{ width:32px; height:32px; border-radius:50%; background:var(--navy); color:#fff; display:grid; place-items:center; font-size:13px; font-weight:700; flex:none; }
+
+      .wrap{ max-width:1340px; margin:0 auto; padding:22px 20px 0; }
+      .crumb{ font-size:12.5px; color:var(--ink-3); font-weight:600; margin-bottom:14px; line-height:1.6; }
+      .crumb .lucide{ width:13px; height:13px; vertical-align:-2px; margin-right:5px; }
+      .crumb b{ color:var(--ink-2); font-weight:700; }
+
+      /* ---------- page head + toolbar ---------- */
+      .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+      .page-head h1{ font-size:32px; font-weight:800; letter-spacing:-.025em; line-height:1.1; }
+      .page-head .sub{ color:var(--ink-2); font-size:14.5px; margin-top:6px; max-width:640px; }
+      .month-count{ margin-top:10px; font-size:13px; color:var(--ink-3); font-weight:600; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .month-count strong{ color:var(--ink); font-family:var(--mono); font-size:14px; }
+      .free-tag{ background:var(--up-soft); color:var(--up); font-weight:800; font-size:11px; padding:3px 9px; border-radius:999px; letter-spacing:.02em; }
+      .head-note{ font-size:12.5px; color:var(--ink-3); max-width:300px; text-align:right; line-height:1.45; }
+      .head-note b{ color:var(--ink-2); }
+
+      .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin:20px 0 14px; }
+      .filters{ display:flex; gap:8px; flex-wrap:wrap; }
+      .filter-btn{ display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:7px 15px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-2); font-size:13px; font-weight:700; transition:background .15s,border-color .15s,color .15s; }
+      .filter-btn .lucide{ width:14px; height:14px; }
+      .filter-btn:hover{ border-color:var(--blue); color:var(--blue-dark); }
+      .filter-btn.active{ background:var(--blue); border-color:var(--blue); color:#fff; }
+      .filter-btn .fcount{ font-family:var(--mono); font-size:11px; font-weight:600; opacity:.75; }
+      .monthnav{ display:flex; align-items:center; gap:8px; margin-left:auto; }
+      .monthnav .mnav-btn{ width:36px; height:36px; min-height:36px; border-radius:9px; border:1px solid var(--line); background:var(--surface); display:grid; place-items:center; color:var(--ink-2); }
+      .monthnav .mnav-btn:hover{ border-color:var(--blue); color:var(--blue-dark); }
+      .month-label{ font-size:16px; font-weight:800; letter-spacing:-.01em; min-width:132px; text-align:center; }
+      .tool-btn{ display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:7px 14px; border-radius:9px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13px; font-weight:700; }
+      .tool-btn:hover{ border-color:var(--blue); color:var(--blue-dark); }
+      .tool-btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
+      .tool-btn.primary:hover{ background:var(--blue-dark); border-color:var(--blue-dark); color:#fff; }
+      .tool-btn .lucide{ width:15px; height:15px; }
+
+      /* ---------- AI day brief ---------- */
+      .brief{ background:var(--navy); color:#eaf1fb; border-radius:var(--radius); padding:18px 20px; display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:start; box-shadow:var(--shadow); margin-bottom:16px; }
+      .brief-badge{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.16); padding:8px 12px; border-radius:10px; font-weight:800; font-size:12.5px; white-space:nowrap; }
+      .brief-badge .lucide{ color:#8db9f5; }
+      .brief h2{ font-size:16.5px; font-weight:800; letter-spacing:-.01em; }
+      .brief h2 span{ color:#8db9f5; }
+      .brief ul{ margin-top:8px; display:grid; gap:5px; }
+      .brief li{ font-size:13.5px; color:#c9d8ee; display:flex; gap:9px; }
+      .brief li .lucide{ width:14px; height:14px; margin-top:3px; color:#8db9f5; }
+      .brief li b{ color:#fff; }
+      .brief .tool-btn{ background:#fff; border-color:#fff; }
+      .brief .tool-btn:hover{ color:var(--blue-dark); }
+
+      /* ---------- calendar grid ---------- */
+      .cal-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; }
+      .dow-row{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; padding:2px 2px 10px; }
+      .dow-row span{ text-align:center; font-size:11px; font-weight:800; letter-spacing:.12em; color:var(--ink-3); }
+      .cal-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+      .day-cell{ background:#f8fafd; border:1.5px solid var(--line-soft); border-radius:10px; padding:8px; min-height:138px; min-width:0; overflow:hidden; display:flex; flex-direction:column; gap:4px; cursor:pointer; text-align:left; font-family:inherit; width:100%; transition:border-color .15s, box-shadow .15s, background .15s; }
+      .day-cell:hover{ border-color:#bcd4f7; background:#fff; }
+      .day-cell.selected{ border-color:var(--blue); background:#fff; box-shadow:0 0 0 3px var(--blue-soft); }
+      .day-cell.outside{ background:transparent; border-color:transparent; cursor:default; }
+      .day-cell.weekend{ background:#fbfcfe; }
+      .day-top{ display:flex; align-items:center; gap:6px; margin-bottom:2px; }
+      .day-num{ font-size:13px; font-weight:800; color:var(--ink-2); font-family:var(--mono); }
+      .day-cell.selected .day-num{ color:var(--blue-dark); }
+      .today-tag{ font-size:9.5px; font-weight:800; letter-spacing:.06em; background:var(--blue); color:#fff; padding:2px 6px; border-radius:999px; }
+      .closed-tag{ font-size:9.5px; font-weight:800; letter-spacing:.04em; background:var(--amber-soft); color:var(--amber); padding:2px 6px; border-radius:999px; }
+      .day-dow{ display:none; }
+      .chip{ display:flex; align-items:center; gap:5px; font-size:11px; line-height:1.3; padding:3.5px 6px; border-radius:6px; background:color-mix(in srgb, var(--c) 9%, #fff); border:1px solid color-mix(in srgb, var(--c) 16%, #fff); color:var(--ink); min-width:0; transition:opacity .15s; }
+      .chip .tick{ font-family:var(--mono); font-weight:700; font-size:10.5px; color:var(--c); white-space:nowrap; }
+      .chip .ctitle{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink-2); font-weight:600; }
+      .chip .lucide{ width:11px; height:11px; color:var(--c); }
+      .chip .star{ color:var(--amber); fill:var(--amber); }
+      .chip.dim{ opacity:.18; }
+      .chip.gone{ display:none; }
+      .chip.search-dim{ opacity:.18; }
+      .more-link{ font-size:11px; font-weight:700; color:var(--blue); padding:2px 2px 0; display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+      .more-link .hi-note{ color:var(--down); font-weight:700; display:inline-flex; align-items:center; gap:3px; }
+      .more-link .hi-note .lucide{ width:11px; height:11px; }
+      .legend{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:14px; padding-top:13px; border-top:1px solid var(--line-soft); }
+      .legend-label{ font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--ink-3); margin-right:2px; }
+      .legend-chip{ display:inline-flex; align-items:center; gap:7px; min-height:32px; padding:5px 11px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:12px; font-weight:700; color:var(--ink-2); }
+      .legend-chip .swatch{ width:9px; height:9px; border-radius:3px; background:var(--c); flex:none; }
+      .legend-chip .lucide{ width:13px; height:13px; color:var(--ink-3); }
+      .legend-chip.off{ opacity:.45; background:var(--bg); }
+      .legend-chip.off .swatch{ background:var(--ink-3); }
+      .legend-note{ margin-left:auto; font-size:12px; color:var(--ink-3); display:flex; align-items:center; gap:6px; }
+      .legend-note .lucide{ width:13px; height:13px; }
+
+      /* ---------- day view ---------- */
+      .dayview{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,400px); gap:16px; margin-top:16px; align-items:start; }
+      .panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }
+      .panel-head{ padding:16px 18px 12px; border-bottom:1px solid var(--line-soft); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+      .panel-head h2{ font-size:18px; font-weight:800; letter-spacing:-.015em; }
+      .panel-head .ph-sub{ font-size:12.5px; color:var(--ink-3); font-weight:600; margin-top:3px; }
+      .impact-key{ display:flex; gap:6px; font-size:11px; font-weight:700; color:var(--ink-3); align-items:center; }
+      .impact-key .k{ display:inline-flex; align-items:center; gap:4px; }
+      .impact-key .lucide{ width:12px; height:12px; }
+      .ev-list{ padding:8px; display:grid; gap:4px; }
+      .ev-row{ display:grid; grid-template-columns:64px 10px 1fr auto; gap:10px; align-items:start; padding:10px 10px; border-radius:10px; border:1px solid transparent; }
+      .ev-row:hover{ background:#f8fafd; border-color:var(--line-soft); }
+      .ev-time{ font-family:var(--mono); font-size:11.5px; font-weight:600; color:var(--ink-3); padding-top:2px; white-space:nowrap; }
+      .ev-dot{ width:9px; height:9px; border-radius:3px; background:var(--c); margin-top:5px; }
+      .ev-main{ min-width:0; }
+      .ev-title{ font-size:13.5px; font-weight:700; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .ev-title .tick{ font-family:var(--mono); color:var(--c); font-size:12.5px; }
+      .ev-title button.tickbtn{ background:none; border:none; padding:0; font:inherit; color:inherit; display:inline-flex; }
+      .ev-ai{ font-size:12.5px; color:var(--ink-2); margin-top:2px; }
+      .ev-meta{ font-size:11.5px; color:var(--ink-3); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      .ev-meta .src{ display:inline-flex; gap:4px; align-items:center; }
+      .ev-meta .lucide{ width:12px; height:12px; }
+      .badge{ font-size:10px; font-weight:800; letter-spacing:.04em; padding:2.5px 7px; border-radius:999px; white-space:nowrap; }
+      .badge.high{ background:var(--down-soft); color:var(--down); }
+      .badge.med{ background:var(--amber-soft); color:var(--amber); }
+      .badge.low{ background:var(--bg); color:var(--ink-3); border:1px solid var(--line-soft); }
+      .badge.type{ background:color-mix(in srgb, var(--c) 10%, #fff); color:var(--c); }
+      .badge.watch{ background:#fff7e0; color:var(--amber); display:inline-flex; gap:3px; align-items:center; }
+      .badge.watch .lucide{ width:10px; height:10px; fill:var(--amber); }
+      .ev-side{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+      .ev-more{ padding:10px 14px 14px; font-size:12.5px; color:var(--ink-3); font-weight:600; display:flex; align-items:center; gap:7px; }
+      .ev-more .lucide{ width:14px; height:14px; color:var(--blue); }
+
+      /* ---------- pinned / hover ticker card ---------- */
+      .spot-head{ padding:14px 16px 0; display:flex; align-items:center; gap:8px; font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--ink-3); }
+      .spot-head .lucide{ width:14px; height:14px; color:var(--blue); }
+      .tcard{ padding:6px 16px 16px; }
+      .tcard .outlook{ display:flex; align-items:center; gap:8px; background:var(--bg); border-radius:9px; padding:8px 11px; font-size:12.5px; font-weight:600; color:var(--ink-2); margin:10px 0 12px; flex-wrap:wrap; }
+      .tcard .outlook .lucide{ width:14px; height:14px; color:var(--ink-3); }
+      .tcard .outlook b.bull{ color:var(--up); } .tcard .outlook b.bear{ color:var(--down); }
+      .tcard .outlook a{ margin-left:auto; font-weight:700; font-size:12.5px; display:inline-flex; gap:2px; align-items:center; }
+      .tcard .outlook a .lucide{ width:13px; height:13px; color:var(--blue); }
+      .tname{ font-size:16.5px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; }
+      .tname .tsym{ font-family:var(--mono); font-size:11px; font-weight:700; color:var(--blue-dark); background:var(--blue-soft); padding:3px 7px; border-radius:6px; }
+      .tprice-row{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-top:6px; }
+      .tprice{ font-size:27px; font-weight:800; letter-spacing:-.02em; font-family:var(--mono); }
+      .tchg{ font-size:14px; font-weight:800; display:inline-flex; align-items:center; gap:5px; }
+      .tchg.up{ color:var(--up); } .tchg.down{ color:var(--down); }
+      .tchg .lucide{ width:15px; height:15px; }
+      .tpre{ font-size:12.5px; font-weight:700; color:var(--up); display:inline-flex; gap:5px; align-items:center; }
+      .tclosed{ font-size:12px; color:var(--ink-3); font-weight:600; margin-top:2px; }
+      .tchart{ margin-top:10px; position:relative; }
+      .tchart svg{ display:block; width:100%; height:auto; }
+      .prevclose{ position:absolute; right:2px; font-size:10.5px; color:var(--ink-3); font-weight:600; background:rgba(255,255,255,.85); padding:0 3px; }
+      .trange{ display:flex; gap:4px; margin-top:10px; }
+      .trange span{ font-size:11.5px; font-weight:700; color:var(--ink-3); padding:4px 9px; border-radius:999px; }
+      .trange span.on{ background:var(--bg); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line); }
+      .tai{ display:flex; gap:8px; background:var(--blue-soft); border-radius:9px; padding:9px 11px; font-size:12.5px; color:var(--ink-2); margin-top:12px; line-height:1.45; }
+      .tai .lucide{ width:15px; height:15px; color:var(--blue); margin-top:1px; }
+      .tai b{ color:var(--blue-dark); }
+      .tstats{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin-top:12px; border-top:1px solid var(--line-soft); }
+      .tstats .stat{ padding:8px 4px 2px; }
+      .tstats .stat dt{ font-size:11px; color:var(--ink-3); font-weight:600; }
+      .tstats .stat dd{ margin:1px 0 0; font-size:13px; font-weight:700; font-family:var(--mono); }
+      .trel{ margin-top:14px; }
+      .trel h3, .tpred h3{ font-size:13px; font-weight:800; margin-bottom:8px; }
+      .trel-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+      .rel-card{ background:#f8fafd; border:1px solid var(--line-soft); border-radius:9px; padding:8px 9px 4px; text-align:left; font-family:inherit; width:100%; min-width:0; overflow:hidden; }
+      .rel-card:hover{ border-color:#bcd4f7; }
+      .rel-card .rt{ font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--ink-3); }
+      .rel-card .rn{ font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .rel-card .rp{ font-size:11.5px; color:var(--ink-2); font-family:var(--mono); }
+      .rel-card .rc{ font-size:12px; font-weight:800; display:flex; align-items:center; gap:3px; }
+      .rel-card .rc .lucide{ width:12px; height:12px; }
+      .rel-card svg{ display:block; width:100%; height:22px; margin-top:3px; }
+      .tpred{ margin-top:14px; }
+      .pred-card{ background:#f8fafd; border:1px solid var(--line-soft); border-radius:9px; padding:10px 12px; font-size:12.5px; font-weight:700; line-height:1.4; }
+      .pred-card + .pred-card{ margin-top:7px; }
+      .pred-card span{ display:block; margin-top:5px; font-size:11px; color:var(--ink-3); font-weight:600; }
+      .hover-hint{ padding:0 16px 14px; font-size:12px; color:var(--ink-3); display:flex; gap:7px; align-items:center; }
+      .hover-hint .lucide{ width:13px; height:13px; color:var(--blue); }
+
+      /* floating hover card */
+      #hoverCard{ position:fixed; z-index:80; width:372px; max-width:calc(100vw - 24px); background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-lg); }
+      #hoverCard[hidden]{ display:none; }
+      #hoverCard .tcard{ padding-top:2px; }
+      #hoverCard .hc-close{ position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:8px; border:none; background:var(--bg); display:grid; place-items:center; color:var(--ink-2); }
+      .macro-facts{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+      .macro-facts .mf{ background:#f8fafd; border:1px solid var(--line-soft); border-radius:9px; padding:8px 10px; }
+      .macro-facts .mf dt{ font-size:10.5px; font-weight:700; color:var(--ink-3); letter-spacing:.05em; }
+      .macro-facts .mf dd{ margin:2px 0 0; font-family:var(--mono); font-weight:700; font-size:14px; }
+
+      /* ---------- how it works ---------- */
+      .how{ margin-top:16px; padding:18px 20px; }
+      .how h2{ font-size:16.5px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; }
+      .how h2 .lucide{ color:var(--blue); }
+      .how .how-sub{ font-size:13px; color:var(--ink-2); margin-top:5px; max-width:820px; }
+      .how-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:14px; }
+      .how-step{ background:#f8fafd; border:1px solid var(--line-soft); border-radius:11px; padding:13px 14px; }
+      .how-step .hs-ic{ width:34px; height:34px; border-radius:9px; background:var(--blue-soft); color:var(--blue-dark); display:grid; place-items:center; margin-bottom:9px; }
+      .how-step h3{ font-size:13.5px; font-weight:800; }
+      .how-step p{ font-size:12.5px; color:var(--ink-2); margin-top:3px; line-height:1.5; }
+      .src-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+      .src-row .lbl{ font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--ink-3); }
+      .src-chip{ font-size:12px; font-weight:700; color:var(--ink-2); border:1px solid var(--line); background:#fff; padding:5px 11px; border-radius:999px; display:inline-flex; gap:6px; align-items:center; }
+      .src-chip .lucide{ width:13px; height:13px; color:var(--blue); }
+
+      /* ---------- footer ---------- */
+      .disc{ max-width:820px; margin:30px auto 0; text-align:left; padding:20px 4px 0; border-top:1px solid var(--line); }
+      .disc h3{ font-size:13px; font-weight:800; }
+      .disc p{ font-size:12.5px; color:var(--ink-3); margin-top:6px; line-height:1.6; }
+      .foot{ text-align:center; padding:22px 0 34px; }
+      .foot nav{ display:flex; justify-content:center; gap:6px; flex-wrap:wrap; font-size:13px; font-weight:600; }
+      .foot nav a{ color:var(--ink-2); padding:6px 8px; }
+      .foot .copy{ font-size:12px; color:var(--ink-3); margin-top:8px; }
+
+      /* ---------- v2: action buttons ---------- */
+      .action-row{ display:flex; gap:7px; flex-wrap:wrap; margin-top:12px; }
+      .act-btn{ display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:6px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--ink); font-size:12.5px; font-weight:700; }
+      .act-btn:hover{ border-color:var(--blue); color:var(--blue-dark); }
+      .act-btn .lucide{ width:14px; height:14px; }
+      .act-btn.primary{ background:var(--blue); border-color:var(--blue); color:#fff; }
+      .act-btn.primary:hover{ background:var(--blue-dark); color:#fff; }
+      .act-btn.on{ background:var(--amber-soft); border-color:#ecd9a8; color:var(--amber); }
+      .act-btn.on .lucide{ fill:var(--amber); }
+      .mini-acts{ display:flex; gap:5px; margin-top:2px; }
+      .mini-btn{ display:inline-flex; align-items:center; gap:4px; min-height:28px; padding:3px 8px; border-radius:7px; border:1px solid var(--line); background:#fff; font-size:11px; font-weight:700; color:var(--ink-2); }
+      .mini-btn:hover{ border-color:var(--blue); color:var(--blue-dark); }
+      .mini-btn .lucide{ width:12px; height:12px; }
+      .mini-btn.on{ background:var(--amber-soft); color:var(--amber); border-color:#ecd9a8; }
+
+      /* ---------- v2: sparkline preview card (hover) ---------- */
+      .spark-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:14px 16px 0; }
+      .spark-sym{ font-family:var(--mono); font-size:11px; font-weight:700; color:var(--blue-dark); background:var(--blue-soft); padding:3px 7px; border-radius:6px; display:inline-block; }
+      .spark-name{ font-size:15.5px; font-weight:800; letter-spacing:-.01em; margin-top:6px; }
+      .spark-price{ font-size:24px; font-weight:800; font-family:var(--mono); letter-spacing:-.02em; }
+      .spark-chg{ font-size:13px; font-weight:800; display:inline-flex; gap:4px; align-items:center; }
+      .spark-chg .lucide{ width:14px; height:14px; }
+      .spark-chart{ margin:10px 16px 0; background:#f8fafd; border:1px solid var(--line-soft); border-radius:10px; padding:8px 10px 4px; position:relative; }
+      .spark-chart svg{ display:block; width:100%; height:64px; }
+      .spark-meta{ display:flex; gap:14px; flex-wrap:wrap; padding:8px 16px 0; font-size:11.5px; color:var(--ink-3); font-weight:600; }
+      .spark-meta b{ color:var(--ink); font-family:var(--mono); }
+      .spark-ai{ margin:10px 16px 0; }
+      .spark-foot{ padding:0 16px 14px; }
+      .spark-tag{ font-size:10px; font-weight:800; letter-spacing:.07em; color:var(--ink-3); padding:14px 16px 0; display:flex; align-items:center; gap:6px; }
+      .spark-tag .lucide{ width:13px; height:13px; color:var(--blue); }
+
+      /* ---------- v2: full chart pop-up ---------- */
+      .chart-overlay{ padding:20px 12px; }
+      .chart-sheet{ max-width:1060px; padding:0; overflow:hidden; }
+      .chart-top{ padding:20px 22px 0; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+      .chart-top .ct-name{ font-size:20px; font-weight:800; letter-spacing:-.015em; }
+      .chart-top .ct-price{ font-size:32px; font-weight:800; font-family:var(--mono); letter-spacing:-.02em; margin-top:4px; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+      .chart-ranges{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; padding:14px 22px 0; }
+      .range-btn{ min-height:32px; padding:5px 12px; border-radius:999px; border:1px solid transparent; background:transparent; font-size:12.5px; font-weight:700; color:var(--ink-3); }
+      .range-btn:hover{ color:var(--blue-dark); background:var(--blue-soft); }
+      .range-btn.on{ background:var(--navy); color:#fff; }
+      .ke-toggle{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--ink-2); min-height:32px; padding:5px 12px; border:1px solid var(--line); border-radius:999px; background:#fff; }
+      .ke-toggle .dotk{ width:8px; height:8px; border-radius:50%; background:var(--line); }
+      .ke-toggle.on .dotk{ background:var(--amber); }
+      .big-chart-wrap{ margin:12px 22px 0; position:relative; background:#fbfcfe; border:1px solid var(--line-soft); border-radius:12px; padding:14px 8px 6px; }
+      .big-chart-wrap svg{ display:block; width:100%; height:300px; }
+      .chart-tip{ position:absolute; z-index:5; background:var(--navy); color:#fff; font-size:12px; font-weight:700; padding:7px 10px; border-radius:8px; pointer-events:none; white-space:nowrap; box-shadow:var(--shadow-lg); transform:translate(-50%,-130%); }
+      .chart-tip span{ display:block; font-weight:600; color:#a9c2e4; font-size:11px; }
+      .chart-vline{ position:absolute; top:10px; bottom:26px; width:1px; background:#b6c6dc; pointer-events:none; }
+      .chart-dot{ position:absolute; width:11px; height:11px; border-radius:50%; border:2.5px solid #fff; box-shadow:0 1px 5px rgba(10,21,38,.35); pointer-events:none; transform:translate(-50%,-50%); }
+      .chart-axis{ display:flex; justify-content:space-between; font-size:11px; color:var(--ink-3); font-weight:600; padding:4px 10px 6px; }
+      .chart-legend-line{ display:flex; gap:16px; flex-wrap:wrap; padding:8px 22px 0; font-size:12px; color:var(--ink-3); font-weight:600; }
+      .chart-legend-line b{ color:var(--ink); font-family:var(--mono); }
+      .chart-cols{ display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:16px; padding:16px 22px 0; align-items:start; }
+      .ai-bot{ background:var(--navy); color:#eaf1fb; border-radius:12px; padding:16px; }
+      .ai-bot-head{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:13px; }
+      .ai-bot-head .bot-av{ width:30px; height:30px; border-radius:9px; background:var(--blue); display:grid; place-items:center; color:#fff; }
+      .ai-bot-head .bot-av .lucide{ width:16px; height:16px; }
+      .ai-bot-head small{ display:block; font-weight:600; color:#8db9f5; font-size:11px; }
+      .ai-bot-msg{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:4px 12px 12px 12px; padding:12px 13px; font-size:13.5px; line-height:1.6; margin-top:12px; }
+      .ai-bot-msg b{ color:#fff; }
+      .levels{ display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:12px; }
+      .levels .lv{ background:rgba(255,255,255,.06); border-radius:9px; padding:8px 10px; }
+      .levels .lv dt{ font-size:10px; font-weight:800; letter-spacing:.07em; color:#8db9f5; }
+      .levels .lv dd{ margin:2px 0 0; font-family:var(--mono); font-weight:700; font-size:14.5px; color:#fff; }
+      .ai-bot .stance{ margin-top:12px; font-size:12.5px; color:#c9d8ee; display:flex; gap:8px; line-height:1.5; }
+      .ai-bot .stance .lucide{ width:14px; height:14px; color:#8db9f5; margin-top:2px; }
+      .chart-stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0 18px; }
+      .chart-stats .stat{ padding:9px 0; border-bottom:1px solid var(--line-soft); }
+      .chart-stats .stat dt{ font-size:11px; color:var(--ink-3); font-weight:600; }
+      .chart-stats .stat dd{ margin:1px 0 0; font-size:13.5px; font-weight:700; font-family:var(--mono); }
+      .chart-sec-h{ font-size:14px; font-weight:800; margin:18px 22px 0; }
+      .chart-rel{ padding:10px 22px 0; }
+      .chart-pred{ padding:10px 22px 22px; }
+      .chart-pred .pred-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+      @media (max-width:900px){
+        .chart-cols{ grid-template-columns:1fr; }
+        .chart-stats{ grid-template-columns:repeat(2,1fr); }
+        .chart-pred .pred-grid{ grid-template-columns:1fr; }
+        .big-chart-wrap svg{ height:220px; }
+      }
+
+      /* ---------- v2: journal form ---------- */
+      .journal-sheet{ max-width:620px; }
+      .j-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+      .j-field label{ display:block; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--ink-3); margin-bottom:5px; }
+      .j-field input, .j-field textarea{ width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:9px; padding:9px 11px; font:inherit; font-size:13.5px; color:var(--ink); background:#fff; }
+      .j-field input[readonly]{ background:var(--bg); font-family:var(--mono); font-weight:600; font-size:13px; }
+      .j-field.full{ grid-column:1 / -1; }
+      .j-field textarea{ min-height:74px; resize:vertical; line-height:1.5; }
+      .j-actions{ display:flex; gap:9px; margin-top:16px; flex-wrap:wrap; }
+      .j-saved{ text-align:center; padding:18px 6px 6px; }
+      .j-saved .ok-ic{ width:52px; height:52px; border-radius:50%; background:var(--up-soft); color:var(--up); display:grid; place-items:center; margin:0 auto 12px; }
+      .j-saved .ok-ic .lucide{ width:26px; height:26px; }
+      .j-saved h3{ font-size:17px; font-weight:800; }
+      .j-saved p{ font-size:13px; color:var(--ink-2); margin-top:6px; line-height:1.55; }
+      @media (max-width:560px){ .j-grid{ grid-template-columns:1fr; } }
+
+      /* ---------- v2: Kimi critique package ---------- */
+      .kimi{ margin-top:16px; padding:20px; border:1.5px dashed #bcd4f7; background:linear-gradient(180deg,#f4f9ff,#fff); }
+      .kimi h2{ font-size:17px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; }
+      .kimi h2 .lucide{ color:var(--blue); }
+      .kimi .kimi-sub{ font-size:13px; color:var(--ink-2); margin-top:6px; max-width:860px; line-height:1.55; }
+      .kimi-btns{ display:flex; gap:9px; flex-wrap:wrap; margin-top:14px; }
+      .kimi pre{ margin:14px 0 0; background:var(--navy); color:#dbe7f8; border-radius:11px; padding:16px 18px; font-family:var(--mono); font-size:12px; line-height:1.65; white-space:pre-wrap; word-break:break-word; max-height:430px; overflow-y:auto; }
+      .kimi details summary{ cursor:pointer; font-size:13px; font-weight:700; color:var(--blue-dark); margin-top:12px; min-height:32px; display:flex; align-items:center; }
+      .kimi-focus{ margin-top:16px; background:#fff; border:1px solid #bcd4f7; border-radius:11px; padding:15px 17px; }
+      .kimi-focus h3{ font-size:14.5px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; }
+      .kimi-focus h3 .lucide{ color:var(--blue); }
+      .kimi-focus .kf-note{ font-size:12.5px; color:var(--ink-2); margin-top:5px; line-height:1.55; }
+      .kimi-focus ol{ margin-top:11px; display:grid; gap:9px; counter-reset:kf; }
+      .kimi-focus li{ display:grid; grid-template-columns:26px 1fr; gap:10px; font-size:13px; line-height:1.5; color:var(--ink-2); }
+      .kimi-focus li::before{ counter-increment:kf; content:counter(kf); width:24px; height:24px; border-radius:50%; background:var(--blue-soft); color:var(--blue-dark); font-family:var(--mono); font-size:12px; font-weight:700; display:grid; place-items:center; margin-top:1px; }
+      .kimi-focus li b{ color:var(--ink); }
+
+      /* ---------- week snapshot overlay ---------- */
+      .overlay{ position:fixed; inset:0; z-index:90; background:rgba(10,21,38,.5); overflow-y:auto; padding:28px 14px; }
+      .overlay[hidden]{ display:none; }
+      .sheet{ background:#fff; border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:880px; margin:0 auto; padding:22px; min-width:0; }
+      .sheet-head > div{ min-width:0; }
+      .sheet-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+      .sheet-head h2{ font-size:21px; font-weight:800; letter-spacing:-.02em; }
+      .sheet-head p{ font-size:13px; color:var(--ink-2); margin-top:4px; max-width:600px; }
+      .sheet-close{ width:36px; height:36px; border-radius:9px; border:1px solid var(--line); background:#fff; display:grid; place-items:center; color:var(--ink-2); flex:none; }
+      .week-grid{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-top:18px; }
+      .week-day{ border:1.5px solid var(--line-soft); border-radius:11px; padding:12px; background:#f8fafd; text-align:left; font-family:inherit; width:100%; }
+      .week-day.today-w{ border-color:var(--blue); background:#fff; box-shadow:0 0 0 3px var(--blue-soft); }
+      .week-day .wd-dow{ font-size:10.5px; font-weight:800; letter-spacing:.09em; color:var(--ink-3); }
+      .week-day .wd-num{ font-size:19px; font-weight:800; font-family:var(--mono); }
+      .week-day .wd-count{ font-size:11.5px; color:var(--ink-3); font-weight:700; }
+      .week-day ul{ margin-top:9px; display:grid; gap:7px; }
+      .week-day li{ font-size:12px; font-weight:600; color:var(--ink-2); display:flex; gap:6px; }
+      .week-day li .lucide{ width:12px; height:12px; margin-top:2px; }
+      .week-day li b{ color:var(--ink); }
+      .sheet .brief{ margin:18px 0 0; }
+
+      #toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px); background:var(--navy); color:#fff; font-size:13px; font-weight:700; padding:12px 16px; border-radius:16px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:120; max-width:calc(100vw - 32px); display:flex; align-items:center; justify-content:center; gap:8px 12px; flex-wrap:wrap; }
+      #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+      #toastMsg{ line-height:1.4; }
+      #toastActs{ display:inline-flex; gap:7px; flex-wrap:wrap; }
+      .toast-act{ min-height:32px; padding:5px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.12); color:#fff; font-size:12.5px; font-weight:800; }
+      .toast-act:hover{ background:#fff; color:var(--navy); }
+      @media (max-width:760px){
+        #toast{ top:calc(env(safe-area-inset-top, 0px) + 64px); bottom:auto; transform:translateX(-50%) translateY(-12px); width:calc(100vw - 24px); }
+        #toast.show{ transform:translateX(-50%) translateY(0); }
+      }
+      .v3-pill{ display:inline-block; vertical-align:middle; font-size:12px; font-weight:800; letter-spacing:.04em; background:var(--blue); color:#fff; padding:4px 10px; border-radius:999px; margin-left:8px; }
+      .state-chip{ display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:6px 12px; border-radius:9px; background:var(--bg); border:1px solid var(--line); color:var(--ink-2); font-size:12.5px; font-weight:700; }
+      .trader-read{ background:var(--navy); color:#eaf1fb; border-radius:10px; padding:12px 13px; margin:10px 0 4px; }
+      .trader-read .tr-head{ font-size:11px; font-weight:800; letter-spacing:.07em; color:#8db9f5; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      .trader-read .tr-msg{ font-size:13px; line-height:1.6; margin-top:7px; }
+      .trader-read .tr-msg b{ color:#fff; }
+      .trader-read .tr-stance{ font-size:12px; color:#c9d8ee; margin-top:8px; line-height:1.5; }
+      .example-tag{ display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; background:var(--amber-soft); color:var(--amber); padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+      .levels-chips{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+      .levels-chips .lchip{ background:var(--bg); border:1px solid var(--line-soft); border-radius:9px; padding:8px 10px; }
+      .levels-chips .lchip dt{ font-size:10px; font-weight:800; letter-spacing:.06em; color:var(--ink-3); }
+      .levels-chips .lchip dd{ margin:2px 0 0; font-family:var(--mono); font-weight:700; font-size:13px; }
+      @media (max-width:560px){ .levels-chips{ grid-template-columns:1fr 1fr; } }
+      .dup-note{ background:var(--amber-soft); border:1px solid #ecd9a8; color:#7a5a12; border-radius:9px; padding:9px 12px; font-size:12.5px; font-weight:600; margin-top:12px; line-height:1.5; }
+      .rel-reason{ display:block; font-size:11px; color:var(--ink-3); font-weight:600; margin-top:3px; line-height:1.35; }
+      .states-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px; }
+      @media (max-width:900px){ .states-grid{ grid-template-columns:1fr; } }
+      .state-card{ background:#f8fafd; border:1px solid var(--line-soft); border-radius:11px; padding:13px 14px; }
+      .state-card h3{ font-size:13px; font-weight:800; display:flex; gap:7px; align-items:center; }
+      .state-card p{ font-size:12.5px; color:var(--ink-2); margin-top:5px; line-height:1.5; }
+      .skel{ display:grid; gap:7px; margin-top:10px; }
+      .skel span{ display:block; height:10px; border-radius:5px; background:linear-gradient(90deg,#e6edf6,#f2f6fb,#e6edf6); }
+      .skel span:nth-child(1){ width:92%; height:44px; } .skel span:nth-child(2){ width:64%; } .skel span:nth-child(3){ width:78%; }
+
+      /* ---------- v4: Month | List view toggle ---------- */
+      .viewtoggle{ display:flex; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px; gap:3px; }
+      .vt-btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:6px 16px; border-radius:999px; border:none; background:transparent; font-size:13px; font-weight:800; color:var(--ink-2); }
+      .vt-btn .lucide{ width:15px; height:15px; }
+      .vt-btn:hover{ color:var(--blue-dark); }
+      .vt-btn.active{ background:var(--blue); color:#fff; }
+      #monthCard[hidden], #dayViewSection[hidden], #listView[hidden]{ display:none; }
+
+      /* ---------- v4: List / Agenda view (Google Calendar style) ---------- */
+      .list-card{ padding:6px 14px 14px; }
+      .list-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; padding:14px 4px 12px; }
+      .list-head h2{ font-size:18px; font-weight:800; letter-spacing:-.015em; }
+      .list-sub{ font-size:12.5px; color:var(--ink-3); font-weight:600; margin-top:3px; max-width:640px; }
+      .list-day{ border-top:1px solid var(--line-soft); padding:4px 0 14px; }
+      .list-day.flash{ background:var(--blue-soft); border-radius:10px; }
+      .list-date{ display:flex; align-items:center; gap:11px; padding:12px 4px 9px; }
+      .list-date .ld-num{ font-family:var(--mono); font-size:19px; font-weight:700; color:var(--blue-dark); background:var(--blue-soft); width:42px; height:42px; border-radius:11px; display:grid; place-items:center; flex:none; }
+      .list-date h3{ font-size:15.5px; font-weight:800; letter-spacing:-.01em; }
+      .list-date .ld-count{ font-size:12px; color:var(--ink-3); font-weight:600; margin-top:1px; }
+      .list-rows{ display:grid; gap:4px; }
+      .list-row{ display:grid; grid-template-columns:74px minmax(0,1fr) auto; gap:12px; align-items:start; padding:11px 10px; border-radius:10px; border:1px solid transparent; cursor:pointer; background:#fff; width:100%; box-sizing:border-box; }
+      .list-row:hover, .list-row:focus-visible{ background:#f8fafd; border-color:var(--line-soft); outline:none; }
+      .list-time{ font-family:var(--mono); font-size:11.5px; font-weight:600; color:var(--ink-3); padding-top:2px; line-height:1.4; }
+      .list-main{ min-width:0; display:block; }
+      .list-title{ font-size:13.5px; font-weight:700; display:flex; gap:8px; align-items:center; flex-wrap:wrap; line-height:1.4; }
+      .list-title .tick{ font-family:var(--mono); font-weight:700; font-size:12.5px; color:var(--blue); white-space:nowrap; }
+      .list-ai{ display:block; font-size:12.5px; color:var(--ink-2); margin-top:3px; line-height:1.55; }
+      .list-ai b{ color:var(--ink); }
+      .list-side{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+      .impact-line{ display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--ink-3); }
+      .impact-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+      .impact-dot.high{ background:var(--down); }
+      .impact-dot.med{ background:var(--amber); }
+      .impact-dot.low{ background:#c3cedd; }
+      .list-row .mini-btn{ min-height:36px; padding:6px 11px; font-size:11.5px; border-radius:8px; }
+      .list-empty{ padding:18px 10px; font-size:13px; color:var(--ink-2); font-weight:600; }
+      .list-foot{ padding:12px 4px 2px; border-top:1px solid var(--line-soft); font-size:12px; color:var(--ink-3); font-weight:600; display:flex; gap:7px; align-items:center; }
+      .list-foot .lucide{ width:13px; height:13px; color:var(--blue); }
+      @media (max-width:760px){
+        .viewtoggle{ align-self:stretch; }
+        .vt-btn{ flex:1; min-height:38px; }
+        .list-card{ padding:4px 8px 12px; }
+        .list-row{ grid-template-columns:56px minmax(0,1fr); gap:9px; padding:11px 8px; }
+        .list-side{ grid-column:2; flex-direction:row; align-items:center; flex-wrap:wrap; }
+        .list-date .ld-num{ width:38px; height:38px; font-size:17px; }
+      }
+
+      @media (max-width:1080px){
+        .dayview{ grid-template-columns:1fr; }
+        .how-grid{ grid-template-columns:repeat(2,1fr); }
+        .week-grid{ grid-template-columns:repeat(2,1fr); }
+        .head-note{ display:none; }
+        .nyse-pill{ display:none; }
+      }
+      @media (max-width:760px){
+        .sitebar-in{ padding:0 14px; gap:12px; }
+        .sitenav{ display:none; }
+        .ticksearch input{ width:150px; }
+        .wrap{ padding:16px 12px 0; }
+        .page-head h1{ font-size:26px; }
+        .brief{ grid-template-columns:1fr; gap:12px; }
+        .dow-row{ display:none; }
+        .cal-grid{ grid-template-columns:1fr; gap:8px; }
+        .day-cell{ min-height:0; padding:10px; }
+        .day-cell.outside{ display:none; }
+        .day-dow{ display:inline; font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--ink-3); }
+        .chip{ padding:7px 8px; font-size:12px; min-height:32px; }
+        .chip .tick{ font-size:11.5px; }
+        .chip .ctitle{ white-space:normal; }
+        .toolbar{ flex-direction:column; align-items:stretch; }
+        .monthnav{ margin-left:0; flex-wrap:wrap; }
+        .month-label{ min-width:132px; white-space:nowrap; font-size:15px; flex:1 0 auto; }
+        .trel-grid{ grid-template-columns:repeat(2,1fr); }
+        .tstats{ grid-template-columns:repeat(2,1fr); }
+        .how-grid{ grid-template-columns:1fr; }
+        .week-grid{ grid-template-columns:1fr; }
+        .legend-note{ margin-left:0; }
+        #hoverCard{ left:12px !important; right:12px; top:auto !important; bottom:12px; width:auto; max-height:82vh; overflow-y:auto; }
+        .ev-row{ grid-template-columns:52px 10px 1fr; }
+        .ev-side{ grid-column:3; flex-direction:row; align-items:center; }
+      }
+      @media (prefers-reduced-motion: reduce){
+        *{ transition:none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sitebar">
+      <div class="sitebar-in">
+        <a class="brand" href="#"><span class="brand-mark">$</span>stocksist<em>.com</em></a>
+        <nav class="sitenav" aria-label="Stocksist">
+          <a href="#">Home</a>
+          <a href="#">Dashboard</a>
+          <a href="#" class="active">Catalyst Calendar</a>
+          <a href="#">Watchlist</a>
+          <a href="#">Stock Screener</a>
+          <a href="#">Market Movers</a>
+          <a href="#">Earnings Calendar</a>
+          <a href="#">Trending</a>
+        </nav>
+        <div class="sitebar-right">
+          <div class="ticksearch">
+            <i data-lucide="search"></i>
+            <input id="tickSearch" type="search" placeholder="Search tickers…" aria-label="Search tickers in the calendar" />
+          </div>
+          <span class="nyse-pill"><span class="dot"></span>NYSE Open · Mon Nov 16</span>
+          <span class="avatar" aria-hidden="true">T</span>
+        </div>
+      </div>
+    </div>
+
+    <main class="wrap">
+      <p class="crumb"><i data-lucide="home"></i> Home <span aria-hidden="true">/</span> <b>Catalyst Calendar</b> <span aria-hidden="true">·</span> Linked from the homepage Trading Calendar</p>
+
+      <header class="page-head">
+        <div>
+          <h1>Catalyst Calendar <span class="v3-pill">v4</span></h1>
+          <p class="sub">Every tracked catalyst, on the day it happens — earnings, macro, FDA, legal, product, lockups and more, scored by Stocksist AI.</p>
+          <p class="month-count"><strong id="monthTotal">658 catalysts</strong><span aria-hidden="true">·</span><span id="highTotal">37 high impact</span><span aria-hidden="true">·</span><span class="free-tag">FREE — NO PRO GATE</span></p>
+        </div>
+        <p class="head-note"><b>Hover any ticker</b> for a sparkline chart preview, then <b>View full chart</b> opens the big Google Finance-style chart pop-up with the AI Analyst bot. <b>Click a day</b> for the full ranked list.</p>
+      </header>
+
+      <div class="toolbar">
+        <div class="filters" id="filters" role="group" aria-label="Filter catalysts"></div>
+        <div class="viewtoggle" role="group" aria-label="Calendar view">
+          <button class="vt-btn active" id="viewMonthBtn" aria-pressed="true"><i data-lucide="calendar-days"></i>Month</button>
+          <button class="vt-btn" id="viewListBtn" aria-pressed="false"><i data-lucide="list"></i>List</button>
+        </div>
+        <div class="monthnav">
+          <button class="mnav-btn" id="prevMonth" aria-label="Previous month"><svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="month-label" id="monthLabel">November 2026</span>
+          <button class="mnav-btn" id="nextMonth" aria-label="Next month"><svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="tool-btn" id="todayBtn">Today</button>
+          <button class="tool-btn primary" id="weekBtn"><i data-lucide="calendar-range"></i>Week Snapshot</button>
+        </div>
+      </div>
+
+      <section class="brief" id="aiBrief" aria-label="AI day brief"></section>
+
+      <section class="cal-card" id="monthCard" aria-label="Month calendar">
+        <div class="dow-row" aria-hidden="true"><span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <!-- v4: List / Agenda view — same feed, filters and AI Analyst as Month view.
+           Kalshi / prediction-market rows are NOT built here either (removed v3 — see re-add note below). -->
+      <section class="cal-card list-card" id="listView" hidden aria-label="List view — agenda">
+        <div class="list-head">
+          <div>
+            <h2>Agenda — what's next, in order</h2>
+            <p class="list-sub">One chronological column from today, Google Calendar style. Same catalysts, filters and AI Analyst as Month view · as of 12:47 PM ET. Tap any row for its chart preview.</p>
+          </div>
+          <button class="tool-btn primary" id="listTodayBtn"><i data-lucide="calendar-check"></i>Today</button>
+        </div>
+        <div id="listDays"></div>
+        <p class="list-empty" id="listEmpty" hidden>No catalysts match the current filter in this agenda window — try All catalysts.</p>
+        <p class="list-foot"><i data-lucide="arrow-down"></i>Showing Mon Nov 16 – Fri Nov 27, 2026 · the live feed pages forward from here — each day's top catalysts by AI impact, in time order.</p>
+      </section>
+
+      <section class="dayview" id="dayViewSection">
+        <div class="panel" id="dayPanel"></div>
+        <div class="panel" id="spotPanel"></div>
+      </section>
+
+      <section class="panel how" aria-label="How the calendar is powered">
+        <h2><i data-lucide="sparkles"></i>How Stocksist powers this calendar</h2>
+        <p class="how-sub">The calendar is not a static list. Stocksist's data system ingests every event, the AI Analyst classifies and impact-scores it, and the hover cards, day briefs and alerts are all generated from that same feed.</p>
+        <div class="how-grid">
+          <div class="how-step">
+            <div class="hs-ic"><i data-lucide="database"></i></div>
+            <h3>1 · Ingest</h3>
+            <p>Prices, earnings dates and options flow from Massive / Polygon; filings and IPOs from SEC EDGAR; catalysts from the news wires; CPI, PPI, FOMC and jobs from the macro calendar.</p>
+          </div>
+          <div class="how-step">
+            <div class="hs-ic"><i data-lucide="tags"></i></div>
+            <h3>2 · Classify + score</h3>
+            <p>Every event gets a type, a ticker and an AI impact score — High, Medium or Low. The score decides what shows in a day cell and what sits behind “+more”.</p>
+          </div>
+          <div class="how-step">
+            <div class="hs-ic"><i data-lucide="badge-check"></i></div>
+            <h3>3 · Verify</h3>
+            <p>Same rule as Significant Market Moves: the price move is verified separately from the catalyst, and every catalyst carries its source. Nothing is listed on a rumour alone.</p>
+          </div>
+          <div class="how-step">
+            <div class="hs-ic"><i data-lucide="bell-ring"></i></div>
+            <h3>4 · Brief + alert</h3>
+            <p>The AI Analyst writes the morning day brief and the “why it matters” line on every event — and flags tomorrow's high-impact catalysts on your watchlist.</p>
+          </div>
+        </div>
+        <div class="src-row">
+          <span class="lbl">FEEDS</span>
+          <span class="src-chip"><i data-lucide="activity"></i>Massive / Polygon — prices &amp; earnings</span>
+          <span class="src-chip"><i data-lucide="file-text"></i>SEC EDGAR — filings &amp; IPOs</span>
+          <span class="src-chip"><i data-lucide="newspaper"></i>News wires — catalysts</span>
+          <span class="src-chip"><i data-lucide="landmark"></i>Macro calendar — Fed, BLS, BEA</span>
+          <span class="src-chip"><i data-lucide="sparkles"></i>AI Analyst — scores &amp; briefs</span>
+        </div>
+      </section>
+
+      <section class="panel how" aria-label="AI behavior spec" style="background:var(--navy);color:#eaf1fb;border-color:var(--navy)">
+        <h2 style="color:#fff"><i data-lucide="bot"></i>AI behavior — how the Analyst must talk <span class="example-tag">BEHAVIOR SPEC — NOT LIVE COPY</span></h2>
+        <p style="font-size:13px;color:#c9d8ee;margin-top:6px;max-width:860px;line-height:1.6">The SPCX paragraph used in the chart pop-up and pinned card is <b style="color:#fff">Tony's example of the behavior wanted</b> — it is not literal live copy, and every number on this page is a placeholder. In the live build the Analyst generates the same kind of read from the live quote object for that ticker, in the <b style="color:#fff">same voice on every surface</b> — pinned card, chart pop-up bot and day view. No bullish / neutral percentage fluff anywhere.</p>
+        <div class="how-grid">
+          <div class="how-step" style="background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)"><h3 style="color:#fff">1 · Catalyst first</h3><p style="color:#c9d8ee">Name why it's moving first — the launch, print or filing — before any levels.</p></div>
+          <div class="how-step" style="background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)"><h3 style="color:#fff">2 · Position vs levels</h3><p style="color:#c9d8ee">Prev close vs current vs VWAP, then the sell wall / resistance and support.</p></div>
+          <div class="how-step" style="background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)"><h3 style="color:#fff">3 · Tape with timestamps</h3><p style="color:#c9d8ee">Narrate what just happened with a time — e.g. broke the wall at 12:05 pm, reversed.</p></div>
+          <div class="how-step" style="background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)"><h3 style="color:#fff">4 · Conditional stance</h3><p style="color:#c9d8ee">Stance enum: <b style="color:#fff">WAIT / LONG BIAS / AVOID / NO TRADE</b> — each with a trigger, e.g. “WAIT — triggers on a break of 140 that holds as support.” Never chase.</p></div>
+        </div>
+        <p style="font-size:12.5px;color:#8db9f5;margin-top:12px;line-height:1.6">Rules 5–6: plain trader language with specific numbers from one quote object (derive, don't duplicate) · every read carries an “as of [time] ET” stamp. Where the data can't support a full read, the panel says less — “AI read pending — levels unavailable” — instead of faking a template read.</p>
+      </section>
+
+      <section class="panel how" aria-label="Loading empty and error states">
+        <h2><i data-lucide="layers"></i>When data is missing — designed states</h2>
+        <p class="how-sub">The live build must never show a blank chart or a fake read. These are the three states Lovable builds alongside the happy path.</p>
+        <div class="states-grid">
+          <div class="state-card"><h3><i data-lucide="loader"></i>Loading — chart</h3><div class="skel" aria-hidden="true"><span></span><span></span><span></span></div><p>Skeleton chart while Massive / Polygon responds. If there's still no data after a few seconds, it becomes the error state below — never an empty box.</p></div>
+          <div class="state-card"><h3><i data-lucide="bot"></i>Empty — no AI read yet</h3><p><b>AI read pending — levels unavailable.</b> Most of the month's catalysts won't carry a full tape read. The event still lists (all events stay free and listed); the AI panel says this plainly instead of inventing levels.</p></div>
+          <div class="state-card"><h3><i data-lucide="cloud-off"></i>Error — feed unavailable</h3><p>A day cell whose feed failed reads <b>“Catalyst feed unavailable — tap to retry”</b> in place of its chips, so a broken feed never looks like a quiet day.</p></div>
+        </div>
+        <p class="how-sub" style="margin-top:14px"><b>Journal note for Lovable:</b> Stocksist already has a Trading Journal in its backend. When a user executes a trade and copies it into that journal, it saves automatically into the main Stocksist parent journal (Dashboard → Trading Journal). The calendar's journal form is another entry point into that same parent journal — not a new, separate journal.</p>
+        <!-- KALSHI MODULE — REMOVED v3 per Tony (2026-11-16): prediction-market cards cut for now. TO RE-ADD LATER: wire the Kalshi API for live implied % + 24h change, render ONE module under Related stocks in the chart pop-up and pinned card, with the on-module disclaimer "Prediction markets are crowd odds, not Stocksist analysis." Do not re-add odds-less question cards. -->
+      </section>
+
+      <section class="panel kimi" aria-label="Kimi critique package">
+        <h2><i data-lucide="package-open"></i>Kimi critique package — copy, paste, send</h2>
+        <p class="kimi-sub">Updated for <b>v3</b>: the brief now records Tony's six clarifications (the SPCX AI text is a behavior example, numbers are placeholders, one AI voice everywhere, the journal is Stocksist's existing parent journal, prediction-market cards removed for now, and the mobile-first toast) plus the Kimi fixes applied in v3. Copy it or download it, then paste it into Kimi <b>together with screenshots of the v3 pop-up</b>.</p>
+        <div class="kimi-btns">
+          <button class="tool-btn primary" id="kimiCopy"><i data-lucide="copy"></i>Copy the brief for Kimi</button>
+          <button class="tool-btn" id="kimiDownload"><i data-lucide="download"></i>Download as .txt file</button>
+        </div>
+        <div class="kimi-focus">
+          <h3><i data-lucide="crosshair"></i>Kimi — focus on these six screens (v3)</h3>
+          <p class="kf-note">Send screenshots of the v3 pop-up with the brief. The brief's “WHAT CHANGED IN V3” section explains each fix; these six screens are where to verify them.</p>
+          <ol>
+            <li><span><b>Full chart pop-up — header &amp; chart.</b> Now opens on <b>1D</b> by default (prev-close / VWAP lines only on 1D / 5D), y-axis price labels added, dead “Chart open” button replaced by a passive “Full chart · SPCX” chip, close time rounded to 4:00 PM. Judge: does 1D-first finally match the intraday AI story?</span></li>
+            <li><span><b>Chart tooltip — hover + touch drag.</b> Tooltip now states its baseline (“vs prev close $…” on 1D/5D, “since [range start]” on longer ranges), and tapping a key-event marker shows its catalyst + date. Judge: baseline clarity and the touch crosshair.</span></li>
+            <li><span><b>Key stats + AI Analyst panel.</b> Employees and the empty P/E are swapped for <b>Next earnings</b> and <b>Implied move</b>; the AI panel carries an “as of 12:47 PM ET” stamp. The SPCX text is a <b>behavior example</b>, not live copy. Judge: stat set and trust.</span></li>
+            <li><span><b>AI levels, stance &amp; related stocks.</b> Six-cell levels grid and WAIT stance kept; stance enum now defined (WAIT / LONG BIAS / AVOID / NO TRADE). Related cards each carry a one-line reason and <b>clicking one swaps the pop-up to that ticker</b>. Prediction-market cards are <b>removed in v3</b> (re-add note in the brief). Judge: scannability and the swap flow.</span></li>
+            <li><span><b>Add to Trading Journal form.</b> Now saves into Stocksist's <b>existing parent Trading Journal</b> — catalyst + AI levels persist as structured fields, with optional Entry / Stop / Target / Size, duplicate-entry handling, and a “View in Dashboard” action after save. Judge: is it now a real trade record?</span></li>
+            <li><span><b>Watchlist toast — mobile-first.</b> New copy: “SPCX saved to your Watchlist — catalyst and AI levels attached.” with <b>Undo</b> + <b>View Watchlist</b>, 5.5-second dwell, and <b>top-centre on phones</b> so it never fights the bottom-docked hover card. Judge: wording, placement, timing.</span></li>
+          </ol>
+        </div>
+        <details>
+          <summary>Read the full brief before you send it</summary>
+          <pre id="kimiBrief">Hi Kimi — we need your critique, not a rebuild. This is the v3 update of the brief you reviewed — please critique v3, and check the fixes below rather than re-raising them.
+
+WHAT CHANGED IN V3 (Tony's clarifications + your critique, applied)
+1. THE SPCX AI TEXT IS A BEHAVIOR EXAMPLE, NOT LIVE COPY. Tony gave that paragraph to specify HOW the AI Analyst must behave — catalyst first, prev close vs current vs VWAP, key levels, timestamped tape action, conditional stance. It is not literal production copy. Judge the voice pattern, not the paragraph as shipped text.
+2. ALL NUMBERS ARE PLACEHOLDERS. This is a mockup. The prev-close $139.94 vs $137, market-cap and volume mismatches you flagged are placeholder artefacts, not live-data bugs. The live-build rule stands and we accept it fully: derive, don't duplicate — one quote object per ticker, and every AI number comes from that object.
+3. ONE AI VOICE EVERYWHERE — LOCKED. The same trader voice on every AI surface: pinned card, chart pop-up bot, day view. The pinned card's "38.1% bullish / 48.9% neutral / 13.0% bearish" outlook strip is REMOVED in v3 and replaced with the trader-read format. No bullish/neutral percentage fluff anywhere. Stance enum defined: WAIT / LONG BIAS / AVOID / NO TRADE, each with trigger syntax. Every read carries an "as of [time] ET" stamp. Where data can't support a full read, the panel says "AI read pending — levels unavailable" instead of faking one.
+4. THE JOURNAL IS STOCKSIST'S EXISTING PARENT JOURNAL. Stocksist already has a Trading Journal in its backend: when a user executes a trade and copies it into that journal, it saves automatically into the main Stocksist parent journal (Dashboard → Trading Journal). The calendar's journal form is another entry point into that SAME parent journal — not a new or separate journal. In v3 the save persists the catalyst and the AI levels as STRUCTURED fields (not a flattened string), plus stance, and adds optional Entry / Stop / Target / Size fields, duplicate-entry handling (same ticker + same day warns and saves as a second entry), and a "View in Dashboard → Trading Journal" action after save.
+5. PREDICTION-MARKET CARDS REMOVED FOR NOW. The odds-less cards are gone from the pop-up and the pinned card in v3. A code/note placeholder is left where the module was: TO RE-ADD LATER, wire the API for live implied % + 24h change, render one module, and put the disclaimer "crowd odds, not Stocksist analysis" on the module itself. Do not critique their absence as a gap — critique whether the pop-up misses them.
+6. TOAST — MOBILE-FIRST. New spec, applied in v3: copy "SPCX saved to your Watchlist — catalyst and AI levels attached.", with Undo and View Watchlist actions, 5.5-second dwell, and TOP-CENTRE placement on phones (under the site bar) so it never fights the bottom-docked hover card; bottom-centre on desktop only.
+7. YOUR OTHER FIXES APPLIED IN V3: chart opens on 1D by default for recent/intraday catalysts (prev-close and VWAP lines drawn ONLY on 1D / 5D); y-axis price labels added; tooltip states its baseline ("vs prev close $X" intraday, "since [range start]" on longer ranges); key-event markers are interrogable — hover/tap shows the catalyst headline + date; chart crosshair works by touch drag, not just mouse; related stocks are clickable ticker-swaps, each with a one-line "why it's here"; the dead "Chart open — you are here" button is replaced by a passive "Full chart · SPCX" chip and the "FULL CHART" eyebrow is dropped; "4:00:01 PM" rounds to "4:00 PM"; stats swap Employees + empty P/E for Next earnings + Implied move; loading / empty / error states are designed (skeleton chart, "AI read pending" panel, feed-error day cell).
+
+WHAT WE ARE BUILDING
+We run Stocksist.com — a U.S. stock-market site for active investors (market news, index panels, movers, watchlists, an earnings calendar, a personal dashboard with a trading journal, and an AI Analyst). The live site is built in Lovable (React + Vite) and wired to real data: Massive / Polygon for prices and earnings, SEC EDGAR for filings and IPOs, news wires for catalysts, and a Supabase / Fly.io worker that feeds our AI Analyst.
+
+This page is a design MOCKUP (all numbers are placeholders) for a new page on that site: the CATALYST CALENDAR. The homepage already has a small "Trading Calendar" widget in its right rail. Clicking it takes the visitor to this full calendar page. Your job: critique this mockup hard and tell us what is missing, what is weak, and what would make it feel truly premium — before we hand it to Lovable to build for real.
+
+HOW THE CALENDAR WORKS
+- A full month grid (November 2026 in the mockup): 658 catalysts, 37 high impact, every day filled with colour-coded event chips and "+N more" counts.
+- Filters: All / Watchlist / Earnings / Macro / High Impact, plus a toggleable event-type legend (Earnings, Product/Dividend, FDA/Legal/M&amp;A, Macro/Lockup, Sentiment, Other). Event types and filters are CONFIG-DRIVEN, never hard-coded, so we can add, rename or hide a type without a rebuild.
+- It is FREE — no Pro / Premium gate on the calendar, the hover cards or the chart. All event types are included from day one.
+- Clicking a day opens a day view: an AI Day Brief on top, then that day's catalysts ranked by AI impact score, each with a "why it matters" line and its source.
+- An AI Day Brief (and a Week Snapshot view) summarises the day/week in plain trader language.
+
+NEW IN V2 — CHART PREVIEW + SEPARATE CHART POP-UP
+- Hovering any ticker chip in the month grid pops a SMALL SPARKLINE PREVIEW card: ticker, price, % change, a sparkline with the dotted previous-close line, one AI catalyst line, and three buttons — View full chart / Add to Watchlist / Add to Trading Journal.
+- Clicking "View full chart" opens a TOTALLY SEPARATE, large Google Finance-style chart pop-up (the small chart squeezed into the bottom of a hover card was too weak — that is gone). In v3 the pop-up opens on 1D, has y-axis price labels, a tooltip that states its baseline and works by touch drag, interrogable key-event markers, previous-close and VWAP lines on 1D / 5D only, a stats grid (now with Next earnings + Implied move), and related stocks that swap the pop-up on click, each with a one-line reason. Prediction-market cards were in v2 and are REMOVED in v3 (see point 5 above).
+- WATCHLIST + JOURNAL ACTIONS appear in BOTH places — the hover preview card AND the full chart pop-up (and in the pinned AI card beside the day view). "Add to Watchlist" toggles and saves the ticker with its catalyst and AI levels attached, confirmed by the mobile-first toast (point 6). "Add to Trading Journal" opens a journal entry pre-filled with the ticker, price, catalyst, AI levels and thesis; saving writes it into Stocksist's EXISTING parent Trading Journal (point 4), with catalyst + levels as structured fields.
+
+FOCUS ON THESE SIX TAP-TESTED SCREENS (please — this is the priority)
+The owner has tap-tested v2 and attached six screenshots of the SPCX chart pop-up flow (Mon Nov 16, 2026). Do not just critique the calendar in general — give a screen-by-screen verdict on these six, in this order, and tie your Top 5 to them where relevant. If a number, label or state below is inconsistent with another screen, flag it.
+
+SCREEN 1 — FULL CHART POP-UP, HEADER + CHART
+V3 state: header reads "SPCX · NASDAQ" (the "FULL CHART" eyebrow is dropped), company name "Space Exploration Technologies Corp", price $139.11, down −0.59% (−0.83) Today (placeholder numbers). Sub-line: "Closed: Nov 13, 4:00 PM ET · USD · Pre-market 7:46 AM". Under the price: a passive "Full chart · SPCX" state chip (the dead blue button is gone), an amber "In Watchlist ✓" state, and "Add to Trading Journal". Range tabs 1D / 5D / 1M / 6M / YTD / 1Y / 5Y / MAX with 1D selected by default. "Key events" toggle at the right. Below: the large chart with y-axis price labels, dashed prev-close + VWAP lines (1D/5D only) and amber key-event markers, close (×) top-right.
+Judge: Does the 1D default + intraday lines finally tell the same story as the AI bot? Is the passive chip clear without looking broken? Anything still redundant, missing, or too dense for a phone?
+
+SCREEN 2 — CHART TOOLTIP (HOVER + TOUCH)
+V3 state: the tooltip states its baseline — "vs prev close $X" on 1D / 5D, "since [range start]" on longer ranges — and works by touch drag as well as mouse hover. On a key-event marker it adds the catalyst headline + date. Crosshair + dot as before.
+Judge: Is the baseline label finally auditable? Does the touch-drag crosshair feel native on a phone? Is the marker's catalyst line enough, or does it need its own popover?
+
+SCREEN 3 — KEY STATS GRID + AI ANALYST PANEL, SIDE BY SIDE
+V3 state: stats grid swaps Employees + the empty P/E for Next earnings and Implied move (all figures placeholders). The AI panel is sub-headed "Trader read · Mon Nov 16, 2026 · as of 12:47 PM ET · updates with the tape" and carries the SPCX BEHAVIOR EXAMPLE quoted below — judge the voice pattern, not the literal copy.
+Judge: Does the stats-left / AI-right split still work? Is the as-of stamp enough for trust? Does the dark panel feel premium or heavy?
+
+SCREEN 4 — AI LEVELS GRID, STANCE, RELATED STOCKS (PREDICTION CARDS REMOVED)
+Under the AI message, the six-cell levels grid (placeholder figures from the behavior example): PREV CLOSE · CURRENT · VWAP · SELL WALL · SUPPORT · BROKE / REVERSED. Stance line uses the defined enum: WAIT / LONG BIAS / AVOID / NO TRADE, each with trigger syntax.
+Below: "Related stocks" — four cards (PLTR / RKLB / TSLA / AMZN), each now with a one-line "why it's here" and click-to-swap behaviour that re-opens the pop-up on that ticker. Prediction-market cards are REMOVED in v3 (re-add note in point 5 above) — do not flag their absence as a gap.
+Judge: Are the six levels still the right six? Does the stance enum cover the real cases? Do the reasons + swap make related stocks earn their place?
+
+SCREEN 5 — ADD TO TRADING JOURNAL FORM
+V3 state: the intro states this saves into the MAIN Stocksist parent Trading Journal (the same journal executed trades are copied into — not a separate journal). Pre-fill: ticker, price, date, catalyst, editable thesis, plan/notes — and the AI levels now render as structured chips and PERSIST as structured fields, with stance. New optional fields: Entry / Stop / Target / Size. Saving the same ticker twice in one day shows a duplicate note first and saves as a second entry. After save: "View in Dashboard → Trading Journal" sits next to Done.
+Judge: Is it now a real trade record? Anything still missing — tags, chart snapshot, link back to the catalyst?
+
+SCREEN 6 — WATCHLIST CONFIRMATION TOAST (MOBILE-FIRST)
+V3 state: copy is "SPCX saved to your Watchlist — catalyst and AI levels attached." with Undo and View Watchlist actions, 5.5-second dwell, top-centre on phones under the site bar, bottom-centre on desktop.
+Judge: Does the copy name the benefit plainly? Is top-centre on mobile right, or does it cover something worse? Is the amber saved-state button distinct enough?
+
+THE AI BOT — HOW IT MUST TALK (this is a hard spec, please judge us against it)
+Beside the big chart sits an AI Analyst bot panel. It must talk like a trader, not like a generic sentiment widget — in the SAME voice on every surface (pinned card, pop-up, day view). The paragraph below is Tony's BEHAVIOR EXAMPLE: it specifies the pattern, it is not literal live copy, and its numbers are placeholders.
+
+"SPCX is volatile now due to the recent Rocket launch Dragon. It is above VWAP — it previously closed at 137, currently 139. Sell wall at 140. It broke 140 at 12:05 pm but reversed back to 137 — too many sellers now, so I would wait to go long once it breaks 140 and shows support at that level."
+
+The rules behind that voice:
+1. Name the catalyst first — why the stock is moving.
+2. State previous close vs current price vs VWAP.
+3. Name the key levels: sell wall / resistance, support.
+4. Narrate the intraday action with timestamps (broke 140 at 12:05 pm, reversed to 137).
+5. Give a clear conditional stance — wait for the break AND support at the level; do not chase.
+6. Plain trader language, specific numbers — all derived from one quote object per ticker. No bullish/neutral percentage fluff anywhere, on any surface.
+7. Stance comes from the defined enum — WAIT / LONG BIAS / AVOID / NO TRADE — always with its trigger. Every read is stamped "as of [time] ET".
+
+WHAT WE WANT FROM YOU, KIMI
+Please critique this design and answer, concretely:
+1. GAPS — What is missing that a premium fintech catalyst calendar should have? Think: alerts, expected-move / implied-volatility data, historical reaction stats ("last 4 earnings moves"), pre/post-market handling, timezone handling, personalisation, empty states, loading states, error states.
+2. PREMIUM FEEL — Compared with Stock Catalysts (stockcatalysts.ai), Google Finance and Yahoo Finance, what specifically makes this feel cheaper or less polished, and what exact changes (layout, spacing, typography, colour, density, micro-interactions) would close the gap?
+3. THE CHART POP-UP — Is the chart + AI bot layout right? What would make the chart feel more "Google Finance-grade" and the AI bot more trustworthy and useful?
+4. UX RISKS — Where will users get confused, misclick, or miss the Watchlist / Journal actions? How does this hold up on a phone, where there is no hover?
+5. TRUST — Prices, catalysts and AI claims: what sourcing, timestamps, disclaimers or "verified vs unverified" signalling do we need so traders trust it?
+6. MONETISATION WITHOUT GATING — The calendar stays free. Where could a Pro tier honestly add value (alerts, AI depth, journal analytics) without wrecking the free experience?
+7. TOP 5 — If you could only change five things before we build this in Lovable, which five, in priority order, and why?
+8. SCREEN-BY-SCREEN VERDICT (the six screens above, v3 state) — For EACH: (a) what works, (b) the single biggest weakness, (c) the exact fix. Do not merge them into general feedback. Numbers are placeholders (point 2) — do not re-flag placeholder mismatches as data bugs; instead judge whether the derive-don't-duplicate rule and the v3 fixes are correctly specified.
+9. WATCHLIST + JOURNAL CONVERSION — Screens 5 and 6 are the two moments this free calendar turns a reader into a returning user. Are the actions prominent enough in the pop-up header, hover preview and day view? Is the v3 journal payload (now with structured catalyst + levels, stance, Entry/Stop/Target/Size, into the existing parent journal) right, and is the mobile-first toast (new copy, Undo, View Watchlist, 5.5s, top-centre on phones) the right confirmation? What one change would most increase saves?
+
+Be specific and be blunt. We would rather hear "the day view wastes the top 200 pixels" than "looks great". Tie every recommendation to a screen or element named above — and for questions 8 and 9, to the six tap-tested screens first.</pre>
+        </details>
+      </section>
+
+      <section class="disc">
+        <h3>Important disclosure</h3>
+        <p>Stocksist is a market-information and event-calendar service. We do not provide personalized investment advice, securities recommendations, brokerage services, trade execution, managed investments or guaranteed investment outcomes. Catalyst dates and times may change, be delayed, incomplete or contain errors — verify material information through primary sources before making investment decisions. AI impact scores and outlook figures are informational estimates, not predictions. Investing involves risk, including the possible loss of principal.</p>
+      </section>
+
+      <footer class="foot">
+        <nav>
+          <a href="#">Week Ahead</a><span aria-hidden="true">·</span>
+          <a href="#">About</a><span aria-hidden="true">·</span>
+          <a href="#">Methodology</a><span aria-hidden="true">·</span>
+          <a href="#">Pricing</a><span aria-hidden="true">·</span>
+          <a href="#">Terms of Service</a><span aria-hidden="true">·</span>
+          <a href="#">Privacy Policy</a><span aria-hidden="true">·</span>
+          <a href="#">Contact</a>
+        </nav>
+        <p class="copy">© 2026 Stocksist. Market information only. Not investment advice. Investing involves risk.</p>
+      </footer>
+    </main>
+
+    <div id="hoverCard" hidden></div>
+
+    <div class="overlay" id="weekOverlay" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="weekTitle">
+        <div class="sheet-head">
+          <div>
+            <h2 id="weekTitle">Week Snapshot — Nov 16–20, 2026</h2>
+            <p>The week's catalysts at a glance: 183 tracked events, 17 high impact. The cluster builds into Wednesday — HD Tuesday, NVDA + FOMC Minutes Wednesday, WMT Thursday.</p>
+          </div>
+          <button class="sheet-close" id="weekClose" aria-label="Close week snapshot"><i data-lucide="x"></i></button>
+        </div>
+        <div class="week-grid" id="weekGrid"></div>
+        <div class="brief">
+          <div class="brief-badge"><i data-lucide="sparkles"></i>AI WEEK BRIEF</div>
+          <div>
+            <h2>Space first, then the earnings cluster</h2>
+            <ul>
+              <li><i data-lucide="arrow-right"></i><span><b>Mon:</b> SPCX prices in Saturday's Starship test — the week's sentiment setter for space names.</span></li>
+              <li><i data-lucide="arrow-right"></i><span><b>Wed is the peak:</b> NVIDIA after the close plus FOMC Minutes at 2:00 PM ET — the two highest-impact events of the week land the same day.</span></li>
+              <li><i data-lucide="arrow-right"></i><span><b>Consumer read-through:</b> HD (Tue) → Target (Wed) → Walmart (Thu) gives a three-day read on U.S. consumer spending into the holidays.</span></li>
+            </ul>
+          </div>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay chart-overlay" id="chartOverlay" hidden>
+      <div class="sheet chart-sheet" role="dialog" aria-modal="true" aria-label="Full chart" id="chartSheet"></div>
+    </div>
+
+    <div class="overlay" id="journalOverlay" hidden>
+      <div class="sheet journal-sheet" role="dialog" aria-modal="true" aria-label="Add to trading journal" id="journalSheet"></div>
+    </div>
+
+    <div id="toast" role="status"><span id="toastMsg"></span><span id="toastActs"></span></div>
+
+    <script>
+    /* =====================================================================
+       CATALYST CALENDAR — CONFIG-DRIVEN BY DESIGN
+       Event types, filters and the legend are all rendered from the two
+       objects below. Add, rename, recolor or hide a type here and the
+       whole calendar follows — nothing about event types is hard-coded
+       in the markup.
+       ===================================================================== */
+    var EVENT_TYPES = {
+      earnings:  { label: "Earnings / Investor Day", color: "#1663d9" },
+      product:   { label: "Product / Dividend",      color: "#0a8a4d" },
+      fda:       { label: "FDA / Legal / M&A",       color: "#d43a2f" },
+      macro:     { label: "Macro / Lockup",          color: "#b7791f" },
+      sentiment: { label: "Sentiment",               color: "#7c3aed" },
+      other:     { label: "Other",                   color: "#64748b" }
+    };
+    var FILTERS = [
+      { id: "all",       label: "All catalysts" },
+      { id: "watchlist", label: "Watchlist", icon: "star" },
+      { id: "earnings",  label: "Earnings",  type: "earnings" },
+      { id: "macro",     label: "Macro",     type: "macro" },
+      { id: "high",      label: "High Impact" }
+    ];
+    var WATCHLIST = ["SPCX", "NVDA", "WMT", "HD", "PLTR", "RKLB", "AAPL", "MSFT"];
+    var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    var DOWS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+    function ev(t, type, title, impact, extra) {
+      var e = { t: t, type: type, title: title, impact: impact || "low" };
+      if (extra) for (var k in extra) e[k] = extra[k];
+      return e;
+    }
+
+    /* November 2026 — the approved reference month. Totals sum to 658. */
+    var NOV = {
+      1:  { total: 10, events: [ ev("MACRO","macro","ASEAN Summit — trade headlines"), ev("MSTR","sentiment","Bitcoin treasury update"), ev("CAT","product","Dealer data release"), ev("UNH","other","Investor note") ] },
+      2:  { total: 19, high: 1, events: [ ev("MACRO","macro","ISM Manufacturing PMI — Oct","med"), ev("MACRO","macro","Construction Spending — Sep"), ev("EVGO","product","LS Power proposed acquisition update"), ev("HOOD","product","Robinhood Derivatives launch") ] },
+      3:  { total: 22, high: 1, events: [ ev("MACRO","macro","U.S. midterm elections — polls open","high"), ev("MACRO","macro","Factory Orders — Sep"), ev("MACRO","macro","JOLTS Job Openings — Sep"), ev("TBH","other","Nasdaq delisting deadline") ] },
+      4:  { total: 23, events: [ ev("MACRO","macro","U.S. International Trade — Sep"), ev("MACRO","macro","ISM Services PMI — Oct","med"), ev("EL","earnings","Capital Markets Day"), ev("MACRO","macro","ADP Employment — Oct") ] },
+      5:  { total: 30, high: 1, events: [ ev("MACRO","macro","Productivity & Costs — Q3"), ev("MACRO","macro","Weekly Initial Jobless Claims"), ev("MACRO","macro","Bank of England rate decision","med"), ev("MRNA","earnings","Analyst update") ] },
+      6:  { total: 23, high: 2, events: [ ev("MACRO","macro","Nonfarm Payrolls — Oct","high"), ev("MACRO","macro","UMich Consumer Sentiment — Nov","med"), ev("MACRO","macro","Consumer Credit — Sep"), ev("HUT","fda","Final settlement hearing") ] },
+      7:  { total: 9, events: [ ev("JPM","earnings","Investor day materials"), ev("NKE","product","SNKRS drop — retail sentiment"), ev("NOW","other","KB26 registration opens"), ev("NVO","fda","Pipeline data update") ] },
+      8:  { total: 10, events: [ ev("GILD","fda","HIV data presentation"), ev("HD","product","Pro catalog update"), ev("ROST","other","Investor note"), ev("ADBE","product","MAX conference follow-up") ] },
+      9:  { total: 26, high: 1, events: [ ev("ALGN","fda","PTAB final decision","med"), ev("CME","other","CFTC comment period closes"), ev("DXCM","fda","Securities suit — plaintiff deadline"), ev("ENPH","other","Securities filing update") ] },
+      10: { total: 28, high: 1, events: [ ev("MACRO","macro","CPI Report — Oct","high"), ev("MACRO","macro","Real Earnings — Oct"), ev("BKH","other","Montana PSC approval hearing"), ev("MACRO","macro","NFIB Small Business — Oct") ] },
+      11: { total: 24, events: [ ev("MACRO","macro","Veterans Day — markets open, banks closed"), ev("JD","product","Singles' Day 11.11 sales"), ev("UBER","product","Delivery Hero offer deadline"), ev("CIFR","sentiment","Hash-rate update") ] },
+      12: { total: 24, high: 1, events: [ ev("DIS","earnings","Disney Q4 earnings — after close","high"), ev("MACRO","macro","Weekly Initial Jobless Claims"), ev("MRNA","earnings","Moderna Analyst Day"), ev("ENPH","other","Securities filing update") ] },
+      13: { total: 25, high: 1, events: [ ev("MACRO","macro","PPI Report — Oct","high"), ev("MSFT","fda","UK CMA business review update"), ev("DTE","macro","DTE Gas expected rate order"), ev("BABA","sentiment","Singles' Day final tally") ] },
+      14: { total: 9, high: 1, events: [ ev("SPCX","product","Starship test launch window — Boca Chica","high"), ev("COIN","fda","Deribit deal milestone update"), ev("LLY","fda","Pipeline data presentation"), ev("AXP","other","Investor note") ] },
+      15: { total: 22, events: [ ev("MACRO","macro","ASEAN Summit — closing statements"), ev("GOOGL","sentiment","AI briefing embargo lifts"), ev("MU","product","HBM supply update"), ev("AMZN","product","AWS re:Invent early agenda") ] },
+      16: { total: 44, high: 2, events: [ ev("SPCX","product","Post-launch volatility watch","high"), ev("MACRO","macro","Empire State Manufacturing — Nov","high"), ev("POET","earnings","Q3 earnings — before open","med"), ev("RR","fda","Nasdaq late-filing deadline","med") ] },
+      17: { total: 40, high: 5, events: [ ev("HD","earnings","Home Depot Q3 earnings — before open","high"), ev("MACRO","macro","Advance Monthly Retail Sales — Oct","high"), ev("MACRO","macro","Industrial Production — Oct","med"), ev("MACRO","macro","Import / Export Prices — Oct") ] },
+      18: { total: 38, high: 5, events: [ ev("NVDA","earnings","NVIDIA Q3 earnings — after close","high"), ev("MACRO","macro","FOMC Minutes — Oct meeting","high"), ev("TGT","earnings","Target Q3 earnings — before open","high"), ev("MACRO","macro","New Residential Construction — Oct") ] },
+      19: { total: 34, high: 4, events: [ ev("WMT","earnings","Walmart Q3 earnings — before open","high"), ev("MACRO","macro","Weekly Initial Jobless Claims"), ev("TTWO","product","Grand Theft Auto update window","med"), ev("BABA","earnings","Alibaba Q2 FY27 earnings","med") ] },
+      20: { total: 27, high: 1, events: [ ev("MACRO","macro","UMich Consumer Sentiment — final Nov","med"), ev("ALGN","fda","ITC initial determination","med"), ev("BETR","fda","Lead plaintiff filing deadline"), ev("MACRO","macro","Existing Home Sales — Oct") ] },
+      21: { total: 6, events: [ ev("MA","other","Investor note"), ev("KLAC","product","Tool shipment update"), ev("NET","sentiment","Usage data release"), ev("NKE","product","Retail sentiment check") ] },
+      22: { total: 5, events: [ ev("KLAC","product","Investor note"), ev("NET","sentiment","Analyst day follow-up"), ev("NKE","product","Channel checks"), ev("NOK","other","Contract update") ] },
+      23: { total: 21, high: 1, events: [ ev("MACRO","macro","S&P Global Flash PMI — Nov","med"), ev("FLNC","earnings","Fluence Energy earnings"), ev("HPE","earnings","HPE fiscal Q4 earnings","med"), ev("ZM","earnings","Zoom earnings — after close") ] },
+      24: { total: 22, high: 4, events: [ ev("MACRO","macro","Consumer Confidence — Nov","high"), ev("MACRO","macro","Case-Shiller Home Prices — Sep"), ev("NIO","earnings","NIO Q3 2026 results","med"), ev("BILI","earnings","Bilibili earnings") ] },
+      25: { total: 24, high: 2, events: [ ev("MACRO","macro","GDP (Second Estimate) — Q3","high"), ev("MACRO","macro","October PCE — inflation read","high"), ev("MACRO","macro","Advance Report — Durable Goods"), ev("MACRO","macro","New Residential Sales — Oct") ] },
+      26: { total: 13, closed: "Thanksgiving", events: [ ev("HOLIDAY","other","U.S. market closed — Thanksgiving"), ev("SIVE","earnings","Sivers Q3 earnings (EU)"), ev("AAPL","product","Black Friday channel checks begin"), ev("CMCSA","other","Investor update") ] },
+      27: { total: 25, early: "Closes 1:00 PM ET", events: [ ev("MACRO","macro","Advance Economic Indicators — Oct"), ev("FLNC","fda","Lead plaintiff deadline"), ev("INTU","fda","HMRC planned filing deadline"), ev("BETR","fda","Filing deadline — Better Home") ] },
+      28: { total: 9, events: [ ev("ADT","fda","Go-shop period ends","med"), ev("V","other","Investor note"), ev("KLAC","product","Shipment update"), ev("NET","sentiment","Usage update") ] },
+      29: { total: 12, high: 1, events: [ ev("MPC","macro","OPEC+ JMMC meeting","med"), ev("ACN","product","Investor note"), ev("APD","other","Contract update"), ev("KLAC","product","Analyst note") ] },
+      30: { total: 34, high: 2, events: [ ev("SPCX","fda","Deadline: public comment — FAA review","med"), ev("MACRO","macro","Chicago PMI — Nov","med"), ev("LITE","product","AWS re:Invent — presenting"), ev("LLY","fda","Medicare negotiation deadline","high") ] }
+    };
+
+    /* Full ranked list for the selected day — Nov 16 is the hero day. */
+    var DAY_DETAILS = {
+      16: [
+        ev("SPCX","product","Post-launch volatility watch — first full session since Saturday's Starship test","high",{ time:"All day", source:"News wire · Company", ai:"The launch was Saturday Nov 14 — a known catalyst, priced in advance. Watch the open for volatility, and RKLB / ASTS for sympathy moves." }),
+        ev("MACRO","macro","Empire State Manufacturing Index — Nov","high",{ time:"8:30 AM", source:"NY Fed", ai:"The day's only tier-1 macro print. Previous −8.7 · Forecast −5.9 · Actual posts at release.", prev:"−8.7", fcst:"−5.9" }),
+        ev("POET","earnings","POET Technologies — Q3 earnings, before open","med",{ time:"Pre-mkt", source:"Company IR", ai:"Small-cap photonics; options imply a double-digit move. Watch the backlog commentary, not the headline EPS." }),
+        ev("XPEV","earnings","XPeng — Q3 earnings, pre-market","med",{ time:"Pre-mkt", source:"Company IR", ai:"Delivery guidance is the number that matters for the China EV complex — read-through to NIO and LI." }),
+        ev("RR","fda","Richtech Robotics — Nasdaq late-filing deadline","med",{ time:"4:00 PM", source:"SEC EDGAR", ai:"A compliance deadline, not a product event: a missed filing is a delisting-risk headline into the close." }),
+        ev("RKLB","sentiment","Rocket Lab — sympathy watch on the SPCX launch","med",{ time:"All day", source:"News wire", ai:"RKLB is the market's usual SPCX proxy. It closed −3.96% Friday — watch whether launch momentum reverses that." }),
+        ev("MACRO","macro","Fed speakers — three scheduled remarks","low",{ time:"10 AM+", source:"Federal Reserve", ai:"No tier-1 speaker, but any rate-path language lands on a light-news day and can move the long end." }),
+        ev("WMT","sentiment","Walmart — pre-earnings positioning (reports Thu Nov 19)","low",{ time:"All day", source:"Options flow", ai:"Call open interest is building into Thursday's print — positioning, not news, but it tightens the range until then." }),
+        ev("ASTS","product","AST SpaceMobile — sector read-through","low",{ time:"All day", source:"News wire", ai:"Moves with the space complex on launch days. No company-specific catalyst scheduled." }),
+        ev("PLTR","sentiment","Palantir — related-stock watch","low",{ time:"All day", source:"News wire", ai:"Paired with SPCX in retail flow data. No scheduled catalyst — included so the sympathy basket is complete." })
+      ]
+    };
+    var TYPE_AI = {
+      earnings: "Estimates, whisper number and options-implied move are tracked on the event page.",
+      product: "Company-confirmed date. Watch volume against the 30-day average into the event.",
+      fda: "Deadline-driven event — the outcome window, not the headline, is what moves the stock.",
+      macro: "Tiered macro release. Previous, forecast and actual are posted here the moment it prints.",
+      sentiment: "Flow and positioning signal — tracked because it has moved the stock before, not company news.",
+      other: "Tracked catalyst. Source is linked on the event page; impact is re-scored as details confirm."
+    };
+    var TYPE_SOURCE = { earnings:"Company IR", product:"Company · News wire", fda:"SEC EDGAR · Court / Agency", macro:"Federal Reserve · BLS · BEA", sentiment:"Options flow · News wire", other:"SEC EDGAR" };
+    var TYPE_TIME = { earnings:"Pre-mkt", product:"All day", fda:"4:00 PM", macro:"8:30 AM", sentiment:"All day", other:"—" };
+
+    var BRIEFS = {
+      16: { title: "SPCX leads a light-macro Monday", lines: [
+        "<b>SPCX is the headline:</b> Saturday's Starship test launch (Nov 14) makes today the first full session to price it in — volatility watch, with RKLB and ASTS as the sympathy names.",
+        "<b>Empire State Manufacturing at 8:30 AM ET</b> is the only tier-1 macro print — a light macro day, so single-stock catalysts lead.",
+        "<b>Earnings density is low</b> (POET, XPEV pre-market) ahead of the week's real cluster: HD Tuesday, NVDA + Target Wednesday, Walmart Thursday." ] },
+      14: { title: "Launch day — SPCX carries the weekend", lines: [
+        "<b>SPCX Starship test window opens today</b> at Boca Chica — a Saturday catalyst, so the reaction trades Monday. Related names: RKLB, ASTS, PLTR.",
+        "<b>Weekend tape is thin:</b> only 9 tracked catalysts today, so the launch headline dominates Monday's pre-market either way." ] },
+      6: { title: "Payrolls Friday sets the week's tone", lines: [
+        "<b>Nonfarm Payrolls at 8:30 AM ET</b> is the week's biggest macro print — the rate path trades off this number.",
+        "<b>UMich Sentiment (prelim)</b> follows at 10:00 AM — watch the inflation-expectations component, not the headline." ] },
+      10: { title: "CPI Tuesday — the inflation print", lines: [
+        "<b>CPI for October prints at 8:30 AM ET</b> — the single most market-sensitive release of the month.",
+        "<b>Real Earnings</b> lands with it; together they frame the December FOMC debate." ] },
+      18: { title: "The week's peak: NVDA + FOMC Minutes", lines: [
+        "<b>NVIDIA reports after the close</b> — the highest-impact single-stock event of the month. Guidance and Blackwell commentary move the whole AI complex.",
+        "<b>FOMC Minutes at 2:00 PM ET</b> land the same afternoon — expect the tape to stay range-bound until both are out.",
+        "<b>Target before the open</b> completes the consumer trio with HD (Tue) and Walmart (Thu)." ] },
+      19: { title: "Walmart Thursday — the consumer verdict", lines: [
+        "<b>Walmart before the open</b> is the cleanest read on U.S. consumer spending heading into the holidays.",
+        "<b>Jobless Claims at 8:30 AM</b> share the morning — a soft claims print plus a strong WMT guide is the bull case for the week." ] },
+      25: { title: "GDP + PCE on the same morning", lines: [
+        "<b>GDP (Second Estimate) and October PCE</b> print together at 8:30 AM ET — growth and the Fed's preferred inflation gauge in one release window.",
+        "<b>Thanksgiving-shortened week:</b> liquidity thins into Friday's 1:00 PM early close, so moves can overshoot." ] }
+    };
+
+    /* Ticker cards — the Google Finance-style hover/pin data. */
+    function tk(name, price, chg, extra) {
+      var t = { name: name, price: price, chg: chg, chgPts: +(price * chg / 100).toFixed(2) };
+      if (extra) for (var k in extra) t[k] = extra[k];
+      return t;
+    }
+    var TICKERS = {
+      SPCX: tk("Space Exploration Technologies Corp", 139.11, -0.59, {
+        chgPts: -0.83, pre: "$139.15", preChg: "+0.03% (+0.040)", prevClose: 139.94,
+        closed: "Closed: Nov 13, 4:00 PM ET · USD · Pre-market 7:46 AM",
+        outlook: { bull: 38.1, neutral: 48.9, bear: 13.0 },
+        ai: "<b>Known catalyst:</b> Starship test launch was Saturday, Nov 14. Today is the first full session since — watch for volatility and sympathy moves in RKLB and ASTS.",
+        series: [142.0,142.24,141.2,139.8,138.4,137.1,136.64,137.3,138.1,137.6,138.8,139.4,139.1,139.8,140.1,139.9,140.2,140.0,140.15,139.8,140.05,139.6,138.9,139.3,138.6,138.2,137.8,138.4,139.11],
+        stats: { "Open":"$140.17","High":"$142.24","Low":"$136.64","Mkt cap":"1.89T","Avg vol":"106.35M","Volume":"3.43M","52-wk high":"$225.64","52-wk low":"$104.83","EPS":"−$0.25","Shares out":"8.09B","Next earnings":"Feb 2027 (est)","Implied move":"±8.4%" },
+        related: ["PLTR","RKLB","TSLA","AMZN"]
+        /* prediction-market data removed in v3 — see re-add note in the
+           "When data is missing" section comment */
+      }),
+      PLTR: tk("Palantir Technologies", 167.66, -2.09, { prevClose: 171.24, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 44.2, neutral: 38.5, bear: 17.3 }, ai: "No scheduled catalyst today — moving with the SPCX / space-data complex.", stats: { "Open":"$170.02","High":"$172.40","Low":"$166.18","Mkt cap":"382B","Avg vol":"41.2M","Volume":"28.6M" }, related: ["SPCX","RKLB","TSLA","AMZN"] }),
+      RKLB: tk("Rocket Lab Corp", 61.53, -3.96, { prevClose: 64.07, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 41.7, neutral: 40.1, bear: 18.2 }, ai: "<b>Sympathy name:</b> the market's usual SPCX proxy into Monday's post-launch session.", stats: { "Open":"$63.88","High":"$64.55","Low":"$60.94","Mkt cap":"34.1B","Avg vol":"18.9M","Volume":"12.4M" }, related: ["SPCX","PLTR","TSLA","AMZN"] }),
+      TSLA: tk("Tesla Inc", 390.22, -1.82, { prevClose: 397.45, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 36.4, neutral: 41.8, bear: 21.8 }, ai: "No scheduled catalyst — tracked in the SPCX related basket on launch momentum.", stats: { "Open":"$396.10","High":"$399.84","Low":"$388.02","Mkt cap":"1.30T","Avg vol":"98.4M","Volume":"71.2M" }, related: ["SPCX","PLTR","RKLB","AMZN"] }),
+      AMZN: tk("Amazon.com Inc", 266.66, -0.29, { prevClose: 267.44, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 52.6, neutral: 36.9, bear: 10.5 }, ai: "AWS re:Invent agenda drops Nov 15 — the next scheduled AMZN catalyst.", stats: { "Open":"$268.31","High":"$270.05","Low":"$265.44","Mkt cap":"2.85T","Avg vol":"39.7M","Volume":"24.1M" }, related: ["SPCX","PLTR","RKLB","TSLA"] }),
+      NVDA: tk("NVIDIA Corp", 187.42, 1.24, { prevClose: 185.12, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 58.3, neutral: 31.6, bear: 10.1 }, ai: "<b>Reports Wed Nov 18, after close</b> — the month's highest-impact earnings event.", stats: { "Open":"$186.05","High":"$189.66","Low":"$184.71","Mkt cap":"4.55T","Avg vol":"212M","Volume":"168M" }, related: ["PLTR","TSLA","AMZN","SPCX"] }),
+      WMT: tk("Walmart Inc", 102.87, 0.64, { prevClose: 102.22, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 49.8, neutral: 39.4, bear: 10.8 }, ai: "<b>Reports Thu Nov 19, before open</b> — positioning is building from Monday.", stats: { "Open":"$102.30","High":"$103.41","Low":"$101.86","Mkt cap":"819B","Avg vol":"21.3M","Volume":"14.8M" }, related: ["HD","TGT","AMZN","SPCX"] }),
+      HD: tk("Home Depot Inc", 356.18, -0.42, { prevClose: 357.68, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 40.5, neutral: 44.7, bear: 14.8 }, ai: "<b>Reports Tue Nov 17, before open</b> — first of the week's consumer trio.", stats: { "Open":"$357.90","High":"$359.62","Low":"$354.28","Mkt cap":"354B","Avg vol":"3.1M","Volume":"2.2M" }, related: ["WMT","TGT","AMZN","SPCX"] }),
+      TGT: tk("Target Corp", 98.34, -1.05, { prevClose: 99.38, closed: "Closed: Nov 13, 4:00 PM ET · USD", outlook: { bull: 33.9, neutral: 45.2, bear: 20.9 }, ai: "<b>Reports Wed Nov 18, before open</b> — the middle print of the consumer trio.", stats: { "Open":"$99.02","High":"$99.87","Low":"$97.61","Mkt cap":"44.7B","Avg vol":"5.4M","Volume":"3.9M" }, related: ["WMT","HD","AMZN","SPCX"] })
+    };
+
+    /* =====================================================================
+       V2 — WATCHLIST / JOURNAL STATE, SPARKLINE PREVIEW, FULL CHART POP-UP
+       Watchlist + journal live in memory for this session (the mockup);
+       in the Lovable build they save to the user's Watchlist and to the
+       Trading Journal in Dashboard.
+       ===================================================================== */
+    var watched = {};
+    WATCHLIST.forEach(function(s) { watched[s] = true; });
+    var journalEntries = [];
+
+    /* AI Analyst bot — trader voice. SPCX copy is Tony's approved example:
+       catalyst first, prev close vs current vs VWAP, key levels, intraday
+       action with a timestamp, clear conditional stance. No generic fluff. */
+    var AI_BOT = {
+      SPCX: {
+        msg: "<b>SPCX is volatile now</b> due to the recent Rocket launch Dragon. It's <b>above VWAP</b> — it previously closed at <b>137</b>, currently <b>139</b>. <b>Sell wall at 140.</b> It broke 140 at <b>12:05 pm</b> but reversed back to 137 — too many sellers now, so I would <b>wait to go long once it breaks 140 and shows support at that level</b>.",
+        stance: "Stance: WAIT — no chase under 140. The trade triggers on a break of 140 that holds as support, not on the first spike through it.",
+        levels: { "Prev close": "$137.00", "Current": "$139.11", "VWAP": "$138.20", "Sell wall": "$140.00", "Support": "$137.00", "Broke / reversed": "12:05 PM → $137" },
+        catalyst: "Starship / Dragon rocket launch — Sat Nov 14, first full session since",
+        thesis: "Wait to go long once SPCX breaks 140 and shows support at that level. Broke 140 at 12:05 pm but reversed to 137 — too many sellers at 140 for now."
+      }
+    };
+    var RELATED_REASON = {
+      PLTR: "Paired with SPCX in retail flow",
+      RKLB: "Sympathy proxy on launch days",
+      TSLA: "Space / EV momentum basket",
+      AMZN: "Mega-cap tech — AWS catalyst Nov 15",
+      SPCX: "The catalyst itself — Starship launch",
+      NVDA: "AI complex bellwether",
+      WMT: "Consumer trio — reports Thu Nov 19",
+      HD: "Consumer trio — reports Tue Nov 17",
+      TGT: "Consumer trio — reports Wed Nov 18"
+    };
+    function botFor(sym) {
+      if (AI_BOT[sym]) return AI_BOT[sym];
+      var t = TICKERS[sym]; if (!t) return null;
+      var wall = Math.ceil(t.price * 1.02), sup = +(t.price * 0.97).toFixed(2), vwap = +(t.price * 0.998).toFixed(2);
+      var above = t.price >= vwap;
+      return {
+        msg: "<b>" + sym + " is " + (Math.abs(t.chg) >= 1.5 ? "active" : "steady") + " now</b> — " + esc((t.ai || "tracked catalyst in play").replace(/<[^>]+>/g, "")) + " It is " + (above ? "<b>above VWAP</b>" : "<b>below VWAP</b>") + " — previously closed at <b>" + t.prevClose.toFixed(2) + "</b>, currently <b>" + t.price.toFixed(2) + "</b>. First resistance / sell wall near <b>" + wall + "</b>, support at <b>" + sup + "</b>. I would wait for a clean break of " + wall + " that holds as support before going long — no chasing into the wall.",
+        stance: "Stance: WAIT for the break of " + wall + " with support confirmed. Levels above are the plan, not a prediction.",
+        levels: { "Prev close": "$" + t.prevClose.toFixed(2), "Current": "$" + t.price.toFixed(2), "VWAP": "$" + vwap.toFixed(2), "Sell wall": "$" + wall.toFixed(2), "Support": "$" + sup.toFixed(2), "Session": "Nov 16, 2026" },
+        catalyst: (t.ai || "Tracked catalyst").replace(/<[^>]+>/g, ""),
+        thesis: "Wait for a break of " + wall + " that shows support before going long. Currently " + t.price.toFixed(2) + " vs prev close " + t.prevClose.toFixed(2) + ", VWAP " + vwap.toFixed(2) + "."
+      };
+    }
+    function isWatched(sym) { return !!watched[sym]; }
+    function actionRowHTML(sym) {
+      var on = isWatched(sym);
+      return '<div class="action-row">' +
+        '<button class="act-btn primary" data-chart-btn="' + sym + '"><i data-lucide="chart-candlestick"></i>View full chart</button>' +
+        '<button class="act-btn' + (on ? " on" : "") + '" data-watch-btn="' + sym + '"><i data-lucide="star"></i>' + (on ? "In Watchlist ✓" : "Add to Watchlist") + '</button>' +
+        '<button class="act-btn" data-journal-btn="' + sym + '"><i data-lucide="notebook-pen"></i>Add to Trading Journal</button></div>';
+    }
+    function miniActsHTML(sym) {
+      var on = isWatched(sym);
+      return '<span class="mini-acts"><button class="mini-btn' + (on ? " on" : "") + '" data-watch-btn="' + sym + '"><i data-lucide="star"></i>' + (on ? "In Watchlist ✓" : "Watchlist") + '</button>' +
+        '<button class="mini-btn" data-journal-btn="' + sym + '"><i data-lucide="notebook-pen"></i>Journal</button></span>';
+    }
+    function toggleWatch(sym) {
+      watched[sym] = !watched[sym];
+      if (watched[sym]) showWatchToast(sym); else toast(sym + " removed from your Watchlist");
+      renderDayView(); refreshIcons();
+      if (pinnedSym) { var hc = document.getElementById("hoverCard"); if (hc && !hc.hidden) hc.querySelectorAll("[data-watch-btn]").forEach(function(b){ if (b.getAttribute("data-watch-btn") === sym) { var on = isWatched(sym); b.classList.toggle("on", on); b.innerHTML = '<i data-lucide="star"></i>' + (on ? "In Watchlist ✓" : "Add to Watchlist"); } }); refreshIcons(); }
+      syncActionButtons(sym);
+    }
+    function syncActionButtons(sym) {
+      document.querySelectorAll("[data-watch-btn]").forEach(function(b) {
+        if (b.getAttribute("data-watch-btn") !== sym) return;
+        var on = isWatched(sym);
+        b.classList.toggle("on", on);
+        var isMini = b.classList.contains("mini-btn");
+        b.innerHTML = '<i data-lucide="star"></i>' + (on ? (isMini ? "In Watchlist ✓" : "In Watchlist ✓") : (isMini ? "Watchlist" : "Add to Watchlist"));
+      });
+      refreshIcons();
+    }
+
+    /* ---------------- sparkline preview card ---------------- */
+    function bigSparkSVG(sym) {
+      var t = TICKERS[sym], ser = seededSeries(sym, t.price, 29);
+      var up = t.chg >= 0, color = up ? "#0a8a4d" : "#d43a2f";
+      var ch = chartSVG(ser, t.prevClose, 340, 64, color);
+      return ch.svg;
+    }
+    function previewCardHTML(sym) {
+      var t = TICKERS[sym]; if (!t) return "";
+      var up = t.chg >= 0;
+      var vwap = botFor(sym).levels["VWAP"];
+      var h = '<p class="spark-tag"><i data-lucide="chart-line"></i>CHART PREVIEW — SPARKLINE</p>';
+      h += '<div class="spark-head"><div><span class="spark-sym">' + sym + ' · NASDAQ</span><div class="spark-name">' + esc(t.name) + '</div></div></div>';
+      h += '<div style="padding:6px 16px 0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span class="spark-price">$' + t.price.toFixed(2) + '</span><span class="spark-chg" style="color:' + (up ? "var(--up)" : "var(--down)") + '"><i data-lucide="' + (up ? "arrow-up" : "arrow-down") + '"></i>' + (up ? "+" : "−") + Math.abs(t.chg).toFixed(2) + '% today</span></div>';
+      h += '<div class="spark-chart">' + bigSparkSVG(sym) + '</div>';
+      h += '<div class="spark-meta"><span>Prev close <b>$' + t.prevClose.toFixed(2) + '</b></span><span>VWAP <b>' + vwap + '</b></span><span>Vol <b>' + (t.stats["Volume"] || "—") + '</b></span></div>';
+      if (t.ai) h += '<div class="tai spark-ai"><i data-lucide="sparkles"></i><p><b>Stocksist AI —</b> ' + t.ai + '</p></div>';
+      h += '<div class="spark-foot">' + actionRowHTML(sym) + '</div>';
+      return h;
+    }
+
+    /* ---------------- full chart pop-up ---------------- */
+    var RANGES = ["1D","5D","1M","6M","YTD","1Y","5Y","MAX"];
+    var RANGE_CFG = {
+      "1D":  { points: 29, step: "Nov 16 · intraday", labels: ["9:30 AM","11 AM","12:05 PM","1:30 PM","3 PM","4:00 PM"] },
+      "5D":  { points: 26, step: "Nov 10 – Nov 16", labels: ["Nov 10","Nov 11","Nov 12","Nov 13","Nov 14","Nov 16"] },
+      "1M":  { points: 28, step: "Oct 16 – Nov 16", labels: ["Oct 16","Oct 23","Oct 30","Nov 6","Nov 11","Nov 16"] },
+      "6M":  { points: 34, step: "May – Nov 2026", labels: ["May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Nov 2026"] },
+      "YTD": { points: 34, step: "Jan – Nov 2026", labels: ["Jan 2026","Mar 2026","May 2026","Jul 2026","Sep 2026","Nov 2026"] },
+      "1Y":  { points: 34, step: "Nov 2025 – Nov 2026", labels: ["Nov 2025","Feb 2026","May 2026","Aug 2026","Oct 2026","Nov 2026"] },
+      "5Y":  { points: 38, step: "2021 – 2026", labels: ["2021","2022","2023","2024","2025","2026"] },
+      "MAX": { points: 38, step: "All available history", labels: ["2019","2021","2022","2023","2025","2026"] }
+    };
+    var chartState = { sym: "SPCX", range: "1D", keyEvents: true, series: [], min: 0, max: 0 };
+    var KEY_EVENTS = [ { at: 0.18, label: "Starship test launch", date: "Sat Nov 14" }, { at: 0.46, label: "Dragon capsule update", date: "Mon Nov 16" }, { at: 0.78, label: "Launch window close", date: "Mon Nov 16" } ];
+    function rangeSeries(sym, range) {
+      var t = TICKERS[sym], cfg = RANGE_CFG[range];
+      if (range === "1D" && TICKERS[sym] && TICKERS[sym].series) return TICKERS[sym].series.slice();
+      var seed = 0, s = sym + range; for (var i = 0; i < s.length; i++) seed += s.charCodeAt(i) * (i + 5);
+      var rand = mulberry32(seed);
+      var drift = range === "1D" ? 0.001 : (range === "5D" ? 0.002 : 0.004);
+      var vol = range === "1D" ? 0.006 : 0.02;
+      var v = t.price * (1 - drift * cfg.points * 0.4), out = [];
+      for (var j = 0; j < cfg.points; j++) { v += (rand() - 0.48) * t.price * vol + t.price * drift * 0.3; out.push(+v.toFixed(2)); }
+      out[out.length - 1] = t.price;
+      return out;
+    }
+    function bigChartSVG(series, prevClose, color) {
+      var w = 980, h = 300;
+      var min = Math.min.apply(null, series.concat(prevClose ? [prevClose] : [])), max = Math.max.apply(null, series.concat(prevClose ? [prevClose] : []));
+      var pad = (max - min) * 0.12 || 1; min -= pad; max += pad;
+      chartState.min = min; chartState.max = max;
+      function X(i) { return (i / (series.length - 1)) * w; }
+      function Y(v) { return h - ((v - min) / (max - min)) * h; }
+      var gid = "bg" + Math.random().toString(36).slice(2, 8);
+      var s = '<svg id="bigChartSvg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-label="Interactive price chart">';
+      s += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".26"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>';
+      [0.25, 0.5, 0.75].forEach(function(f) { var y = (h * f).toFixed(1); s += '<line x1="0" y1="' + y + '" x2="' + w + '" y2="' + y + '" stroke="#e8eef6" stroke-width="1"/>'; });
+      /* Y-axis price labels — right edge, 4 ticks */
+      [0.08, 0.36, 0.64, 0.92].forEach(function(f) { var v = max - f * (max - min); var y = (h * f).toFixed(1); s += '<text x="' + (w - 6) + '" y="' + y + '" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="15" font-weight="600" fill="#71809a">$' + v.toFixed(2) + '</text>'; });
+      var area = "M0," + h + " L" + series.map(function(v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" L") + " L" + w + "," + h + " Z";
+      s += '<path d="' + area + '" fill="url(#' + gid + ')"/>';
+      var intraday = chartState.range === "1D" || chartState.range === "5D";
+      if (prevClose && intraday) s += '<line x1="0" y1="' + Y(prevClose).toFixed(1) + '" x2="' + w + '" y2="' + Y(prevClose).toFixed(1) + '" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 4"/>';
+      var bot = botFor(chartState.sym);
+      var vwapVal = parseFloat(String(bot.levels["VWAP"]).replace(/[$,]/g, ""));
+      if (intraday && !isNaN(vwapVal) && vwapVal > min && vwapVal < max) s += '<line x1="0" y1="' + Y(vwapVal).toFixed(1) + '" x2="' + w + '" y2="' + Y(vwapVal).toFixed(1) + '" stroke="#1663d9" stroke-width="1.2" stroke-dasharray="2 5" opacity=".65"/>';
+      if (chartState.keyEvents) {
+        KEY_EVENTS.forEach(function(ke) {
+          var idx = Math.round(ke.at * (series.length - 1)), x = X(idx), y = Y(series[idx]);
+          s += '<line x1="' + x.toFixed(1) + '" y1="6" x2="' + x.toFixed(1) + '" y2="' + h + '" stroke="#b7791f" stroke-width="1" stroke-dasharray="3 4" opacity=".7"/>';
+          s += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" fill="#b7791f" stroke="#fff" stroke-width="2"/>';
+        });
+      }
+      var pts = series.map(function(v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" ");
+      s += '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+      s += '<circle cx="' + X(series.length - 1) + '" cy="' + Y(series[series.length - 1]).toFixed(1) + '" r="4.5" fill="' + color + '" stroke="#fff" stroke-width="2"/>';
+      s += "</svg>";
+      return s;
+    }
+    function openChart(sym) {
+      if (!TICKERS[sym]) { toast(sym + " — full chart opens for tracked tickers; this event's page carries the detail"); return; }
+      chartState.sym = sym; chartState.range = "1D"; chartState.keyEvents = true;
+      pinnedSym = null; hoverCard.hidden = true;
+      document.getElementById("chartOverlay").hidden = false;
+      renderChartModal();
+      document.getElementById("chartOverlay").scrollTop = 0;
+    }
+    function closeChart() { document.getElementById("chartOverlay").hidden = true; }
+    function renderChartModal() {
+      var sym = chartState.sym, t = TICKERS[sym], bot = botFor(sym);
+      var up = t.chg >= 0, color = up ? "#0a8a4d" : "#d43a2f";
+      var series = rangeSeries(sym, chartState.range);
+      chartState.series = series;
+      var cfg = RANGE_CFG[chartState.range];
+      var first = series[0], rngChg = ((t.price - first) / first * 100);
+      var h = '<div class="chart-top"><div><span class="spark-sym">' + sym + ' · NASDAQ</span><div class="ct-name">' + esc(t.name) + '</div>';
+      h += '<div class="ct-price">$' + t.price.toFixed(2) + '<span class="tchg ' + (up ? "up" : "down") + '" style="font-size:16px"><i data-lucide="' + (up ? "arrow-up" : "arrow-down") + '"></i>' + (up ? "+" : "−") + Math.abs(t.chg).toFixed(2) + '% (' + (t.chgPts >= 0 ? "+" : "−") + Math.abs(t.chgPts).toFixed(2) + ') Today</span></div>';
+      h += '<p class="tclosed">' + esc(t.closed || "") + ' · Range: ' + cfg.step + ' · ' + (rngChg >= 0 ? "+" : "−") + Math.abs(rngChg).toFixed(2) + '% over the range</p>';
+      var won = isWatched(sym);
+      h += '<div class="action-row"><span class="state-chip"><i data-lucide="chart-candlestick"></i>Full chart · ' + sym + '</span>' +
+        '<button class="act-btn' + (won ? " on" : "") + '" data-watch-btn="' + sym + '"><i data-lucide="star"></i>' + (won ? "In Watchlist ✓" : "Add to Watchlist") + '</button>' +
+        '<button class="act-btn" data-journal-btn="' + sym + '"><i data-lucide="notebook-pen"></i>Add to Trading Journal</button></div>';
+      h += '</div><button class="sheet-close" id="chartClose" aria-label="Close chart"><i data-lucide="x"></i></button></div>';
+      h += '<div class="chart-ranges" role="group" aria-label="Chart range">';
+      RANGES.forEach(function(r) { h += '<button class="range-btn' + (chartState.range === r ? " on" : "") + '" data-range="' + r + '">' + r + '</button>'; });
+      h += '<button class="ke-toggle' + (chartState.keyEvents ? " on" : "") + '" id="keToggle"><span class="dotk"></span>Key events ' + (chartState.keyEvents ? "on" : "off") + '</button></div>';
+      h += '<div class="big-chart-wrap" id="bigChartWrap">' + bigChartSVG(series, t.prevClose, color) + '<div class="chart-vline" id="chartVline" hidden></div><div class="chart-dot" id="chartDot" hidden></div><div class="chart-tip" id="chartTip" hidden></div></div>';
+      h += '<div class="chart-axis">' + cfg.labels.map(function(l) { return "<span>" + l + "</span>"; }).join("") + '</div>';
+      var isIntra = chartState.range === "1D" || chartState.range === "5D";
+      h += '<div class="chart-legend-line"><span>— Price</span>' + (isIntra ? '<span>- - Prev close <b>$' + t.prevClose.toFixed(2) + '</b></span><span style="color:var(--blue)">┄ VWAP <b>' + bot.levels["VWAP"] + '</b></span>' : '<span>Prev close / VWAP lines show on 1D / 5D</span>') + (chartState.keyEvents ? '<span style="color:var(--amber)">● Key event markers on — tap a marker for its catalyst</span>' : '<span>Key events hidden</span>') + '<span>Hover or drag on the chart for the tooltip</span></div>';
+      /* AI bot + stats */
+      h += '<div class="chart-cols"><div><h3 style="font-size:14px;font-weight:800">Key stats</h3><dl class="chart-stats">';
+      Object.keys(t.stats || {}).forEach(function(k) { h += '<div class="stat"><dt>' + k + '</dt><dd>' + t.stats[k] + '</dd></div>'; });
+      h += '</dl><p class="tclosed" style="margin-top:10px">Source: Massive / Polygon · Catalyst verified separately from the price move, per Stocksist rules.</p></div>';
+      h += '<aside class="ai-bot" aria-label="Stocksist AI Analyst"><div class="ai-bot-head"><span class="bot-av"><i data-lucide="bot"></i></span><span>Stocksist AI Analyst<small>Trader read · Mon Nov 16, 2026 · as of 12:47 PM ET · updates with the tape</small></span>' + (sym === "SPCX" ? '<span class="example-tag">EXAMPLE — BEHAVIOR SPEC</span>' : '') + '</div>';
+      h += '<div class="ai-bot-msg">' + bot.msg + '</div><dl class="levels">';
+      Object.keys(bot.levels).forEach(function(k) { h += '<div class="lv"><dt>' + k.toUpperCase() + '</dt><dd>' + bot.levels[k] + '</dd></div>'; });
+      h += '</dl><p class="stance"><i data-lucide="compass"></i><span>' + bot.stance + '</span></p></aside></div>';
+      if (t.related) {
+        h += '<h3 class="chart-sec-h">Related stocks</h3><div class="trel-grid chart-rel" style="margin-top:0">';
+        t.related.forEach(function(r) {
+          var rt = TICKERS[r]; if (!rt) return; var rup = rt.chg >= 0;
+          h += '<button class="rel-card" data-chart-btn="' + r + '"><span class="rt">' + r + '</span><div class="rn">' + esc(rt.name) + '</div><div class="rp">$' + rt.price.toFixed(2) + '</div><span class="rc" style="color:' + (rup ? "#0a8a4d" : "#d43a2f") + '">' + (rup ? "+" : "−") + Math.abs(rt.chg).toFixed(2) + '% <i data-lucide="' + (rup ? "arrow-up" : "arrow-down") + '"></i></span>' + sparkSVG(r, rt.price, rup) + '<span class="rel-reason">' + esc(RELATED_REASON[r] || "Related watch") + ' — tap to swap to ' + r + '</span></button>';
+        });
+        h += '</div>';
+      }
+      /* KALSHI MODULE — REMOVED v3 per Tony: prediction cards cut.
+         Re-add note lives in the "When data is missing" section comment. */
+      h += '<div style="height:22px"></div>';
+      document.getElementById("chartSheet").innerHTML = h;
+      document.getElementById("chartClose").addEventListener("click", closeChart);
+      document.querySelectorAll("#chartSheet [data-range]").forEach(function(b) {
+        b.addEventListener("click", function() { chartState.range = b.getAttribute("data-range"); renderChartModal(); });
+      });
+      document.getElementById("keToggle").addEventListener("click", function() { chartState.keyEvents = !chartState.keyEvents; renderChartModal(); });
+      bindBigChartHover(color);
+      refreshIcons();
+    }
+    function bindBigChartHover(color) {
+      var wrap = document.getElementById("bigChartWrap"); if (!wrap) return;
+      var svg = document.getElementById("bigChartSvg"), tip = document.getElementById("chartTip"), vline = document.getElementById("chartVline"), dot = document.getElementById("chartDot");
+      var series = chartState.series, cfg = RANGE_CFG[chartState.range];
+      function labelFor(i) {
+        var f = i / (series.length - 1), li = Math.min(cfg.labels.length - 1, Math.round(f * (cfg.labels.length - 1)));
+        return cfg.labels[li];
+      }
+      function handlePoint(clientX) {
+        var r = svg.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+        var f = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+        var i = Math.round(f * (series.length - 1)), v = series[i];
+        var t = TICKERS[chartState.sym];
+        var isIntra = chartState.range === "1D" || chartState.range === "5D";
+        var base = isIntra && t ? t.prevClose : series[0];
+        var chg = ((v - base) / base * 100);
+        var baseline = isIntra && t ? "vs prev close $" + t.prevClose.toFixed(2) : "since " + cfg.labels[0];
+        var xPx = r.left - wr.left + f * r.width;
+        var yFrac = 1 - ((v - chartState.min) / (chartState.max - chartState.min));
+        var yPx = 14 + yFrac * (r.height - 20);
+        tip.hidden = false; vline.hidden = false; dot.hidden = false;
+        tip.style.left = xPx + "px"; tip.style.top = yPx + "px";
+        var evLine = "";
+        if (chartState.keyEvents) {
+          KEY_EVENTS.forEach(function(ke) {
+            var mi = Math.round(ke.at * (series.length - 1));
+            if (Math.abs(i - mi) <= 1) evLine = "<span style=\"color:#f5c86e\">⚡ " + ke.label + " · " + ke.date + "</span>";
+          });
+        }
+        tip.innerHTML = "$" + v.toFixed(2) + " · " + (chg >= 0 ? "+" : "−") + Math.abs(chg).toFixed(2) + "% " + baseline + "<span>" + labelFor(i) + " · " + chartState.range + " view</span>" + evLine;
+        vline.style.left = xPx + "px";
+        dot.style.left = xPx + "px"; dot.style.top = yPx + "px"; dot.style.background = color;
+      }
+      svg.addEventListener("mousemove", function(e) { handlePoint(e.clientX); });
+      svg.addEventListener("touchstart", function(e) { if (e.touches[0]) { handlePoint(e.touches[0].clientX); e.preventDefault(); } }, { passive: false });
+      svg.addEventListener("touchmove", function(e) { if (e.touches[0]) { handlePoint(e.touches[0].clientX); e.preventDefault(); } }, { passive: false });
+      svg.addEventListener("mouseleave", function() { tip.hidden = true; vline.hidden = true; dot.hidden = true; });
+    }
+
+    /* ---------------- trading journal ---------------- */
+    function openJournal(sym) {
+      var t = TICKERS[sym], bot = botFor(sym);
+      var price = t ? "$" + t.price.toFixed(2) : "—";
+      var dup = journalEntries.some(function(e) { return e.sym === sym && e.date === "Mon, Nov 16, 2026"; });
+      var h = '<div class="sheet-head"><div><h2>Add to Trading Journal — ' + sym + '</h2><p>Pre-filled from the calendar: ticker, price, catalyst, AI levels and thesis. Saving here puts the entry into the <b>main Stocksist Trading Journal</b> (Dashboard → Trading Journal) — the same parent journal a trade lands in when you execute it and copy it into your journal. This is not a separate journal.</p></div><button class="sheet-close" id="journalClose" aria-label="Close journal form"><i data-lucide="x"></i></button></div>';
+      if (dup) h += '<p class="dup-note">You already have a ' + sym + ' entry for Mon, Nov 16, 2026 in your Trading Journal. Saving below creates a <b>second entry</b> for the same day — use it for a separate trade or update, or cancel and edit the existing one in Dashboard.</p>';
+      h += '<div class="j-grid">';
+      h += '<div class="j-field"><label>TICKER</label><input readonly value="' + sym + '"></div>';
+      h += '<div class="j-field"><label>PRICE</label><input readonly value="' + price + '"></div>';
+      h += '<div class="j-field"><label>DATE</label><input readonly value="Mon, Nov 16, 2026"></div>';
+      h += '<div class="j-field"><label>CATALYST</label><input readonly value="' + esc(bot ? bot.catalyst : "Tracked catalyst") + '"></div>';
+      h += '<div class="j-field full"><label>AI LEVELS — SAVED AS STRUCTURED FIELDS WITH THE ENTRY</label><dl class="levels-chips">' + (bot ? Object.keys(bot.levels).map(function(k) { return '<div class="lchip"><dt>' + k.toUpperCase() + '</dt><dd>' + bot.levels[k] + '</dd></div>'; }).join("") : '<div class="lchip"><dd>—</dd></div>') + '</dl></div>';
+      h += '<div class="j-field full"><label>AI THESIS (EDITABLE)</label><textarea id="jThesis">' + esc(bot ? bot.thesis : "") + '</textarea></div>';
+      h += '<div class="j-field"><label>ENTRY (OPTIONAL)</label><input id="jEntry" inputmode="decimal" placeholder="e.g. 140.50"></div>';
+      h += '<div class="j-field"><label>STOP (OPTIONAL)</label><input id="jStop" inputmode="decimal" placeholder="e.g. 137.00"></div>';
+      h += '<div class="j-field"><label>TARGET (OPTIONAL)</label><input id="jTarget" inputmode="decimal" placeholder="e.g. 148.00"></div>';
+      h += '<div class="j-field"><label>SIZE (OPTIONAL)</label><input id="jSize" placeholder="e.g. Half size · 50 shares"></div>';
+      h += '<div class="j-field full"><label>YOUR PLAN / NOTES</label><textarea id="jNotes" placeholder="e.g. Limit order ready above 140, half size first, stop under 137 if the break fails…"></textarea></div>';
+      h += '</div><div class="j-actions"><button class="tool-btn primary" id="journalSave"><i data-lucide="notebook-pen"></i>Save entry</button><button class="tool-btn" id="journalCancel">Cancel</button></div>';
+      document.getElementById("journalSheet").innerHTML = h;
+      document.getElementById("journalOverlay").hidden = false;
+      document.getElementById("journalClose").addEventListener("click", closeJournal);
+      document.getElementById("journalCancel").addEventListener("click", closeJournal);
+      document.getElementById("journalSave").addEventListener("click", function() { saveJournal(sym, price); });
+      refreshIcons();
+    }
+    function closeJournal() { document.getElementById("journalOverlay").hidden = true; }
+    function saveJournal(sym, price) {
+      var bot = botFor(sym);
+      var notes = (document.getElementById("jNotes") || {}).value || "";
+      var thesis = (document.getElementById("jThesis") || {}).value || "";
+      var gv = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      /* Catalyst + AI levels persist as STRUCTURED fields (not a flattened
+         string), alongside stance and the trader's own entry/stop/target/size,
+         so the parent journal can render and compare them later. */
+      journalEntries.push({ sym: sym, price: price, notes: notes, thesis: thesis, date: "Mon, Nov 16, 2026",
+        catalyst: bot ? bot.catalyst : "", levels: bot ? bot.levels : {}, stance: bot ? bot.stance : "",
+        entry: gv("jEntry"), stop: gv("jStop"), target: gv("jTarget"), size: gv("jSize") });
+      document.getElementById("journalSheet").innerHTML =
+        '<div class="j-saved"><div class="ok-ic"><i data-lucide="check"></i></div><h3>Saved to your Trading Journal</h3>' +
+        '<p><b>' + sym + '</b> at <b>' + price + '</b> · Mon, Nov 16, 2026<br>Catalyst, AI levels (structured), stance and thesis saved with it' + (notes ? ' — your plan notes are attached.' : '.') + '<br>It is now in the <b>main Stocksist parent journal</b> — the same journal your executed trades save into.</p>' +
+        '<div class="j-actions" style="justify-content:center"><button class="tool-btn primary" id="journalDone">Done</button><button class="tool-btn" id="journalView">View in Dashboard → Trading Journal</button></div></div>';
+      document.getElementById("journalDone").addEventListener("click", closeJournal);
+      document.getElementById("journalView").addEventListener("click", function() { closeJournal(); toast("Dashboard → Trading Journal — your " + sym + " entry is at the top (live site)"); });
+      refreshIcons();
+      toast(sym + " saved to Trading Journal — Dashboard → Trading Journal");
+    }
+
+    /* ---------------- state ---------------- */
+    var state = { year: 2026, month: 10, day: 16, filter: "all", hiddenTypes: {}, query: "", view: "month" };
+    var monthCache = {};
+
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+    function getMonth(year, month) {
+      var key = year + "-" + month;
+      if (monthCache[key]) return monthCache[key];
+      var daysIn = new Date(year, month + 1, 0).getDate();
+      var startDow = new Date(year, month, 1).getDay();
+      var data = { daysIn: daysIn, startDow: startDow, days: {}, total: 0, highTotal: 0 };
+      if (year === 2026 && month === 10) {
+        data.days = NOV;
+        for (var d in NOV) { data.total += NOV[d].total; data.highTotal += NOV[d].high || 0; }
+      } else {
+        /* Other months: same event pool, rotated — the live build pages
+           the real feed the same way. */
+        var pool = [];
+        for (var nd in NOV) NOV[nd].events.forEach(function(e) { pool.push(e); });
+        var rand = mulberry32(year * 100 + month + 7);
+        for (var i = 1; i <= daysIn; i++) {
+          var dow = (startDow + i - 1) % 7;
+          var weekend = dow === 0 || dow === 6;
+          var total = weekend ? 4 + Math.floor(rand() * 9) : 14 + Math.floor(rand() * 30);
+          var high = total > 32 ? 1 + Math.floor(rand() * 4) : (rand() < 0.3 ? 1 : 0);
+          var evs = [];
+          for (var j = 0; j < 4; j++) evs.push(pool[(i * 4 + j + month * 3) % pool.length]);
+          data.days[i] = { total: total, high: high, events: evs };
+          data.total += total; data.highTotal += high;
+        }
+      }
+      monthCache[key] = data;
+      return data;
+    }
+
+    /* ---------------- charts ---------------- */
+    function seededSeries(ticker, base, points) {
+      if (TICKERS[ticker] && TICKERS[ticker].series) return TICKERS[ticker].series;
+      var seed = 0; for (var i = 0; i < ticker.length; i++) seed += ticker.charCodeAt(i) * (i + 3);
+      var rand = mulberry32(seed), out = [], v = base * 1.01;
+      for (var j = 0; j < (points || 26); j++) { v += (rand() - 0.52) * base * 0.006; out.push(+v.toFixed(2)); }
+      out[out.length - 1] = base;
+      return out;
+    }
+    function chartSVG(series, prevClose, w, h, color) {
+      var min = Math.min.apply(null, series.concat(prevClose ? [prevClose] : []));
+      var max = Math.max.apply(null, series.concat(prevClose ? [prevClose] : []));
+      var pad = (max - min) * 0.12 || 1; min -= pad; max += pad;
+      function X(i) { return (i / (series.length - 1)) * w; }
+      function Y(v) { return h - ((v - min) / (max - min)) * h; }
+      var pts = series.map(function(v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" ");
+      var area = "M0," + h + " L" + series.map(function(v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" L") + " L" + w + "," + h + " Z";
+      var gid = "g" + Math.random().toString(36).slice(2, 8);
+      var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">';
+      s += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".28"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>';
+      s += '<path d="' + area + '" fill="url(#' + gid + ')"/>';
+      if (prevClose) s += '<line x1="0" y1="' + Y(prevClose).toFixed(1) + '" x2="' + w + '" y2="' + Y(prevClose).toFixed(1) + '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>';
+      s += '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+      var lx = X(series.length - 1), ly = Y(series[series.length - 1]);
+      s += '<circle cx="' + lx + '" cy="' + ly.toFixed(1) + '" r="3" fill="' + color + '" stroke="#fff" stroke-width="1.4"/>';
+      s += "</svg>";
+      return { svg: s, prevY: prevClose ? (Y(prevClose) / h * 100) : null };
+    }
+    function sparkSVG(ticker, price, up) {
+      var ser = seededSeries(ticker, price, 18);
+      var min = Math.min.apply(null, ser), max = Math.max.apply(null, ser), pad = (max - min) * 0.15 || 1;
+      min -= pad; max += pad;
+      var pts = ser.map(function(v, i) { return (i / (ser.length - 1) * 100).toFixed(1) + "," + (22 - ((v - min) / (max - min)) * 20).toFixed(1); }).join(" ");
+      return '<svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + (up ? "#0a8a4d" : "#d43a2f") + '" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    }
+
+    /* ---------------- ticker card ---------------- */
+    function tickerCardHTML(sym, compact) {
+      var t = TICKERS[sym]; if (!t) return "";
+      var up = t.chg >= 0, color = up ? "#0a8a4d" : "#d43a2f";
+      var ser = seededSeries(sym, t.price, 29);
+      var ch = chartSVG(ser, t.prevClose, 340, compact ? 92 : 110, color);
+      var h = "";
+      var botCard = botFor(sym);
+      if (botCard) {
+        h += '<div class="trader-read"><div class="tr-head"><i data-lucide="bot"></i>STOCKSIST AI ANALYST — TRADER READ · AS OF 12:47 PM ET' + (sym === "SPCX" ? '<span class="example-tag">EXAMPLE — BEHAVIOR SPEC</span>' : '') + '</div><div class="tr-msg">' + botCard.msg + '</div><p class="tr-stance">' + botCard.stance + '</p></div>';
+      }
+      h += '<div class="tname">' + esc(t.name) + ' <span class="tsym">' + sym + ' · NASDAQ</span></div>';
+      h += '<div class="tprice-row"><span class="tprice">$' + t.price.toFixed(2) + '</span>';
+      h += '<span class="tchg ' + (up ? "up" : "down") + '"><i data-lucide="' + (up ? "arrow-up" : "arrow-down") + '"></i>' + (up ? "+" : "−") + Math.abs(t.chg).toFixed(2) + '% (' + (t.chgPts >= 0 ? "+" : "−") + Math.abs(t.chgPts).toFixed(2) + ') Today</span>';
+      if (t.pre) h += '<span class="tpre">' + t.pre + ' <i data-lucide="arrow-up"></i> ' + t.preChg + ' pre-market</span>';
+      h += '</div><p class="tclosed">' + esc(t.closed || "") + '</p>';
+      h += actionRowHTML(sym);
+      h += '<div class="tchart">' + ch.svg + (ch.prevY !== null ? '<span class="prevclose" style="top:calc(' + ch.prevY.toFixed(1) + '% - 8px)">Prev close $' + t.prevClose.toFixed(2) + '</span>' : "") + '</div>';
+      h += '<div class="trange"><span class="on">1D</span><span>5D</span><span>1M</span><span>6M</span><span>YTD</span><span>1Y</span><span>5Y</span><span>MAX</span></div>';
+      if (t.ai) h += '<div class="tai"><i data-lucide="sparkles"></i><p><b>Stocksist AI —</b> ' + t.ai + '</p></div>';
+      var keys = Object.keys(t.stats || {});
+      if (keys.length) {
+        h += '<dl class="tstats">';
+        keys.slice(0, compact ? 6 : 12).forEach(function(k) { h += '<div class="stat"><dt>' + k + '</dt><dd>' + t.stats[k] + '</dd></div>'; });
+        h += '</dl>';
+      }
+      if (!compact && t.related) {
+        h += '<div class="trel"><h3>Related stocks</h3><div class="trel-grid">';
+        t.related.forEach(function(r) {
+          var rt = TICKERS[r]; if (!rt) return;
+          var rup = rt.chg >= 0;
+          h += '<button class="rel-card" data-chart-btn="' + r + '"><span class="rt">' + r + '</span><div class="rn">' + esc(rt.name) + '</div><div class="rp">$' + rt.price.toFixed(2) + '</div><span class="rc" style="color:' + (rup ? "#0a8a4d" : "#d43a2f") + '">' + (rup ? "+" : "−") + Math.abs(rt.chg).toFixed(2) + '% <i data-lucide="' + (rup ? "arrow-up" : "arrow-down") + '"></i></span>' + sparkSVG(r, rt.price, rup) + '<span class="rel-reason">' + esc(RELATED_REASON[r] || "Related watch") + ' — tap to open its chart</span></button>';
+        });
+        h += '</div></div>';
+      }
+      /* KALSHI MODULE — REMOVED v3 per Tony: see the re-add note in the
+         "When data is missing" section. Do not render prediction cards here. */
+      return h;
+    }
+    function eventCardHTML(e) {
+      var c = EVENT_TYPES[e.type];
+      var h = '<div style="padding-top:12px"><span class="badge type" style="--c:' + c.color + '">' + c.label.toUpperCase() + '</span>';
+      h += '<div class="tname" style="margin-top:10px">' + esc(e.title) + '</div>';
+      h += '<p class="tclosed">' + (e.t === "MACRO" ? "Macro release · ET" : esc(e.t) + " · Catalyst event") + ' · Impact: ' + e.impact + '</p>';
+      if (e.prev || e.fcst) {
+        h += '<dl class="macro-facts"><div class="mf"><dt>PREVIOUS</dt><dd>' + (e.prev || "—") + '</dd></div><div class="mf"><dt>FORECAST</dt><dd>' + (e.fcst || "—") + '</dd></div><div class="mf"><dt>ACTUAL</dt><dd>—</dd></div></dl>';
+      }
+      h += '<div class="tai"><i data-lucide="sparkles"></i><p><b>Stocksist AI —</b> ' + esc(TYPE_AI[e.type]) + '</p></div>';
+      h += '<p class="tclosed" style="margin-top:10px">Source: ' + esc(TYPE_SOURCE[e.type]) + ' · Free — full event page on Stocksist</p></div>';
+      return h;
+    }
+
+    /* ---------------- filters + legend (from config) ---------------- */
+    function typeCount(type) {
+      var m = getMonth(state.year, state.month), n = 0;
+      for (var d in m.days) m.days[d].events.forEach(function(e) { if (e.type === type) n++; });
+      return n;
+    }
+    function renderFilters() {
+      var m = getMonth(state.year, state.month);
+      var el = document.getElementById("filters");
+      el.innerHTML = FILTERS.map(function(f) {
+        var count = "";
+        if (f.id === "all") count = m.total;
+        else if (f.id === "high") count = m.highTotal;
+        else if (f.id === "watchlist") count = "★";
+        else if (f.type) count = typeCount(f.type) + "+";
+        return '<button class="filter-btn' + (state.filter === f.id ? " active" : "") + '" data-filter="' + f.id + '">' + (f.icon ? '<i data-lucide="' + f.icon + '"></i>' : "") + f.label + '<span class="fcount">' + count + '</span></button>';
+      }).join("");
+      el.querySelectorAll("[data-filter]").forEach(function(b) {
+        b.addEventListener("click", function() { state.filter = b.getAttribute("data-filter"); renderAll(); });
+      });
+    }
+    function renderLegend() {
+      var el = document.getElementById("legend");
+      var h = '<span class="legend-label">EVENT TYPES</span>';
+      Object.keys(EVENT_TYPES).forEach(function(k) {
+        var t = EVENT_TYPES[k], off = !!state.hiddenTypes[k];
+        h += '<button class="legend-chip' + (off ? " off" : "") + '" style="--c:' + t.color + '" data-type-toggle="' + k + '" aria-pressed="' + (!off) + '"><span class="swatch"></span>' + t.label + '<i data-lucide="' + (off ? "eye-off" : "eye") + '"></i></button>';
+      });
+      h += '<span class="legend-note"><i data-lucide="settings-2"></i>Types &amp; filters render from calendar config — add, rename or hide one without a rebuild. Tap a type to show / hide it.</span>';
+      el.innerHTML = h;
+      el.querySelectorAll("[data-type-toggle]").forEach(function(b) {
+        b.addEventListener("click", function() {
+          var k = b.getAttribute("data-type-toggle");
+          state.hiddenTypes[k] = !state.hiddenTypes[k];
+          renderLegend(); renderCalendar(); renderList(); refreshIcons();
+        });
+      });
+    }
+
+    /* ---------------- calendar ---------------- */
+    function chipMatches(e) {
+      if (state.filter === "all") return true;
+      if (state.filter === "high") return e.impact === "high";
+      if (state.filter === "watchlist") return WATCHLIST.indexOf(e.t) >= 0;
+      var f = FILTERS.filter(function(x) { return x.id === state.filter; })[0];
+      if (f && f.type) return e.type === f.type;
+      return true;
+    }
+    function chipHTML(e) {
+      var c = EVENT_TYPES[e.type];
+      var cls = "chip";
+      if (state.hiddenTypes[e.type]) cls += " gone";
+      else if (!chipMatches(e)) cls += " dim";
+      if (state.query && (e.t + " " + e.title).toLowerCase().indexOf(state.query) < 0) cls += " search-dim";
+      var star = WATCHLIST.indexOf(e.t) >= 0 ? '<i data-lucide="star" class="star"></i>' : "";
+      var zap = e.impact === "high" ? '<i data-lucide="zap"></i>' : "";
+      return '<span class="' + cls + '" style="--c:' + c.color + '" data-tick="' + esc(e.t) + '" data-type="' + e.type + '" data-title="' + esc(e.title) + '" data-impact="' + e.impact + '" role="button" tabindex="0" aria-label="' + esc(e.t + " — " + e.title) + '"><span class="tick">' + esc(e.t) + '</span>' + star + '<span class="ctitle">' + esc(e.title) + '</span>' + zap + '</span>';
+    }
+    function renderCalendar() {
+      var m = getMonth(state.year, state.month);
+      var grid = document.getElementById("calGrid");
+      var h = "";
+      for (var b = 0; b < m.startDow; b++) h += '<div class="day-cell outside" aria-hidden="true"></div>';
+      for (var d = 1; d <= m.daysIn; d++) {
+        var day = m.days[d] || { total: 0, events: [] };
+        var dow = (m.startDow + d - 1) % 7;
+        var isToday = state.year === 2026 && state.month === 10 && d === 16;
+        var sel = state.day === d;
+        h += '<button class="day-cell' + (sel ? " selected" : "") + (dow === 0 || dow === 6 ? " weekend" : "") + '" data-day="' + d + '" aria-pressed="' + sel + '">';
+        h += '<span class="day-top"><span class="day-num">' + d + '</span><span class="day-dow">' + DOWS[dow].toUpperCase().slice(0, 3) + '</span>';
+        if (isToday) h += '<span class="today-tag">TODAY</span>';
+        if (day.closed) h += '<span class="closed-tag">CLOSED · ' + esc(day.closed).toUpperCase() + '</span>';
+        if (day.early) h += '<span class="closed-tag">' + esc(day.early).toUpperCase() + '</span>';
+        h += '</span>';
+        day.events.forEach(function(e) { h += chipHTML(e); });
+        var more = day.total - day.events.length;
+        if (more > 0) h += '<span class="more-link">+' + more + ' more' + (day.high ? ' <span class="hi-note"><i data-lucide="zap"></i>' + day.high + ' high impact</span>' : "") + '</span>';
+        h += '</button>';
+      }
+      grid.innerHTML = h;
+      grid.querySelectorAll("[data-day]").forEach(function(cell) {
+        cell.addEventListener("click", function(ev2) {
+          if (ev2.target.closest("[data-tick]")) return;
+          selectDay(parseInt(cell.getAttribute("data-day"), 10), true);
+        });
+      });
+      document.getElementById("monthLabel").textContent = MONTHS[state.month] + " " + state.year;
+      document.getElementById("monthTotal").textContent = m.total + " catalysts";
+      document.getElementById("highTotal").textContent = m.highTotal + " high impact";
+    }
+
+    /* ---------------- brief + day view ---------------- */
+    function briefFor(dayNum) {
+      if (BRIEFS[dayNum] && state.year === 2026 && state.month === 10) return BRIEFS[dayNum];
+      var m = getMonth(state.year, state.month), day = m.days[dayNum];
+      if (!day || !day.events.length) return { title: "A quiet day on the calendar", lines: ["No high-impact catalysts tracked for this date yet — the feed re-scores nightly as filings and wires land."] };
+      var top = day.events[0];
+      return { title: day.total + " catalysts tracked · " + (day.high || 0) + " high impact", lines: [
+        "<b>Top of the day:</b> " + esc(top.t) + " — " + esc(top.title) + ".",
+        "Full ranked list below, scored by the AI Analyst. Hover any ticker for its AI card." ] };
+    }
+    function renderBrief() {
+      var date = new Date(state.year, state.month, state.day);
+      var b = briefFor(state.day);
+      var h = '<div class="brief-badge"><i data-lucide="sparkles"></i>AI DAY BRIEF</div>';
+      h += '<div><h2>' + DOWS[date.getDay()] + ', ' + MONTHS[state.month] + ' ' + state.day + ' — <span>' + esc(b.title) + '</span></h2><ul>';
+      b.lines.forEach(function(l) { h += '<li><i data-lucide="arrow-right"></i><span>' + l + '</span></li>'; });
+      h += '</ul></div>';
+      h += '<button class="tool-btn" id="briefWeekBtn"><i data-lucide="calendar-range"></i>Full week</button>';
+      document.getElementById("aiBrief").innerHTML = h;
+      document.getElementById("briefWeekBtn").addEventListener("click", openWeek);
+    }
+    function dayEvents(dayNum) {
+      if (state.year === 2026 && state.month === 10 && DAY_DETAILS[dayNum]) return DAY_DETAILS[dayNum];
+      var m = getMonth(state.year, state.month), day = m.days[dayNum];
+      if (!day) return [];
+      return day.events.map(function(e) {
+        return ev(e.t, e.type, e.title, e.impact, { time: TYPE_TIME[e.type], source: TYPE_SOURCE[e.type], ai: TYPE_AI[e.type] });
+      });
+    }
+    function impactBadge(i) { return '<span class="badge ' + i + '">' + i.toUpperCase() + ' IMPACT</span>'; }
+    function renderDayView() {
+      var m = getMonth(state.year, state.month), day = m.days[state.day] || { total: 0, high: 0, events: [] };
+      var date = new Date(state.year, state.month, state.day);
+      var rows = dayEvents(state.day);
+      var h = '<div class="panel-head"><div><h2>' + DOWS[date.getDay()] + ', ' + MONTHS[state.month] + ' ' + state.day + '</h2>';
+      h += '<p class="ph-sub">' + day.total + ' catalysts tracked · ' + (day.high || 0) + ' high impact · ranked by AI impact score</p></div>';
+      h += '<div class="impact-key"><span class="k"><i data-lucide="zap" style="color:var(--down)"></i>High</span><span class="k">Med</span><span class="k">Low</span></div></div>';
+      h += '<div class="ev-list">';
+      rows.forEach(function(e) {
+        var c = EVENT_TYPES[e.type];
+        h += '<div class="ev-row" style="--c:' + c.color + '"><span class="ev-time">' + esc(e.time || "—") + '</span><span class="ev-dot"></span>';
+        h += '<div class="ev-main"><p class="ev-title">';
+        if (TICKERS[e.t]) h += '<button class="tickbtn" data-tick="' + e.t + '"><span class="tick">' + esc(e.t) + '</span></button>';
+        else h += '<span class="tick">' + esc(e.t) + '</span>';
+        h += esc(e.title);
+        if (WATCHLIST.indexOf(e.t) >= 0) h += '<span class="badge watch"><i data-lucide="star"></i>WATCHLIST</span>';
+        h += '</p><p class="ev-ai">' + esc(e.ai || TYPE_AI[e.type]) + '</p>';
+        h += '<p class="ev-meta"><span class="src"><i data-lucide="file-text"></i>' + esc(e.source || TYPE_SOURCE[e.type]) + '</span>' + (e.prev ? '<span>Prev ' + e.prev + ' · Fcst ' + (e.fcst || "—") + '</span>' : "") + '</p></div>';
+        h += '<div class="ev-side">' + impactBadge(e.impact) + '<span class="badge type">' + c.label.split(" /")[0].toUpperCase() + '</span>' + (TICKERS[e.t] ? miniActsHTML(e.t) : "") + '</div></div>';
+      });
+      h += '</div>';
+      var more = day.total - rows.length;
+      if (more > 0) h += '<p class="ev-more"><i data-lucide="layers"></i>+' + more + ' more catalysts tracked for this day — the full feed ranks them the same way, no Premium lock.</p>';
+      document.getElementById("dayPanel").innerHTML = h;
+      renderSpot(day);
+    }
+    function renderSpot(day) {
+      var top = (day.events || []).filter(function(e) { return TICKERS[e.t]; })[0] || (day.events || [])[0];
+      var panel = document.getElementById("spotPanel");
+      if (!top) { panel.innerHTML = '<div class="spot-head"><i data-lucide="mouse-pointer-2"></i>AI HOVER CARD</div><div class="tcard"><p class="tclosed" style="padding-top:12px">No catalysts tracked for this day yet.</p></div>'; return; }
+      var inner = TICKERS[top.t] ? '<div class="tcard">' + tickerCardHTML(top.t, false) + '</div>'
+                                 : '<div class="tcard">' + eventCardHTML(top) + '</div>';
+      panel.innerHTML = '<div class="spot-head"><i data-lucide="mouse-pointer-2"></i>AI CARD — TOP CATALYST, PINNED BESIDE THE DAY VIEW</div>' + inner +
+        '<p class="hover-hint"><i data-lucide="info"></i>Hover a ticker in the grid for the quick sparkline preview — or open the full chart pop-up from any card. Free, no Pro gate.</p>';
+    }
+    function selectDay(d, scroll) {
+      state.day = d;
+      renderCalendar(); renderBrief(); renderDayView(); refreshIcons();
+      if (scroll && window.matchMedia("(max-width: 760px)").matches) {
+        document.getElementById("dayPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    /* =====================================================================
+       V4 — LIST / AGENDA VIEW (Google Calendar style)
+       Same feed, same filters, same AI Analyst voice as Month view — just
+       one chronological column from today (Mon Nov 16) forward. Every event
+       below is already on this page (month grid, day details, briefs or the
+       Week Snapshot); nothing new is invented for the list. Numbers are
+       placeholders and, for tracked tickers, the AI take derives from the
+       same botFor() levels object the pinned card and chart pop-up use.
+       Kalshi / prediction-market rows are NOT built here either — removed
+       in v3, re-add note lives in the "When data is missing" section.
+       ===================================================================== */
+    var LIST_DAYS = [
+      { day: 16, label: "Mon, Nov 16", total: 44, today: true, events: [
+        ev("SPCX","product","Post-launch volatility watch — first full session since Saturday's Starship test","high",{ time:"All day", ai:"<b>Starship launch was Sat Nov 14 — today is the first full session to price it in.</b> Prev close $137, current $139.11, above VWAP $138.20, sell wall $140; it broke 140 at 12:05 PM but reversed to $137. <b>WAIT</b> — go long only on a break of 140 that holds as support. As of 12:47 PM ET." }),
+        ev("MACRO","macro","Empire State Manufacturing Index — Nov","high",{ time:"8:30 AM", ai:"<b>8:30 AM ET macro catalyst — the first Nov manufacturing read.</b> Oct CPI already set the inflation backdrop; Empire State prev −8.7 vs forecast −5.9. <b>WAIT</b> — no sizing ahead of the release, trade the actual when it lands. As of 12:47 PM ET." }),
+        ev("NVDA","earnings","NVIDIA — earnings-week preview (reports Wed, after close)","med",{ time:"All day", note:"Earnings week opens — Blackwell guidance is the number the whole AI complex trades on" }),
+        ev("HD","earnings","Home Depot — earnings-eve (reports Tue, before open)","med",{ time:"All day", note:"Earnings-eve — the consumer trio opens tomorrow; the guide matters more than the EPS line" }),
+        ev("POET","earnings","POET Technologies — Q3 earnings, before open","med",{ time:"Pre-mkt", note:"Small-cap photonics — backlog commentary is the catalyst; options imply a double-digit move" })
+      ]},
+      { day: 17, label: "Tue, Nov 17", total: 40, events: [
+        ev("HD","earnings","Home Depot Q3 earnings — before open","high",{ time:"Pre-mkt", note:"Consumer trio, report one — housing turnover in the guide is the read, not the headline EPS" }),
+        ev("MACRO","macro","Advance Monthly Retail Sales — Oct","high",{ time:"8:30 AM", note:"8:30 AM ET — the consumer-spending release sitting directly under HD's guide" }),
+        ev("MACRO","macro","Import / Export Prices — Oct","low",{ time:"8:30 AM", note:"Price-pressure context for the Fed path — background to the retail release" }),
+        ev("MACRO","macro","Industrial Production — Oct","med",{ time:"9:15 AM", note:"Factory output read — secondary today unless it badly misses" }),
+        ev("TGT","earnings","Target — earnings-eve (reports Wed, before open)","med",{ time:"All day", note:"Earnings-eve — middle report of the consumer trio; positioning builds into Wed" })
+      ]},
+      { day: 18, label: "Wed, Nov 18", total: 38, events: [
+        ev("TGT","earnings","Target Q3 earnings — before open","high",{ time:"Pre-mkt", note:"Consumer trio, report two — the discretionary mix is the tell after HD" }),
+        ev("MACRO","macro","New Residential Construction — Oct","low",{ time:"8:30 AM", note:"Housing starts — context for HD's guide follow-through, not a trigger on its own" }),
+        ev("MACRO","macro","FOMC Minutes — Oct meeting","high",{ time:"2:00 PM", ai:"<b>Minutes land at 2:00 PM ET — catalyst first: the rate path, not the headline.</b> The tape stays range-bound until they're out, and NVDA reports after the close. <b>WAIT</b> — no fresh size before 2:00 PM. As of 12:47 PM ET." }),
+        ev("NVDA","earnings","NVIDIA Q3 earnings — after close","high",{ time:"After close", note:"The month's highest-impact report — guidance and Blackwell commentary move the whole AI complex" })
+      ]},
+      { day: 19, label: "Thu, Nov 19", total: 34, events: [
+        ev("WMT","earnings","Walmart Q3 earnings — before open","high",{ time:"Pre-mkt", note:"Consumer trio, final report — the cleanest read on U.S. spending heading into the holidays" }),
+        ev("MACRO","macro","Weekly Initial Jobless Claims","med",{ time:"8:30 AM", ai:"<b>8:30 AM ET claims release shares the morning with Walmart.</b> A soft claims number plus a strong WMT guide is the bull case for the week. <b>WAIT</b> — let both land before sizing anything. As of 12:47 PM ET." }),
+        ev("BABA","earnings","Alibaba Q2 FY27 earnings","med",{ time:"Pre-mkt", note:"China consumer read-through after the Singles' Day final tally" }),
+        ev("TTWO","product","Grand Theft Auto update window","med",{ time:"All day", note:"A window, not a confirmed drop — headline risk runs both ways into it" })
+      ]},
+      { day: 20, label: "Fri, Nov 20", total: 27, events: [
+        ev("MACRO","macro","UMich Consumer Sentiment — final Nov","med",{ time:"10:00 AM", note:"Final read — the inflation-expectations component moves rates more than the headline" }),
+        ev("MACRO","macro","Existing Home Sales — Oct","low",{ time:"10:00 AM", note:"Housing follow-through after HD's guide and Wednesday's starts" }),
+        ev("ALGN","fda","ITC initial determination","med",{ time:"4:00 PM", note:"Deadline-driven — the outcome window, not the headline, is what moves the stock" }),
+        ev("WMT","earnings","Earnings wrap — HD Tue · NVDA Wed · WMT Thu","med",{ time:"4:00 PM", ai:"<b>Week wrap: the consumer trio and NVDA are all out.</b> HD's guide, Blackwell commentary and WMT's consumer read set up Monday's open. <b>WAIT</b> — no chasing Friday closes; plan the levels over the weekend. As of 12:47 PM ET." })
+      ]},
+      { day: 21, label: "Sat, Nov 21", total: 6, events: [
+        ev("NKE","product","Retail sentiment check","low",{ time:"All day", note:"Weekend channel checks into Black Friday week" }),
+        ev("NET","sentiment","Usage data release","low",{ time:"All day", note:"Flow and positioning signal — tracked because it has moved the name before" }),
+        ev("MA","other","Investor note","low",{ time:"All day", note:"Weekend note only — no scheduled catalyst" })
+      ]},
+      { day: 22, label: "Sun, Nov 22", total: 5, events: [
+        ev("NET","sentiment","Analyst day follow-up","low",{ time:"All day", note:"Follow-up flow from the analyst day — context for Monday" }),
+        ev("NKE","product","Channel checks","low",{ time:"All day", note:"Pre–Black Friday checks — colour, not a confirmed catalyst" }),
+        ev("NOK","other","Contract update","low",{ time:"All day", note:"Weekend contract note — reaction, if any, trades Monday" })
+      ]},
+      { day: 23, label: "Mon, Nov 23", total: 21, events: [
+        ev("MACRO","macro","S&P Global Flash PMI — Nov","med",{ time:"9:45 AM", note:"First Nov activity read — the new-orders component leads the headline" }),
+        ev("FLNC","earnings","Fluence Energy earnings","low",{ time:"All day", note:"Small-cap energy storage — liquidity is thin into the release" }),
+        ev("HPE","earnings","HPE fiscal Q4 earnings","med",{ time:"After close", note:"AI server commentary is the read-through to the whole complex" }),
+        ev("ZM","earnings","Zoom earnings — after close","low",{ time:"After close", note:"Enterprise-spend tell — guidance over the EPS line" })
+      ]},
+      { day: 24, label: "Tue, Nov 24", total: 22, events: [
+        ev("NIO","earnings","NIO Q3 2026 results","med",{ time:"Pre-mkt", note:"Delivery guidance is the number that moves the China EV complex" }),
+        ev("BILI","earnings","Bilibili earnings","low",{ time:"Pre-mkt", note:"China internet sentiment check into the U.S. open" }),
+        ev("MACRO","macro","Case-Shiller Home Prices — Sep","low",{ time:"9:00 AM", note:"Lagging housing gauge — context, not a trigger" }),
+        ev("MACRO","macro","Consumer Confidence — Nov","high",{ time:"10:00 AM", note:"10:00 AM ET — the last big consumer read before Black Friday" })
+      ]},
+      { day: 25, label: "Wed, Nov 25", total: 24, events: [
+        ev("MACRO","macro","GDP (Second Estimate) — Q3","high",{ time:"8:30 AM", note:"Growth release shares the 8:30 AM window with PCE — together they frame the December FOMC" }),
+        ev("MACRO","macro","October PCE — inflation read","high",{ time:"8:30 AM", note:"The Fed's preferred gauge — core PCE is the number that moves the rate path" }),
+        ev("MACRO","macro","Advance Report — Durable Goods","low",{ time:"8:30 AM", note:"Capex orders — third release in the same crowded 8:30 AM window" }),
+        ev("MACRO","macro","New Residential Sales — Oct","low",{ time:"10:00 AM", note:"Housing close-out before the holiday-shortened end of the week" })
+      ]},
+      { day: 26, label: "Thu, Nov 26", total: 13, tag: "THANKSGIVING · MARKET CLOSED", events: [
+        ev("HOLIDAY","other","U.S. market closed — Thanksgiving Day","low",{ time:"All day", note:"No U.S. session — Black Friday channel checks are the only tape to watch" }),
+        ev("AAPL","product","Black Friday channel checks begin","low",{ time:"All day", note:"Watchlist name — the checks set up Friday's short retail session" }),
+        ev("SIVE","earnings","Sivers Q3 earnings (EU)","low",{ time:"All day", note:"European-session report — any U.S. reaction waits for Friday" })
+      ]},
+      { day: 27, label: "Fri, Nov 27", total: 25, tag: "BLACK FRIDAY · CLOSES 1:00 PM ET", events: [
+        ev("MACRO","macro","Advance Economic Indicators — Oct","low",{ time:"8:30 AM", note:"Trade and inventories advance read in a thin, early-close session" }),
+        ev("AAPL","product","Black Friday — retail session watch","low",{ time:"All day", note:"Channel-check headlines trade in a half session — moves can overshoot on thin liquidity" }),
+        ev("FLNC","fda","Lead plaintiff deadline","low",{ time:"4:00 PM", note:"Deadline-driven — the outcome window matters more than the headline" }),
+        ev("BETR","fda","Filing deadline — Better Home","low",{ time:"4:00 PM", note:"Filing deadline into the early close — check EDGAR before the bell" })
+      ]}
+    ];
+    function listTake(e) {
+      if (e.ai) return e.ai;
+      var stance = e.impact === "high" ? "<b>WAIT</b> — let it land and confirm direction before sizing."
+        : e.impact === "med" ? "<b>WAIT</b> — the trigger is follow-through after the event, not before it."
+        : "<b>NO TRADE</b> on this alone — context only, unless volume confirms.";
+      var note = esc(e.note || e.title);
+      var bot = TICKERS[e.t] ? botFor(e.t) : null;
+      if (bot) {
+        var lv = bot.levels;
+        return "<b>" + note + ".</b> Prev close " + lv["Prev close"] + ", current " + lv["Current"] + ", VWAP " + lv["VWAP"] + ", sell wall " + lv["Sell wall"] + ". " + stance + " As of 12:47 PM ET.";
+      }
+      return "<b>" + note + ".</b> " + stance + " As of 12:47 PM ET.";
+    }
+    function listRowHTML(e, dayNum) {
+      var c = EVENT_TYPES[e.type];
+      var h = '<div class="list-row" role="button" tabindex="0" data-list-row data-day="' + dayNum + '" data-sym="' + esc(e.t) + '" data-type="' + e.type + '" data-title="' + esc(e.title) + '" data-impact="' + e.impact + '" style="--c:' + c.color + '">';
+      h += '<span class="list-time">' + esc(e.time || "All day") + '</span>';
+      h += '<span class="list-main"><span class="list-title"><span class="tick">' + esc(e.t) + '</span>' + esc(e.title);
+      h += '<span class="badge type" style="--c:' + c.color + '">' + c.label.split(" /")[0].toUpperCase() + '</span>';
+      if (WATCHLIST.indexOf(e.t) >= 0) h += '<span class="badge watch"><i data-lucide="star"></i>WATCHLIST</span>';
+      h += '</span><span class="list-ai">' + listTake(e) + '</span></span>';
+      h += '<span class="list-side"><span class="impact-line"><span class="impact-dot ' + e.impact + '"></span>' + e.impact.toUpperCase() + ' IMPACT</span>' + miniActsHTML(e.t) + '</span>';
+      return h + '</div>';
+    }
+    function renderList() {
+      var wrap = document.getElementById("listDays");
+      if (!wrap) return;
+      var any = false, h = "";
+      LIST_DAYS.forEach(function(d) {
+        var rows = d.events.filter(function(e) {
+          if (state.hiddenTypes[e.type]) return false;
+          if (!chipMatches(e)) return false;
+          if (state.query && (e.t + " " + e.title).toLowerCase().indexOf(state.query) < 0) return false;
+          return true;
+        });
+        if (!rows.length) return;
+        any = true;
+        h += '<div class="list-day" id="listDay' + d.day + '"><div class="list-date"><span class="ld-num">' + d.day + '</span><div><h3>' + d.label + '</h3><p class="ld-count">' + rows.length + ' top events shown · ' + d.total + ' catalysts tracked this day</p></div>';
+        if (d.today) h += '<span class="today-tag">TODAY</span>';
+        if (d.tag) h += '<span class="closed-tag">' + d.tag + '</span>';
+        h += '</div><div class="list-rows">';
+        rows.forEach(function(e) { h += listRowHTML(e, d.day); });
+        h += '</div></div>';
+      });
+      wrap.innerHTML = h;
+      document.getElementById("listEmpty").hidden = any;
+      refreshIcons();
+    }
+    function setView(v) {
+      state.view = v;
+      var list = v === "list";
+      var mb = document.getElementById("viewMonthBtn"), lb = document.getElementById("viewListBtn");
+      mb.classList.toggle("active", !list); mb.setAttribute("aria-pressed", String(!list));
+      lb.classList.toggle("active", list); lb.setAttribute("aria-pressed", String(list));
+      document.getElementById("monthCard").hidden = list;
+      document.getElementById("dayViewSection").hidden = list;
+      document.getElementById("listView").hidden = !list;
+      if (list) renderList();
+      refreshIcons();
+    }
+    function jumpToToday() {
+      state.year = 2026; state.month = 10;
+      renderFilters(); renderLegend(); renderCalendar(); renderBrief(); renderDayView();
+      selectDay(16, state.view !== "list");
+      if (state.view === "list") {
+        renderList();
+        var el = document.getElementById("listDay16");
+        if (!el) {
+          /* Today has no rows under the current filter — fall back to All so the jump lands. */
+          state.filter = "all"; renderAll();
+          el = document.getElementById("listDay16");
+        }
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.add("flash");
+          setTimeout(function() { el.classList.remove("flash"); }, 1600);
+        }
+      }
+      toast("Back to today — Monday, November 16, 2026");
+      refreshIcons();
+    }
+
+    /* ---------------- week snapshot ---------------- */
+    var WEEK = [
+      { d: 16, items: [["SPCX","Post-launch volatility watch","product","high"],["MACRO","Empire State Mfg — Nov","macro","high"],["POET","Q3 earnings","earnings","med"]] },
+      { d: 17, items: [["HD","Home Depot Q3 earnings","earnings","high"],["MACRO","Retail Sales — Oct","macro","high"],["MACRO","Industrial Production","macro","med"]] },
+      { d: 18, items: [["NVDA","NVIDIA Q3 — after close","earnings","high"],["MACRO","FOMC Minutes 2:00 PM","macro","high"],["TGT","Target Q3 earnings","earnings","high"]] },
+      { d: 19, items: [["WMT","Walmart Q3 earnings","earnings","high"],["MACRO","Jobless Claims","macro","low"],["TTWO","GTA update window","product","med"]] },
+      { d: 20, items: [["MACRO","UMich Sentiment — final","macro","med"],["ALGN","ITC determination","fda","med"],["BETR","Plaintiff deadline","fda","low"]] }
+    ];
+    function renderWeek() {
+      var m = getMonth(2026, 10);
+      document.getElementById("weekGrid").innerHTML = WEEK.map(function(w) {
+        var day = m.days[w.d], date = new Date(2026, 10, w.d);
+        var h = '<button class="week-day' + (w.d === 16 ? " today-w" : "") + '" data-week-day="' + w.d + '"><span class="wd-dow">' + DOWS[date.getDay()].toUpperCase().slice(0, 3) + (w.d === 16 ? " · TODAY" : "") + '</span><div class="wd-num">' + w.d + '</div><div class="wd-count">' + day.total + ' catalysts · ' + (day.high || 0) + ' high</div><ul>';
+        w.items.forEach(function(it) {
+          h += '<li><i data-lucide="' + (it[3] === "high" ? "zap" : "arrow-right") + '" style="color:' + EVENT_TYPES[it[2]].color + '"></i><span><b>' + it[0] + '</b> ' + esc(it[1]) + '</span></li>';
+        });
+        return h + '</ul></button>';
+      }).join("");
+      document.querySelectorAll("[data-week-day]").forEach(function(b) {
+        b.addEventListener("click", function() {
+          closeWeek();
+          if (!(state.year === 2026 && state.month === 10)) { state.year = 2026; state.month = 10; renderFilters(); renderLegend(); }
+          selectDay(parseInt(b.getAttribute("data-week-day"), 10), true);
+        });
+      });
+    }
+    function openWeek() { document.getElementById("weekOverlay").hidden = false; refreshIcons(); }
+    function closeWeek() { document.getElementById("weekOverlay").hidden = true; }
+
+    /* ---------------- hover card ---------------- */
+    var hoverCard = document.getElementById("hoverCard");
+    var hoverTimer = null, hideTimer = null, pinnedSym = null;
+    function showCard(sym, anchor, pin) {
+      var e = { t: sym, type: anchor.getAttribute("data-type") || "other", title: anchor.getAttribute("data-title") || "", impact: anchor.getAttribute("data-impact") || "low" };
+      var inner = TICKERS[sym] ? previewCardHTML(sym) : '<div class="tcard">' + eventCardHTML(e) + '</div>';
+      hoverCard.innerHTML = (pin ? '<button class="hc-close" id="hcClose" aria-label="Close card"><i data-lucide="x"></i></button>' : "") + inner;
+      hoverCard.hidden = false;
+      var r = anchor.getBoundingClientRect();
+      var w = Math.min(372, window.innerWidth - 24);
+      var left = Math.min(r.left, window.innerWidth - w - 12);
+      hoverCard.style.left = Math.max(12, left) + "px";
+      hoverCard.style.top = Math.max(12, Math.min(r.bottom + 8, window.innerHeight - 430)) + "px";
+      refreshIcons();
+      var close = document.getElementById("hcClose");
+      if (close) close.addEventListener("click", function() { pinnedSym = null; hoverCard.hidden = true; });
+    }
+    function bindHover() {
+      document.addEventListener("mouseover", function(ev2) {
+        var a = ev2.target.closest("[data-tick]");
+        if (!a || pinnedSym) return;
+        if (hoverCard.contains(a)) return;
+        clearTimeout(hideTimer);
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(function() { showCard(a.getAttribute("data-tick"), a, false); }, 130);
+      });
+      document.addEventListener("mouseout", function(ev2) {
+        if (pinnedSym) return;
+        var a = ev2.target.closest("[data-tick]");
+        if (!a && !hoverCard.contains(ev2.target)) return;
+        clearTimeout(hoverTimer);
+        hideTimer = setTimeout(function() { if (!pinnedSym) hoverCard.hidden = true; }, 220);
+      });
+      hoverCard.addEventListener("mouseenter", function() { clearTimeout(hideTimer); });
+      hoverCard.addEventListener("mouseleave", function() { if (!pinnedSym) { hideTimer = setTimeout(function() { hoverCard.hidden = true; }, 200); } });
+      document.addEventListener("click", function(ev2) {
+        if (ev2.target.closest("[data-list-row]")) return; /* v4: list rows pin the same card via their own handler */
+        var a = ev2.target.closest("[data-tick]");
+        if (a) {
+          var sym = a.getAttribute("data-tick");
+          if (pinnedSym === sym) { pinnedSym = null; hoverCard.hidden = true; }
+          else { pinnedSym = sym; showCard(sym, a, true); }
+          ev2.stopPropagation();
+          return;
+        }
+        if (pinnedSym && !hoverCard.contains(ev2.target)) { pinnedSym = null; hoverCard.hidden = true; }
+      });
+      document.addEventListener("keydown", function(ev2) {
+        if (ev2.key === "Escape") { pinnedSym = null; hoverCard.hidden = true; closeWeek(); closeChart(); closeJournal(); }
+        if ((ev2.key === "Enter" || ev2.key === " ") && ev2.target.matches && ev2.target.matches(".chip")) {
+          var sym = ev2.target.getAttribute("data-tick");
+          pinnedSym = sym; showCard(sym, ev2.target, true); ev2.preventDefault();
+        }
+      });
+    }
+
+    /* ---------------- v2 action buttons (delegated) ---------------- */
+    document.addEventListener("click", function(ev2) {
+      var cb = ev2.target.closest("[data-chart-btn]");
+      if (cb) { ev2.stopPropagation(); openChart(cb.getAttribute("data-chart-btn")); return; }
+      var wb = ev2.target.closest("[data-watch-btn]");
+      if (wb) { ev2.stopPropagation(); toggleWatch(wb.getAttribute("data-watch-btn")); return; }
+      var jb = ev2.target.closest("[data-journal-btn]");
+      if (jb) { ev2.stopPropagation(); openJournal(jb.getAttribute("data-journal-btn")); return; }
+    });
+    document.getElementById("chartOverlay").addEventListener("click", function(e) { if (e.target === this) closeChart(); });
+    document.getElementById("journalOverlay").addEventListener("click", function(e) { if (e.target === this) closeJournal(); });
+
+    /* ---------------- Kimi package ---------------- */
+    document.getElementById("kimiCopy").addEventListener("click", function() {
+      var text = document.getElementById("kimiBrief").textContent;
+      function done() { toast("Kimi brief copied — paste it into Kimi with a screenshot of this page"); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function() { fallback(); });
+      } else fallback();
+      function fallback() {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); done(); } catch (err) { toast("Copy blocked — open the brief below and copy it manually"); }
+        document.body.removeChild(ta);
+      }
+    });
+    document.getElementById("kimiDownload").addEventListener("click", function() {
+      var text = document.getElementById("kimiBrief").textContent;
+      var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = "stocksist-catalyst-calendar-kimi-critique-brief.txt";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 800);
+      toast("Brief downloaded — send it to Kimi with a screenshot of this page");
+    });
+
+    /* ---------------- misc controls ---------------- */
+    var toastTimer = null;
+    function toast(msg, dwell) {
+      var t = document.getElementById("toast");
+      document.getElementById("toastMsg").textContent = msg;
+      document.getElementById("toastActs").innerHTML = "";
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { t.classList.remove("show"); }, dwell || 4000);
+    }
+    /* Mobile-first watchlist toast: top-centre on phones (never over the
+       bottom-docked hover card), 5.5s dwell, Undo + View Watchlist. */
+    function showWatchToast(sym) {
+      var t = document.getElementById("toast");
+      document.getElementById("toastMsg").textContent = sym + " saved to your Watchlist — catalyst and AI levels attached.";
+      var acts = document.getElementById("toastActs");
+      acts.innerHTML = '<button class="toast-act" id="toastUndo">Undo</button><button class="toast-act" id="toastView">View Watchlist</button>';
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { t.classList.remove("show"); }, 5500);
+      document.getElementById("toastUndo").addEventListener("click", function() {
+        watched[sym] = false;
+        renderDayView(); syncActionButtons(sym); refreshIcons();
+        toast(sym + " removed from your Watchlist");
+      });
+      document.getElementById("toastView").addEventListener("click", function() {
+        toast("Watchlist — " + sym + " is saved there with its catalyst and AI levels (Dashboard → Watchlist in the live site)");
+      });
+    }
+    function shiftMonth(delta) {
+      state.month += delta;
+      if (state.month < 0) { state.month = 11; state.year--; }
+      if (state.month > 11) { state.month = 0; state.year++; }
+      var m = getMonth(state.year, state.month);
+      state.day = (state.year === 2026 && state.month === 10) ? 16 : Math.min(state.day, m.daysIn);
+      pinnedSym = null; hoverCard.hidden = true;
+      renderFilters(); renderCalendar(); renderBrief(); renderDayView(); refreshIcons();
+    }
+    function refreshIcons() { if (window.lucide) lucide.createIcons(); }
+    function renderAll() { renderFilters(); renderLegend(); renderCalendar(); renderBrief(); renderDayView(); renderList(); refreshIcons(); }
+
+    document.getElementById("prevMonth").addEventListener("click", function() { shiftMonth(-1); });
+    document.getElementById("nextMonth").addEventListener("click", function() { shiftMonth(1); });
+    document.getElementById("todayBtn").addEventListener("click", jumpToToday);
+    document.getElementById("viewMonthBtn").addEventListener("click", function() { setView("month"); });
+    document.getElementById("viewListBtn").addEventListener("click", function() { setView("list"); });
+    document.getElementById("listTodayBtn").addEventListener("click", jumpToToday);
+    /* List rows open the same v3 flow as a grid chip: select the day, then pin
+       the sparkline preview card (View full chart inside it opens the big
+       chart pop-up, 1D default). Watchlist / Journal buttons inside a row are
+       handled by the existing delegated action handler, not the row click. */
+    function openListRow(row) {
+      var day = parseInt(row.getAttribute("data-day"), 10);
+      var sym = row.getAttribute("data-sym");
+      selectDay(day, false);
+      pinnedSym = sym;
+      showCard(sym, row, true);
+    }
+    document.addEventListener("click", function(ev2) {
+      var row = ev2.target.closest("[data-list-row]");
+      if (!row) return;
+      if (ev2.target.closest("button")) return;
+      openListRow(row);
+    });
+    document.addEventListener("keydown", function(ev2) {
+      if ((ev2.key === "Enter" || ev2.key === " ") && ev2.target.matches && ev2.target.matches("[data-list-row]")) {
+        openListRow(ev2.target);
+        ev2.preventDefault();
+      }
+    });
+    document.getElementById("weekBtn").addEventListener("click", openWeek);
+    document.getElementById("weekClose").addEventListener("click", closeWeek);
+    document.getElementById("weekOverlay").addEventListener("click", function(e) { if (e.target === this) closeWeek(); });
+    document.getElementById("tickSearch").addEventListener("input", function() {
+      state.query = this.value.trim().toLowerCase();
+      renderCalendar(); renderList(); refreshIcons();
+    });
+
+    renderWeek();
+    renderAll();
+    bindHover();
+    </script>
+  </body>
+</html>

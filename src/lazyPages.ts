@@ -115,3 +115,4 @@ export const LazyEtfDetailPage = lazy(() => import("@/pages/etf/EtfDetailPage"))
 export const LazyArticleDetailPage = lazy(() => import("@/pages/articles/ArticleDetailPage"));
 export const LazyNewsPage = lazy(() => import("@/pages/news/NewsPage"));
 export const LazyEarningsPage = lazy(() => import("@/pages/earnings/EarningsPage"));
+export const LazyCatalystCalendarPage = lazy(() => import("@/pages/calendar/CatalystCalendarPage"));

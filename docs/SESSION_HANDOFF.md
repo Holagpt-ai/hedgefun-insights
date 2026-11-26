@@ -1,3 +1,9 @@
+# Session handoff — November 26, 2026 (Catalyst Calendar V4 — consolidated PR)
+
+**GitHub `main` baseline:** **`a7ddec2`** (Homepage PR **#277** merged). **Branch:** `cursor/catalyst-calendar-v4` / **PR #278** — final economic ingestion correction (Fed monthly FOMC announcement day/time, BLS `release-list` fixtures, US gov partial/all-failed sync semantics, catalyst RPC `ce.id` pagination tie-breaker). **Runbook:** `docs/release/catalyst-calendar-v4-production-activation-v1.md`. **Not production:** SQL/Edge/cron. **Next:** owner review → Lovable ordered migration apply + Edge deploy.
+
+---
+
 # Session handoff — November 26, 2026 (Homepage Muse V21 design fidelity — PR #277)
 
 **Branch:** `cursor/homepage-v21-production-integration` (from `main` **`5c99f08a`**). **PR:** [#277](https://github.com/Holagpt-ai/hedgefun-insights/pull/277) — owner preview fixes (session pill, earnings Daily/Weekly, calendar links, closed movers, footer) on top of Muse **V21 design fidelity** on top of initial integration: centered hero, session chip in global header, Muse **top-band** layout (moves/movers left; assets/calendar right with stretch), month **calendar grid** + month-scoped queries, movers **price filter**, six **Muse feature cards** (no duplicate Pro rail), **editorial news**, navy **homepage-only footer** + honest economic/newsletter copy, shared trending hook, EN/ES copy bundle, dark-mode CSS. **Preserved:** auth, delayed-data provenance, Catalyst Calendar V4 handoff query contract (`calDate`/`calTab` — Earnings consumer not wired). **Missing backend:** economic calendar macro feed. **No** merge/deploy/SQL/Edge/Fly/cron/secrets. **Next after owner approval:** Catalyst Calendar **V4**.
