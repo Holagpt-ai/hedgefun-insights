@@ -52,8 +52,10 @@ export function resolvePmWorkspaceGate(nowMs = Date.now()): PmWorkspaceGatePrese
   const session = resolvePmApplicableTradingDate(nowMs);
   const et = getEtParts(new Date(nowMs));
   const consumerIsTradingDay = isTradingDay(et.date, et.weekday);
-  const unlockLabel = formatPmWorkspaceUnlockEtLabel(session.applicableTradingDate);
+  const unlockMins = pmWorkspaceUnlockMins(session.applicableTradingDate);
+  const unlockLabel = formatEtMinsLabel(unlockMins);
   const officialCloseLabel = formatRegularCloseEtLabel(session.applicableTradingDate);
+  const scheduledEarlyClose = unlockMins < PM_GATE_THRESHOLD_MINS;
   const locked = pmWorkspaceSectionsLocked(nowMs);
 
   const title = consumerIsTradingDay
@@ -62,8 +64,8 @@ export function resolvePmWorkspaceGate(nowMs = Date.now()): PmWorkspaceGatePrese
 
   const body = consumerIsTradingDay
     ? `Recap tools, catalyst outcomes, and after-hours watch become available at ${unlockLabel}`
-      + (unlockLabel !== officialCloseLabel
-        ? ` (scheduled early close ${officialCloseLabel})`
+      + (scheduledEarlyClose
+        ? ` (scheduled early close at ${officialCloseLabel})`
         : "")
       + ". The AI Brief follows the official market schedule."
     : "Markets are closed for this session. Recap and workflow sections are available without a regular-session time gate. Radar and scanner highlights follow preserved-session rules — prior-session data is not presented as today's live market.";

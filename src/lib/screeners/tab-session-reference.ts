@@ -1,7 +1,12 @@
 import { parseTimestampMs } from "@/lib/screeners/contract";
-import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
+import {
+  assessScreenerGenerationSession,
+  isLiveSurveillanceSessionKind,
+  resolveConsumerSessionKind,
+} from "@/lib/screeners/screener-session";
 import {
   getTabEvaluationEvidence,
+  tabEvidenceSupportsEvaluatedEmpty,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
 
@@ -22,15 +27,6 @@ export function newestProviderAsOfForTabRows(
   return bestIso;
 }
 
-function tabEvaluatedThisGeneration(
-  evidence: TabEvaluationEvidenceMap | null | undefined,
-  activeTabId: string,
-): boolean {
-  const entry = getTabEvaluationEvidence(evidence ?? null, activeTabId);
-  if (!entry) return false;
-  return entry.status === "evaluated" || entry.status === "publication_confirmed";
-}
-
 /**
  * Observation reference for tab session alignment.
  * Publication `synced_at` is never treated as market observation time.
@@ -44,13 +40,17 @@ export function resolveActiveTabSessionReference(input: {
 }): string | null {
   const tabRows = input.rows.filter((row) => row.tab_id === input.activeTabId);
   const tabNewest = newestProviderAsOfForTabRows(input.rows, input.activeTabId);
+  const tabEvidence = getTabEvaluationEvidence(
+    input.tabEvaluationEvidence ?? null,
+    input.activeTabId,
+  );
 
   if (tabRows.length > 0) {
     return tabNewest ?? input.providerAsOfMax;
   }
 
   if (
-    tabEvaluatedThisGeneration(input.tabEvaluationEvidence, input.activeTabId)
+    tabEvidenceSupportsEvaluatedEmpty(input.activeTabId, tabEvidence)
     && input.providerAsOfMax
     && assessScreenerGenerationSession({
       nowMs: input.nowMs,
@@ -60,20 +60,28 @@ export function resolveActiveTabSessionReference(input: {
     return input.providerAsOfMax;
   }
 
-  return tabNewest ?? input.providerAsOfMax;
+  return tabNewest;
 }
 
-/** Drop prior-session rows when the active tab is otherwise current-session aligned. */
+/**
+ * During live surveillance, drop prior-session rows on the active tab.
+ * Outside live surveillance, preserve closed-market / snapshot rows unchanged.
+ */
 export function filterActiveTabRowsForCurrentSession<T extends { tab_id: string; provider_as_of: string }>(
   rows: readonly T[],
   activeTabId: string,
   nowMs: number,
 ): T[] {
-  return rows.filter((row) => {
-    if (row.tab_id !== activeTabId) return false;
-    return assessScreenerGenerationSession({
-      nowMs,
-      referenceIso: row.provider_as_of,
-    }) === "current";
-  });
+  const onTab = rows.filter((row) => row.tab_id === activeTabId);
+  const sessionKind = resolveConsumerSessionKind(nowMs);
+  if (!isLiveSurveillanceSessionKind(sessionKind)) {
+    return onTab;
+  }
+  return onTab.filter(
+    (row) =>
+      assessScreenerGenerationSession({
+        nowMs,
+        referenceIso: row.provider_as_of,
+      }) === "current",
+  );
 }

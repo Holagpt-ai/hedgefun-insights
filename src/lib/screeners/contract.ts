@@ -5,12 +5,18 @@ import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-type
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import { reconcilePublicationTabEvidence } from "@/lib/screeners/publication-evidence-reconcile";
 import {
+  getTabEvaluationEvidence,
   isPublicationConfirmedTabEvidence,
   parseTabEvaluationEvidence,
   parseTabEvaluationEvidencePartial,
+  tabEvidenceSupportsEvaluatedEmpty,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
-import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
+import {
+  assessScreenerGenerationSession,
+  isLiveSurveillanceSessionKind,
+  resolveConsumerSessionKind,
+} from "@/lib/screeners/screener-session";
 import {
   filterActiveTabRowsForCurrentSession,
   resolveActiveTabSessionReference,
@@ -584,6 +590,23 @@ export function viewForActiveTab(
   }
 
   if (generation.status === "empty" || tabRows.length === 0) {
+    const tabEvidence = getTabEvaluationEvidence(tabEvaluationEvidence, activeTabId);
+    const liveSession = isLiveSurveillanceSessionKind(resolveConsumerSessionKind(nowMs));
+    if (
+      liveSession
+      && tabRows.length === 0
+      && tabRowsAll.length === 0
+      && !tabEvidenceSupportsEvaluatedEmpty(activeTabId, tabEvidence)
+    ) {
+      return {
+        status: "unavailable",
+        rows: [],
+        synced_at: generation.synced_at,
+        provider_as_of_max: generation.provider_as_of_max,
+        attempts,
+        ...viewMetadata(generation),
+      };
+    }
     return {
       status: "empty",
       rows: [],

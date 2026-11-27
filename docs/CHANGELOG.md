@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #282: closed-market row preservation + evaluated-empty guards (git only)
+
+- Session row filter applies only during live surveillance; closed/weekend/holiday snapshots preserved.
+- Evaluated-empty session reference requires `tabEvidenceSupportsEvaluatedEmpty` (not publication-confirmed-only).
+- PM copy: early-close callout only when unlock precedes 3 PM ET.
+
 ## 2026-11-27 — PR #282 follow-up: observation integrity + PM gate + historical guards (git only)
 
 - Remove `synced_at` session override; evaluated-empty via current `provider_as_of_max` only; mixed-row filtering; generation row cache tied to validated `sync_run_id`/`synced_at`.

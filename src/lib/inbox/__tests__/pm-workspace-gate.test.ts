@@ -46,4 +46,16 @@ describe("PM workspace gate", () => {
     expect(afterGate.locked).toBe(false);
     expect(beforeGate.unlockLabel).toBe("3:00 PM ET");
   });
+
+  it("does not call a normal 4 PM close an early close on regular days", () => {
+    const gate = resolvePmWorkspaceGate(Date.parse("2026-11-25T19:45:00.000Z"));
+    expect(gate.unlockLabel).toBe("3:00 PM ET");
+    expect(gate.officialCloseLabel).toBe("4:00 PM ET");
+    expect(gate.body).not.toMatch(/early close/i);
+  });
+
+  it("mentions early close only when unlock precedes 3 PM ET", () => {
+    const gate = resolvePmWorkspaceGate(Date.parse("2026-11-27T17:30:00.000Z"));
+    expect(gate.body).toMatch(/early close at 1:00 PM ET/i);
+  });
 });

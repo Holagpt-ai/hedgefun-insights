@@ -98,13 +98,13 @@ describe("screeners verified generation contract", () => {
     if (out.ok) expect(out.generation.status).toBe("available");
   });
 
-  it("2. valid global available generation with zero rows for one active tab returns empty", () => {
+  it("2. valid global available generation with zero rows for one active tab is unavailable without evaluation evidence", () => {
     const { state: s, rows } = validAvailable();
     const gen = validateGeneration([s], rows, NOW);
     expect(gen.ok).toBe(true);
     if (!gen.ok) return;
     const view = viewForActiveTab(gen.generation, "gappers", NOW, 1);
-    expect(view.status).toBe("empty");
+    expect(view.status).toBe("unavailable");
     expect(view.rows).toHaveLength(0);
   });
 
@@ -426,7 +426,7 @@ describe("screeners verified generation contract", () => {
       tab_evaluation_evidence: null,
     };
     expect(viewForActiveTab(emptyGen, "new_highs_lows", NOW, 1).status).toBe("initializing");
-    expect(viewForActiveTab(emptyGen, "gappers", NOW, 1).status).toBe("empty");
+    expect(viewForActiveTab(emptyGen, "gappers", NOW, 1).status).toBe("unavailable");
 
     const unavailableNhl: ValidatedGeneration = {
       ...emptyGen,
