@@ -14,6 +14,7 @@ import {
 } from "@/lib/catalyst/market-attention";
 import { reconcileCatalystEventTypeForPresentation } from "@/lib/catalyst/catalyst-event-type-integrity";
 import type { CatalystEventType } from "@/types/catalyst";
+import { isEditorialCatalystArticle } from "@/lib/catalyst/editorial-source";
 
 export { looksLikeMarketAttention, MARKET_ATTENTION_TITLE };
 
@@ -222,16 +223,22 @@ function relatedHeadlineIsNotIssuerEvent(row: CatalystPrecedenceInput): boolean 
   return false;
 }
 
+function opinionEditorialBlocksKeywordPrimary(row: CatalystPrecedenceInput): boolean {
+  return isEditorialCatalystArticle({ source_name: row.source_name ?? null, title: row.title });
+}
+
 export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): CatalystPrecedenceResult {
   row = {
     ...row,
+    attribution_class: row.attribution_class ?? "unverified",
+    ticker_specific: row.ticker_specific ?? false,
     event_type: reconcileCatalystEventTypeForPresentation({
       event_type: row.event_type as CatalystEventType,
       provider: row.provider,
       source_name: row.source_name ?? null,
       title: row.title,
-      attribution_class: row.attribution_class ?? null,
-      ticker_specific: row.ticker_specific ?? null,
+      attribution_class: row.attribution_class ?? "unverified",
+      ticker_specific: row.ticker_specific ?? false,
     }),
   };
   const text = catalystText(row);
@@ -244,7 +251,9 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
       isMarketAttention: marketAttention,
     };
   }
-  const explicit = detectPrimaryEventClass(text);
+  const explicit = opinionEditorialBlocksKeywordPrimary(row)
+    ? null
+    : detectPrimaryEventClass(text);
 
   if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {
     return applyAttributionAuthority({
@@ -302,7 +311,7 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
   }
 
   const mapped = EVENT_TYPE_PRIMARY[row.event_type];
-  if (mapped) {
+  if (mapped && !opinionEditorialBlocksKeywordPrimary(row)) {
     return applyAttributionAuthority({
       tier: "primary",
       primaryClass: mapped,
@@ -311,7 +320,7 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
     }, row);
   }
 
-  if (row.event_type === "corporate_action") {
+  if (row.event_type === "corporate_action" && !opinionEditorialBlocksKeywordPrimary(row)) {
     const financing = detectPrimaryEventClass(text) ??
       (/\b(?:offering|atm|pipe|convertible|warrant)\b/i.test(text) ? "financing_capital" : null);
     if (financing) {

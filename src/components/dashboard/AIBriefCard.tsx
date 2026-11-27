@@ -12,7 +12,13 @@ import {
   type CachedBriefSnapshot,
   type LastGoodBriefCache,
 } from "@/lib/ai/brief-refresh-state";
-import { readBriefSessionCache, writeBriefSessionCache } from "@/lib/ai/brief-session-cache";
+import {
+  briefCacheScopeKey,
+  briefSnapshotSupersededBySchedule,
+  clearScopedLastGoodBrief,
+  lastGoodBriefUsable,
+  shouldReleaseBriefInFlightGuard,
+} from "@/lib/ai/brief-card-request-lifecycle";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBriefPreview } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
@@ -175,8 +181,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const fetchInFlightRef = useRef(false);
+  const fetchGenerationRef = useRef(0);
   const lastGoodBriefRef = useRef<LastGoodBriefCache>(emptyLastGoodBriefCache());
+  const lastGoodOwnerRef = useRef<string | null>(null);
   const briefObserveRef = useRef({
     httpStatus: null as number | null,
     reason: null as string | null,
@@ -193,13 +200,30 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   });
 
   const fetchBrief = useCallback(async (opts?: { force?: boolean }) => {
-    if (fetchInFlightRef.current && !opts?.force) return;
-    fetchInFlightRef.current = true;
+    const userId = user?.id;
+    if (!userId) {
+      setState({ kind: "unauth" });
+      return;
+    }
+    const generation = ++fetchGenerationRef.current;
+    const isCurrent = () => fetchGenerationRef.current === generation;
+
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const prior = getCachedBrief(lastGoodBriefRef.current, briefType);
+    const scope = { userId, briefType };
+    const cached = lastGoodBriefUsable(scope, lastGoodOwnerRef.current)
+      ? getCachedBrief(lastGoodBriefRef.current, briefType)
+      : null;
+    const prior = cached
+      && !briefSnapshotSupersededBySchedule({
+        briefType,
+        generationWindow: cached.generationWindow,
+        expectedGenerationWindow: cached.expectedGenerationWindow,
+      })
+      ? cached
+      : null;
     if (prior) {
       setState({ kind: "available", ...prior, isRefreshing: true, refreshNotice: null });
     } else {
@@ -211,6 +235,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
       if (!session) {
+        if (!isCurrent()) return;
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        lastGoodOwnerRef.current = null;
         setState({ kind: "unauth" });
         return;
       }
@@ -241,10 +268,16 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         typeof body?.previous_trading_day === "boolean" ? body.previous_trading_day : null;
 
       if (resp.status === 401) {
+        if (!isCurrent()) return;
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        lastGoodOwnerRef.current = null;
         setState({ kind: "unauth" });
         return;
       }
       if (resp.status === 403) {
+        if (!isCurrent()) return;
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        lastGoodOwnerRef.current = null;
         setState({ kind: "upgrade" });
         return;
       }
@@ -328,10 +361,16 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               generationReason,
               catalystFeedStatus,
             };
-            setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
-            if (typeof body.brief_date === "string") {
-              writeBriefSessionCache(briefType, body.brief_date, snapshot);
+            const scheduleSuperseded = briefSnapshotSupersededBySchedule({
+              briefType,
+              generationWindow,
+              expectedGenerationWindow,
+            });
+            if (!scheduleSuperseded) {
+              setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
+              lastGoodOwnerRef.current = briefCacheScopeKey(scope);
             }
+            if (!isCurrent()) return;
             setState({
               kind: "available",
               ...snapshot,
@@ -504,6 +543,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       if ((err as { name?: string })?.name === "AbortError") {
         return;
       }
+      if (!isCurrent()) return;
       setState({
         kind: "error",
         message: "Temporarily unavailable",
@@ -511,34 +551,32 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         statusLabel: "Temporarily unavailable",
       });
     } finally {
-      fetchInFlightRef.current = false;
+      if (shouldReleaseBriefInFlightGuard(fetchGenerationRef.current, generation)) {
+        // generation still current — no extra guard needed
+      }
     }
-  }, [briefType]);
+  }, [briefType, user?.id]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
+      clearScopedLastGoodBrief(lastGoodBriefRef.current);
+      lastGoodOwnerRef.current = null;
+      fetchGenerationRef.current += 1;
+      abortRef.current?.abort();
       setState({ kind: "unauth" });
       return;
     }
-    const etDate = getEtParts(new Date()).date;
-    const sessionCached = readBriefSessionCache(briefType, etDate);
-    if (sessionCached) {
-      setCachedBrief(lastGoodBriefRef.current, briefType, sessionCached);
-      setState({
-        kind: "available",
-        ...sessionCached,
-        isRefreshing: false,
-        refreshNotice: null,
-      });
-      return () => {
-        abortRef.current?.abort();
-      };
+    const scope = { userId: user.id, briefType };
+    if (!lastGoodBriefUsable(scope, lastGoodOwnerRef.current)) {
+      clearScopedLastGoodBrief(lastGoodBriefRef.current);
+      lastGoodOwnerRef.current = null;
     }
     void fetchBrief();
     return () => {
+      fetchGenerationRef.current += 1;
       abortRef.current?.abort();
     };
-  }, [user, fetchBrief, briefType]);
+  }, [user?.id, briefType, fetchBrief]);
 
   useEffect(() => {
     if (!pmDebug || briefType !== "am") return;

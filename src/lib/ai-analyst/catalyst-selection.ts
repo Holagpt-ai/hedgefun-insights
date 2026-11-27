@@ -22,8 +22,8 @@ function withReconciledEventType(row: AnalystCatalystRow): AnalystCatalystRow {
     provider: row.officialSource ? "company_ir" : "polygon",
     source_name: row.sourceName ?? null,
     title: row.title ?? null,
-    attribution_class: row.attributionClass ?? "direct",
-    ticker_specific: row.tickerSpecific ?? true,
+    attribution_class: row.attributionClass ?? "unverified",
+    ticker_specific: row.tickerSpecific ?? false,
   });
   return eventType === row.eventType ? row : { ...row, eventType };
 }
@@ -44,8 +44,8 @@ function toPrecedenceInput(row: AnalystCatalystRow) {
     event_date: row.eventDate ?? "",
     published_at: row.publishedAt,
     source_name: row.sourceName ?? null,
-    attribution_class: row.attributionClass ?? "direct",
-    ticker_specific: row.tickerSpecific ?? true,
+    attribution_class: row.attributionClass ?? "unverified",
+    ticker_specific: row.tickerSpecific ?? false,
   };
 }
 

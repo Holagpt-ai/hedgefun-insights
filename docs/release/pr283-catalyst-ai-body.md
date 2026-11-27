@@ -1,7 +1,7 @@
 ## Summary
 
 - **Catalyst (A / ISS-028):** Editorial publishers (Motley Fool, etc.) no longer surface as verified M&A/earnings from headline keywords alone — `classifyCatalyst` + `reconcileIngestCatalystEventType` on `sync-catalyst-events`, UI `reconcileCatalystEventTypeForPresentation`, AI Analyst `catalyst-selection` demotion (AWK merger-chatter case).
-- **Watchlist AI (C):** Failed refresh with existing `analyzed_at` preserves prior analysis in `resolveWatchlistRowRequestStatus` (PR #275 containment preserved).
+- **Watchlist AI (C):** Failed refresh stays `requestStatus: failed` while `priorAnalysisAvailable` keeps analysis on screen; independent freshness and error surfacing (PR #275 containment preserved).
 - **AI Analyst (D):** AWK Motley Fool merger-chatter regression; MRVL acceptance tests unchanged.
 - **Continuity:** PROJECT_MEMORY, SESSION_HANDOFF, ISSUE_REGISTER, ARCHITECTURE, CHANGELOG updated. Preserves #280–#282, earnings ranking (ISS-026), PM gate (#282), Calendar V4 blocked, AI Trader shelved.
 
@@ -10,7 +10,7 @@
 | Workstream | Defect | Correction |
 | --- | --- | --- |
 | A | Editorial M&A label on AWK Motley Fool | Editorial guard at classify, ingest, UI |
-| C | Failed AI refresh blanks row | Keep succeeded when `analyzed_at` present |
+| C | Failed AI refresh blanked row or lied about status | Truthful `failed` + `priorAnalysisAvailable` |
 | D | Internal catalyst rows retain inflated `eventType` | Reconcile before scoring |
 
 ## Not claimed fixed

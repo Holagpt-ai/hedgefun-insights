@@ -5,7 +5,8 @@
 - Watchlist: separate `requestStatus` from `priorAnalysisAvailable` / `refreshFailedWithPriorAnalysis`; presentation stays `ready` when prior content survives failed refresh.
 - Catalyst: opinion-editorial vs Reuters/Bloomberg factual reporting split; `classifyCatalystPrecedence` reconciles event types client + Edge.
 - AI Analyst: explicit ticker switch in questions; `rankCurrentCatalysts` uses scored reconciliation; chat updates active symbol on explicit ticker change.
-- AM/PM brief card: sessionStorage cache + duplicate in-flight fetch guard (no scheduling/cron changes).
+- AM/PM brief card: removed sessionStorage (auth bypass fix); user-scoped in-memory last-good + fetch-generation lifecycle (no scheduling/cron changes).
+- Catalyst: opinion-editorial headlines cannot regain primary class via `detectPrimaryEventClass`; missing attribution defaults `unverified` / not ticker-specific.
 
 ## 2026-11-27 — Catalyst & AI intelligence completion (git only; pending PR)
 

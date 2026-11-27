@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   classifyCatalystPrecedence,
   compareCatalystPrecedence,
+  detectPrimaryEventClass,
   looksLikeMarketAttention,
 } from "@/lib/catalyst/precedence";
 
@@ -40,6 +41,27 @@ describe("catalyst precedence parity", () => {
     };
     expect(classifyCatalystPrecedence(editorial).primaryClass).not.toBe("acquisition_ma");
     expect(classifyCatalystPrecedence(editorial).tier).toBe("secondary");
+  });
+
+  it("blocks Fool merger agreement phrasing from keyword primary rescue", () => {
+    const editorial = {
+      ...base("AWK signs definitive merger agreement — here's what investors should know", "merger_acquisition"),
+      source_name: "The Motley Fool",
+    };
+    expect(detectPrimaryEventClass(editorial.title)).toBe("acquisition_ma");
+    const result = classifyCatalystPrecedence(editorial);
+    expect(result.tier).toBe("secondary");
+    expect(result.primaryClass).toBeNull();
+  });
+
+  it("blocks Fool earnings-results phrasing from keyword primary rescue", () => {
+    const editorial = {
+      ...base("Company reports earnings results and raises guidance", "earnings"),
+      source_name: "Seeking Alpha",
+    };
+    const result = classifyCatalystPrecedence(editorial);
+    expect(result.tier).toBe("secondary");
+    expect(result.primaryClass).toBeNull();
   });
 
   it("demotes a related earnings headline below the issuer calendar row", () => {

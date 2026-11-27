@@ -6,7 +6,7 @@
 
 **Preserved:** PR #275 containment, #270 attribution, earnings ranking (ISS-026), PM gate (#282), AI Trader shelved 2027, Calendar V4 blocked, historical **BKH** checkpoint.
 
-**Activation:** Lovable Edge deploy for `sync-catalyst-events`, `analyze-watchlist-tickers-v2`, `chat` when merged; Vercel for catalyst UI. Watchlist **AI_PROVIDER_ERROR** root cause **unverified** (fast-fail ~130–171 ms).
+**Release corrections (same PR):** Removed brief `sessionStorage` (auth bypass); user-scoped in-memory last-good + fetch-generation guards. Catalyst opinion-editorial cannot re-promote via `detectPrimaryEventClass`. **Activation:** Lovable Edge `sync-catalyst-events`, `chat`, `get-daily-brief` unchanged entitlement; Vercel brief + watchlist + catalyst UI. Watchlist **AI_PROVIDER_ERROR** still **unverified**.
 
 **Next:** owner merge → deploy touched Edge functions → acceptance on AWK editorial labeling + Watchlist refresh failure UX.
 
