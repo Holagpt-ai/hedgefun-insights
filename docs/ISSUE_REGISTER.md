@@ -2,6 +2,8 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
+**Scanner & market intelligence (Nov 27):** **Source corrected** PR **#282** @ **`9b01caa0`** — NHL tab session reference + baseline truth precedence, intraday RVOL overlay on standard tabs, PM Inbox early-close gate, float partial map, sort/trust/historical terminal states. **Production acceptance OPEN** (Vercel; Edge row-level 5m RVOL persist **activation-only**). Preserves v530 / Option B / Layer C checkpoint.
+
 **Homepage My Assets Watchlist (Nov 27):** **Fixed in git** PR **#280** @ **`b0c6f46b`**. Runtime / authenticated acceptance **deferred to final inspection**.
 
 **AI Trader navigation (Nov 27, deferred):** Shelved until **2027**. Nav removed in PR **#280**. Infra preserved OFF. See **ISS-009**.
