@@ -5,12 +5,22 @@ import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-type
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import { reconcilePublicationTabEvidence } from "@/lib/screeners/publication-evidence-reconcile";
 import {
+  getTabEvaluationEvidence,
   isPublicationConfirmedTabEvidence,
   parseTabEvaluationEvidence,
   parseTabEvaluationEvidencePartial,
+  tabEvidenceSupportsEvaluatedEmpty,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
-import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
+import {
+  assessScreenerGenerationSession,
+  isLiveSurveillanceSessionKind,
+  resolveConsumerSessionKind,
+} from "@/lib/screeners/screener-session";
+import {
+  filterActiveTabRowsForCurrentSession,
+  resolveActiveTabSessionReference,
+} from "@/lib/screeners/tab-session-reference";
 
 export const MANAGED_TAB_IDS = [
   "day_trade_radar",
@@ -90,6 +100,11 @@ export interface ScreenerResultRow {
   provider_as_of: string;
   sync_run_id: string;
   updated_at: string;
+  /** Populated from Radar V2 intraday overlay when observation timestamps align. */
+  rvol_5m?: number | null;
+  vol_velocity?: number | null;
+  volume_acceleration_pct?: number | null;
+  time_adjusted_rvol?: number | null;
 }
 
 export interface ValidatedGeneration {
@@ -529,10 +544,24 @@ export function viewForActiveTab(
     }
   }
 
-  const tabRows = generation.rows.filter((r) => r.tab_id === activeTabId);
-  const sessionReference = generation.provider_as_of_max ?? generation.synced_at;
+  const tabRowsAll = generation.rows.filter((r) => r.tab_id === activeTabId);
+  const tabEvaluationEvidence = (generation.state.tab_evaluation_evidence ??
+    null) as TabEvaluationEvidenceMap | null;
+  const sessionReference = resolveActiveTabSessionReference({
+    nowMs,
+    activeTabId,
+    rows: generation.rows,
+    providerAsOfMax: generation.provider_as_of_max,
+    tabEvaluationEvidence,
+  });
+  const tabRows = filterActiveTabRowsForCurrentSession(
+    tabRowsAll,
+    activeTabId,
+    nowMs,
+  );
   if (
-    assessScreenerGenerationSession({
+    sessionReference
+    && assessScreenerGenerationSession({
       nowMs,
       referenceIso: sessionReference,
     }) === "previous_during_live"
@@ -561,6 +590,39 @@ export function viewForActiveTab(
   }
 
   if (generation.status === "empty" || tabRows.length === 0) {
+    const tabEvidence = getTabEvaluationEvidence(tabEvaluationEvidence, activeTabId);
+    const liveSession = isLiveSurveillanceSessionKind(resolveConsumerSessionKind(nowMs));
+    const supportsZero = tabEvidenceSupportsEvaluatedEmpty(activeTabId, tabEvidence);
+    const currentObservation =
+      sessionReference !== null
+      && assessScreenerGenerationSession({
+        nowMs,
+        referenceIso: sessionReference,
+      }) === "current";
+    if (
+      liveSession
+      && tabRows.length === 0
+      && tabRowsAll.length === 0
+    ) {
+      if (supportsZero && currentObservation) {
+        return {
+          status: "empty",
+          rows: [],
+          synced_at: generation.synced_at,
+          provider_as_of_max: generation.provider_as_of_max,
+          attempts,
+          ...viewMetadata(generation),
+        };
+      }
+      return {
+        status: "unavailable",
+        rows: [],
+        synced_at: generation.synced_at,
+        provider_as_of_max: generation.provider_as_of_max,
+        attempts,
+        ...viewMetadata(generation),
+      };
+    }
     return {
       status: "empty",
       rows: [],

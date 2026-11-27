@@ -1,5 +1,26 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #282: closed-market row preservation + evaluated-empty guards (git only)
+
+- Session row filter applies only during live surveillance; closed/weekend/holiday snapshots preserved.
+- Evaluated-empty session reference requires `tabEvidenceSupportsEvaluatedEmpty` (not publication-confirmed-only).
+- PM copy: early-close callout only when unlock precedes 3 PM ET.
+
+## 2026-11-27 — PR #282 follow-up: observation integrity + PM gate + historical guards (git only)
+
+- Remove `synced_at` session override; evaluated-empty via current `provider_as_of_max` only; mixed-row filtering; generation row cache tied to validated `sync_run_id`/`synced_at`.
+- PM workspace unlock: **3:00 PM ET** regular days, **min(3 PM, early close)** on early-close sessions; holidays/weekends not 3 PM-gated; live gate refresh on PM Inbox.
+- Historical enrichment failures respect poll generation + do not clobber ready Repeat Movers state.
+
+## 2026-11-27 — Scanner & market intelligence completion (git only; pending PR)
+
+- NHL / session: tab-local `provider_as_of` session reference + evaluated-tab `synced_at` fallback; baseline-unavailable truth precedence over prior-session copy.
+- Volume intelligence: Radar V2 intraday overlay extended to standard scanner tabs (gappers, NHL, volume_spikes, gainers_losers, unusual_volume); sort fix for acceleration/`rvol_5m` columns.
+- PM Inbox: workspace unlock uses exchange early-close via `getRegularCloseMins` (not fixed 3:00 PM ET).
+- Float (ISS-037): partial float-map failures no longer blank entire table; provenance prefers `providerAsOfMax` over `syncedAt`.
+- Repeat Movers: explicit `service_http_error` / `enrichment_failed` terminal states on historical-context batch failures.
+- Baseline `main` **`c921fae`** (PR **#281** merged). Not production-deployed until owner Vercel/Edge path.
+
 ## 2026-11-27 — Historical catch-up execution safety (PR #281; git only)
 
 - Partial-window cursor: retry boundary before failing symbol; full-window advance only when resolution completes; partial resolved batch persisted before worker stop.

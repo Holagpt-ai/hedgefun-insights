@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
   FLOAT_STALE_TIME_MS,
-  FLOAT_UNAVAILABLE_MESSAGE,
   floatMapHasTransient,
   getFloatForSymbols,
   peekFloatRecord,
@@ -16,13 +15,7 @@ export function useRadarFloatForSymbols(symbols: readonly string[]) {
   const key = uniqueNormalizedSymbols(symbols);
   const query = useQuery({
     queryKey: ["radar-float", key],
-    queryFn: async () => {
-      const map = await getFloatForSymbols(key);
-      if (floatMapHasTransient(map, key)) {
-        throw new Error(FLOAT_UNAVAILABLE_MESSAGE);
-      }
-      return map;
-    },
+    queryFn: () => getFloatForSymbols(key),
     staleTime: FLOAT_STALE_TIME_MS,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 0,
@@ -40,8 +33,11 @@ export function useRadarFloatForSymbols(symbols: readonly string[]) {
     return row ? verifiedFloatRecordForDisplay(row) : null;
   };
 
+  const hasTransientUnavailable = floatMapHasTransient(bySymbol, key);
+
   return {
     bySymbol,
+    hasTransientUnavailable,
     isPending: key.length > 0 && query.isPending,
     getFloatRecord,
     getFloat: (symbol: string) => verifiedFreeFloatFromRecord(getFloatRecord(symbol)),
