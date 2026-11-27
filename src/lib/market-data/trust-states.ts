@@ -137,8 +137,8 @@ export function resolveScreenerMarketDataTrust(input: {
   if (fromFeed) return fromFeed;
 
   const sourceIso = input.marketFeed?.last_message_at ??
-    input.syncedAt ??
     input.providerAsOfMax ??
+    input.syncedAt ??
     null;
   const sourceMs = parseTrustSourceMs(sourceIso);
   if (sourceMs === null) return "UNAVAILABLE";

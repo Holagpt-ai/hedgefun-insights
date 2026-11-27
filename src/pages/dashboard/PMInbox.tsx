@@ -1,5 +1,5 @@
 import { hasProAccess } from "@/lib/entitlement";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles, Newspaper, BookOpen, Star, Radar } from "lucide-react";
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
@@ -35,7 +35,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   PM_INBOX_CONFIG,
-  PM_GATE_THRESHOLD_MINS,
   PM_TODAYS_KEY_MOVES,
   PM_TOMORROW_SETUP,
   PM_AFTER_HOURS_WATCH,
@@ -43,11 +42,7 @@ import {
 } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
 import { BRAND } from "@/config/brand";
-
-function isBeforePMWindow(): boolean {
-  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  return et.getHours() * 60 + et.getMinutes() < PM_GATE_THRESHOLD_MINS;
-}
+import { resolvePmWorkspaceGate } from "@/lib/inbox/pm-workspace-gate";
 
 function priorityBorder(p?: "High" | "Medium" | "Low"): string {
   if (p === "High") return "border-l-4 border-l-red-500";
@@ -350,9 +345,19 @@ export default function PMInbox() {
     ? "PRO ACCESS — MARKET BRIEF + SAMPLE WORKFLOWS"
     : "FREE ACCESS — SAMPLE WORKFLOWS";
 
-  const timeGated = isBeforePMWindow();
+  const [gateNowMs, setGateNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const tickMs = 30_000;
+    const id = window.setInterval(() => setGateNowMs(Date.now()), tickMs);
+    return () => window.clearInterval(id);
+  }, []);
+  const workspaceGate = useMemo(() => resolvePmWorkspaceGate(gateNowMs), [gateNowMs]);
+  const timeGated = workspaceGate.locked;
   const fullPmWorkspace = isPro && !timeGated;
   const [modalOpen, setModalOpen] = useState(timeGated);
+  useEffect(() => {
+    if (!timeGated) setModalOpen(false);
+  }, [timeGated]);
   const {
     data: catalystEvents,
     isLoading: catalystLoading,
@@ -399,7 +404,7 @@ export default function PMInbox() {
           <DialogHeader>
             <div className="text-3xl mb-2">{PM_INBOX_CONFIG.gateModalIcon}</div>
             <DialogTitle>{PM_INBOX_CONFIG.gateModalTitle}</DialogTitle>
-            <DialogDescription>{PM_INBOX_CONFIG.gateModalBody}</DialogDescription>
+            <DialogDescription>{workspaceGate.modalBody}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button onClick={() => setModalOpen(false)}>{PM_INBOX_CONFIG.gateModalCta}</Button>
@@ -432,16 +437,16 @@ export default function PMInbox() {
       {timeGated && isPro ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
           <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
-          <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
-          <p className="text-sm text-muted-foreground">{PM_INBOX_CONFIG.lockedCardBody}</p>
+          <h3 className="text-base font-semibold">{workspaceGate.title}</h3>
+          <p className="text-sm text-muted-foreground">{workspaceGate.body}</p>
         </div>
       ) : timeGated && !isPro ? (
         <>
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
             <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
-            <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
+            <h3 className="text-base font-semibold">{workspaceGate.title}</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              {PM_INBOX_CONFIG.lockedCardBody}
+              {workspaceGate.body}
             </p>
             <p className="text-xs text-muted-foreground mt-2 max-w-md">
               Full After-Hours — post-market recap, catalyst outcomes, and after-hours watch — is a Pro feature.

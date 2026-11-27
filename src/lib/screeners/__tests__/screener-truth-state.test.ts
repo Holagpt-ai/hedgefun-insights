@@ -541,6 +541,19 @@ describe("screener truth-state resolver", () => {
     expect(truth.title).toBe("Baseline unavailable");
   });
 
+  it("prefers baseline_unavailable over prior-session copy on NHL", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "unavailable",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "unavailable",
+      generationSessionAlignment: "previous_during_live",
+    });
+    expect(truth.reason).toBe("baseline_unavailable");
+    expect(truth.title).toBe("Baseline unavailable");
+  });
+
   it("unavailable + previous_during_live alignment uses prior session snapshot copy", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",

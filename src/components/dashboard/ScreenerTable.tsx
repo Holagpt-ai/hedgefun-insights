@@ -227,6 +227,16 @@ export function ScreenerTable({
       const primary = evaluateScreenerTriggerTime(row).primary;
       return primary ? Date.parse(primary.triggeredAt) : null;
     }
+    if (key === "acceleration") {
+      return (row as ScreenerResultRow & { volume_acceleration_pct?: number | null })
+        .volume_acceleration_pct ?? null;
+    }
+    if (key === "vol_velocity") {
+      return (row as ScreenerResultRow & { vol_velocity?: number | null }).vol_velocity ?? null;
+    }
+    if (key === "rvol_5m") {
+      return (row as ScreenerResultRow & { rvol_5m?: number | null }).rvol_5m ?? null;
+    }
     return (row as unknown as Record<string, string | number | null | undefined>)[key];
   }, [getDiscoveryRank]);
 

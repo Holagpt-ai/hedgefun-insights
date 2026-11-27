@@ -308,6 +308,36 @@ export function gappersEvidenceSupportsZeroMatch(
   );
 }
 
+/** True when tab evidence authorizes an evaluated-empty (zero-match) session reference. */
+export function tabEvidenceSupportsEvaluatedEmpty(
+  tabId: string,
+  evidence: TabEvaluationEvidence | null | undefined,
+): boolean {
+  if (!evidence) return false;
+  if (isPublicationConfirmedTabEvidence(evidence)) return false;
+  if (tabId === "gappers") {
+    return gappersEvidenceSupportsZeroMatch(evidence as GappersTabEvidence);
+  }
+  if (tabId === NHL_TAB_ID) {
+    return nhlEvidenceSupportsZeroMatch(evidence as NhlTabEvidence);
+  }
+  if ("status" in evidence && evidence.status === "evaluated") {
+    if (
+      "qualified_count" in evidence &&
+      "selected_count" in evidence &&
+      "universe_count" in evidence
+    ) {
+      const generic = evidence as GenericTabEvidence;
+      return (
+        generic.universe_count > 0 &&
+        generic.qualified_count === 0 &&
+        generic.selected_count === 0
+      );
+    }
+  }
+  return false;
+}
+
 export function nhlEvidenceSupportsZeroMatch(
   evidence: NhlTabEvidence | null | undefined,
 ): boolean {

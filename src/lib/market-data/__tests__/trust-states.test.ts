@@ -406,6 +406,17 @@ describe("resolveScreenerMarketDataTrust", () => {
     ).toBe("STALE");
   });
 
+  it("prefers providerAsOfMax over syncedAt when both are present", () => {
+    expect(
+      resolveScreenerMarketDataTrust({
+        status: "available",
+        syncedAt: ISO(2 * 60_000),
+        providerAsOfMax: ISO(25 * 60_000),
+        nowMs: NOW,
+      }),
+    ).toBe("STALE");
+  });
+
   it("no trustworthy timestamp -> Unavailable", () => {
     expect(
       resolveScreenerMarketDataTrust({
