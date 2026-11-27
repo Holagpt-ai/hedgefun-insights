@@ -10,9 +10,11 @@ import {
   type HistoricalCatchupLimits,
 } from "@/config/historical-catchup.config";
 import {
-  findQueueStartIndex,
+  emptyQueueWindowFingerprint,
+  exclusiveCursorAfterWindow,
+  normalizeEligibleSymbols,
+  planNextCatchUpQueueWindow,
   resolveCatchUpScanBudget,
-  sliceEligibleQueueFromIndex,
 } from "@/lib/historical-backfill/catch-up-queue";
 import {
   CatchUpProviderResolutionError,
@@ -1136,6 +1138,8 @@ export async function runHistoricalCatchUpRollout(
   let symbolsSkipped = 0;
   let noProgressBatches = 0;
   let emptyResolutionBatches = 0;
+  let wrappedOnce = false;
+  let lastEmptyWindowFingerprint: string | null = null;
   const deferredUnresolved: CatchUpSymbolResolution[] = [];
 
   let queueAfterSymbol = readHistoricalCatchupQueueAfterSymbolFromEnv();
@@ -1151,7 +1155,9 @@ export async function runHistoricalCatchUpRollout(
     && symbolsAttempted < limits.maxSymbolsPerRun
   ) {
     const complete = await loadCatchUpCompleteSymbols(persistence, dateFrom, targetSession);
-    const eligible = await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS);
+    const eligible = normalizeEligibleSymbols(
+      await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS),
+    );
     if (eligible.length === 0) break;
 
     const trancheSize = resolveEligibilityTrancheSize({
@@ -1165,9 +1171,29 @@ export async function runHistoricalCatchUpRollout(
       remainingSymbolBudget: limits.maxSymbolsPerRun - symbolsAttempted,
       maxScansPerBatch,
     });
-    const queueStartIndex = findQueueStartIndex(eligible, queueAfterSymbol);
-    const { window: batchSymbols } = sliceEligibleQueueFromIndex(eligible, queueStartIndex, scanBudget);
+    const plan = planNextCatchUpQueueWindow({
+      eligible,
+      afterSymbol: queueAfterSymbol,
+      scanSize: scanBudget,
+      wrappedOnce,
+    });
+    if (plan.wrapped) wrappedOnce = true;
+    if (plan.exhausted && plan.window.length === 0) {
+      stopReason = symbolsResolved === 0 && batchesRun === 0
+        ? "queue_cycle_exhausted"
+        : "no_progress";
+      logEvent({
+        event: "catch_up_stop",
+        reason: stopReason,
+        queueAfterSymbol,
+        wrappedOnce,
+        symbolsResolved,
+      });
+      break;
+    }
+    const batchSymbols = plan.window;
     if (batchSymbols.length === 0) break;
+    const queueStartIndex = plan.startIndex;
 
     const batchNumber = batchesRun + 1;
     const batchStarted = Date.now();
@@ -1175,10 +1201,8 @@ export async function runHistoricalCatchUpRollout(
     const securityIds: SecurityId[] = [];
     const batchDeferred: CatchUpSymbolResolution[] = [];
     let resolutionStopped = false;
-    let lastInspectedSymbol: string | null = null;
     for (let symbolIndex = 0; symbolIndex < batchSymbols.length; symbolIndex += 1) {
       const symbol = batchSymbols[symbolIndex]!;
-      lastInspectedSymbol = symbol;
       symbolsAttempted += 1;
       try {
         const outcome = await resolveSymbolForCatchUp(
@@ -1203,6 +1227,9 @@ export async function runHistoricalCatchUpRollout(
           batchDeferred.push(outcome);
         }
       } catch (error) {
+        // Exclusive cursor still advances past symbols inspected before the hard stop.
+        queueAfterSymbol = exclusiveCursorAfterWindow(batchSymbols.slice(0, symbolIndex + 1))
+          ?? queueAfterSymbol;
         if (error instanceof CatchUpProviderResolutionError) {
           const reason = error.kind === "provider_rate_limited"
             ? "provider_rate_limited"
@@ -1246,12 +1273,21 @@ export async function runHistoricalCatchUpRollout(
         throw error;
       }
     }
-    if (lastInspectedSymbol) {
-      queueAfterSymbol = lastInspectedSymbol;
+    // Always exclusive-advance past the scanned window (including all-deferred belts).
+    if (plan.nextAfterSymbol) {
+      queueAfterSymbol = plan.nextAfterSymbol;
     }
     if (resolutionStopped) break;
     if (securityIds.length === 0) {
       emptyResolutionBatches += 1;
+      const deferredByKind = summarizeDeferredByKind(batchDeferred);
+      const fingerprint = emptyQueueWindowFingerprint({
+        queueAfterSymbol,
+        scanned: batchSymbols.length,
+        deferredByKind,
+        eligibleSymbolsRemaining: eligible.length,
+      });
+      lastEmptyWindowFingerprint = fingerprint;
       logEvent({
         event: "batch_skipped",
         batch: batchNumber,
@@ -1259,7 +1295,9 @@ export async function runHistoricalCatchUpRollout(
         queueAfterSymbol,
         queueStartIndex,
         scanned: batchSymbols.length,
-        deferredByKind: summarizeDeferredByKind(batchDeferred),
+        deferredByKind,
+        emptyWindowFingerprint: fingerprint,
+        wrappedOnce,
       });
       if (emptyResolutionBatches >= limits.maxEmptyResolutionBatches) {
         stopReason = "unresolvable_queue_window";
@@ -1268,6 +1306,8 @@ export async function runHistoricalCatchUpRollout(
           reason: stopReason,
           queueAfterSymbol,
           emptyResolutionBatches,
+          emptyWindowFingerprint: fingerprint,
+          note: "cursor advanced past deferred window; resume from HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL",
         });
         break;
       }
@@ -1360,6 +1400,8 @@ export async function runHistoricalCatchUpRollout(
     provider: counters,
     unresolvedDeferred: summarizeDeferredByKind(deferredUnresolved),
     queueAfterSymbol,
+    emptyWindowFingerprint: lastEmptyWindowFingerprint,
+    wrappedOnce,
     elapsedMs: Date.now() - startedAt,
   });
   logEvent({
@@ -1367,6 +1409,7 @@ export async function runHistoricalCatchUpRollout(
     targetSession,
     queueAfterSymbol,
     eligibleTotal: eligibleRemaining,
+    emptyWindowFingerprint: lastEmptyWindowFingerprint,
     note: "persist HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL before next Fly run",
   });
   await persistence.close();

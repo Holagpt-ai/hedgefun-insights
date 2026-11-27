@@ -30,4 +30,4 @@
 ## Recovery
 
 - Interrupted symbol jobs: scale to 1 without unsetting preflight if `HISTORICAL_CATCHUP_RESUME_ONLY=1` and job UUID are set (see Batch 33.6 runbook).
-- Queue starvation: set `HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL` from logs; deploy worker with Batch 33.9 queue fix before large campaigns.
+- Queue starvation (BKH class): deploy the Nov 27 queue completion worker (exclusive advance past deferred belts, wrap-once `queue_cycle_exhausted`, campaign `stuck_queue_cursor` halt). Do not resume v57 as-is. Full activation sequence: `docs/historical-intelligence/historical-catchup-activation-procedure-v1.md`.

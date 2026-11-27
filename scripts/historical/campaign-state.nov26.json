@@ -1,9 +1,13 @@
 {
   "campaignId": "nov26-historical-2026-11-25",
-  "executionsCompleted": 3,
+  "executionsCompleted": 16,
   "maxExecutions": 20,
-  "providerUsed": 3010,
-  "providerReservedUncertain": 400,
+  "providerUsed": 7432,
+  "providerReservedUncertain": 7500,
   "maxProviderRequests": 50000,
-  "queueAfterSymbol": null
+  "queueAfterSymbol": "BKH",
+  "pendingRun": false,
+  "pendingProviderReservation": 0,
+  "lastEmptyWindowFingerprint": null,
+  "consecutiveIdenticalEmptyRuns": 0
 }

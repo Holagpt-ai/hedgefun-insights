@@ -162,8 +162,9 @@ function bridgeRolloutQueries(bridge: HistoricalBridgeClient): HistoricalRollout
     async loadEligibleSymbols(backfilled, canarySymbols) {
       const rows = await bridge.fetchAllRows("historical_list_eligible_symbols", {});
       return rows
-        .map((row) => String(row.symbol))
-        .filter((symbol) => !canarySymbols.has(symbol) && !backfilled.has(symbol));
+        .map((row) => String(row.symbol).trim().toUpperCase())
+        .filter((symbol) => symbol && !canarySymbols.has(symbol) && !backfilled.has(symbol))
+        .sort((a, b) => a.localeCompare(b));
     },
   };
 }

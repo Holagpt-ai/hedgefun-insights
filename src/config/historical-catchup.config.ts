@@ -31,8 +31,12 @@ export const HISTORICAL_CATCHUP_LIMITS = {
   maxProviderRequestsPerRun: 2500,
   /** Consecutive batches with zero rows written before abort. */
   maxNoProgressBatches: 2,
-  /** Consecutive batches where every symbol fails resolution. */
-  maxEmptyResolutionBatches: 1,
+  /**
+   * Consecutive all-deferred scan windows before stopping.
+   * Must be >1 so a dense deferral belt (e.g. BKH) can be skipped within one Fly run
+   * without permanently discarding still-eligible symbols.
+   */
+  maxEmptyResolutionBatches: 3,
 } as const;
 
 /** Hard ceilings — env values above these are rejected (fail closed). */

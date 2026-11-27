@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-27 — Historical Intelligence queue completion (git only)
+
+- Fix v57 **BKH** starvation: exclusive queue advance past all-deferred windows, wrap-once `queue_cycle_exhausted`, empty-window bound **3**, bridge eligible normalize/sort, per-run Fly cursor secret refresh, campaign `stuck_queue_cursor` halt.
+- Preserve campaign checkpoint **16/20**, provider **7432+7500/50000**, durable history totals; worker remains suspended.
+- Episodes / Repeat Movers: classify remaining freshness as **activation** after catch-up (no client rebuild).
+- Recurring activation procedure: `docs/historical-intelligence/historical-catchup-activation-procedure-v1.md` (not scheduled).
+- Baseline `main` **`b0c6f46b`** (PR **#280**).
+
 ## 2026-11-27 — Homepage My Assets Watchlist fix + AI Trader nav shelve (git only)
 
 - Baseline `main` **`56153eae`** (PR **#279** merged). Lovable source sync reportedly completed; calendar activation still blocked (migration execution safeguards + pending 28-table / TRUNCATE evidence).

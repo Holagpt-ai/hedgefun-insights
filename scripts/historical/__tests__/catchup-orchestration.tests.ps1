@@ -22,7 +22,8 @@ function New-TestDir {
   return $dir
 }
 
-function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3) {
+function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3, $QueueAfter = $null) {
+  $queueJson = if ($QueueAfter) { "`"$QueueAfter`"" } else { "null" }
   $json = @"
 {
   "campaignId": "nov26-historical-2026-11-25",
@@ -31,9 +32,11 @@ function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3)
   "providerUsed": $Used,
   "providerReservedUncertain": $Reserved,
   "maxProviderRequests": 50000,
-  "queueAfterSymbol": null,
+  "queueAfterSymbol": $queueJson,
   "pendingRun": false,
-  "pendingProviderReservation": 0
+  "pendingProviderReservation": 0,
+  "lastEmptyWindowFingerprint": null,
+  "consecutiveIdenticalEmptyRuns": 0
 }
 "@
   Set-Content -Path $Path -Value $json -Encoding utf8
@@ -165,6 +168,30 @@ Assert-True ($recurringRefuse -ne 0) "recurring should refuse foreign lock"
 Assert-True (Test-Path $lock) "foreign lock must survive rejected recurring"
 Assert-True ((Get-CatchupLockOwner -LockPath $lock) -eq "foreign-owner") "foreign owner unchanged"
 Assert-True (-not (Test-Path (Join-Path $dir "fly-calls.log"))) "rejected recurring must not invoke fly"
+
+# 7. Identical BKH-class empty windows halt with stuck_queue_cursor (no unlimited empty burns).
+$dir = New-TestDir
+New-CampaignState (Join-Path $dir "state.json") -Completed 16 -Used 7432 -Reserved 7500
+New-Item -ItemType File -Path (Join-Path $dir "stuck-empty-logs") | Out-Null
+$env:CATCHUP_TEST_DIR = $dir
+$state = Join-Path $dir "state.json"
+$lock = Join-Path $dir "catch.lock"
+$log = Join-Path $dir "out.jsonl"
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $campaign `
+  -StatePath $state -LockPath $lock -LogOut $log `
+  -FlyExe $mockFly -App "test-app" -MaxRuns 3 `
+  -MaxWaitMinutes 0 -ScaleSettleSeconds 0 -PollSeconds 0 -LogSettleSeconds 0 -ScaleZeroSettleSeconds 0
+$stuckExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+$stuckOut = Get-Content $log -Raw
+$stuckState = Get-Content $state -Raw | ConvertFrom-Json
+Assert-True ($stuckOut -match "stuck_queue_cursor") "identical empty windows must halt stuck_queue_cursor"
+Assert-True ([int]$stuckState.consecutiveIdenticalEmptyRuns -ge 2) "stuck counter must reach halt threshold"
+Assert-True ($stuckState.queueAfterSymbol -eq "BKH") "cursor preserved at BKH for resume after fix deploy"
+$stuckCalls = @(Get-Content (Join-Path $dir "fly-calls.log"))
+Assert-True (($stuckCalls | Where-Object { $_ -match "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=" }).Count -ge 2) "queue secret refreshed per run"
 
 if ($failures.Count -gt 0) {
   Write-Output ("FAILED:`n - " + ($failures -join "`n - "))

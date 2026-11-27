@@ -47,8 +47,19 @@ function Get-LatestRunEvents([string]$MachineId) {
 
 if (-not (Test-Path -LiteralPath $StatePath)) { throw "missing campaign state: $StatePath" }
 $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
-if ($null -eq $state.pendingRun) { $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false }
-if ($null -eq $state.pendingProviderReservation) { $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0 }
+if (-not ($state.PSObject.Properties.Name -contains "pendingRun")) {
+  $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false
+}
+if (-not ($state.PSObject.Properties.Name -contains "pendingProviderReservation")) {
+  $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0
+}
+if (-not ($state.PSObject.Properties.Name -contains "lastEmptyWindowFingerprint")) {
+  $state | Add-Member -NotePropertyName lastEmptyWindowFingerprint -NotePropertyValue $null
+}
+if (-not ($state.PSObject.Properties.Name -contains "consecutiveIdenticalEmptyRuns")) {
+  $state | Add-Member -NotePropertyName consecutiveIdenticalEmptyRuns -NotePropertyValue 0
+}
+$StuckEmptyRunLimit = 2
 
 $haltReason = $null
 $terminal = $null
@@ -89,9 +100,6 @@ try {
     throw "remaining provider budget $remaining is below next run allowance $MaxProviderPerRun"
   }
 
-  if ($state.queueAfterSymbol) {
-    $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
-  }
   $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "unset", "-a", $App, "HISTORICAL_CATCHUP_PREFLIGHT_ONLY")
 
   for ($run = $runStart; $run -lt ($runStart + $maxRuns); $run++) {
@@ -103,6 +111,11 @@ try {
     }
 
     Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
+
+    # Refresh exclusive queue cursor before every machine start (survives multi-run campaigns).
+    if ($state.queueAfterSymbol) {
+      $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
+    }
 
     $state.executionsCompleted = [int]$state.executionsCompleted + 1
     $state.providerReservedUncertain = [int]$state.providerReservedUncertain + $MaxProviderPerRun
@@ -187,7 +200,34 @@ try {
       $state.queueAfterSymbol = [string]$queueState.queueAfterSymbol
       Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
       $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
+    } elseif ($terminal -and $terminal.queueAfterSymbol) {
+      $state.queueAfterSymbol = [string]$terminal.queueAfterSymbol
     }
+
+    $resolvedAny = $false
+    if ($terminal -and [int]$terminal.symbolsResolved -gt 0) { $resolvedAny = $true }
+    if ($terminal -and [int]$terminal.batchesRun -gt 0) { $resolvedAny = $true }
+    $fingerprint = $null
+    if ($terminal -and $terminal.emptyWindowFingerprint) {
+      $fingerprint = [string]$terminal.emptyWindowFingerprint
+    } elseif ($terminal -and $terminal.stopReason -in @('unresolvable_queue_window','queue_cycle_exhausted') -and $terminal.unresolvedDeferred) {
+      $kindParts = @()
+      foreach ($p in $terminal.unresolvedDeferred.PSObject.Properties) {
+        $kindParts += "$($p.Name):$($p.Value)"
+      }
+      $kindKey = ($kindParts | Sort-Object) -join ","
+      $fingerprint = "$($state.queueAfterSymbol)|$($terminal.symbolsAttempted)|$($terminal.eligibleSymbolsRemaining)|$kindKey"
+    }
+    if ($resolvedAny -or -not $fingerprint) {
+      $state.lastEmptyWindowFingerprint = $null
+      $state.consecutiveIdenticalEmptyRuns = 0
+    } elseif ($fingerprint -eq $state.lastEmptyWindowFingerprint) {
+      $state.consecutiveIdenticalEmptyRuns = [int]$state.consecutiveIdenticalEmptyRuns + 1
+    } else {
+      $state.lastEmptyWindowFingerprint = $fingerprint
+      $state.consecutiveIdenticalEmptyRuns = 1
+    }
+
     Save-CatchupCampaignStateFile -StatePath $StatePath -State $state
 
     $record = @{
@@ -198,6 +238,8 @@ try {
       providerReliable = $providerReliable
       providerBudget = [int]$state.providerUsed + [int]$state.providerReservedUncertain
       terminal = $terminal
+      emptyWindowFingerprint = $fingerprint
+      consecutiveIdenticalEmptyRuns = [int]$state.consecutiveIdenticalEmptyRuns
     }
     Add-Content -Path $LogOut -Value ($record | ConvertTo-Json -Compress -Depth 8)
 
@@ -210,7 +252,16 @@ try {
     }
     if ($terminal -and $terminal.event -eq 'rollout_complete') { $haltReason = "queue_exhausted"; break }
     if ($terminal -and $terminal.eligibleSymbolsRemaining -eq 0) { $haltReason = "queue_exhausted"; break }
-    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','unresolvable_queue_window','provider_rate_limited','provider_transient','provider_entitlement_failure','provider_invalid_response')) {
+    if ([int]$state.consecutiveIdenticalEmptyRuns -ge $StuckEmptyRunLimit) {
+      $haltReason = "stuck_queue_cursor"
+      break
+    }
+    if ($terminal -and $terminal.stopReason -eq 'queue_cycle_exhausted') {
+      $haltReason = "queue_cycle_exhausted"
+      break
+    }
+    # Soft empty window: cursor should have advanced; continue campaign unless hard provider/job stops.
+    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','provider_rate_limited','provider_transient','provider_entitlement_failure','provider_invalid_response')) {
       $haltReason = $terminal.stopReason
       break
     }

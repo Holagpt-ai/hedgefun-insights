@@ -10,6 +10,8 @@ export type CatchUpStopReason =
   | "no_progress"
   | "interrupted_job_incomplete"
   | "unresolvable_queue_window"
+  /** Full eligible queue wrapped once with zero resolved identities this run. */
+  | "queue_cycle_exhausted"
   | "provider_rate_limited"
   | "provider_transient"
   | "provider_entitlement_failure"
