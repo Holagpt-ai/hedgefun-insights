@@ -4,7 +4,9 @@
 
 - **`main` baseline:** **`c6278fde450df6ca58f5fc7f38c9c68ddcb52480`** (PR **#282** merged).
 - **Catalyst editorial integrity:** Motley Fool / editorial publishers no longer inherit merger/earnings/etc. corporate labels from headline regex alone — `classifyCatalyst` + `reconcileIngestCatalystEventType` on `sync-catalyst-events`, UI via `reconcileCatalystEventTypeForPresentation`, AI Analyst via `catalyst-selection` demotion (AWK merger-chatter case).
-- **Watchlist V2:** failed refresh with existing `analyzed_at` keeps prior analysis visible (`resolveWatchlistRowRequestStatus`).
+- **Watchlist V2:** failed refresh keeps prior analysis but **`requestStatus` stays `failed`**; `priorAnalysisAvailable`, `refreshFailedWithPriorAnalysis`, `analysisFreshness` are separate (`watchlist-analysis-availability.ts`).
+- **Catalyst reconcile:** `classifyCatalystPrecedence` entry (client + Edge); opinion vs factual news publishers split (`OPINION_EDITORIAL_SOURCE` vs Reuters/Bloomberg).
+- **Brief card:** `brief-session-cache.ts` avoids redundant `get-daily-brief` on remount when session cache valid; in-flight dedupe on card.
 - **Not fixed without deploy/evidence:** Watchlist `AI_PROVIDER_ERROR` fast failures (~130–171 ms); AM/PM brief regeneration on page load; ISS-006 distribution activation; Calendar V4 SQL.
 - **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C, historical **BKH**, AI Trader shelved **2027**.
 

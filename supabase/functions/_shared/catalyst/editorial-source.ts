@@ -1,6 +1,20 @@
 /** Mirror of src/lib/catalyst/editorial-source.ts for Edge ingest. */
-export const EDITORIAL_NEWS_SOURCE =
-  /\b(?:motley\s*fool|seeking\s*alpha|benzinga|yahoo|reuters|bloomberg|cnbc|barron'?s|wall\s*street\s*journal|zacks|investor'?s?\s*business\s*daily|marketwatch|the\s*street)\b/i;
+
+export const OPINION_EDITORIAL_SOURCE =
+  /\b(?:motley\s*fool|seeking\s*alpha|zacks|the\s*street|investor'?s?\s*business\s*daily)\b/i;
+
+export const FINANCIAL_NEWS_SOURCE =
+  /\b(?:reuters|bloomberg|cnbc|barron'?s|wall\s*street\s*journal|marketwatch|benzinga|finance\.yahoo|yahoo\s*finance)\b/i;
+
+export const EDITORIAL_NEWS_SOURCE = new RegExp(
+  `${OPINION_EDITORIAL_SOURCE.source}|${FINANCIAL_NEWS_SOURCE.source}`,
+  "i",
+);
+
+export function isOpinionEditorialPublisher(source: string | null | undefined): boolean {
+  if (!source?.trim()) return false;
+  return OPINION_EDITORIAL_SOURCE.test(source);
+}
 
 export function isEditorialNewsPublisher(source: string | null | undefined): boolean {
   if (!source?.trim()) return false;
@@ -19,5 +33,5 @@ export function isEditorialCatalystArticle(input: {
   source_name?: string | null;
   title?: string | null;
 }): boolean {
-  return isEditorialNewsPublisher(input.source_name) || isEditorialNewsTitle(input.title);
+  return isOpinionEditorialPublisher(input.source_name) || isEditorialNewsTitle(input.title);
 }

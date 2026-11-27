@@ -180,6 +180,9 @@ function stubRow(ticker: string) {
     inputsQuality: {},
     requestStatus: "succeeded",
     requestError: null,
+    priorAnalysisAvailable: true,
+    refreshFailedWithPriorAnalysis: false,
+    analysisFreshness: "current",
     hasV2: true,
     presentation: "ready",
   };

@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #283 follow-up (git only; same PR)
+
+- Watchlist: separate `requestStatus` from `priorAnalysisAvailable` / `refreshFailedWithPriorAnalysis`; presentation stays `ready` when prior content survives failed refresh.
+- Catalyst: opinion-editorial vs Reuters/Bloomberg factual reporting split; `classifyCatalystPrecedence` reconciles event types client + Edge.
+- AI Analyst: explicit ticker switch in questions; `rankCurrentCatalysts` uses scored reconciliation; chat updates active symbol on explicit ticker change.
+- AM/PM brief card: sessionStorage cache + duplicate in-flight fetch guard (no scheduling/cron changes).
+
 ## 2026-11-27 — Catalyst & AI intelligence completion (git only; pending PR)
 
 - Catalyst: editorial publisher guard (Motley Fool / etc.) — merger/earnings keyword headlines demoted to `company_news` at classify + ingest + UI labels (AWK M&A editorial case).

@@ -12,6 +12,7 @@ import {
   type CachedBriefSnapshot,
   type LastGoodBriefCache,
 } from "@/lib/ai/brief-refresh-state";
+import { readBriefSessionCache, writeBriefSessionCache } from "@/lib/ai/brief-session-cache";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBriefPreview } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
@@ -174,6 +175,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const fetchInFlightRef = useRef(false);
   const lastGoodBriefRef = useRef<LastGoodBriefCache>(emptyLastGoodBriefCache());
   const briefObserveRef = useRef({
     httpStatus: null as number | null,
@@ -190,7 +192,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     generationReason: null as string | null,
   });
 
-  const fetchBrief = useCallback(async () => {
+  const fetchBrief = useCallback(async (opts?: { force?: boolean }) => {
+    if (fetchInFlightRef.current && !opts?.force) return;
+    fetchInFlightRef.current = true;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -325,6 +329,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               catalystFeedStatus,
             };
             setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
+            if (typeof body.brief_date === "string") {
+              writeBriefSessionCache(briefType, body.brief_date, snapshot);
+            }
             setState({
               kind: "available",
               ...snapshot,
@@ -503,6 +510,8 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         refreshable: true,
         statusLabel: "Temporarily unavailable",
       });
+    } finally {
+      fetchInFlightRef.current = false;
     }
   }, [briefType]);
 
@@ -511,11 +520,25 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       setState({ kind: "unauth" });
       return;
     }
-    fetchBrief();
+    const etDate = getEtParts(new Date()).date;
+    const sessionCached = readBriefSessionCache(briefType, etDate);
+    if (sessionCached) {
+      setCachedBrief(lastGoodBriefRef.current, briefType, sessionCached);
+      setState({
+        kind: "available",
+        ...sessionCached,
+        isRefreshing: false,
+        refreshNotice: null,
+      });
+      return () => {
+        abortRef.current?.abort();
+      };
+    }
+    void fetchBrief();
     return () => {
       abortRef.current?.abort();
     };
-  }, [user, fetchBrief]);
+  }, [user, fetchBrief, briefType]);
 
   useEffect(() => {
     if (!pmDebug || briefType !== "am") return;

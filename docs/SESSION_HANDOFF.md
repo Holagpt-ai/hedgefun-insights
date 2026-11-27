@@ -2,7 +2,7 @@
 
 **GitHub `main` baseline:** **`c6278fde450df6ca58f5fc7f38c9c68ddcb52480`** — PR **#282** merged (scanner session integrity).
 
-**Open PR:** `cursor/catalyst-ai-intelligence-completion` — editorial vs verified corporate catalyst classification (AWK Motley Fool M&A case), polygon ingest + UI reconcile, AI Analyst selection demotion, Watchlist V2 failed-refresh preserves prior analysis. **No** Edge/Fly/SQL/cron/deploy.
+**Open PR:** [#283](https://github.com/Holagpt-ai/hedgefun-insights/pull/283) `cursor/catalyst-ai-intelligence-completion` — editorial integrity (AWK), catalyst precedence reconcile all consumers, Watchlist truthful failed-refresh + prior analysis, AI Analyst symbol handoff + CURRENT_CATALYST ranking, AM brief session cache + in-flight guard. **No** Edge/Fly/SQL/cron/deploy.
 
 **Preserved:** PR #275 containment, #270 attribution, earnings ranking (ISS-026), PM gate (#282), AI Trader shelved 2027, Calendar V4 blocked, historical **BKH** checkpoint.
 

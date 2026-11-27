@@ -66,6 +66,9 @@ function row(overrides: Partial<V2Row>): V2Row {
     scannerIntelligence: null,
     requestStatus: "none",
     requestError: null,
+    priorAnalysisAvailable: true,
+    refreshFailedWithPriorAnalysis: false,
+    analysisFreshness: "current",
     hasV2: true,
     presentation: "provider_unavailable",
     ...overrides,
@@ -120,6 +123,8 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
       explanation: "ok",
       requestStatus: "failed",
       requestError: "Rate limited by data provider.",
+      refreshFailedWithPriorAnalysis: true,
+      priorAnalysisAvailable: true,
     }));
     expect(getByText(/Update failed/i)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Auto-recheck enabled/i);

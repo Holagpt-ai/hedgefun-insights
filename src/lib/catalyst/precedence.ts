@@ -12,6 +12,8 @@ import {
   EVENT_TYPE_SECONDARY,
   EXPLICIT_ANALYST_HEADLINE,
 } from "@/lib/catalyst/market-attention";
+import { reconcileCatalystEventTypeForPresentation } from "@/lib/catalyst/catalyst-event-type-integrity";
+import type { CatalystEventType } from "@/types/catalyst";
 
 export { looksLikeMarketAttention, MARKET_ATTENTION_TITLE };
 
@@ -221,6 +223,17 @@ function relatedHeadlineIsNotIssuerEvent(row: CatalystPrecedenceInput): boolean 
 }
 
 export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): CatalystPrecedenceResult {
+  row = {
+    ...row,
+    event_type: reconcileCatalystEventTypeForPresentation({
+      event_type: row.event_type as CatalystEventType,
+      provider: row.provider,
+      source_name: row.source_name ?? null,
+      title: row.title,
+      attribution_class: row.attribution_class ?? null,
+      ticker_specific: row.ticker_specific ?? null,
+    }),
+  };
   const text = catalystText(row);
   const marketAttention = looksLikeMarketAttention(row.title, row.event_type);
   if (relatedHeadlineIsNotIssuerEvent(row)) {

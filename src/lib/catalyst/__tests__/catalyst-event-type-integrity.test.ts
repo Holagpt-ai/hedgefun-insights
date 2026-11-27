@@ -30,6 +30,18 @@ describe("catalyst event type integrity", () => {
       ticker_specific: true,
     };
     expect(reconcileCatalystEventTypeForPresentation(input)).toBe("merger_acquisition");
+  });
+
+  it("keeps Reuters direct M&A reporting as merger_acquisition", () => {
+    const input = {
+      event_type: "merger_acquisition" as const,
+      provider: "polygon",
+      source_name: "Reuters",
+      title: "American Water Works agrees to acquire regional utility for $2.1B",
+      attribution_class: "direct" as const,
+      ticker_specific: true,
+    };
+    expect(reconcileCatalystEventTypeForPresentation(input)).toBe("merger_acquisition");
     expect(catalystDisplayLabelFromEvent(input)).toBe("M&A");
   });
 });

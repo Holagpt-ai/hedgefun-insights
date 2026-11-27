@@ -50,6 +50,9 @@ function v2Row(overrides: Partial<V2Row>): V2Row {
     scannerIntelligence: null,
     requestStatus: "none",
     requestError: null,
+    priorAnalysisAvailable: true,
+    refreshFailedWithPriorAnalysis: false,
+    analysisFreshness: "current",
     hasV2: true,
     presentation: "ready",
     ...overrides,
@@ -187,16 +190,37 @@ describe("Batch 11 — refresh request vs completed analysis", () => {
     expect(out.requestStatus).toBe("succeeded");
   });
 
-  it("preserves prior analysis when a refresh request fails", () => {
+  it("reports failed refresh truthfully while prior analysis remains available", () => {
     const out = resolveWatchlistRowRequestStatus({
       status: "failed",
       error_code: "AI_PROVIDER_ERROR",
       requested_at: "2026-07-24T19:00:00Z",
       completed_at: "2026-07-24T19:05:00Z",
       analyzedAt: "2026-07-24T18:50:00Z",
+      direction: "neutral",
+      explanation: "Price holding above VWAP.",
+      driverIds: ["driver.trend"],
     });
-    expect(out.requestStatus).toBe("succeeded");
+    expect(out.requestStatus).toBe("failed");
     expect(out.requestError).toBeTruthy();
+    expect(out.priorAnalysisAvailable).toBe(true);
+    expect(out.refreshFailedWithPriorAnalysis).toBe(true);
+    expect(out.analysisFreshness).toBe("stale_vs_request");
+  });
+
+  it("first-ever failed analysis has no prior content", () => {
+    const out = resolveWatchlistRowRequestStatus({
+      status: "failed",
+      error_code: "AI_PROVIDER_ERROR",
+      requested_at: "2026-07-24T19:00:00Z",
+      completed_at: "2026-07-24T19:05:00Z",
+      analyzedAt: "",
+      direction: "data_unavailable",
+      explanation: "",
+    });
+    expect(out.requestStatus).toBe("failed");
+    expect(out.priorAnalysisAvailable).toBe(false);
+    expect(out.refreshFailedWithPriorAnalysis).toBe(false);
   });
 });
 

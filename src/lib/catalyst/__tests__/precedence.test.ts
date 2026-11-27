@@ -33,6 +33,15 @@ describe("catalyst precedence parity", () => {
     expect(looksLikeMarketAttention("Tesla vs SpaceX: Which Is the Better Stock to Buy?")).toBe(true);
   });
 
+  it("demotes Motley Fool merger speculation before primary-class detection", () => {
+    const editorial = {
+      ...base("American Water Works merger chatter", "merger_acquisition"),
+      source_name: "The Motley Fool",
+    };
+    expect(classifyCatalystPrecedence(editorial).primaryClass).not.toBe("acquisition_ma");
+    expect(classifyCatalystPrecedence(editorial).tier).toBe("secondary");
+  });
+
   it("demotes a related earnings headline below the issuer calendar row", () => {
     const issuer = {
       ...base("ACADIA Pharmaceuticals earnings", "earnings"),
