@@ -1,9 +1,19 @@
 import type { QueryKey, PlaceholderDataFunction } from "@tanstack/react-query";
 
 export const WATCHLIST_V2_QUERY_ROOT = "watchlist-v2" as const;
+export const HOMEPAGE_WATCHLIST_QUOTES_QUERY_ROOT = "homepage-watchlist-quotes" as const;
+/** Bounded My Assets preview on Homepage V21. */
+export const HOMEPAGE_WATCHLIST_PREVIEW_LIMIT = 8 as const;
 
 export function watchlistSymbolsQueryKey(userId: string | null | undefined): QueryKey {
   return [WATCHLIST_V2_QUERY_ROOT, "symbols", userId ?? null];
+}
+
+export function homepageWatchlistQuotesQueryKey(
+  userId: string | null | undefined,
+  symbols: readonly string[],
+): QueryKey {
+  return [HOMEPAGE_WATCHLIST_QUOTES_QUERY_ROOT, userId ?? null, normalizeSymbolsKey(symbols)];
 }
 
 export function watchlistAnalysisQueryKey(

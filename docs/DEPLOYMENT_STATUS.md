@@ -1,3 +1,7 @@
+> **2026-11-27 Homepage Watchlist + AI Trader shelve (git only; not production-verified):** Branch implements My Assets `added_at`/shared V2 cache + quote isolation, and removes AI Trader from customer nav until 2027. **Requires Vercel frontend deploy** for customer visibility. No SQL/Edge/Fly/cron/secrets from this batch.
+>
+> **2026-11-27 GitHub `main`:** PR **#279** merged **`56153eae01035ade19d62a2385b42bb0cad39905`**. Lovable source synchronization **reportedly completed**. Calendar second production activation **blocked before changes** (two unchanged migration execution-safeguard conflicts). Exact Lovable report + 28-table privilege inventory **required**; excessive TRUNCATE grants **reported** (scope pending). Calendar SQL / `sync-economic-calendar` / ingest / recurring refresh **unactivated**. Scanner v530 / Radar v50 / Option B ON / Layer C preserved; historical catch-up suspended at **`BKH`**.
+>
 > **2026-11-26 Catalyst Calendar V4 merged (PR #278 @ `5d458699`); production activation BLOCKED:** Lovable stopped before SQL (ledger ambiguity + economic table `service_role` grants). Recovery migration `20261126250000` prepared; five-file runbook. Edge **not deployed**. Lovable 28-table RLS finding **pending classification**. Scanner v530 / Radar v50 / Option B ON / Layer C / historical suspension unchanged.
 >
 > **2026-11-26 Homepage Muse V21:** Merged **`a7ddec2`** on GitHub `main`; Vercel production deploy not re-verified here. Scanner v530 / Radar v50 / historical worker state unchanged.

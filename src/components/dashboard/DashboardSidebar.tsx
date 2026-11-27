@@ -2,7 +2,7 @@ import { hasProAccess } from "@/lib/entitlement";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Bot,
+  Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
   ChevronsLeft, ChevronsRight, Target, Radar,
 } from "lucide-react";
@@ -43,7 +43,7 @@ const NAV: NavEntry[] = [
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: "/dashboard/alerts", plan: "pro" },
   { label: "News Feed",     icon: <Newspaper className="h-4 w-4" />,   route: "/dashboard/news", plan: "free" },
   { label: "Community",     icon: <MessageSquare className="h-4 w-4" />, route: "/dashboard/community", plan: "free" },
-  { label: "AI Trader", icon: <Bot className="h-4 w-4" />, route: "/dashboard/ai-trader", plan: "free" },
+  // AI Trader shelved until 2027 (or explicit reopen). Route/source preserved; not customer-visible.
   { section: "Account" },
   { label: "Account Settings", icon: <Settings className="h-4 w-4" />,    route: "/account",         plan: "free" },
   { label: "Manage Billing",   icon: <CreditCard className="h-4 w-4" />,  route: "/account/billing", plan: "free" },

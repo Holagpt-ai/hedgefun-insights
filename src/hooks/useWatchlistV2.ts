@@ -28,7 +28,6 @@ import {
   toastSpecForRefreshError,
 } from "@/lib/watchlist-v2/refresh-response";
 import { resolveWatchlistRowRequestStatus } from "@/lib/watchlist-v2/watchlist-request-status";
-import { dedupeWatchlistSymbolRows } from "@/lib/watchlist-v2/watchlist-persistence";
 import {
   watchlistAnalysisPlaceholder,
   watchlistAnalysisQueryKey,
@@ -37,6 +36,7 @@ import {
 } from "@/lib/watchlist-v2/watchlist-query-isolation";
 import { resolveWatchlistLoadingState } from "@/lib/watchlist-v2/watchlist-loading-state";
 import { invalidateWatchlistClientCaches } from "@/lib/watchlist-v2/invalidate-watchlist-caches";
+import { fetchWatchlistSymbolRows } from "@/lib/watchlist-v2/fetch-watchlist-symbols";
 import {
   resolveWatchlistRowPresentation,
   type WatchlistRowPresentation,
@@ -76,8 +76,6 @@ export interface V2Row {
   presentation: WatchlistRowPresentation;
 }
 
-type WatchlistRow = { id: string; symbol: string; added_at: string | null };
-
 export function useWatchlistV2() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -85,26 +83,13 @@ export function useWatchlistV2() {
   const userId = user?.id ?? null;
 
   // 1. User's watchlist symbols (RLS enforces ownership).
-  const watchlistQuery = useQuery<WatchlistRow[]>({
+  const watchlistQuery = useQuery({
     queryKey: watchlistSymbolsQueryKey(userId),
     enabled: !!userId,
     staleTime: 30_000,
     retry: 2,
     placeholderData: watchlistSymbolsPlaceholder(userId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("watchlists")
-        .select("id, symbol, added_at")
-        .eq("user_id", userId!)
-        .order("added_at", { ascending: false });
-      if (error) throw error;
-      const mapped = (data ?? []).map((r) => ({
-        id: r.id,
-        symbol: (r.symbol ?? "").toUpperCase(),
-        added_at: r.added_at,
-      }));
-      return dedupeWatchlistSymbolRows(mapped);
-    },
+    queryFn: async () => fetchWatchlistSymbolRows(userId!),
   });
 
   const symbols = useMemo(

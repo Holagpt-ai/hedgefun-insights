@@ -2,7 +2,11 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Catalyst Calendar V4 (Nov 26, merged PR #278 @ `5d458699`):** Muse layout + RPC public catalyst + Finnhub macro adapter (gated). **Production activation BLOCKED (Lovable):** stopped before SQL — ledger ambiguity + missing `service_role` grants. **Recovery:** five migrations including `20261126250000_economic_calendar_service_role_grants_v1.sql`; runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`. Finnhub entitlement via POST `verify_only` only. Edge `sync-economic-calendar` **not deployed**.
+**Homepage My Assets Watchlist (Nov 27, confirmed):** Production showed “Could not load your watchlist” while `/watchlist` and Dashboard Watchlist worked (12 symbols). Root cause: homepage ordered by nonexistent `created_at` (canonical column is **`added_at`**) and treated optional `stocks` quote errors as full load failure. **Fixed in git** this batch (shared V2 symbol fetch/cache; quotes best-effort). **OPEN** until Vercel deploy + authenticated homepage acceptance. Do not fabricate prices.
+
+**AI Trader navigation (Nov 27, deferred):** Owner shelved AI Trader until **2027** (or explicit reopen). Removed from customer `DashboardSidebar` menus. Routes/source/DB/Edge/Fly worker/OFF safeguards **preserved**; do not activate worker. AI Analyst unchanged. See **ISS-009**.
+
+**Catalyst Calendar V4 (Nov 26–27):** PR **#278** @ `5d458699`; recovery PR **#279** @ **`56153eae`**. Lovable source sync **reportedly completed**. **Production activation BLOCKED:** first stop before SQL (ledger + `service_role` grants); **second attempt blocked before changes** by **two unchanged migration execution-safeguard conflicts**. Exact Lovable report + **28-table** privilege inventory **required**. Excessive **TRUNCATE** grants **reported** (scope pending). Calendar SQL, economic Edge, initial ingestion, recurring refresh **unactivated**. Runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
 
 **Lovable RLS report (Nov 26, reported):** Critical — “some access rules let everyone through”, **28** tables — exact policy inventory **pending** (`docs/release/lovable-rls-broad-access-finding-2026-11-26.md`). **Do not Fix All** in calendar recovery. **Not dismissed** as false positive. **Separate critical blocker** only if unauthorized **private user** write/read is evidenced.
 
@@ -124,7 +128,7 @@ Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability
 | ID | Item | Master batch |
 | --- | --- | --- |
 | ISS-008 | Real-time feed | **205** |
-| ISS-009 | AI Trader | **208 — POST-LAUNCH PAUSED** |
+| ISS-009 | AI Trader | **Shelved until 2027** (nav hidden Nov 27; infra preserved OFF) |
 | ISS-010 | Broker | **207** |
 | ISS-011 | Billing | **206** |
 | ISS-012 | SEC schedule edits | No new batch unless new evidence |

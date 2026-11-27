@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-27 — Homepage My Assets Watchlist fix + AI Trader nav shelve (git only)
+
+- Baseline `main` **`56153eae`** (PR **#279** merged). Lovable source sync reportedly completed; calendar activation still blocked (migration execution safeguards + pending 28-table / TRUNCATE evidence).
+- Homepage My Assets: reuse Watchlist V2 `added_at` symbol contract and cache; separate optional quote enrichment so saved symbols render without fabricated prices.
+- AI Trader removed from customer `DashboardSidebar` menus; deferred until 2027; infrastructure and OFF safeguards preserved. AI Analyst unchanged.
+- Not marked production-verified pending Vercel deploy + authenticated homepage check.
+
 ## 2026-11-26 — Catalyst Calendar V4 production activation recovery (post-merge `5d458699`)
 
 - PR **#278** merged to `main`; Lovable activation stopped before SQL.
