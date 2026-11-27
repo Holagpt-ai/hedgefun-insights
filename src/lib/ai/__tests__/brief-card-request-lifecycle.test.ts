@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   briefCacheScopeKey,
+  briefFetchStillValid,
   briefSnapshotSupersededBySchedule,
   lastGoodBriefUsable,
   shouldReleaseBriefInFlightGuard,
@@ -19,26 +20,52 @@ describe("brief card request lifecycle", () => {
     expect(shouldReleaseBriefInFlightGuard(4, 3)).toBe(false);
   });
 
-  it("detects when schedule expects a newer AM generation window", () => {
+  it("detects when live schedule expects a newer AM generation window", () => {
+    const midSession = new Date("2026-11-27T12:45:00.000Z");
     expect(
       briefSnapshotSupersededBySchedule({
         briefType: "am",
         generationWindow: "early",
-        expectedGenerationWindow: "mid",
+        now: midSession,
       }),
     ).toBe(true);
     expect(
       briefSnapshotSupersededBySchedule({
         briefType: "am",
         generationWindow: "mid",
-        expectedGenerationWindow: "mid",
+        now: midSession,
       }),
     ).toBe(false);
     expect(
       briefSnapshotSupersededBySchedule({
         briefType: "pm",
         generationWindow: "early",
-        expectedGenerationWindow: "final_preopen",
+        now: midSession,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects stale fetch when account or generation changed", () => {
+    expect(
+      briefFetchStillValid({
+        generation: 2,
+        activeGeneration: 3,
+        capturedUserId: "a",
+        capturedBriefType: "am",
+        liveUserId: "a",
+        liveBriefType: "am",
+        sessionUserId: "a",
+      }),
+    ).toBe(false);
+    expect(
+      briefFetchStillValid({
+        generation: 2,
+        activeGeneration: 2,
+        capturedUserId: "a",
+        capturedBriefType: "am",
+        liveUserId: "b",
+        liveBriefType: "am",
+        sessionUserId: "a",
       }),
     ).toBe(false);
   });
