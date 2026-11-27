@@ -1,8 +1,12 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #283 brief lifecycle simplify (pending SHA)
+
+- `AIBriefCard`: keyed inner scoped instance per `userId:briefType`; generation-only in-flight guard; session mismatch clears cache + unauth.
+- Removed `briefFetchStillValid` / owner-key abstractions; kept live-clock AM supersession + last-good within scope.
+
 ## 2026-11-27 — PR #283 brief lifecycle safeguard (`b3fa2894`)
 
-- `AIBriefCard`: validate generation + session before cache/diagnostics/state; `briefFetchStillValid`; AM prior supersession from live clock (`briefSnapshotSupersededBySchedule`).
 - Component regression tests: 403, session mismatch, account switch race, AM/PM scope, early→mid schedule discard.
 
 ## 2026-11-27 — PR #283 follow-up (git only; same PR)

@@ -104,15 +104,36 @@ describe("AIBriefCard — authorized fetch lifecycle", () => {
     expect(screen.queryByText(/USER_SECRET_BRIEF/)).toBeNull();
   });
 
-  it("ignores session user id mismatch", async () => {
+  it("clears protected content and shows unauthorized on session user id mismatch", async () => {
     briefHarness.setSession(async () => ({
       data: { session: { access_token: "tok-a", user: { id: "user-other" } } },
     }));
     briefHarness.setFetch(async () => okBrief("MISMATCHED_USER_BRIEF"));
     renderBriefCard({ isPro: true, briefType: "am", config: cardConfig });
     await waitFor(() => {
-      expect(screen.queryByText("MISMATCHED_USER_BRIEF")).toBeNull();
+      expect(screen.getByText("Sign in to view")).toBeInTheDocument();
     });
+    expect(screen.queryByText("MISMATCHED_USER_BRIEF")).toBeNull();
+  });
+
+  it("drops displayed protected brief immediately on account switch", async () => {
+    briefHarness.setFetch(async () => okBrief("USER_A_PROTECTED_BRIEF"));
+    const view = renderBriefCard({ isPro: true, briefType: "am", config: cardConfig });
+    await waitFor(() => expect(screen.getByText(/USER_A_PROTECTED_BRIEF/)).toBeInTheDocument());
+
+    authState.user = { id: "user-b" };
+    briefHarness.setSession(async () => ({
+      data: { session: { access_token: "tok-b", user: { id: "user-b" } } },
+    }));
+    briefHarness.setFetch(async () => okBrief("USER_B_PROTECTED_BRIEF"));
+    view.rerender(
+      <MemoryRouter>
+        <AIBriefCard isPro briefType="am" config={cardConfig} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/USER_A_PROTECTED_BRIEF/)).toBeNull();
+    await waitFor(() => expect(screen.getByText(/USER_B_PROTECTED_BRIEF/)).toBeInTheDocument());
   });
 
   it("does not let an obsolete response overwrite after account switch", async () => {
