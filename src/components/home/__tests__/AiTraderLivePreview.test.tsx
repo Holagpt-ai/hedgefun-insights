@@ -34,7 +34,7 @@ describe("AI Trader acquisition surface", () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 
-  it("replaces the Stocksist Game nav item with AI Trader", () => {
+  it("shelves AI Trader from customer navigation while keeping AI Analyst", () => {
     window.localStorage.setItem("dashboardSidebarCollapsed", "false");
     render(
       <MemoryRouter>
@@ -42,8 +42,11 @@ describe("AI Trader acquisition surface", () => {
       </MemoryRouter>,
     );
 
-    const link = screen.getByRole("link", { name: "AI Trader" });
-    expect(link).toHaveAttribute("href", "/dashboard/ai-trader");
+    expect(screen.queryByRole("link", { name: "AI Trader" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Stocksist Game" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "AI Analyst" })).toHaveAttribute("href", "/dashboard/ai");
+    expect(screen.getByRole("link", { name: "Community" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "News Feed" })).toBeInTheDocument();
   });
 });
+

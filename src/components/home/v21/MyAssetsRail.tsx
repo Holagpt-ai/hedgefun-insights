@@ -52,7 +52,7 @@ export function MyAssetsRail() {
           </div>
         ) : assetsQuery.isError ? (
           <p className="text-sm text-[var(--hp-ink-2)]">Could not load your watchlist. Try again later.</p>
-        ) : (assetsQuery.data ?? []).length === 0 ? (
+        ) : assetsQuery.isEmpty ? (
           <p className="text-sm text-[var(--hp-ink-2)]">
             No symbols saved yet.{" "}
             <Link to="/watchlist" className="font-bold text-[var(--hp-blue)]">
@@ -60,45 +60,52 @@ export function MyAssetsRail() {
             </Link>
           </p>
         ) : (
-          <ul className="space-y-1">
-            {(assetsQuery.data ?? []).map((row) => {
-              const pct = row.changePercent;
-              const positive = pct !== null && pct >= 0;
-              return (
-                <li key={row.symbol}>
-                  <Link
-                    to={publicStockDetailPath(row.symbol)}
-                    className="flex items-center justify-between rounded-lg px-1 py-1.5 hover:bg-muted/30"
-                  >
-                    <span>
-                      <span className="font-mono font-extrabold">{row.symbol}</span>
-                      {row.name ? (
-                        <span className="ml-2 truncate text-xs text-[var(--hp-ink-3)]">{row.name}</span>
-                      ) : null}
-                    </span>
-                    <span className="text-right text-xs">
-                      {row.price !== null ? (
-                        <span className="hp-num font-semibold">${row.price.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-[var(--hp-ink-3)]">—</span>
-                      )}
-                      {pct !== null ? (
-                        <span
-                          className={cn(
-                            "ml-2 hp-num font-bold",
-                            positive ? "text-[var(--hp-up)]" : "text-[var(--hp-down)]",
-                          )}
-                        >
-                          {positive ? "+" : ""}
-                          {pct.toFixed(2)}%
-                        </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <ul className="space-y-1">
+              {(assetsQuery.data ?? []).map((row) => {
+                const pct = row.changePercent;
+                const positive = pct !== null && pct >= 0;
+                return (
+                  <li key={row.symbol}>
+                    <Link
+                      to={publicStockDetailPath(row.symbol)}
+                      className="flex items-center justify-between rounded-lg px-1 py-1.5 hover:bg-muted/30"
+                    >
+                      <span>
+                        <span className="font-mono font-extrabold">{row.symbol}</span>
+                        {row.name ? (
+                          <span className="ml-2 truncate text-xs text-[var(--hp-ink-3)]">{row.name}</span>
+                        ) : null}
+                      </span>
+                      <span className="text-right text-xs">
+                        {row.price !== null ? (
+                          <span className="hp-num font-semibold">${row.price.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-[var(--hp-ink-3)]">—</span>
+                        )}
+                        {pct !== null ? (
+                          <span
+                            className={cn(
+                              "ml-2 hp-num font-bold",
+                              positive ? "text-[var(--hp-up)]" : "text-[var(--hp-down)]",
+                            )}
+                          >
+                            {positive ? "+" : ""}
+                            {pct.toFixed(2)}%
+                          </span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {assetsQuery.quotesUnavailable ? (
+              <p className="mt-2 text-xs text-[var(--hp-ink-3)]">
+                Delayed market data temporarily unavailable for some symbols.
+              </p>
+            ) : null}
+          </>
         )}
         <p className="mt-3 text-[10px] text-[var(--hp-ink-3)]">{PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}</p>
         {user ? (

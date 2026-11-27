@@ -1,8 +1,16 @@
 # Project memory
 
+## Development checkpoint — November 27, 2026 (Homepage Watchlist fix + AI Trader shelved)
+
+- **GitHub `main`:** PR **#279** merged **`56153eae01035ade19d62a2385b42bb0cad39905`** (Catalyst Calendar V4 production activation recovery). Lovable source synchronization **reportedly completed** (editor/runtime identity still independently unverified).
+- **Calendar production:** Second activation attempt **blocked before changes** by **two unchanged migration execution-safeguard conflicts**. Calendar SQL, `sync-economic-calendar` Edge, initial ingestion, and recurring refresh remain **unactivated**. Exact Lovable report + **28-table** privilege inventory still **required**. Excessive **TRUNCATE** grants **reported**; exact scope **pending evidence**.
+- **Homepage My Assets (confirmed prod defect Nov 27):** queried `watchlists` with `order(created_at)` while schema/V2 use **`added_at`**; quote enrichment errors failed the whole rail. Correction reuses V2 symbol fetch/cache, separates optional `stocks` quotes, shows symbols without fabricated prices. **Git fix only until Vercel deploy + authenticated acceptance.**
+- **AI Trader:** removed from customer navigation (desktop/collapsed/mobile sidebar); **deferred until 2027** or explicit reopen. Source, routes, tables, Edge/Fly worker, and OFF-mode safeguards **preserved**. Do **not** activate/deploy/schedule the worker. **AI Analyst unchanged.**
+- **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C; historical catch-up **suspended at `BKH`**. Development first; consolidated final inspection last.
+
 ## Development checkpoint — November 26, 2026 (Catalyst Calendar V4 — merged; activation blocked)
 
-- **GitHub `main`:** PR **#278** merged **`5d45869905cdf77c5abe9d85f7ab660214797417`** (Catalyst Calendar V4). Homepage V21 **`a7ddec2`** (PR **#277**).
+- **GitHub `main`:** PR **#278** merged **`5d45869905cdf77c5abe9d85f7ab660214797417`** (Catalyst Calendar V4). Homepage V21 **`a7ddec2`** (PR **#277**). Later recovery merged as PR **#279** @ **`56153eae`**.
 - **Production activation:** Lovable attempt **stopped before SQL** (ledger ambiguity + missing `service_role` grants on `economic_events` / `economic_sync_status`). Recovery migration **`20261126250000_economic_calendar_service_role_grants_v1.sql`** + runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md` (five-file sequence).
 - **Public catalyst read:** `public_catalyst_calendar_range_v1` RPC — no anon `SELECT` on `catalyst_events`.
 - **Macro feed:** Finnhub gated by `FINNHUB_ECONOMIC_ENABLED`; entitlement via authorized POST `verify_only` only (GET does not probe Finnhub).
