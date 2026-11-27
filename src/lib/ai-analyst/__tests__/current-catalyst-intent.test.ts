@@ -14,13 +14,13 @@ describe("current catalyst intent", () => {
     expect(extractTickerFromCatalystQuestion("MRVL? Why is it up this morning")).toBe("MRVL");
   });
 
-  it("prefers active symbol over question when both exist", () => {
+  it("uses explicit question ticker when it differs from active context", () => {
     expect(
       resolveAnalystSymbolForQuestion({
         activeSymbol: "NVDA",
         userQuestion: "Why is MRVL up today?",
       }),
-    ).toBe("NVDA");
+    ).toBe("MRVL");
   });
 
   it("falls back to ticker embedded in question", () => {

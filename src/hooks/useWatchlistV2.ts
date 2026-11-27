@@ -72,6 +72,9 @@ export interface V2Row {
   scannerIntelligence: Record<string, unknown> | null;
   requestStatus: "pending" | "failed" | "succeeded" | "none";
   requestError: string | null;
+  priorAnalysisAvailable: boolean;
+  refreshFailedWithPriorAnalysis: boolean;
+  analysisFreshness: "unknown" | "current" | "stale_vs_request";
   hasV2: boolean;
   presentation: WatchlistRowPresentation;
 }
@@ -243,13 +246,30 @@ export function useWatchlistV2() {
       const raw = analysisMap[sym] as Record<string, unknown> | undefined;
       const req = reqMap[sym];
       const analyzedAt = typeof raw?.analyzed_at === "string" ? raw.analyzed_at : "";
-      const { requestStatus, requestError } = resolveWatchlistRowRequestStatus({
+      const directionEarly = raw
+        ? (isDirection(raw.direction) ? raw.direction : "data_unavailable")
+        : ("data_unavailable" as V2Direction);
+      const explanationEarly = typeof raw?.explanation === "string" ? raw.explanation : "";
+      const driverIdsEarly = raw ? parseDriverIds(raw.driver_ids) : [];
+      const marketSignalsEarly = raw ? parseMarketSignals(raw.market_signals) : [];
+      const resolution = resolveWatchlistRowRequestStatus({
         status: req?.status,
         error_code: req?.error_code,
         requested_at: req?.requested_at,
         completed_at: req?.completed_at ?? undefined,
         analyzedAt,
+        direction: directionEarly,
+        explanation: explanationEarly,
+        driverIds: driverIdsEarly,
+        marketSignalsCount: marketSignalsEarly.length,
       });
+      const {
+        requestStatus,
+        requestError,
+        priorAnalysisAvailable,
+        refreshFailedWithPriorAnalysis,
+        analysisFreshness,
+      } = resolution;
 
       if (!raw) {
         const presentation = resolveWatchlistRowPresentation({
@@ -257,6 +277,7 @@ export function useWatchlistV2() {
           direction: "data_unavailable",
           requestStatus,
           secondaryHydrating,
+          priorAnalysisAvailable,
         });
         return {
           ticker: sym,
@@ -288,6 +309,9 @@ export function useWatchlistV2() {
           scannerIntelligence: null,
           requestStatus,
           requestError,
+          priorAnalysisAvailable,
+          refreshFailedWithPriorAnalysis,
+          analysisFreshness,
           hasV2: false,
           presentation,
         };
@@ -299,6 +323,7 @@ export function useWatchlistV2() {
         direction,
         requestStatus,
         secondaryHydrating,
+        priorAnalysisAvailable,
       });
       const sessionType =
         raw.session_type === "premarket" || raw.session_type === "rth" || raw.session_type === "postclose"
@@ -338,6 +363,9 @@ export function useWatchlistV2() {
         scannerIntelligence: iq.scanner_intelligence ?? null,
         requestStatus,
         requestError,
+        priorAnalysisAvailable,
+        refreshFailedWithPriorAnalysis,
+        analysisFreshness,
         hasV2: true,
         presentation,
       };

@@ -1,8 +1,4 @@
 import {
-  classifyCatalystPrecedence,
-  type CatalystPrecedenceInput,
-} from "@/lib/catalyst/precedence";
-import {
   scoreCatalystRow,
   selectPrimaryFromScored,
   sortScoredCandidates,
@@ -80,20 +76,6 @@ export interface CurrentCatalystAnalysis {
 const SECTOR_WIDE_HEADLINE =
   /\b(?:sector|stocks?|shares?|chip stocks|semiconductors?|ai stocks|tech stocks)\b/i;
 
-function toPrecedenceInput(row: AnalystCatalystRow): CatalystPrecedenceInput {
-  const official = row.officialSource === true;
-  return {
-    title: row.title ?? "",
-    event_type: row.eventType,
-    provider: official ? "official_company_ir" : "stocksist_catalyst",
-    event_date: row.eventDate ?? "",
-    published_at: row.publishedAt,
-    source_name: row.sourceName ?? null,
-    attribution_class: row.attributionClass ?? (official ? "direct" : "direct"),
-    ticker_specific: row.tickerSpecific ?? true,
-  };
-}
-
 function isSectorWideHeadline(title: string, symbol: string): boolean {
   const upper = title.toUpperCase();
   const sym = symbol.toUpperCase();
@@ -107,9 +89,10 @@ export function rankCurrentCatalysts(
 ): RankedCurrentCatalyst[] {
   const ranked = rows
     .map((row) => {
-      const input = toPrecedenceInput(row);
-      let precedence = classifyCatalystPrecedence(input);
-      if (isSectorWideHeadline(row.title ?? "", symbol)) {
+      const scored = scoreCatalystRow(row);
+      let precedence = scored.precedence;
+      const reconciledRow = scored.row;
+      if (isSectorWideHeadline(reconciledRow.title ?? "", symbol)) {
         precedence = {
           ...precedence,
           tier: "secondary",
@@ -119,20 +102,20 @@ export function rankCurrentCatalysts(
         };
       }
       return {
-        title: row.title ?? "",
-        eventType: row.eventType,
-        eventDate: row.eventDate,
-        publishedAt: row.publishedAt,
+        title: reconciledRow.title ?? "",
+        eventType: reconciledRow.eventType,
+        eventDate: reconciledRow.eventDate,
+        publishedAt: reconciledRow.publishedAt,
         tier: precedence.tier,
         primaryClass: precedence.primaryClass,
         classRank: precedence.classRank,
         isMarketAttention: precedence.isMarketAttention,
-        freshness: Date.parse(row.publishedAt ?? row.eventDate ?? "") || 0,
-        evidenceType: row.eventType,
-        source: row.sourceName ?? "stocksist_catalyst",
-        sourceUrl: row.sourceUrl ?? null,
+        freshness: Date.parse(reconciledRow.publishedAt ?? reconciledRow.eventDate ?? "") || 0,
+        evidenceType: reconciledRow.eventType,
+        source: reconciledRow.sourceName ?? "stocksist_catalyst",
+        sourceUrl: reconciledRow.sourceUrl ?? null,
         confidence: precedence.tier === "primary" && precedence.classRank > 0 ? "verified" as const : "secondary" as const,
-        officialSource: row.officialSource === true,
+        officialSource: reconciledRow.officialSource === true,
       };
     })
     .sort((a, b) => {

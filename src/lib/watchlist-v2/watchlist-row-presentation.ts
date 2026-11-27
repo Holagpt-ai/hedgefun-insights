@@ -18,7 +18,11 @@ export function resolveWatchlistRowPresentation(input: {
   direction: V2Direction;
   requestStatus: WatchlistRequestStatus;
   secondaryHydrating: boolean;
+  priorAnalysisAvailable?: boolean;
 }): WatchlistRowPresentation {
+  if (input.hasV2 && input.priorAnalysisAvailable && input.requestStatus === "failed") {
+    return "ready";
+  }
   if (!input.hasV2) {
     if (input.requestStatus === "failed") return "analysis_failed";
     if (input.secondaryHydrating) return "loading_analysis";

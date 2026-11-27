@@ -1,5 +1,32 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #283 brief lifecycle simplify (pending SHA)
+
+- `AIBriefCard`: keyed inner scoped instance per `userId:briefType`; generation-only in-flight guard; session mismatch clears cache + unauth.
+- Removed `briefFetchStillValid` / owner-key abstractions; kept live-clock AM supersession + last-good within scope.
+
+## 2026-11-27 — PR #283 brief lifecycle safeguard (`b3fa2894`)
+
+- Component regression tests: 403, session mismatch, account switch race, AM/PM scope, early→mid schedule discard.
+
+## 2026-11-27 — PR #283 follow-up (git only; same PR)
+
+- Watchlist: separate `requestStatus` from `priorAnalysisAvailable` / `refreshFailedWithPriorAnalysis`; presentation stays `ready` when prior content survives failed refresh.
+- Catalyst: opinion-editorial vs Reuters/Bloomberg factual reporting split; `classifyCatalystPrecedence` reconciles event types client + Edge.
+- AI Analyst: explicit ticker switch in questions; `rankCurrentCatalysts` uses scored reconciliation; chat updates active symbol on explicit ticker change.
+- AM/PM brief card: removed sessionStorage (auth bypass fix); user-scoped in-memory last-good + fetch-generation lifecycle (no scheduling/cron changes).
+- Catalyst: opinion-editorial headlines cannot regain primary class via `detectPrimaryEventClass`; missing attribution defaults `unverified` / not ticker-specific.
+
+## 2026-11-27 — Catalyst & AI intelligence completion (git only; pending PR)
+
+- Catalyst: editorial publisher guard (Motley Fool / etc.) — merger/earnings keyword headlines demoted to `company_news` at classify + ingest + UI labels (AWK M&A editorial case).
+- Watchlist V2: failed refresh no longer marks row failed when prior `analyzed_at` exists.
+- Preserved: PR #275 provider containment, #270 attribution authority, #282 scanner, earnings ranking source (ISS-026), AI Analyst CURRENT_CATALYST / MRVL regressions.
+
+## 2026-11-27 — PR #282 merged (`c6278fde`)
+
+Scanner session-integrity corrections (evaluated-empty observation gate, PM workspace gate, historical enrichment guards). Production runtime acceptance open; standard-tab 5m RVOL via Radar overlay only (no Edge row writer).
+
 ## 2026-11-27 — PR #282: closed-market row preservation + evaluated-empty guards (git only)
 
 - Session row filter applies only during live surveillance; closed/weekend/holiday snapshots preserved.

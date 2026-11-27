@@ -12,6 +12,10 @@ import {
   type CachedBriefSnapshot,
   type LastGoodBriefCache,
 } from "@/lib/ai/brief-refresh-state";
+import {
+  briefSnapshotSupersededBySchedule,
+  clearScopedLastGoodBrief,
+} from "@/lib/ai/brief-card-request-lifecycle";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBriefPreview } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
@@ -166,14 +170,41 @@ export function resolveAmBriefNoticeAt(now: Date): BriefContextNotice {
   };
 }
 
-export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
+type AIBriefCardScopedProps = AIBriefCardProps & { userId: string };
+
+export function AIBriefCard(props: AIBriefCardProps) {
   const { user } = useAuth();
+  if (!user?.id) {
+    return <AIBriefCardSignedOut {...props} />;
+  }
+  return (
+    <AIBriefCardScoped
+      key={`${user.id}:${props.briefType}`}
+      userId={user.id}
+      {...props}
+    />
+  );
+}
+
+function AIBriefCardSignedOut({ config }: AIBriefCardProps) {
+  return (
+    <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-4 md:p-5">
+      <div className="mb-2 flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
+        <h3 className="min-w-0 text-sm font-semibold leading-snug tracking-wide">{config.aiCardTitle}</h3>
+      </div>
+      <p className="text-sm leading-relaxed text-foreground/80">Sign in to view</p>
+    </div>
+  );
+}
+
+function AIBriefCardScoped({ userId, isPro, config, briefType }: AIBriefCardScopedProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const pmDebug = isPmDebugEnabled(searchParams);
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const fetchGenerationRef = useRef(0);
   const lastGoodBriefRef = useRef<LastGoodBriefCache>(emptyLastGoodBriefCache());
   const briefObserveRef = useRef({
     httpStatus: null as number | null,
@@ -191,23 +222,42 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   });
 
   const fetchBrief = useCallback(async () => {
+    const generation = ++fetchGenerationRef.current;
+    const isCurrent = () => generation === fetchGenerationRef.current;
+    const commit = (next: BriefState) => {
+      if (isCurrent()) setState(next);
+    };
+
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const prior = getCachedBrief(lastGoodBriefRef.current, briefType);
-    if (prior) {
-      setState({ kind: "available", ...prior, isRefreshing: true, refreshNotice: null });
-    } else {
-      setState({ kind: "loading" });
+    const cached = getCachedBrief(lastGoodBriefRef.current, briefType);
+    const prior = cached
+      && !briefSnapshotSupersededBySchedule({
+        briefType,
+        generationWindow: cached.generationWindow,
+        now: new Date(),
+      })
+      ? cached
+      : null;
+    if (isCurrent()) {
+      if (prior) {
+        setState({ kind: "available", ...prior, isRefreshing: true, refreshNotice: null });
+      } else {
+        setState({ kind: "loading" });
+      }
     }
 
     try {
       const clientRequestId = crypto.randomUUID();
       const { data: sessionData } = await supabase.auth.getSession();
+      if (!isCurrent()) return;
+
       const session = sessionData.session;
-      if (!session) {
-        setState({ kind: "unauth" });
+      if (!session || session.user.id !== userId) {
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        commit({ kind: "unauth" });
         return;
       }
 
@@ -219,12 +269,14 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ briefType, request_id: clientRequestId }),
+          body: JSON.stringify({ briefType: briefType, request_id: clientRequestId }),
           signal: ctrl.signal,
         },
       );
 
       const body = await resp.json().catch(() => ({}));
+      if (!isCurrent()) return;
+
       briefObserveRef.current.httpStatus = resp.status;
       briefObserveRef.current.reason = typeof body?.reason === "string" ? body.reason : null;
       briefObserveRef.current.generatedAt =
@@ -237,11 +289,15 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         typeof body?.previous_trading_day === "boolean" ? body.previous_trading_day : null;
 
       if (resp.status === 401) {
-        setState({ kind: "unauth" });
+        if (!isCurrent()) return;
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        commit({ kind: "unauth" });
         return;
       }
       if (resp.status === 403) {
-        setState({ kind: "upgrade" });
+        if (!isCurrent()) return;
+        clearScopedLastGoodBrief(lastGoodBriefRef.current);
+        commit({ kind: "upgrade" });
         return;
       }
       if (resp.status === 200) {
@@ -303,6 +359,8 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
                 ? body.catalyst_feed_status
                 : readCatalystFeedStatusFromBriefSnapshot(body.market_snapshot);
 
+            if (!isCurrent()) return;
+
             briefObserveRef.current.freshnessState = freshnessState;
             briefObserveRef.current.generationWindow = generationWindow;
             briefObserveRef.current.expectedGenerationWindow = expectedGenerationWindow;
@@ -324,8 +382,17 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               generationReason,
               catalystFeedStatus,
             };
-            setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
-            setState({
+            const scheduleSuperseded = briefSnapshotSupersededBySchedule({
+              briefType: briefType,
+              generationWindow,
+              now: new Date(),
+            });
+            if (!isCurrent()) return;
+            if (!scheduleSuperseded) {
+              setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
+            }
+            if (!isCurrent()) return;
+            commit({
               kind: "available",
               ...snapshot,
               catalystFeedStatus,
@@ -335,7 +402,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             return;
           }
           if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
-            setState({
+            commit({
               kind: "available",
               ...prior,
               isRefreshing: false,
@@ -343,7 +410,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           }
-          setState({
+          commit({
             kind: "error",
             message: "Temporarily unavailable",
             refreshable: true,
@@ -360,7 +427,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         });
         if (stored) {
           if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
-            setState({
+            commit({
               kind: "available",
               ...prior,
               isRefreshing: false,
@@ -368,7 +435,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           }
-          setState({
+          commit({
             kind: stored.retryControl ? "error" : "notice",
             message: stored.message,
             refreshable: stored.refreshable,
@@ -380,7 +447,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           case "brief_not_ready":
             if (briefType === "am") {
               const next = resolveAmBriefNoticeAt(new Date());
-              setState({
+              commit({
                 kind: "notice",
                 message: next.message,
                 refreshable: next.refreshable,
@@ -388,7 +455,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
                 statusLabel: next.refreshable ? "Generating" : undefined,
               });
             } else {
-              setState({
+              commit({
                 kind: "notice",
                 message: "The PM brief has not been released.",
                 refreshable: true,
@@ -397,7 +464,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             }
             return;
           case "pm_not_released":
-            setState({
+            commit({
               kind: "notice",
               message: "The PM brief has not been released.",
               refreshable: true,
@@ -407,31 +474,31 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           case "weekend_no_am_brief":
             if (briefType === "am") {
               const next = resolveAmBriefNoticeAt(new Date());
-              setState({
+              commit({
                 kind: "notice",
                 message: next.message,
                 refreshable: next.refreshable,
                 showAfterHoursCta: next.showAfterHoursCta,
               });
             } else {
-              setState({ kind: "notice", message: "No AM brief on weekends.", refreshable: false });
+              commit({ kind: "notice", message: "No AM brief on weekends.", refreshable: false });
             }
             return;
           case "previous_report_unavailable":
             if (briefType === "am") {
               const next = resolveAmBriefNoticeAt(new Date());
-              setState({
+              commit({
                 kind: "notice",
                 message: next.message,
                 refreshable: next.refreshable,
                 showAfterHoursCta: next.showAfterHoursCta,
               });
             } else {
-              setState({ kind: "notice", message: "The previous Friday report is unavailable.", refreshable: false });
+              commit({ kind: "notice", message: "The previous Friday report is unavailable.", refreshable: false });
             }
             return;
           case "invalid_brief_provenance":
-            setState({
+            commit({
               kind: "notice",
               message: "Morning brief is updating. Check back shortly or refresh.",
               refreshable: true,
@@ -440,7 +507,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             return;
           default:
             if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
-              setState({
+              commit({
                 kind: "available",
                 ...prior,
                 isRefreshing: false,
@@ -448,7 +515,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               });
               return;
             }
-            setState({
+            commit({
               kind: "error",
               message: "Temporarily unavailable",
               refreshable: true,
@@ -459,7 +526,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       }
       if (briefAccessState(resp.status) === "temporarily_unavailable") {
         if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
-          setState({
+          commit({
             kind: "available",
             ...prior,
             isRefreshing: false,
@@ -467,7 +534,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           });
           return;
         }
-        setState({
+        commit({
           kind: "error",
           message: "Temporarily unavailable",
           refreshable: true,
@@ -476,7 +543,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         return;
       }
       if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
-        setState({
+        commit({
           kind: "available",
           ...prior,
           isRefreshing: false,
@@ -484,7 +551,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         });
         return;
       }
-      setState({
+      commit({
         kind: "error",
         message: "Temporarily unavailable",
         refreshable: true,
@@ -497,25 +564,23 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       if ((err as { name?: string })?.name === "AbortError") {
         return;
       }
-      setState({
+      if (!isCurrent()) return;
+      commit({
         kind: "error",
         message: "Temporarily unavailable",
         refreshable: true,
         statusLabel: "Temporarily unavailable",
       });
     }
-  }, [briefType]);
+  }, [briefType, userId]);
 
   useEffect(() => {
-    if (!user) {
-      setState({ kind: "unauth" });
-      return;
-    }
-    fetchBrief();
+    void fetchBrief();
     return () => {
+      fetchGenerationRef.current += 1;
       abortRef.current?.abort();
     };
-  }, [user, fetchBrief]);
+  }, [fetchBrief]);
 
   useEffect(() => {
     if (!pmDebug || briefType !== "am") return;

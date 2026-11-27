@@ -50,6 +50,7 @@ import { fetchSymbolIntelligenceInputs } from "@/lib/ai-analyst/fetch-symbol-int
 import {
   classifyCurrentCatalystIntent,
   resolveAnalystSymbolForQuestion,
+  EXPLICIT_TICKER_IN_QUESTION,
 } from "@/lib/ai-analyst/current-catalyst-intent";
 
 // Only wording that the request path can actually stand behind.
@@ -695,6 +696,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           activeSymbol: activeSymbolRef.current,
           userQuestion: effectivePrompt,
         });
+        if (
+          intelligenceSymbol
+          && intelligenceSymbol !== activeSymbolRef.current
+          && EXPLICIT_TICKER_IN_QUESTION.test(effectivePrompt.trim())
+        ) {
+          activeSymbolRef.current = intelligenceSymbol;
+          setActiveSymbol(intelligenceSymbol);
+        }
         if (intelligenceSymbol) {
           try {
             const workflow = readHistoricalWorkflowContext(intelligenceSymbol);

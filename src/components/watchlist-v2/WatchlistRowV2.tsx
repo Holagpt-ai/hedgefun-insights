@@ -275,6 +275,13 @@ export function WatchlistRowV2({
   const statusLine = (() => {
     if (isRefreshing) return { text: "Updating analysis…", tone: "text-amber-700 dark:text-amber-400" };
     if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
+    if (row.refreshFailedWithPriorAnalysis) {
+      const priorLabel = row.analyzedAt ? `prior analysis ${formatRelative(row.analyzedAt)}` : "prior analysis on file";
+      return {
+        text: `Update failed · showing ${priorLabel}`,
+        tone: "text-red-600 dark:text-red-400",
+      };
+    }
     if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
     if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
     if (expectedUnavailable) return { text: "Auto-recheck enabled", tone: "text-slate-500 dark:text-slate-400" };
