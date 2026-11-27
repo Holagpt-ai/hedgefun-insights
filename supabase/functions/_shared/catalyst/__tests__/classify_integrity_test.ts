@@ -1,6 +1,14 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { classifyCatalyst } from "../classify.ts";
 
+Deno.test("editorial Motley Fool merger headline stays company_news", () => {
+  const title =
+    "The Motley Fool: American Water Works Stock Has 30% Upside After Merger Chatter";
+  if (classifyCatalyst(title, null, "The Motley Fool") !== "company_news") {
+    throw new Error("expected company_news for editorial merger chatter");
+  }
+});
+
 Deno.test("META-like AI glasses product news is not FDA/biotech", () => {
   assertEquals(
     classifyCatalyst("Meta unveils next-generation AI smart glasses at Connect"),

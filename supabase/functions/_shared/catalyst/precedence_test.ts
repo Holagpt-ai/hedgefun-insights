@@ -159,6 +159,15 @@ Deno.test("14. negative primary catalyst retains precedence", () => {
   assertEquals(compareCatalystPrecedence(negative, commentaryRow, { owned: new Set(), etDate: "2026-09-18" }) < 0, true);
 });
 
+Deno.test("14b. Motley Fool merger agreement phrasing stays secondary", () => {
+  const row = commentary("AWK signs definitive merger agreement", {
+    event_type: "merger_acquisition",
+    source_name: "The Motley Fool",
+  });
+  assertEquals(classifyCatalystPrecedence(row).tier, "secondary");
+  assertEquals(classifyCatalystPrecedence(row).primaryClass, null);
+});
+
 Deno.test("15. editorial wrapper rescued when underlying event evidence is explicit", () => {
   const row = commentary(
     "Why XYZ jumped today after FDA approves new therapy",

@@ -11,8 +11,22 @@ import type { CurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst"
 import type { AnalystCatalystRowWithProvenance } from "@/lib/ai-analyst/catalyst-search-types";
 import { limitScoredCatalystCandidates } from "@/lib/ai-analyst/catalyst-evidence-candidate-pool";
 import { isHistoricalCatalystDate } from "@/lib/ai-analyst/catalyst-session-date";
+import { reconcileCatalystEventTypeForPresentation } from "@/lib/catalyst/catalyst-event-type-integrity";
+import type { CatalystEventType } from "@/types/catalyst";
 
 const INVESTOR_DAY = /\b(?:investor day|analyst day|capital markets day)\b/i;
+
+function withReconciledEventType(row: AnalystCatalystRow): AnalystCatalystRow {
+  const eventType = reconcileCatalystEventTypeForPresentation({
+    event_type: row.eventType as CatalystEventType,
+    provider: row.officialSource ? "company_ir" : "polygon",
+    source_name: row.sourceName ?? null,
+    title: row.title ?? null,
+    attribution_class: row.attributionClass ?? "unverified",
+    ticker_specific: row.tickerSpecific ?? false,
+  });
+  return eventType === row.eventType ? row : { ...row, eventType };
+}
 
 export interface ScoredCatalystRow {
   row: AnalystCatalystRow;
@@ -30,8 +44,8 @@ function toPrecedenceInput(row: AnalystCatalystRow) {
     event_date: row.eventDate ?? "",
     published_at: row.publishedAt,
     source_name: row.sourceName ?? null,
-    attribution_class: row.attributionClass ?? "direct",
-    ticker_specific: row.tickerSpecific ?? true,
+    attribution_class: row.attributionClass ?? "unverified",
+    ticker_specific: row.tickerSpecific ?? false,
   };
 }
 
@@ -64,6 +78,7 @@ function applyEvidenceAdjustments(
 }
 
 export function scoreCatalystRow(row: AnalystCatalystRow): ScoredCatalystRow {
+  row = withReconciledEventType(row);
   let precedence = classifyCatalystPrecedence(toPrecedenceInput(row));
   precedence = applyEvidenceAdjustments(row, precedence);
 

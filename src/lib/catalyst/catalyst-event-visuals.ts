@@ -7,6 +7,7 @@ import type { EpisodeTemporalRelationship } from "@/config/episode-event-linkage
 import type { CatalystEventType } from "@/types/catalyst";
 import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
 import type { CatalystTaxonomyV2 } from "@/lib/catalyst/intelligence-v2";
+import { reconcileCatalystEventTypeForPresentation } from "@/lib/catalyst/catalyst-event-type-integrity";
 import {
   isAuthoritativeIssuerProvider,
   isDirectIssuerCatalyst,
@@ -145,7 +146,8 @@ export function catalystDisplayCategoryFromEvent(input: CatalystDisplayEventInpu
     );
   }
   if (relatedHeadlineLabel(input)) return "OTHER_VERIFIED_EVENT";
-  return liveEventCategory(input.event_type);
+  const reconciledType = reconcileCatalystEventTypeForPresentation(input);
+  return liveEventCategory(reconciledType);
 }
 
 /** Display label for scanner, radar, and Catalyst tab rows (SEC taxonomy-aware). */

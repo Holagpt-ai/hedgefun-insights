@@ -81,11 +81,20 @@ export function extractTickerFromCatalystQuestion(question: string): string | nu
   return null;
 }
 
+export const EXPLICIT_TICKER_IN_QUESTION =
+  /(?:\$[A-Za-z]{1,5}\b)|(?:^[A-Za-z]{1,5}\?\s)|(?:\bwhy\s+(?:is|are|was|were|did|has|have)\s+[A-Za-z]{1,5}\b)|(?:\bwhat(?:'s| is)\s+(?:the\s+)?catalyst\s+(?:for\s+)?[A-Za-z]{1,5}\b)/i;
+
 export function resolveAnalystSymbolForQuestion(input: {
   activeSymbol: string | null | undefined;
   userQuestion: string;
 }): string | null {
   const fromContext = normalizeHandoffSymbol(input.activeSymbol ?? "");
+  const fromQuestion = extractTickerFromCatalystQuestion(input.userQuestion);
+  if (fromQuestion && fromContext && fromQuestion !== fromContext) {
+    if (EXPLICIT_TICKER_IN_QUESTION.test(input.userQuestion.trim())) {
+      return fromQuestion;
+    }
+  }
   if (fromContext) return fromContext;
-  return extractTickerFromCatalystQuestion(input.userQuestion);
+  return fromQuestion;
 }

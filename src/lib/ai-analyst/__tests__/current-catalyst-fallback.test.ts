@@ -44,6 +44,24 @@ describe("current catalyst fresh-search fallback", () => {
     expect(q.every((line) => !line.includes("2026-10-08"))).toBe(true);
   });
 
+  it("does not treat Motley Fool merger chatter as a verified M&A primary", () => {
+    const packet = buildAnalystIntelligencePacket({
+      symbol: "AWK",
+      userQuestion: "Why is AWK up today?",
+      catalystRows: [{
+        eventType: "merger_acquisition",
+        eventDate: "2026-11-27",
+        title: "American Water Works Stock Has 30% Upside After Merger Chatter",
+        publishedAt: "2026-11-27T14:00:00.000Z",
+        verificationState: "provider_reported",
+        sourceName: "The Motley Fool",
+        sourceUrl: "https://www.fool.com/investing/2026/11/27/awk-merger-chatter/",
+      }],
+    });
+    expect(packet.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(false);
+    expect(shouldRunFreshCatalystSearch(packet)).toBe(true);
+  });
+
   it("runs fresh search when the only internal primary is a vague financial-media headline", () => {
     const packet = buildAnalystIntelligencePacket({
       symbol: "MRVL",

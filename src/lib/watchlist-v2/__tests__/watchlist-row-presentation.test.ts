@@ -36,6 +36,18 @@ describe("resolveWatchlistRowPresentation", () => {
     ).toBe("provider_unavailable");
   });
 
+  it("keeps ready presentation when prior analysis survives a failed refresh", () => {
+    expect(
+      resolveWatchlistRowPresentation({
+        hasV2: true,
+        direction: "neutral",
+        requestStatus: "failed",
+        secondaryHydrating: false,
+        priorAnalysisAvailable: true,
+      }),
+    ).toBe("ready");
+  });
+
   it("marks analysis failures and awaiting-first states", () => {
     expect(
       resolveWatchlistRowPresentation({
