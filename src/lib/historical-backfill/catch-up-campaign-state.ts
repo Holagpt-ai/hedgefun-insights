@@ -14,6 +14,9 @@ export type CatchUpCampaignState = {
   queueAfterSymbol: string | null;
   pendingRun: boolean;
   pendingProviderReservation: number;
+  /** Fingerprint of last all-deferred empty window (stuck-cursor detection). */
+  lastEmptyWindowFingerprint: string | null;
+  consecutiveIdenticalEmptyRuns: number;
 };
 
 export class CatchUpCampaignBudgetError extends Error {
@@ -159,5 +162,40 @@ export function parseCatchUpCampaignState(raw: unknown): CatchUpCampaignState {
     queueAfterSymbol: typeof o.queueAfterSymbol === "string" ? o.queueAfterSymbol.toUpperCase() : null,
     pendingRun: o.pendingRun === true,
     pendingProviderReservation: Number(o.pendingProviderReservation ?? 0) || 0,
+    lastEmptyWindowFingerprint:
+      typeof o.lastEmptyWindowFingerprint === "string" ? o.lastEmptyWindowFingerprint : null,
+    consecutiveIdenticalEmptyRuns: Number(o.consecutiveIdenticalEmptyRuns ?? 0) || 0,
+  };
+}
+
+/** Max identical empty deferred windows before campaign halt (does not raise provider caps). */
+export const CATCHUP_CAMPAIGN_STUCK_EMPTY_RUN_LIMIT = 2;
+
+export function applyEmptyWindowCampaignProgress(
+  state: CatchUpCampaignState,
+  input: {
+    queueAfterSymbol: string | null;
+    emptyWindowFingerprint: string | null;
+    resolvedAny: boolean;
+  },
+): { state: CatchUpCampaignState; stuck: boolean } {
+  const next: CatchUpCampaignState = {
+    ...state,
+    queueAfterSymbol: input.queueAfterSymbol ?? state.queueAfterSymbol,
+  };
+  if (input.resolvedAny || !input.emptyWindowFingerprint) {
+    next.lastEmptyWindowFingerprint = null;
+    next.consecutiveIdenticalEmptyRuns = 0;
+    return { state: next, stuck: false };
+  }
+  if (input.emptyWindowFingerprint === state.lastEmptyWindowFingerprint) {
+    next.consecutiveIdenticalEmptyRuns = state.consecutiveIdenticalEmptyRuns + 1;
+  } else {
+    next.lastEmptyWindowFingerprint = input.emptyWindowFingerprint;
+    next.consecutiveIdenticalEmptyRuns = 1;
+  }
+  return {
+    state: next,
+    stuck: next.consecutiveIdenticalEmptyRuns >= CATCHUP_CAMPAIGN_STUCK_EMPTY_RUN_LIMIT,
   };
 }

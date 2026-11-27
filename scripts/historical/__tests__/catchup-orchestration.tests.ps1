@@ -22,7 +22,8 @@ function New-TestDir {
   return $dir
 }
 
-function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3) {
+function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3, $QueueAfter = $null) {
+  $queueJson = if ($QueueAfter) { "`"$QueueAfter`"" } else { "null" }
   $json = @"
 {
   "campaignId": "nov26-historical-2026-11-25",
@@ -31,9 +32,11 @@ function New-CampaignState($Path, $Used = 3010, $Reserved = 400, $Completed = 3)
   "providerUsed": $Used,
   "providerReservedUncertain": $Reserved,
   "maxProviderRequests": 50000,
-  "queueAfterSymbol": null,
+  "queueAfterSymbol": $queueJson,
   "pendingRun": false,
-  "pendingProviderReservation": 0
+  "pendingProviderReservation": 0,
+  "lastEmptyWindowFingerprint": null,
+  "consecutiveIdenticalEmptyRuns": 0
 }
 "@
   Set-Content -Path $Path -Value $json -Encoding utf8
@@ -165,6 +168,91 @@ Assert-True ($recurringRefuse -ne 0) "recurring should refuse foreign lock"
 Assert-True (Test-Path $lock) "foreign lock must survive rejected recurring"
 Assert-True ((Get-CatchupLockOwner -LockPath $lock) -eq "foreign-owner") "foreign owner unchanged"
 Assert-True (-not (Test-Path (Join-Path $dir "fly-calls.log"))) "rejected recurring must not invoke fly"
+
+# 7. Identical BKH-class empty windows halt with stuck_queue_cursor (no unlimited empty burns).
+$dir = New-TestDir
+New-CampaignState (Join-Path $dir "state.json") -Completed 16 -Used 7432 -Reserved 7500
+New-Item -ItemType File -Path (Join-Path $dir "stuck-empty-logs") | Out-Null
+$env:CATCHUP_TEST_DIR = $dir
+$state = Join-Path $dir "state.json"
+$lock = Join-Path $dir "catch.lock"
+$log = Join-Path $dir "out.jsonl"
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $campaign `
+  -StatePath $state -LockPath $lock -LogOut $log `
+  -FlyExe $mockFly -App "test-app" -MaxRuns 3 `
+  -MaxWaitMinutes 0 -ScaleSettleSeconds 0 -PollSeconds 0 -LogSettleSeconds 0 -ScaleZeroSettleSeconds 0
+$stuckExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+$stuckOut = Get-Content $log -Raw
+$stuckState = Get-Content $state -Raw | ConvertFrom-Json
+Assert-True ($stuckOut -match "stuck_queue_cursor") "identical empty windows must halt stuck_queue_cursor"
+Assert-True ([int]$stuckState.consecutiveIdenticalEmptyRuns -ge 2) "stuck counter must reach halt threshold"
+Assert-True ($stuckState.queueAfterSymbol -eq "BKH") "cursor preserved at BKH for resume after fix deploy"
+$stuckCalls = @(Get-Content (Join-Path $dir "fly-calls.log"))
+Assert-True (($stuckCalls | Where-Object { $_ -match "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=" }).Count -ge 2) "queue secret refreshed per run"
+
+# 8. Diagnostic catch_up_stop must not win over authoritative catch_up_partial_stop.
+$dir = New-TestDir
+New-CampaignState (Join-Path $dir "state.json")
+New-Item -ItemType File -Path (Join-Path $dir "diagnostic-then-final-logs") | Out-Null
+$result = Invoke-Campaign $dir
+Assert-True ($result.ExitCode -eq 0) "authoritative terminal after diagnostic stop should succeed"
+Assert-True ($result.State.queueAfterSymbol -eq "CUR1") "cursor from catch_up_queue_state not diagnostic stop"
+Assert-True ($result.State.providerUsed -eq 3025) "provider totals from authoritative terminal only"
+
+# 9. Two-phase logs: continue polling past intermediate catch_up_stop until final summary.
+$dir = New-TestDir
+New-CampaignState (Join-Path $dir "state.json")
+New-Item -ItemType File -Path (Join-Path $dir "two-phase-logs") | Out-Null
+$state = Join-Path $dir "state.json"
+$lock = Join-Path $dir "catch.lock"
+$log = Join-Path $dir "out.jsonl"
+$env:CATCHUP_TEST_DIR = $dir
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $campaign `
+  -StatePath $state -LockPath $lock -LogOut $log `
+  -FlyExe $mockFly -App "test-app" -SingleRun `
+  -MaxWaitMinutes 1 -ScaleSettleSeconds 0 -PollSeconds 1 -LogSettleSeconds 0 -ScaleZeroSettleSeconds 0
+$twoPhaseExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+$twoPhaseState = Get-Content $state -Raw | ConvertFrom-Json
+Assert-True ($twoPhaseExit -eq 0) "two-phase worker completion should succeed (exit $twoPhaseExit)"
+Assert-True ($twoPhaseState.queueAfterSymbol -eq "FAIL1") "final queue cursor applied after intermediate stop"
+
+# 10. Campaign reloads on-disk state after lock (not a stale pre-lock snapshot).
+$dir = New-TestDir
+$statePath = Join-Path $dir "state.json"
+New-CampaignState $statePath -Used 3010 -Completed 3
+New-CampaignState $statePath -Used 8000 -Completed 10
+New-Item -ItemType File -Path (Join-Path $dir "success-logs") | Out-Null
+$result = Invoke-Campaign $dir
+Assert-True ($result.State.executionsCompleted -eq 11) "must advance from reloaded execution count 10"
+Assert-True ($result.State.providerUsed -eq 8015) "must reconcile provider from reloaded baseline 8000"
+$campaignText = Get-Content $campaign -Raw
+Assert-True ($campaignText -match 'Import-CatchupCampaignStateWithDefaults') "campaign imports authoritative state helper"
+Assert-True ($campaignText -match 'Acquire-CatchupLock[\s\S]{0,800}Import-CatchupCampaignStateWithDefaults') "state reload follows lock acquisition"
+
+# 11. Incomplete terminal evidence keeps conservative reservation and fails reconciliation.
+$dir = New-TestDir
+New-CampaignState (Join-Path $dir "state.json")
+New-Item -ItemType File -Path (Join-Path $dir "unknown-logs") | Out-Null
+$env:CATCHUP_TEST_DIR = $dir
+$state = Join-Path $dir "state.json"
+$lock = Join-Path $dir "catch.lock"
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $campaign `
+  -StatePath $state -LockPath $lock -LogOut (Join-Path $dir "out.jsonl") `
+  -FlyExe $mockFly -App "test-app" -SingleRun `
+  -MaxWaitMinutes 0 -ScaleSettleSeconds 0 -PollSeconds 0 -LogSettleSeconds 0 -ScaleZeroSettleSeconds 0
+$unknownExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+$unknownState = Get-Content $state -Raw | ConvertFrom-Json
+Assert-True ($unknownExit -eq 2) "unknown/incomplete machine outcome must exit 2 (got $unknownExit)"
+Assert-True ($unknownState.providerReservedUncertain -ge 2900) "conservative provider reservation preserved when final evidence missing"
 
 if ($failures.Count -gt 0) {
   Write-Output ("FAILED:`n - " + ($failures -join "`n - "))

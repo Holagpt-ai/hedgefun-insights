@@ -12,6 +12,7 @@ import {
 } from "@/lib/historical-backfill/catch-up-campaign-state";
 import {
   findQueueStartIndex,
+  planNextCatchUpQueueWindow,
   resolveCatchUpScanBudget,
   sliceEligibleQueueFromIndex,
 } from "@/lib/historical-backfill/catch-up-queue";
@@ -36,7 +37,16 @@ describe("Batch 33.9 catch-up queue and campaign corrections", () => {
 
   it("wraps to head when cursor symbol was completed out of queue", () => {
     const eligible = ["A", "B", "C"];
-    expect(findQueueStartIndex(eligible, "Z")).toBe(0);
+    // Past-end markers return length; planner wraps once.
+    expect(findQueueStartIndex(eligible, "Z")).toBe(3);
+    const plan = planNextCatchUpQueueWindow({
+      eligible,
+      afterSymbol: "Z",
+      scanSize: 10,
+      wrappedOnce: false,
+    });
+    expect(plan.wrapped).toBe(true);
+    expect([...plan.window]).toEqual(["A", "B", "C"]);
   });
 
   it("scans from index without assuming numeric offset", () => {

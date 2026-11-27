@@ -1,12 +1,21 @@
 # Project memory
 
+## Development checkpoint — November 27, 2026 (Historical Intelligence completion — git only)
+
+- **GitHub `main`:** PR **#280** merged **`b0c6f46b0853e08a858c08eee8d02f359c24d1ea`** (Homepage My Assets + AI Trader nav shelve). Homepage runtime acceptance **deferred to final inspection**. AI Trader nav removed in Git; product **shelved until 2027**.
+- **Historical queue (v57 BKH class):** Confirmed mechanism — dense **200-symbol** all-deferred windows (`ambiguous_identity` / `unsupported_ticker`), `maxEmptyResolutionBatches` abort before jobs, exclusive cursor failing to progress past the belt, campaign replaying identical empty burns. **Git correction:** exclusive advance past deferred windows, wrap-once `queue_cycle_exhausted`, empty-window bound **3**, per-run queue secret refresh, `stuck_queue_cursor` halt. **Worker remains suspended** (0 machines, preflight on). Campaign state preserved **16/20**, provider **7432+7500/50000**, cursor **`BKH`**, durable **599 / 340,797 / 32,939**, eligible ~**4735**, target **2026-11-25**, floor **2021-11-29**.
+- **Episodes / Repeat Movers:** Source pipeline + Edge `apikey` already in place; freshness is **activation** after catch-up writes (stale since Oct 20 until backfill resumes). No client rebuild.
+- **Recurring catch-up:** Engineering ready; scheduler **not** activated. Procedure: `docs/historical-intelligence/historical-catchup-activation-procedure-v1.md`.
+- **Calendar:** Still separately blocked pending Lovable report / migration safeguards / 28-table + TRUNCATE evidence.
+- **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C. Development first; consolidated final inspection last.
+
 ## Development checkpoint — November 27, 2026 (Homepage Watchlist fix + AI Trader shelved)
 
-- **GitHub `main`:** PR **#279** merged **`56153eae01035ade19d62a2385b42bb0cad39905`** (Catalyst Calendar V4 production activation recovery). Lovable source synchronization **reportedly completed** (editor/runtime identity still independently unverified).
+- **GitHub `main`:** PR **#280** @ **`b0c6f46b`** (from PR **#279** @ **`56153eae`**). Lovable source synchronization **reportedly completed** (editor/runtime identity still independently unverified).
 - **Calendar production:** Second activation attempt **blocked before changes** by **two unchanged migration execution-safeguard conflicts**. Calendar SQL, `sync-economic-calendar` Edge, initial ingestion, and recurring refresh remain **unactivated**. Exact Lovable report + **28-table** privilege inventory still **required**. Excessive **TRUNCATE** grants **reported**; exact scope **pending evidence**.
-- **Homepage My Assets (confirmed prod defect Nov 27):** queried `watchlists` with `order(created_at)` while schema/V2 use **`added_at`**; quote enrichment errors failed the whole rail. Correction reuses V2 symbol fetch/cache, separates optional `stocks` quotes, shows symbols without fabricated prices. **Git fix only until Vercel deploy + authenticated acceptance.**
-- **AI Trader:** removed from customer navigation (desktop/collapsed/mobile sidebar); **deferred until 2027** or explicit reopen. Source, routes, tables, Edge/Fly worker, and OFF-mode safeguards **preserved**. Do **not** activate/deploy/schedule the worker. **AI Analyst unchanged.**
-- **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C; historical catch-up **suspended at `BKH`**. Development first; consolidated final inspection last.
+- **Homepage My Assets:** Fixed in git (PR **#280**); **runtime acceptance deferred to final inspection**.
+- **AI Trader:** removed from customer navigation; **deferred until 2027**. Infrastructure preserved OFF.
+- **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C; historical catch-up was still **suspended at `BKH`** pending this completion PR.
 
 ## Development checkpoint — November 26, 2026 (Catalyst Calendar V4 — merged; activation blocked)
 

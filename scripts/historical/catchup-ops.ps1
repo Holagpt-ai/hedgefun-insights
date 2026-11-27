@@ -161,6 +161,25 @@ function Restore-FlyPreflightGuard {
   }
 }
 
+function Import-CatchupCampaignStateWithDefaults {
+  param([Parameter(Mandatory = $true)][string]$StatePath)
+  if (-not (Test-Path -LiteralPath $StatePath)) { throw "missing campaign state: $StatePath" }
+  $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
+  if (-not ($state.PSObject.Properties.Name -contains "pendingRun")) {
+    $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false
+  }
+  if (-not ($state.PSObject.Properties.Name -contains "pendingProviderReservation")) {
+    $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0
+  }
+  if (-not ($state.PSObject.Properties.Name -contains "lastEmptyWindowFingerprint")) {
+    $state | Add-Member -NotePropertyName lastEmptyWindowFingerprint -NotePropertyValue $null
+  }
+  if (-not ($state.PSObject.Properties.Name -contains "consecutiveIdenticalEmptyRuns")) {
+    $state | Add-Member -NotePropertyName consecutiveIdenticalEmptyRuns -NotePropertyValue 0
+  }
+  return $state
+}
+
 function Save-CatchupCampaignStateFile {
   param(
     [Parameter(Mandatory = $true)][string]$StatePath,
