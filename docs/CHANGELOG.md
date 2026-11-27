@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #282 follow-up: observation integrity + PM gate + historical guards (git only)
+
+- Remove `synced_at` session override; evaluated-empty via current `provider_as_of_max` only; mixed-row filtering; generation row cache tied to validated `sync_run_id`/`synced_at`.
+- PM workspace unlock: **3:00 PM ET** regular days, **min(3 PM, early close)** on early-close sessions; holidays/weekends not 3 PM-gated; live gate refresh on PM Inbox.
+- Historical enrichment failures respect poll generation + do not clobber ready Repeat Movers state.
+
 ## 2026-11-27 — Scanner & market intelligence completion (git only; pending PR)
 
 - NHL / session: tab-local `provider_as_of` session reference + evaluated-tab `synced_at` fallback; baseline-unavailable truth precedence over prior-session copy.

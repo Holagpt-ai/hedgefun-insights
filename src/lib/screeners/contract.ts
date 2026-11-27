@@ -11,7 +11,10 @@ import {
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
 import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
-import { resolveActiveTabSessionReference } from "@/lib/screeners/tab-session-reference";
+import {
+  filterActiveTabRowsForCurrentSession,
+  resolveActiveTabSessionReference,
+} from "@/lib/screeners/tab-session-reference";
 
 export const MANAGED_TAB_IDS = [
   "day_trade_radar",
@@ -535,16 +538,21 @@ export function viewForActiveTab(
     }
   }
 
-  const tabRows = generation.rows.filter((r) => r.tab_id === activeTabId);
+  const tabRowsAll = generation.rows.filter((r) => r.tab_id === activeTabId);
+  const tabEvaluationEvidence = (generation.state.tab_evaluation_evidence ??
+    null) as TabEvaluationEvidenceMap | null;
   const sessionReference = resolveActiveTabSessionReference({
     nowMs,
     activeTabId,
     rows: generation.rows,
-    syncedAt: generation.synced_at,
     providerAsOfMax: generation.provider_as_of_max,
-    tabEvaluationEvidence: (generation.state.tab_evaluation_evidence ??
-      null) as TabEvaluationEvidenceMap | null,
+    tabEvaluationEvidence,
   });
+  const tabRows = filterActiveTabRowsForCurrentSession(
+    tabRowsAll,
+    activeTabId,
+    nowMs,
+  );
   if (
     sessionReference
     && assessScreenerGenerationSession({

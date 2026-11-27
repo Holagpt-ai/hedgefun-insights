@@ -32,36 +32,48 @@ function tabEvaluatedThisGeneration(
 }
 
 /**
- * Session reference for withholding/screener truth — tab-local provider times first,
- * with a synced_at fallback when this tab was evaluated in the current surveillance session
- * but row-level provider_as_of lags (common on NHL baseline belts).
+ * Observation reference for tab session alignment.
+ * Publication `synced_at` is never treated as market observation time.
  */
 export function resolveActiveTabSessionReference(input: {
   nowMs: number;
   activeTabId: string;
   rows: readonly { tab_id: string; provider_as_of: string }[];
-  syncedAt: string;
   providerAsOfMax: string | null;
   tabEvaluationEvidence?: TabEvaluationEvidenceMap | null;
 }): string | null {
+  const tabRows = input.rows.filter((row) => row.tab_id === input.activeTabId);
   const tabNewest = newestProviderAsOfForTabRows(input.rows, input.activeTabId);
-  const generationRef = input.providerAsOfMax ?? input.syncedAt;
-  let reference = tabNewest ?? generationRef;
+
+  if (tabRows.length > 0) {
+    return tabNewest ?? input.providerAsOfMax;
+  }
 
   if (
     tabEvaluatedThisGeneration(input.tabEvaluationEvidence, input.activeTabId)
+    && input.providerAsOfMax
     && assessScreenerGenerationSession({
       nowMs: input.nowMs,
-      referenceIso: input.syncedAt,
+      referenceIso: input.providerAsOfMax,
     }) === "current"
   ) {
-    const tabAlign = assessScreenerGenerationSession({
-      nowMs: input.nowMs,
-      referenceIso: reference,
-    });
-    if (tabAlign === "previous_during_live") {
-      reference = input.syncedAt;
-    }
+    return input.providerAsOfMax;
   }
-  return reference;
+
+  return tabNewest ?? input.providerAsOfMax;
+}
+
+/** Drop prior-session rows when the active tab is otherwise current-session aligned. */
+export function filterActiveTabRowsForCurrentSession<T extends { tab_id: string; provider_as_of: string }>(
+  rows: readonly T[],
+  activeTabId: string,
+  nowMs: number,
+): T[] {
+  return rows.filter((row) => {
+    if (row.tab_id !== activeTabId) return false;
+    return assessScreenerGenerationSession({
+      nowMs,
+      referenceIso: row.provider_as_of,
+    }) === "current";
+  });
 }

@@ -1,21 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatRegularCloseEtLabel,
+  formatPmWorkspaceUnlockEtLabel,
   pmWorkspaceSectionsLocked,
+  pmWorkspaceUnlockMins,
+  resolvePmWorkspaceGate,
 } from "@/lib/inbox/pm-workspace-gate";
 
 describe("PM workspace gate", () => {
-  it("unlocks after 1:00 PM ET on Nov 27 early-close day", () => {
+  it("unlocks at 3:00 PM ET on a regular trading day", () => {
+    expect(pmWorkspaceUnlockMins("2026-11-25")).toBe(900);
+    expect(formatPmWorkspaceUnlockEtLabel("2026-11-25")).toBe("3:00 PM ET");
+    const before = Date.parse("2026-11-25T19:30:00.000Z"); // 2:30 PM ET (EST)
+    const after = Date.parse("2026-11-25T20:05:00.000Z"); // 3:05 PM ET
+    expect(pmWorkspaceSectionsLocked(before)).toBe(true);
+    expect(pmWorkspaceSectionsLocked(after)).toBe(false);
+  });
+
+  it("unlocks at official early close when before 3:00 PM ET", () => {
+    expect(pmWorkspaceUnlockMins("2026-11-27")).toBe(780);
+    expect(formatPmWorkspaceUnlockEtLabel("2026-11-27")).toBe("1:00 PM ET");
     const before = Date.parse("2026-11-27T17:30:00.000Z"); // 12:30 PM ET
     const after = Date.parse("2026-11-27T18:05:00.000Z"); // 1:05 PM ET
     expect(pmWorkspaceSectionsLocked(before)).toBe(true);
     expect(pmWorkspaceSectionsLocked(after)).toBe(false);
-    expect(formatRegularCloseEtLabel("2026-11-27")).toBe("1:00 PM ET");
   });
 
-  it("keeps 4:00 PM ET close on a regular day", () => {
-    expect(formatRegularCloseEtLabel("2026-11-26")).toBe("4:00 PM ET");
-    const before = Date.parse("2026-11-26T20:30:00.000Z"); // 3:30 PM ET
-    expect(pmWorkspaceSectionsLocked(before)).toBe(true);
+  it("treats Thanksgiving 2026-11-26 as a market holiday (not a regular session)", () => {
+    const midday = Date.parse("2026-11-26T17:00:00.000Z");
+    expect(pmWorkspaceSectionsLocked(midday)).toBe(false);
+    const gate = resolvePmWorkspaceGate(midday);
+    expect(gate.consumerIsTradingDay).toBe(false);
+    expect(gate.locked).toBe(false);
+    expect(gate.body).toMatch(/closed/i);
+  });
+
+  it("does not time-gate on weekends", () => {
+    const sat = Date.parse("2026-11-28T17:00:00.000Z");
+    expect(pmWorkspaceSectionsLocked(sat)).toBe(false);
+  });
+
+  it("resolvePmWorkspaceGate unlock label matches boundary", () => {
+    const beforeGate = resolvePmWorkspaceGate(Date.parse("2026-11-25T19:45:00.000Z"));
+    const afterGate = resolvePmWorkspaceGate(Date.parse("2026-11-25T20:10:00.000Z"));
+    expect(beforeGate.locked).toBe(true);
+    expect(afterGate.locked).toBe(false);
+    expect(beforeGate.unlockLabel).toBe("3:00 PM ET");
   });
 });
