@@ -23,6 +23,7 @@ import {
 } from "../_shared/catalyst/contract.ts";
 import { classifyCatalyst } from "../_shared/catalyst/classify.ts";
 import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { reconcileIngestCatalystEventType } from "../_shared/catalyst/event-type-integrity.ts";
 import {
   type CatalystSummary,
   makeEmptySummary,
@@ -292,7 +293,7 @@ async function ingestPolygonNews(
   const rows: CatalystEventRow[] = [];
   const seen = new Set<string>();
   for (const v of validated) {
-    const eventType = classifyCatalyst(v.title, v.description);
+    const eventType = classifyCatalyst(v.title, v.description, v.publisherName);
     for (const symbol of v.tickers) {
       const related = v.tickers.filter((t) => t !== symbol);
       let dedupeKey: string;
@@ -318,11 +319,19 @@ async function ingestPolygonNews(
       if (!attr.ticker_specific && attr.class !== "sector_related") {
         continue;
       }
+      const resolvedEventType = reconcileIngestCatalystEventType({
+        event_type: eventType,
+        provider: "polygon",
+        source_name: v.publisherName,
+        title: v.title,
+        attribution_class: attr.class,
+        ticker_specific: attr.ticker_specific,
+      });
       rows.push({
         dedupe_key: dedupeKey,
         symbol,
         company_name: nameMap.get(symbol) ?? null,
-        event_type: eventType,
+        event_type: resolvedEventType,
         verification_state: "provider_reported",
         event_date: v.publishedAt.slice(0, 10),
         event_time: v.publishedAt,

@@ -4,6 +4,7 @@
 // Prefer company_news when evidence is insufficient (no forced FDA/biotech).
 
 import type { CatalystEventType } from "./contract.ts";
+import { isEditorialCatalystArticle } from "./editorial-source.ts";
 import { looksLikeLegalShareholderNoticeText } from "./legal-notice.ts";
 
 export { looksLikeLegalShareholderNoticeText } from "./legal-notice.ts";
@@ -133,8 +134,12 @@ const RULES: Rule[] = [
 export function classifyCatalyst(
   title: string,
   description?: string | null,
+  sourceName?: string | null,
 ): CatalystEventType {
   const text = `${title} ${description ?? ""}`.trim();
+  if (isEditorialCatalystArticle({ title, source_name: sourceName ?? null })) {
+    return "company_news";
+  }
   if (looksLikeLegalShareholderNoticeText(title, description)) {
     return "legal";
   }

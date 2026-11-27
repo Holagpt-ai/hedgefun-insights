@@ -1,7 +1,5 @@
 import type { CatalystEvent } from "@/types/catalyst";
-
-const EDITORIAL_NEWS_SOURCE =
-  /\b(?:motley\s*fool|seeking\s*alpha|benzinga|yahoo|reuters|bloomberg|cnbc|barron'?s|wall\s*street\s*journal|zacks|investor'?s?\s*business\s*daily|marketwatch|the\s*street)\b/i;
+import { isEditorialNewsPublisher } from "@/lib/catalyst/editorial-source";
 
 const PRESS_RELEASE_SOURCE =
   /\b(?:globe\s*newswire|globenewswire|business\s*wire|businesswire|pr\s*newswire|prnewswire|accesswire|newsfile|cision|press\s*release|investor\s+relations)\b/i;
@@ -22,7 +20,7 @@ export function isPressReleaseSource(input: {
   if (input.provider === "company_ir" || input.provider === "COMPANY_IR") return true;
   const source = input.source_name ?? "";
   if (!source.trim()) return false;
-  if (EDITORIAL_NEWS_SOURCE.test(source)) return false;
+  if (isEditorialNewsPublisher(source)) return false;
   return PRESS_RELEASE_SOURCE.test(source);
 }
 

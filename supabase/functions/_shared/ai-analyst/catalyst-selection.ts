@@ -11,6 +11,8 @@ import {
 import { rowQualifiesAsVerifiedPrimary } from "./catalyst-evidence-verification.ts";
 import { limitScoredCatalystCandidates } from "./catalyst-evidence-candidate-pool.ts";
 import { isHistoricalCatalystDate } from "./catalyst-session-date.ts";
+import { reconcileIngestCatalystEventType } from "../catalyst/event-type-integrity.ts";
+import type { CatalystEventType } from "../catalyst/contract.ts";
 
 export type CatalystRow = {
   eventType: string;
@@ -27,6 +29,18 @@ export type CatalystRow = {
 };
 
 const INVESTOR_DAY = /\b(?:investor day|analyst day|capital markets day)\b/i;
+
+function withReconciledEventType(row: CatalystRow): CatalystRow {
+  const eventType = reconcileIngestCatalystEventType({
+    event_type: row.eventType as CatalystEventType,
+    provider: row.officialSource ? "company_ir" : "polygon",
+    source_name: row.sourceName ?? null,
+    title: row.title ?? "",
+    attribution_class: row.attributionClass ?? "direct",
+    ticker_specific: row.tickerSpecific ?? true,
+  });
+  return eventType === row.eventType ? row : { ...row, eventType };
+}
 
 function toPrecedenceInput(row: CatalystRow) {
   const official = row.officialSource === true;
@@ -63,6 +77,7 @@ function applyEvidenceAdjustments(row: CatalystRow, precedence: CatalystPreceden
 }
 
 export function scoreCatalystRow(row: CatalystRow) {
+  row = withReconciledEventType(row);
   let precedence = classifyCatalystPrecedence(toPrecedenceInput(row));
   precedence = applyEvidenceAdjustments(row, precedence);
   let demotedReason: string | null = null;

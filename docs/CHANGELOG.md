@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 2026-11-27 — Catalyst & AI intelligence completion (git only; pending PR)
+
+- Catalyst: editorial publisher guard (Motley Fool / etc.) — merger/earnings keyword headlines demoted to `company_news` at classify + ingest + UI labels (AWK M&A editorial case).
+- Watchlist V2: failed refresh no longer marks row failed when prior `analyzed_at` exists.
+- Preserved: PR #275 provider containment, #270 attribution authority, #282 scanner, earnings ranking source (ISS-026), AI Analyst CURRENT_CATALYST / MRVL regressions.
+
+## 2026-11-27 — PR #282 merged (`c6278fde`)
+
+Scanner session-integrity corrections (evaluated-empty observation gate, PM workspace gate, historical enrichment guards). Production runtime acceptance open; standard-tab 5m RVOL via Radar overlay only (no Edge row writer).
+
 ## 2026-11-27 — PR #282: closed-market row preservation + evaluated-empty guards (git only)
 
 - Session row filter applies only during live surveillance; closed/weekend/holiday snapshots preserved.

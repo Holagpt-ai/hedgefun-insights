@@ -16,8 +16,16 @@ export function resolveWatchlistRowRequestStatus(input: {
 
   const requestError = input.error_code ? humanFailureReason(input.error_code) : null;
 
-  if (raw === "pending" || raw === "failed") {
-    return { requestStatus: raw, requestError };
+  if (raw === "failed") {
+    const analyzedMs = Date.parse(input.analyzedAt ?? "");
+    if (Number.isFinite(analyzedMs)) {
+      return { requestStatus: "succeeded", requestError };
+    }
+    return { requestStatus: "failed", requestError };
+  }
+
+  if (raw === "pending") {
+    return { requestStatus: "pending", requestError: null };
   }
 
   const completedMs = Date.parse(input.completed_at ?? "");

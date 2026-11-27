@@ -186,6 +186,18 @@ describe("Batch 11 — refresh request vs completed analysis", () => {
     });
     expect(out.requestStatus).toBe("succeeded");
   });
+
+  it("preserves prior analysis when a refresh request fails", () => {
+    const out = resolveWatchlistRowRequestStatus({
+      status: "failed",
+      error_code: "AI_PROVIDER_ERROR",
+      requested_at: "2026-07-24T19:00:00Z",
+      completed_at: "2026-07-24T19:05:00Z",
+      analyzedAt: "2026-07-24T18:50:00Z",
+    });
+    expect(out.requestStatus).toBe("succeeded");
+    expect(out.requestError).toBeTruthy();
+  });
 });
 
 describe("Batch 11 — invalid snapshot timestamps", () => {
