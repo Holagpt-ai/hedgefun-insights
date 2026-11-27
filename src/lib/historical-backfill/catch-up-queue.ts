@@ -4,13 +4,23 @@
  * wrap-once exhaustion, and stable fingerprints for campaign stuck-cursor halt.
  */
 
+/** Deterministic eligible-symbol ordering (normalization, sort, and exclusive cursor lookup). */
+export const ELIGIBLE_SYMBOL_LOCALE_COMPARE_OPTIONS: Intl.CollatorOptions = {
+  sensitivity: "case",
+  numeric: true,
+};
+
+export function compareEligibleSymbols(a: string, b: string): number {
+  return a.localeCompare(b, undefined, ELIGIBLE_SYMBOL_LOCALE_COMPARE_OPTIONS);
+}
+
 export function normalizeEligibleSymbols(symbols: readonly string[]): string[] {
   const out = new Set<string>();
   for (const raw of symbols) {
     const s = (raw ?? "").trim().toUpperCase();
     if (s) out.add(s);
   }
-  return [...out].sort((a, b) => a.localeCompare(b));
+  return [...out].sort(compareEligibleSymbols);
 }
 
 export function findQueueStartIndex(eligible: readonly string[], afterSymbol: string | null): number {
@@ -20,7 +30,7 @@ export function findQueueStartIndex(eligible: readonly string[], afterSymbol: st
   for (let i = 0; i < list.length; i += 1) {
     const sym = list[i]!.toUpperCase();
     if (sym === marker) return i + 1;
-    if (sym > marker) return i;
+    if (compareEligibleSymbols(sym, marker) > 0) return i;
   }
   // Marker is past the last eligible symbol — wrap to head on the next planner step.
   return list.length;
@@ -57,6 +67,40 @@ export function normalizeQueueAfterSymbol(raw: string | undefined): string | nul
 export function exclusiveCursorAfterWindow(window: readonly string[]): string | null {
   if (window.length === 0) return null;
   return window[window.length - 1]!.toUpperCase();
+}
+
+/**
+ * Retry boundary after resolution interruption at {@link failingIndex}.
+ * Does not advance past the failing symbol — resume retries from it.
+ */
+export function exclusiveCursorAfterInterruptedWindow(
+  window: readonly string[],
+  failingIndex: number,
+  priorCursor: string | null,
+): string | null {
+  if (failingIndex <= 0) return priorCursor;
+  return exclusiveCursorAfterWindow(window.slice(0, failingIndex)) ?? priorCursor;
+}
+
+/** Apply exclusive cursor after a batch window: full advance only when the window finished resolution. */
+export function applyCatchUpWindowQueueCursor(input: {
+  batchSymbols: readonly string[];
+  resolutionStopped: boolean;
+  interruptionIndex: number | null;
+  priorQueueAfterSymbol: string | null;
+  plannedNextAfterSymbol: string | null;
+}): string | null {
+  if (input.resolutionStopped) {
+    if (input.interruptionIndex !== null) {
+      return exclusiveCursorAfterInterruptedWindow(
+        input.batchSymbols,
+        input.interruptionIndex,
+        input.priorQueueAfterSymbol,
+      );
+    }
+    return input.priorQueueAfterSymbol;
+  }
+  return input.plannedNextAfterSymbol ?? input.priorQueueAfterSymbol;
 }
 
 export type CatchUpQueueWindowPlan = {

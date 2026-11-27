@@ -33,3 +33,11 @@ export function resolveCatchUpRolloutOutcome(input: {
 export function catchUpRolloutEventName(outcome: CatchUpRolloutOutcome): "rollout_complete" | "catch_up_partial_stop" {
   return outcome === "complete" ? "rollout_complete" : "catch_up_partial_stop";
 }
+
+const AUTHORITATIVE_CATCH_UP_TERMINAL_EVENTS = new Set(["catch_up_partial_stop", "rollout_complete"]);
+
+/** Authoritative Fly worker completion events (diagnostic `catch_up_stop` is excluded). */
+export function isAuthoritativeCatchUpTerminalEvent(event: string | null | undefined): boolean {
+  const name = event?.trim();
+  return Boolean(name && AUTHORITATIVE_CATCH_UP_TERMINAL_EVENTS.has(name));
+}

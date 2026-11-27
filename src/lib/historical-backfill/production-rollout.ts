@@ -10,8 +10,8 @@ import {
   type HistoricalCatchupLimits,
 } from "@/config/historical-catchup.config";
 import {
+  applyCatchUpWindowQueueCursor,
   emptyQueueWindowFingerprint,
-  exclusiveCursorAfterWindow,
   normalizeEligibleSymbols,
   planNextCatchUpQueueWindow,
   resolveCatchUpScanBudget,
@@ -1201,6 +1201,8 @@ export async function runHistoricalCatchUpRollout(
     const securityIds: SecurityId[] = [];
     const batchDeferred: CatchUpSymbolResolution[] = [];
     let resolutionStopped = false;
+    let resolutionInterruptedAtIndex: number | null = null;
+    const queueCursorBeforeBatch = queueAfterSymbol;
     for (let symbolIndex = 0; symbolIndex < batchSymbols.length; symbolIndex += 1) {
       const symbol = batchSymbols[symbolIndex]!;
       symbolsAttempted += 1;
@@ -1227,9 +1229,7 @@ export async function runHistoricalCatchUpRollout(
           batchDeferred.push(outcome);
         }
       } catch (error) {
-        // Exclusive cursor still advances past symbols inspected before the hard stop.
-        queueAfterSymbol = exclusiveCursorAfterWindow(batchSymbols.slice(0, symbolIndex + 1))
-          ?? queueAfterSymbol;
+        resolutionInterruptedAtIndex = symbolIndex;
         if (error instanceof CatchUpProviderResolutionError) {
           const reason = error.kind === "provider_rate_limited"
             ? "provider_rate_limited"
@@ -1273,11 +1273,14 @@ export async function runHistoricalCatchUpRollout(
         throw error;
       }
     }
-    // Always exclusive-advance past the scanned window (including all-deferred belts).
-    if (plan.nextAfterSymbol) {
-      queueAfterSymbol = plan.nextAfterSymbol;
-    }
-    if (resolutionStopped) break;
+    queueAfterSymbol = applyCatchUpWindowQueueCursor({
+      batchSymbols,
+      resolutionStopped,
+      interruptionIndex: resolutionInterruptedAtIndex,
+      priorQueueAfterSymbol: queueCursorBeforeBatch,
+      plannedNextAfterSymbol: plan.nextAfterSymbol,
+    });
+    if (resolutionStopped && securityIds.length === 0) break;
     if (securityIds.length === 0) {
       emptyResolutionBatches += 1;
       const deferredByKind = summarizeDeferredByKind(batchDeferred);
@@ -1364,6 +1367,7 @@ export async function runHistoricalCatchUpRollout(
       logEvent({ event: "catch_up_stop", reason: stopReason, jobId: started.record.jobId });
       break;
     }
+    if (resolutionStopped) break;
     if (noProgressBatches >= limits.maxNoProgressBatches) {
       stopReason = "no_progress";
       logEvent({ event: "catch_up_stop", reason: stopReason, batch: batchNumber });

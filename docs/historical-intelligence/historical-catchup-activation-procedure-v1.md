@@ -7,7 +7,8 @@ Owner authorization required for every step. Cursor must not deploy Fly, scale m
 | Field | Value |
 | --- | --- |
 | App | `stocksist-historical-backfill-job` |
-| Image | **v57** `deployment-01M8CCYWZQZHBNJ9FDMAP6N2CK` (until corrected image replaces it) |
+| **Current production image (v57)** | `deployment-01M8CCYWZQZHBNJ9FDMAP6N2CK` — do **not** conflate with recovery |
+| **Recovery rollback only (not v57)** | `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z` |
 | Machines | **0** |
 | Cursor | `BKH` |
 | Eligible remaining | ~**4735** |
@@ -24,7 +25,7 @@ Repeated identical **200-symbol** empty windows at `BKH` (`ambiguous_identity` /
 
 ## Activation sequence
 
-1. **Deploy corrected worker** from the merged git SHA to Fly `stocksist-historical-backfill-job` (owner Lovable/Fly path). Keep `min_machines_running = 0`, `auto_start_machines = false`, `restart = never`. Record image id for rollback to v57 recovery `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z` if needed.
+1. **Deploy corrected worker** from the merged git SHA to Fly `stocksist-historical-backfill-job` (owner Lovable/Fly path). Keep `min_machines_running = 0`, `auto_start_machines = false`, `restart = never`. Roll back to **v57** `deployment-01M8CCYWZQZHBNJ9FDMAP6N2CK` or **pre-v57 recovery** `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z` only via owner procedure — recovery image is **not** v57.
 2. **Preflight-only:** ensure `HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1`, target `2026-11-25`, floor `2021-11-29`, caps `600/3/2500`, eligibility `200`, cursor `BKH`. Scale to 1 once; expect `catch_up_preflight_ok`. Scale to 0.
 3. **Limited authorized write pass:** restore campaign state from `scripts/historical/campaign-state.nov26.json` (16/20, 7432+7500, cursor `BKH`). Unset preflight only for the campaign owner process. Run `run-fly-catchup-campaign.ps1 -SingleRun` (or `Invoke-RecurringHistoricalCatchup.ps1 -Execute` with lock). Expect cursor **past** the BKH deferral belt and/or `batchesRun > 0`.
 4. **Durable progress reconciliation:** confirm new job rows, daily history growth, eligible remaining decrease; update campaign JSON from logs; restore preflight + zero machines.

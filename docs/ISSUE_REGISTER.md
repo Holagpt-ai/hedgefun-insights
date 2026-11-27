@@ -6,7 +6,7 @@ Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirm
 
 **AI Trader navigation (Nov 27, deferred):** Shelved until **2027**. Nav removed in PR **#280**. Infra preserved OFF. See **ISS-009**.
 
-**Historical catch-up queue (Nov 26–27):** Production v57 stuck at **`BKH`** — confirmed empty-window deferral-belt cycle. **Source corrected** this batch (exclusive cursor advance, wrap-once exhaustion, campaign stuck-cursor halt). **Activation OPEN** — worker still **0** machines / preflight on; do not resume until corrected image deploys. Checkpoint preserved: **16/20**, **7432+7500/50000**, durable **599 / 340,797 / 32,939**, eligible ~**4735**, target **2026-11-25**, floor **2021-11-29**. Procedure: `historical-catchup-activation-procedure-v1.md`.
+**Historical catch-up queue (Nov 26–27):** Production v57 stuck at **`BKH`** — confirmed empty-window deferral-belt cycle. **Source corrected** in PR **#281** (exclusive cursor advance, wrap-once exhaustion, campaign stuck-cursor halt, partial-window cursor safety, terminal log discrimination, post-lock campaign state, unified queue ordering). **Activation OPEN** — worker still **0** machines / preflight on; do not resume until corrected image deploys. Checkpoint preserved: **16/20**, **7432+7500/50000**, durable **599 / 340,797 / 32,939**, eligible ~**4735**, target **2026-11-25**, floor **2021-11-29**. Procedure: `historical-catchup-activation-procedure-v1.md`.
 
 **Repeat Movers episodes (Nov 25–27):** Stale since **Oct 20** — **activation** after historical catch-up writes; Edge apikey + client distinctions already shipped. No redundant client rebuild.
 

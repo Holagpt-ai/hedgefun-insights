@@ -30,6 +30,10 @@ function Get-ProviderTotal($Provider) {
   return [int]$Provider.dailyRequests + [int]$Provider.referenceRequests + [int]$Provider.nextPages
 }
 
+function Test-AuthoritativeCatchUpTerminalInLogs([string]$LogsTail, [string]$MachineId) {
+  return ($LogsTail -match "$MachineId.*catch_up_partial_stop" -or $LogsTail -match "$MachineId.*rollout_complete")
+}
+
 function Get-LatestRunEvents([string]$MachineId) {
   $raw = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
   $events = @()
@@ -45,20 +49,7 @@ function Get-LatestRunEvents([string]$MachineId) {
   return $events
 }
 
-if (-not (Test-Path -LiteralPath $StatePath)) { throw "missing campaign state: $StatePath" }
-$state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
-if (-not ($state.PSObject.Properties.Name -contains "pendingRun")) {
-  $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false
-}
-if (-not ($state.PSObject.Properties.Name -contains "pendingProviderReservation")) {
-  $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0
-}
-if (-not ($state.PSObject.Properties.Name -contains "lastEmptyWindowFingerprint")) {
-  $state | Add-Member -NotePropertyName lastEmptyWindowFingerprint -NotePropertyValue $null
-}
-if (-not ($state.PSObject.Properties.Name -contains "consecutiveIdenticalEmptyRuns")) {
-  $state | Add-Member -NotePropertyName consecutiveIdenticalEmptyRuns -NotePropertyValue 0
-}
+$state = $null
 $StuckEmptyRunLimit = 2
 
 $haltReason = $null
@@ -80,6 +71,8 @@ try {
     $ownsLock = $true
     $ownsCampaign = $true
   }
+
+  $state = Import-CatchupCampaignStateWithDefaults -StatePath $StatePath
 
   Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
 
@@ -140,14 +133,15 @@ try {
       if ($PollSeconds -gt 0) { Start-Sleep -Seconds $PollSeconds } else { break }
       $list = Get-FlyMachines -FlyExe $FlyExe -App $App
       $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
-      if ($logsTail -match "$machineId.*catch_up_partial_stop" `
-        -or $logsTail -match "$machineId.*rollout_complete" `
-        -or $logsTail -match "$machineId.*catch_up_stop") {
+      if (Test-AuthoritativeCatchUpTerminalInLogs -LogsTail $logsTail -MachineId $machineId) {
         if ($LogSettleSeconds -gt 0) { Start-Sleep -Seconds $LogSettleSeconds }
+        $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
         $outcomeKnown = $true
         break
       }
       if ($list.Count -eq 0 -and $logsTail -match "$machineId.*Main child exited") {
+        if ($LogSettleSeconds -gt 0) { Start-Sleep -Seconds $LogSettleSeconds }
+        $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
         $outcomeKnown = $true
         break
       }
@@ -155,16 +149,14 @@ try {
 
     if (-not $outcomeKnown -and $MaxWaitMinutes -le 0) {
       $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
-      if ($logsTail -match "$machineId.*catch_up_partial_stop" `
-        -or $logsTail -match "$machineId.*rollout_complete" `
-        -or $logsTail -match "$machineId.*catch_up_stop" `
+      if ((Test-AuthoritativeCatchUpTerminalInLogs -LogsTail $logsTail -MachineId $machineId) `
         -or $logsTail -match "$machineId.*Main child exited") {
         $outcomeKnown = $true
       }
     }
 
     $events = Get-LatestRunEvents -MachineId $machineId
-    $terminal = $events | Where-Object { $_.event -in @('catch_up_partial_stop','rollout_complete','catch_up_stop') } | Select-Object -Last 1
+    $terminal = $events | Where-Object { $_.event -in @('catch_up_partial_stop','rollout_complete') } | Select-Object -Last 1
     $queueState = $events | Where-Object { $_.event -eq 'catch_up_queue_state' } | Select-Object -Last 1
 
     $exitCode = $null
@@ -176,12 +168,14 @@ try {
 
     $runProvider = Get-ProviderTotal $terminal.provider
     $providerReliable = $false
-    if ($null -ne $runProvider -and $runProvider -gt 0) {
+    if ($terminal -and $null -ne $runProvider -and $runProvider -gt 0) {
       $providerReliable = $true
     }
 
     if (-not $outcomeKnown -and $null -eq $exitCode) {
       $haltReason = "unknown_machine_outcome"
+    } elseif ($outcomeKnown -and -not $terminal) {
+      $haltReason = "incomplete_terminal_evidence"
     }
 
     Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
@@ -243,8 +237,8 @@ try {
     }
     Add-Content -Path $LogOut -Value ($record | ConvertTo-Json -Compress -Depth 8)
 
-    if ($haltReason -eq "unknown_machine_outcome") {
-      throw "machine $machineId outcome unknown after $MaxWaitMinutes minutes"
+    if ($haltReason -in @("unknown_machine_outcome","incomplete_terminal_evidence")) {
+      throw "machine $machineId requires reconciliation: $haltReason"
     }
     if ($null -ne $exitCode -and $exitCode -ne 0) {
       $haltReason = "worker_exit_$exitCode"
@@ -297,11 +291,15 @@ finally {
   }
 }
 
+if ($null -eq $state -and (Test-Path -LiteralPath $StatePath)) {
+  try { $state = Import-CatchupCampaignStateWithDefaults -StatePath $StatePath } catch {}
+}
+
 $summary = @{
   event = "campaign_summary"
   haltReason = $haltReason
   state = $state
-  lastEligibleRemaining = $terminal.eligibleSymbolsRemaining
+  lastEligibleRemaining = if ($terminal) { $terminal.eligibleSymbolsRemaining } else { $null }
   cleanupFailed = $cleanupFailed
   cleanupError = $cleanupError
 } | ConvertTo-Json -Compress -Depth 8
@@ -311,7 +309,7 @@ if ($cleanupFailed) {
   [Console]::Error.WriteLine("CLEANUP FAILED: $cleanupError")
   exit 3
 }
-if ($haltReason -eq "unknown_machine_outcome") { exit 2 }
+if ($haltReason -in @("unknown_machine_outcome","incomplete_terminal_evidence")) { exit 2 }
 if ($haltReason -match '^worker_exit_') { exit 1 }
 if ($haltReason -eq "scale_up_failed") { exit 1 }
 if ($runError) { throw $runError }

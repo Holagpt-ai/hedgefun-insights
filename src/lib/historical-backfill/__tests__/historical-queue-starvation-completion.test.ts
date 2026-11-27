@@ -9,13 +9,17 @@ import {
   CatchUpCampaignBudgetError,
 } from "@/lib/historical-backfill/catch-up-campaign-state";
 import {
+  applyCatchUpWindowQueueCursor,
+  compareEligibleSymbols,
   emptyQueueWindowFingerprint,
+  exclusiveCursorAfterInterruptedWindow,
   exclusiveCursorAfterWindow,
   findQueueStartIndex,
   normalizeEligibleSymbols,
   planNextCatchUpQueueWindow,
   sliceEligibleQueueFromIndex,
 } from "@/lib/historical-backfill/catch-up-queue";
+import { isAuthoritativeCatchUpTerminalEvent } from "@/lib/historical-backfill/catch-up-rollout-outcome";
 import { resolveCatchUpRolloutOutcome } from "@/lib/historical-backfill/catch-up-rollout-outcome";
 import { summarizeDeferredByKind } from "@/lib/historical-backfill/catch-up-symbol-resolution";
 
@@ -201,6 +205,53 @@ describe("Historical queue starvation completion (BKH class)", () => {
         }),
       ),
     ).toThrow(CatchUpCampaignBudgetError);
+  });
+
+  it("uses one locale-aware comparator for periods, hyphens, numerics, and mixed case", () => {
+    const sorted = normalizeEligibleSymbols(["brk.b", "BRK-B", "AAA2", "AAA10", "aaa1"]);
+    expect(sorted).toEqual([...sorted].sort(compareEligibleSymbols));
+    expect(findQueueStartIndex(sorted, "BRK.B")).toBe(sorted.indexOf("BRK.B") + 1);
+    expect(findQueueStartIndex(sorted, "BRK-B")).toBe(sorted.indexOf("BRK-B") + 1);
+    const eligible = sorted;
+    const startAfterMissing = findQueueStartIndex(eligible, "ZZZZ");
+    expect(startAfterMissing).toBe(eligible.length);
+    const plan = planNextCatchUpQueueWindow({
+      eligible,
+      afterSymbol: "ZZZZ",
+      scanSize: 10,
+      wrappedOnce: false,
+    });
+    expect(plan.wrapped).toBe(true);
+    expect(plan.window.length).toBeGreaterThan(0);
+  });
+
+  it("interrupted window cursor does not skip the failing symbol", () => {
+    const window = ["OK1", "OK2", "FAIL3", "OK4"];
+    expect(exclusiveCursorAfterInterruptedWindow(window, 2, "CUR0")).toBe("OK2");
+    expect(
+      applyCatchUpWindowQueueCursor({
+        batchSymbols: window,
+        resolutionStopped: true,
+        interruptionIndex: 2,
+        priorQueueAfterSymbol: "CUR0",
+        plannedNextAfterSymbol: "OK4",
+      }),
+    ).toBe("OK2");
+    expect(
+      applyCatchUpWindowQueueCursor({
+        batchSymbols: window,
+        resolutionStopped: false,
+        interruptionIndex: null,
+        priorQueueAfterSymbol: "CUR0",
+        plannedNextAfterSymbol: "OK4",
+      }),
+    ).toBe("OK4");
+  });
+
+  it("distinguishes authoritative terminal events from diagnostic catch_up_stop", () => {
+    expect(isAuthoritativeCatchUpTerminalEvent("catch_up_partial_stop")).toBe(true);
+    expect(isAuthoritativeCatchUpTerminalEvent("rollout_complete")).toBe(true);
+    expect(isAuthoritativeCatchUpTerminalEvent("catch_up_stop")).toBe(false);
   });
 
   it("exclusiveCursorAfterWindow matches slice end semantics", () => {

@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 2026-11-27 — Historical catch-up execution safety (PR #281; git only)
+
+- Partial-window cursor: retry boundary before failing symbol; full-window advance only when resolution completes; partial resolved batch persisted before worker stop.
+- Queue ordering: `compareEligibleSymbols` for normalize, sort, and cursor lookup (bridge eligible load aligned).
+- Campaign: authoritative state reload after lock; terminal poll ignores diagnostic `catch_up_stop`; missing final summary → reconciliation exit + conservative provider reservation.
+- Activation procedure: v57 `deployment-01M8CCYWZQZHBNJ9FDMAP6N2CK` vs recovery `deployment-01M5JGEZBCYDGE1KHFT8CRVS6Z`; preserved **16/20**, **7432+7500/50000**, cursor **BKH**.
+- Tests: vitest queue/rollout + PowerShell orchestration (11 scenarios).
+
 ## 2026-11-27 — Historical Intelligence queue completion (git only)
 
 - Fix v57 **BKH** starvation: exclusive queue advance past all-deferred windows, wrap-once `queue_cycle_exhausted`, empty-window bound **3**, bridge eligible normalize/sort, per-run Fly cursor secret refresh, campaign `stuck_queue_cursor` halt.

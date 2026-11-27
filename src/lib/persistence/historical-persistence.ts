@@ -1,3 +1,4 @@
+import { compareEligibleSymbols } from "@/lib/historical-backfill/catch-up-queue";
 import type { SymbolSessionCoverage } from "@/lib/historical-backfill/catch-up-eligibility";
 import type { Sql } from "postgres";
 import type { HistoricalIdentityPort, HistoricalIntelligencePort } from "@/lib/historical-backfill/engine";
@@ -164,7 +165,7 @@ function bridgeRolloutQueries(bridge: HistoricalBridgeClient): HistoricalRollout
       return rows
         .map((row) => String(row.symbol).trim().toUpperCase())
         .filter((symbol) => symbol && !canarySymbols.has(symbol) && !backfilled.has(symbol))
-        .sort((a, b) => a.localeCompare(b));
+        .sort(compareEligibleSymbols);
     },
   };
 }

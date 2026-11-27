@@ -11,6 +11,9 @@ $failPreflight = Join-Path $dir "fail-preflight"
 $successLogs = Join-Path $dir "success-logs"
 $stuckEmptyLogs = Join-Path $dir "stuck-empty-logs"
 $unknownLogs = Join-Path $dir "unknown-logs"
+$diagnosticThenFinalLogs = Join-Path $dir "diagnostic-then-final-logs"
+$twoPhaseLogs = Join-Path $dir "two-phase-logs"
+$twoPhaseMarker = Join-Path $dir "two-phase-marker.txt"
 
 if (-not (Test-Path $machinesPath)) { Set-Content -Path $machinesPath -Value "[]" -Encoding ascii }
 if (-not (Test-Path $secretNamesPath)) {
@@ -107,6 +110,25 @@ if ($args.Count -ge 2 -and $args[0] -eq "secrets" -and $args[1] -eq "unset") {
 if ($args.Count -ge 1 -and $args[0] -eq "logs") {
   if (Test-Path $unknownLogs) {
     Write-Output "m1 still running"
+    exit 0
+  }
+  if (Test-Path $twoPhaseLogs) {
+    if (-not (Test-Path $twoPhaseMarker)) {
+      Set-Content -Path $twoPhaseMarker -Value "1" -Encoding ascii
+      Write-Output 'm1 {"event":"catch_up_stop","reason":"provider_request_limit","phase":"symbol_resolution"}'
+      Write-Output "m1 still running"
+      exit 0
+    }
+    Write-Output 'm1 {"event":"catch_up_partial_stop","outcome":"partial","stopReason":"provider_request_limit","batchesRun":0,"symbolsAttempted":3,"symbolsResolved":0,"eligibleSymbolsRemaining":10,"provider":{"dailyRequests":2,"referenceRequests":1,"nextPages":0},"queueAfterSymbol":"FAIL1"}'
+    Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"FAIL1"}'
+    Write-Output "m1 Main child exited normally with code: 0"
+    exit 0
+  }
+  if (Test-Path $diagnosticThenFinalLogs) {
+    Write-Output 'm1 {"event":"catch_up_stop","reason":"queue_cycle_exhausted","queueAfterSymbol":"BKH"}'
+    Write-Output 'm1 {"event":"catch_up_partial_stop","outcome":"partial","stopReason":"provider_request_limit","batchesRun":1,"symbolsResolved":1,"symbolsAttempted":5,"eligibleSymbolsRemaining":4000,"provider":{"dailyRequests":10,"referenceRequests":5,"nextPages":0},"queueAfterSymbol":"CUR1"}'
+    Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"CUR1"}'
+    Write-Output "m1 Main child exited normally with code: 0"
     exit 0
   }
   if (Test-Path $stuckEmptyLogs) {
