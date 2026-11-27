@@ -11,6 +11,7 @@ import {
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
 import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
+import { resolveActiveTabSessionReference } from "@/lib/screeners/tab-session-reference";
 
 export const MANAGED_TAB_IDS = [
   "day_trade_radar",
@@ -90,6 +91,11 @@ export interface ScreenerResultRow {
   provider_as_of: string;
   sync_run_id: string;
   updated_at: string;
+  /** Populated from Radar V2 intraday overlay when observation timestamps align. */
+  rvol_5m?: number | null;
+  vol_velocity?: number | null;
+  volume_acceleration_pct?: number | null;
+  time_adjusted_rvol?: number | null;
 }
 
 export interface ValidatedGeneration {
@@ -530,9 +536,18 @@ export function viewForActiveTab(
   }
 
   const tabRows = generation.rows.filter((r) => r.tab_id === activeTabId);
-  const sessionReference = generation.provider_as_of_max ?? generation.synced_at;
+  const sessionReference = resolveActiveTabSessionReference({
+    nowMs,
+    activeTabId,
+    rows: generation.rows,
+    syncedAt: generation.synced_at,
+    providerAsOfMax: generation.provider_as_of_max,
+    tabEvaluationEvidence: (generation.state.tab_evaluation_evidence ??
+      null) as TabEvaluationEvidenceMap | null,
+  });
   if (
-    assessScreenerGenerationSession({
+    sessionReference
+    && assessScreenerGenerationSession({
       nowMs,
       referenceIso: sessionReference,
     }) === "previous_during_live"

@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 2026-11-27 — Scanner & market intelligence completion (git only; pending PR)
+
+- NHL / session: tab-local `provider_as_of` session reference + evaluated-tab `synced_at` fallback; baseline-unavailable truth precedence over prior-session copy.
+- Volume intelligence: Radar V2 intraday overlay extended to standard scanner tabs (gappers, NHL, volume_spikes, gainers_losers, unusual_volume); sort fix for acceleration/`rvol_5m` columns.
+- PM Inbox: workspace unlock uses exchange early-close via `getRegularCloseMins` (not fixed 3:00 PM ET).
+- Float (ISS-037): partial float-map failures no longer blank entire table; provenance prefers `providerAsOfMax` over `syncedAt`.
+- Repeat Movers: explicit `service_http_error` / `enrichment_failed` terminal states on historical-context batch failures.
+- Baseline `main` **`c921fae`** (PR **#281** merged). Not production-deployed until owner Vercel/Edge path.
+
 ## 2026-11-27 — Historical catch-up execution safety (PR #281; git only)
 
 - Partial-window cursor: retry boundary before failing symbol; full-window advance only when resolution completes; partial resolved batch persisted before worker stop.

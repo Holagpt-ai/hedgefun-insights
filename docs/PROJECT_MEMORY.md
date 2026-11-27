@@ -1,5 +1,13 @@
 # Project memory
 
+## Development checkpoint — November 27, 2026 (Scanner & market intelligence — git only)
+
+- **`main`:** **`c921fae011187c33a909bbbe29a2df05966d1657`** (PR **#281** historical execution safety merged).
+- **Scanner consumer fixes:** tab-local session alignment (NHL), intraday overlay breadth, PM early-close gate, float partial availability, trust/provenance ordering.
+- **Not deployed:** Vercel frontend + any Edge changes; 5m RVOL on published `screener_results` rows remains **Radar overlay + activation**, not a new sync-screener publish path.
+- **Historical:** source merged in **#281**; worker **suspended**, activation per `historical-catchup-activation-procedure-v1.md`.
+- **Preserved:** scanner **v530**, Radar **v50**, Option B **ON**, Layer C, 15m delayed data.
+
 ## Development checkpoint — November 27, 2026 (Historical Intelligence completion — git only)
 
 - **GitHub `main`:** PR **#280** merged **`b0c6f46b0853e08a858c08eee8d02f359c24d1ea`** (Homepage My Assets + AI Trader nav shelve). Homepage runtime acceptance **deferred to final inspection**. AI Trader nav removed in Git; product **shelved until 2027**.

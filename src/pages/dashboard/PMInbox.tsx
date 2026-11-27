@@ -35,7 +35,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   PM_INBOX_CONFIG,
-  PM_GATE_THRESHOLD_MINS,
   PM_TODAYS_KEY_MOVES,
   PM_TOMORROW_SETUP,
   PM_AFTER_HOURS_WATCH,
@@ -43,10 +42,13 @@ import {
 } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
 import { BRAND } from "@/config/brand";
+import {
+  pmWorkspaceLockedCopy,
+  pmWorkspaceSectionsLocked,
+} from "@/lib/inbox/pm-workspace-gate";
 
-function isBeforePMWindow(): boolean {
-  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  return et.getHours() * 60 + et.getMinutes() < PM_GATE_THRESHOLD_MINS;
+function isBeforePMWindow(nowMs = Date.now()): boolean {
+  return pmWorkspaceSectionsLocked(nowMs);
 }
 
 function priorityBorder(p?: "High" | "Medium" | "Low"): string {
@@ -351,6 +353,7 @@ export default function PMInbox() {
     : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const timeGated = isBeforePMWindow();
+  const workspaceLockedCopy = useMemo(() => pmWorkspaceLockedCopy(), []);
   const fullPmWorkspace = isPro && !timeGated;
   const [modalOpen, setModalOpen] = useState(timeGated);
   const {
@@ -432,16 +435,16 @@ export default function PMInbox() {
       {timeGated && isPro ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
           <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
-          <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
-          <p className="text-sm text-muted-foreground">{PM_INBOX_CONFIG.lockedCardBody}</p>
+          <h3 className="text-base font-semibold">{workspaceLockedCopy.title}</h3>
+          <p className="text-sm text-muted-foreground">{workspaceLockedCopy.body}</p>
         </div>
       ) : timeGated && !isPro ? (
         <>
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
             <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
-            <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
+            <h3 className="text-base font-semibold">{workspaceLockedCopy.title}</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              {PM_INBOX_CONFIG.lockedCardBody}
+              {workspaceLockedCopy.body}
             </p>
             <p className="text-xs text-muted-foreground mt-2 max-w-md">
               Full After-Hours — post-market recap, catalyst outcomes, and after-hours watch — is a Pro feature.

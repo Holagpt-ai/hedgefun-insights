@@ -308,10 +308,10 @@ export function resolveScreenerTruthState(
 
   if (status === "unavailable") {
     const reason =
-      generationSessionAlignment === "previous_during_live"
-        ? "prior_surveillance_session_snapshot"
-        : tabId === NHL_TAB_ID && nhlStatus === "unavailable"
-          ? "baseline_unavailable"
+      tabId === NHL_TAB_ID && nhlStatus === "unavailable"
+        ? "baseline_unavailable"
+        : generationSessionAlignment === "previous_during_live"
+          ? "prior_surveillance_session_snapshot"
           : "generation_unavailable";
     const copy = copyForReason(tabId, reason, evidence);
     return {

@@ -50,6 +50,7 @@ import {
   type ScreenerTruthState,
 } from "@/lib/screeners/screener-truth-state";
 import { screenerGenerationSessionAlignment } from "@/lib/screeners/screener-session";
+import { resolveActiveTabSessionReference } from "@/lib/screeners/tab-session-reference";
 import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-evidence";
 import type { NhlBaselineStatus } from "@/lib/screeners/contract";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
@@ -211,6 +212,7 @@ export function useScreenerData(
     let radarPollGeneration = 0;
     const lastViewRef = { current: null as ScreenerTabView | null };
     const lastSourceRef = { current: null as ScreenerDataSource | null };
+    const lastValidatedGenerationRowsRef = { current: [] as ScreenerResultRow[] };
 
     const clearStaleTimer = () => {
       if (staleTimer !== null) {
@@ -265,10 +267,22 @@ export function useScreenerData(
       lastViewRef.current = nextView;
       lastSourceRef.current = resolvedSource;
       const nowMs = Date.now();
+      const rowsForSession = nextView.rows.length > 0
+        ? nextView.rows
+        : lastValidatedGenerationRowsRef.current;
+      const sessionReference = resolveActiveTabSessionReference({
+        nowMs,
+        activeTabId: tabId,
+        rows: rowsForSession,
+        syncedAt: nextView.synced_at ?? "",
+        providerAsOfMax: nextView.provider_as_of_max,
+        tabEvaluationEvidence: (nextView.tab_evaluation_evidence ??
+          null) as TabEvaluationEvidenceMap | null,
+      });
       const generationSessionAlignment = screenerGenerationSessionAlignment({
         nowMs,
         syncedAt: nextView.synced_at,
-        providerAsOfMax: nextView.provider_as_of_max,
+        providerAsOfMax: sessionReference ?? nextView.provider_as_of_max,
       });
       setTruthState(
         resolveScreenerTruthState({
@@ -468,11 +482,24 @@ export function useScreenerData(
                   rows: radarRows,
                   sessionKind: resolved.session,
                   tradingDate: radarRows[0]?.radar_trading_date ?? null,
-                  fetchBatch: (requests) => fetchRadarHistoricalContextBatch({
-                    url: edgeUrl,
-                    accessToken: token,
-                    requests,
-                  }),
+                  fetchBatch: async (requests) => {
+                    try {
+                      return await fetchRadarHistoricalContextBatch({
+                        url: edgeUrl,
+                        accessToken: token,
+                        requests,
+                      });
+                    } catch (error) {
+                      if (!cancelled) {
+                        const reason = error instanceof Error
+                          && error.name === "RadarHistoricalContextHttpError"
+                          ? "service_http_error"
+                          : "enrichment_failed";
+                        setRepeatMoversLoadState({ status: "unavailable", reason });
+                      }
+                      throw error;
+                    }
+                  },
                   onHistoricalRows: publishHistoricalRows,
                   isActive: () => !cancelled && tabId === "day_trade_radar" && pollGeneration === radarPollGeneration,
                   isHidden: () => pauseWhenHidden && typeof document !== "undefined" && document.hidden,
@@ -494,8 +521,23 @@ export function useScreenerData(
         lastVerifiedRadar = null;
       }
 
+      const captureValidatedGenerationRows = async () => {
+        const fetched = await fetchGenerationOnce();
+        if (!fetched.stateError && !fetched.resultError) {
+          const validated = validateGeneration(
+            fetched.stateRows,
+            fetched.resultRows,
+            Date.now(),
+          );
+          if (validated.ok) {
+            lastValidatedGenerationRowsRef.current = validated.generation.rows;
+          }
+        }
+        return fetched;
+      };
+
       let view: ScreenerTabView = await loadVerifiedScreenerGeneration(
-        fetchGenerationOnce,
+        captureValidatedGenerationRows,
         { nowMs: Date.now(), activeTabId: tabId },
       );
       const tabGappersEvidence =
@@ -508,8 +550,15 @@ export function useScreenerData(
           )
           : null;
       const gappersEvaluationVerified = tabGappersEvidence?.status === "evaluated";
+      const overlayTabs = new Set([
+        "gappers",
+        "new_highs_lows",
+        "volume_spikes",
+        "gainers_losers",
+        "unusual_volume",
+      ]);
       if (
-        (tabId === "gappers" || tabId === "new_highs_lows") &&
+        overlayTabs.has(tabId) &&
         view.rows.length > 0 &&
         (tabId !== "gappers" || gappersEvaluationVerified)
       ) {
