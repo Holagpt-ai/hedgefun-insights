@@ -592,12 +592,28 @@ export function viewForActiveTab(
   if (generation.status === "empty" || tabRows.length === 0) {
     const tabEvidence = getTabEvaluationEvidence(tabEvaluationEvidence, activeTabId);
     const liveSession = isLiveSurveillanceSessionKind(resolveConsumerSessionKind(nowMs));
+    const supportsZero = tabEvidenceSupportsEvaluatedEmpty(activeTabId, tabEvidence);
+    const currentObservation =
+      sessionReference !== null
+      && assessScreenerGenerationSession({
+        nowMs,
+        referenceIso: sessionReference,
+      }) === "current";
     if (
       liveSession
       && tabRows.length === 0
       && tabRowsAll.length === 0
-      && !tabEvidenceSupportsEvaluatedEmpty(activeTabId, tabEvidence)
     ) {
+      if (supportsZero && currentObservation) {
+        return {
+          status: "empty",
+          rows: [],
+          synced_at: generation.synced_at,
+          provider_as_of_max: generation.provider_as_of_max,
+          attempts,
+          ...viewMetadata(generation),
+        };
+      }
       return {
         status: "unavailable",
         rows: [],

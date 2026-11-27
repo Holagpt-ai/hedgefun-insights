@@ -9,6 +9,7 @@ import {
   validateGeneration,
   type ScreenerFeedState,
   type ScreenerResultRow,
+  type ValidatedGeneration,
 } from "@/lib/screeners/contract";
 
 const NHL_ZERO_EVIDENCE = {
@@ -184,6 +185,103 @@ describe("tab session reference", () => {
     expect(
       filterActiveTabRowsForCurrentSession(rows, "volume_spikes", overnightMs),
     ).toHaveLength(1);
+  });
+
+  it("withholds live evaluated-empty when zero-match evidence lacks current observation (prior provider_as_of_max)", () => {
+    const syncedAt = "2026-11-27T18:45:00.000Z";
+    const priorProvider = "2026-11-26T21:00:00.000Z";
+    const RUN_ID = "55555555-5555-4555-8555-555555555555";
+    const state: ScreenerFeedState = {
+      state_key: "current",
+      sync_run_id: RUN_ID,
+      status: "available",
+      synced_at: syncedAt,
+      updated_at: syncedAt,
+      provider_as_of_min: priorProvider,
+      provider_as_of_max: priorProvider,
+      rows_inserted: 1,
+      tab_counts: {
+        day_trade_radar: 1,
+        gappers: 0,
+        volume_spikes: 0,
+        gainers_losers: 0,
+        unusual_volume: 0,
+        new_highs_lows: 0,
+      },
+      nhl_baseline_status: "available",
+      tab_evaluation_evidence: {
+        new_highs_lows: NHL_ZERO_EVIDENCE,
+      },
+    };
+    const radarRow: ScreenerResultRow = {
+      tab_id: "day_trade_radar",
+      symbol: "RAD1",
+      company_name: "RAD1",
+      price: 5,
+      change_percent: 1,
+      volume: 1_000_000,
+      avg_volume: null,
+      rvol: null,
+      float_shares: null,
+      gap_percent: null,
+      high_52w: null,
+      low_52w: null,
+      range_event: null,
+      market_cap: null,
+      prior_session_volume: 100_000,
+      volume_ratio_prior_session: 10,
+      avg_volume_20d: null,
+      rvol_20d: null,
+      day_high: 5.5,
+      day_low: 4.5,
+      provider_as_of: priorProvider,
+      sync_run_id: RUN_ID,
+      updated_at: syncedAt,
+    };
+    const validated = validateGeneration([state], [radarRow], liveEarlyCloseMs);
+    expect(validated.ok).toBe(true);
+    if (!validated.ok) return;
+    const view = viewForActiveTab(validated.generation, "new_highs_lows", liveEarlyCloseMs, 1);
+    expect(view.status).toBe("unavailable");
+    expect(view.rows).toHaveLength(0);
+  });
+
+  it("withholds live evaluated-empty when zero-match evidence lacks current observation (missing provider_as_of_max)", () => {
+    const syncedAt = "2026-11-27T18:45:00.000Z";
+    const generation: ValidatedGeneration = {
+      status: "available",
+      state: {
+        state_key: "current",
+        sync_run_id: "66666666-6666-4666-8666-666666666666",
+        status: "available",
+        synced_at: syncedAt,
+        updated_at: syncedAt,
+        provider_as_of_min: null,
+        provider_as_of_max: null,
+        rows_inserted: 0,
+        tab_counts: {
+          day_trade_radar: 0,
+          gappers: 0,
+          volume_spikes: 0,
+          gainers_losers: 0,
+          unusual_volume: 0,
+          new_highs_lows: 0,
+        },
+        nhl_baseline_status: "available",
+        tab_evaluation_evidence: {
+          new_highs_lows: NHL_ZERO_EVIDENCE,
+        },
+      },
+      rows: [],
+      synced_at: syncedAt,
+      provider_as_of_max: null,
+      provider_as_of_min: null,
+      tab_evaluation_evidence: {
+        new_highs_lows: NHL_ZERO_EVIDENCE,
+      },
+    };
+    const view = viewForActiveTab(generation, "new_highs_lows", liveEarlyCloseMs, 1);
+    expect(view.status).toBe("unavailable");
   });
 
   it("viewForActiveTab shows unavailable for live empty tab without zero-match evidence", () => {
