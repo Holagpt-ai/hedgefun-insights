@@ -2,11 +2,11 @@
 
 **GitHub `main` baseline:** **`c6278fde450df6ca58f5fc7f38c9c68ddcb52480`** — PR **#282** merged (scanner session integrity).
 
-**Open PR:** [#283](https://github.com/Holagpt-ai/hedgefun-insights/pull/283) `cursor/catalyst-ai-intelligence-completion` — editorial integrity (AWK), catalyst precedence reconcile all consumers, Watchlist truthful failed-refresh + prior analysis, AI Analyst symbol handoff + CURRENT_CATALYST ranking, AM brief session cache + in-flight guard. **No** Edge/Fly/SQL/cron/deploy.
+**Open PR:** [#283](https://github.com/Holagpt-ai/hedgefun-insights/pull/283) `cursor/catalyst-ai-intelligence-completion` — head **`b3fa28942eb7b3d61cbd8592383374d55f9423cb`**. Editorial integrity (AWK), catalyst precedence reconcile, Watchlist truthful failed-refresh + prior analysis, AI Analyst symbol handoff, AM brief in-memory cache with release safeguards (`briefFetchStillValid`, live-clock AM window supersession, component lifecycle tests). **No** Edge/Fly/SQL/cron/deploy.
 
 **Preserved:** PR #275 containment, #270 attribution, earnings ranking (ISS-026), PM gate (#282), AI Trader shelved 2027, Calendar V4 blocked, historical **BKH** checkpoint.
 
-**Release corrections (same PR):** Removed brief `sessionStorage` (auth bypass); user-scoped in-memory last-good + fetch-generation guards. Catalyst opinion-editorial cannot re-promote via `detectPrimaryEventClass`. **Activation:** Lovable Edge `sync-catalyst-events`, `chat`, `get-daily-brief` unchanged entitlement; Vercel brief + watchlist + catalyst UI. Watchlist **AI_PROVIDER_ERROR** still **unverified**.
+**Release corrections (same PR):** No brief `sessionStorage`; guards before cache/UI; session `user.id` must match captured user; obsolete generations cannot commit state. Catalyst opinion-editorial cannot re-promote via `detectPrimaryEventClass`. **Activation:** Lovable Edge `sync-catalyst-events`, `chat`, `get-daily-brief` unchanged entitlement; Vercel brief + watchlist + catalyst UI. Watchlist **AI_PROVIDER_ERROR** still **unverified**.
 
 **Next:** owner merge → deploy touched Edge functions → acceptance on AWK editorial labeling + Watchlist refresh failure UX.
 

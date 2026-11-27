@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 2026-11-27 — PR #283 brief lifecycle safeguard (`b3fa2894`)
+
+- `AIBriefCard`: validate generation + session before cache/diagnostics/state; `briefFetchStillValid`; AM prior supersession from live clock (`briefSnapshotSupersededBySchedule`).
+- Component regression tests: 403, session mismatch, account switch race, AM/PM scope, early→mid schedule discard.
+
 ## 2026-11-27 — PR #283 follow-up (git only; same PR)
 
 - Watchlist: separate `requestStatus` from `priorAnalysisAvailable` / `refreshFailedWithPriorAnalysis`; presentation stays `ready` when prior content survives failed refresh.
