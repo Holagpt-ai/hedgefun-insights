@@ -2,17 +2,19 @@
 
 Keep this list short. Move fixed items to `docs/CHANGELOG.md`. Labels: **confirmed**, **reported**, **deferred**.
 
-**Homepage My Assets Watchlist (Nov 27, confirmed):** Production showed “Could not load your watchlist” while `/watchlist` and Dashboard Watchlist worked (12 symbols). Root cause: homepage ordered by nonexistent `created_at` (canonical column is **`added_at`**) and treated optional `stocks` quote errors as full load failure. **Fixed in git** this batch (shared V2 symbol fetch/cache; quotes best-effort). **OPEN** until Vercel deploy + authenticated homepage acceptance. Do not fabricate prices.
+**Homepage My Assets Watchlist (Nov 27):** **Fixed in git** PR **#280** @ **`b0c6f46b`**. Runtime / authenticated acceptance **deferred to final inspection**.
 
-**AI Trader navigation (Nov 27, deferred):** Owner shelved AI Trader until **2027** (or explicit reopen). Removed from customer `DashboardSidebar` menus. Routes/source/DB/Edge/Fly worker/OFF safeguards **preserved**; do not activate worker. AI Analyst unchanged. See **ISS-009**.
+**AI Trader navigation (Nov 27, deferred):** Shelved until **2027**. Nav removed in PR **#280**. Infra preserved OFF. See **ISS-009**.
 
-**Catalyst Calendar V4 (Nov 26–27):** PR **#278** @ `5d458699`; recovery PR **#279** @ **`56153eae`**. Lovable source sync **reportedly completed**. **Production activation BLOCKED:** first stop before SQL (ledger + `service_role` grants); **second attempt blocked before changes** by **two unchanged migration execution-safeguard conflicts**. Exact Lovable report + **28-table** privilege inventory **required**. Excessive **TRUNCATE** grants **reported** (scope pending). Calendar SQL, economic Edge, initial ingestion, recurring refresh **unactivated**. Runbook `docs/release/catalyst-calendar-v4-production-activation-v1.md`.
+**Historical catch-up queue (Nov 26–27):** Production v57 stuck at **`BKH`** — confirmed empty-window deferral-belt cycle. **Source corrected** in PR **#281** (exclusive cursor advance, wrap-once exhaustion, campaign stuck-cursor halt, partial-window cursor safety, terminal log discrimination, post-lock campaign state, unified queue ordering). **Activation OPEN** — worker still **0** machines / preflight on; do not resume until corrected image deploys. Checkpoint preserved: **16/20**, **7432+7500/50000**, durable **599 / 340,797 / 32,939**, eligible ~**4735**, target **2026-11-25**, floor **2021-11-29**. Procedure: `historical-catchup-activation-procedure-v1.md`.
 
-**Lovable RLS report (Nov 26, reported):** Critical — “some access rules let everyone through”, **28** tables — exact policy inventory **pending** (`docs/release/lovable-rls-broad-access-finding-2026-11-26.md`). **Do not Fix All** in calendar recovery. **Not dismissed** as false positive. **Separate critical blocker** only if unauthorized **private user** write/read is evidenced.
+**Repeat Movers episodes (Nov 25–27):** Stale since **Oct 20** — **activation** after historical catch-up writes; Edge apikey + client distinctions already shipped. No redundant client rebuild.
 
-**Homepage Muse V21 (Nov 26, merged):** PR **#277** on `main`. Economic tab reads `economic_events` when present; otherwise customer-facing unavailable copy.
+**Catalyst Calendar V4 (Nov 26–27):** PR **#278** / **#279**. Lovable source sync reportedly completed. **Production activation BLOCKED** (migration safeguards + pending 28-table / TRUNCATE evidence). Calendar SQL / economic Edge / ingest / recurring refresh **unactivated**.
 
-**Historical catch-up backlog (Nov 26, confirmed):** **~4735** symbols eligible for **2026-11-25**. PR **#276** merged and deployed Fly **v57**. Pre-v57 durable writes preserved (**599** / **340,797** / **32,939**). **v57 halt:** cursor cycles at **`BKH`** — repeated 200-symbol empty windows (**~150** `ambiguous_identity`, **~50** `unsupported_ticker`); no new jobs. Campaign **16/20**; provider **7432+7500/50000**. Worker **0**, preflight **on**. **Do not resume** until wrap/cursor cycling on still-eligible deferred symbols is fixed. No recurring schedule.
+**Lovable RLS report (Nov 26, reported):** Critical — **28** tables — inventory **pending**. **Do not Fix All** in calendar recovery.
+
+**Homepage Muse V21 (Nov 26, merged):** PR **#277** on `main`.
 
 **Production checkpoint — November 25, 2026 (v530 + Option B ON; Layer C activated 19:34 UTC):** Edge v530; Option B **ON**; Layer C + reconcile SQL applied **direct outside ledger** @ **19:34:12 UTC** (ledger **not** marked); pubs **107**/**108** @ **19:35**/**19:40 UTC**; ISS-043 **CLOSED**. **P0 Watchlist AI:** six runs, **0** successes, `AI_PROVIDER_ERROR` ~130–171 ms — **precise upstream cause UNVERIFIED**; PR #275 adds containment + classification (pending Edge deploy). **P1 Brief:** `temporarily_unavailable` / `UNKNOWN` → reclassified `COST_GUARD` for model-not-found class. **P1 Repeat Movers:** episodes stale **Oct 20** — ingestion runbook `batch-nov25-repeat-movers-ingestion-runbook-v1.md`. **P1 ISS-024 tab delayed copy:** screener trust parity fix in same PR (Vercel).
 

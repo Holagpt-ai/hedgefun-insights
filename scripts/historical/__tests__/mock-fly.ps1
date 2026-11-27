@@ -9,7 +9,11 @@ $failScaleZero = Join-Path $dir "fail-scale-zero"
 $failScaleUp = Join-Path $dir "fail-scale-up"
 $failPreflight = Join-Path $dir "fail-preflight"
 $successLogs = Join-Path $dir "success-logs"
+$stuckEmptyLogs = Join-Path $dir "stuck-empty-logs"
 $unknownLogs = Join-Path $dir "unknown-logs"
+$diagnosticThenFinalLogs = Join-Path $dir "diagnostic-then-final-logs"
+$twoPhaseLogs = Join-Path $dir "two-phase-logs"
+$twoPhaseMarker = Join-Path $dir "two-phase-marker.txt"
 
 if (-not (Test-Path $machinesPath)) { Set-Content -Path $machinesPath -Value "[]" -Encoding ascii }
 if (-not (Test-Path $secretNamesPath)) {
@@ -108,8 +112,33 @@ if ($args.Count -ge 1 -and $args[0] -eq "logs") {
     Write-Output "m1 still running"
     exit 0
   }
+  if (Test-Path $twoPhaseLogs) {
+    if (-not (Test-Path $twoPhaseMarker)) {
+      Set-Content -Path $twoPhaseMarker -Value "1" -Encoding ascii
+      Write-Output 'm1 {"event":"catch_up_stop","reason":"provider_request_limit","phase":"symbol_resolution"}'
+      Write-Output "m1 still running"
+      exit 0
+    }
+    Write-Output 'm1 {"event":"catch_up_partial_stop","outcome":"partial","stopReason":"provider_request_limit","batchesRun":0,"symbolsAttempted":3,"symbolsResolved":0,"eligibleSymbolsRemaining":10,"provider":{"dailyRequests":2,"referenceRequests":1,"nextPages":0},"queueAfterSymbol":"FAIL1"}'
+    Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"FAIL1"}'
+    Write-Output "m1 Main child exited normally with code: 0"
+    exit 0
+  }
+  if (Test-Path $diagnosticThenFinalLogs) {
+    Write-Output 'm1 {"event":"catch_up_stop","reason":"queue_cycle_exhausted","queueAfterSymbol":"BKH"}'
+    Write-Output 'm1 {"event":"catch_up_partial_stop","outcome":"partial","stopReason":"provider_request_limit","batchesRun":1,"symbolsResolved":1,"symbolsAttempted":5,"eligibleSymbolsRemaining":4000,"provider":{"dailyRequests":10,"referenceRequests":5,"nextPages":0},"queueAfterSymbol":"CUR1"}'
+    Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"CUR1"}'
+    Write-Output "m1 Main child exited normally with code: 0"
+    exit 0
+  }
+  if (Test-Path $stuckEmptyLogs) {
+    Write-Output 'm1 {"event":"catch_up_partial_stop","outcome":"partial","stopReason":"unresolvable_queue_window","batchesRun":0,"symbolsAttempted":200,"symbolsResolved":0,"symbolsSkipped":200,"eligibleSymbolsRemaining":4735,"provider":{"dailyRequests":2,"referenceRequests":400,"nextPages":0},"unresolvedDeferred":{"ambiguous_identity":149,"unsupported_ticker":51},"queueAfterSymbol":"BKH","emptyWindowFingerprint":"BKH|200|4735|ambiguous_identity:149,unsupported_ticker:51"}'
+    Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"BKH","emptyWindowFingerprint":"BKH|200|4735|ambiguous_identity:149,unsupported_ticker:51"}'
+    Write-Output "m1 Main child exited normally with code: 0"
+    exit 0
+  }
   if (Test-Path $successLogs) {
-    Write-Output 'm1 {"event":"catch_up_partial_stop","eligibleSymbolsRemaining":4000,"provider":{"dailyRequests":10,"referenceRequests":5,"nextPages":0}}'
+    Write-Output 'm1 {"event":"catch_up_partial_stop","eligibleSymbolsRemaining":4000,"symbolsResolved":1,"batchesRun":1,"provider":{"dailyRequests":10,"referenceRequests":5,"nextPages":0},"queueAfterSymbol":"ABC"}'
     Write-Output 'm1 {"event":"catch_up_queue_state","queueAfterSymbol":"ABC"}'
     Write-Output "m1 Main child exited normally with code: 0"
     exit 0

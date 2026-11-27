@@ -30,6 +30,10 @@ function Get-ProviderTotal($Provider) {
   return [int]$Provider.dailyRequests + [int]$Provider.referenceRequests + [int]$Provider.nextPages
 }
 
+function Test-AuthoritativeCatchUpTerminalInLogs([string]$LogsTail, [string]$MachineId) {
+  return ($LogsTail -match "$MachineId.*catch_up_partial_stop" -or $LogsTail -match "$MachineId.*rollout_complete")
+}
+
 function Get-LatestRunEvents([string]$MachineId) {
   $raw = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
   $events = @()
@@ -45,10 +49,8 @@ function Get-LatestRunEvents([string]$MachineId) {
   return $events
 }
 
-if (-not (Test-Path -LiteralPath $StatePath)) { throw "missing campaign state: $StatePath" }
-$state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
-if ($null -eq $state.pendingRun) { $state | Add-Member -NotePropertyName pendingRun -NotePropertyValue $false }
-if ($null -eq $state.pendingProviderReservation) { $state | Add-Member -NotePropertyName pendingProviderReservation -NotePropertyValue 0 }
+$state = $null
+$StuckEmptyRunLimit = 2
 
 $haltReason = $null
 $terminal = $null
@@ -70,6 +72,8 @@ try {
     $ownsCampaign = $true
   }
 
+  $state = Import-CatchupCampaignStateWithDefaults -StatePath $StatePath
+
   Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
 
   if ($state.pendingRun -eq $true) {
@@ -89,9 +93,6 @@ try {
     throw "remaining provider budget $remaining is below next run allowance $MaxProviderPerRun"
   }
 
-  if ($state.queueAfterSymbol) {
-    $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
-  }
   $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "unset", "-a", $App, "HISTORICAL_CATCHUP_PREFLIGHT_ONLY")
 
   for ($run = $runStart; $run -lt ($runStart + $maxRuns); $run++) {
@@ -103,6 +104,11 @@ try {
     }
 
     Assert-ZeroFlyMachines -FlyExe $FlyExe -App $App
+
+    # Refresh exclusive queue cursor before every machine start (survives multi-run campaigns).
+    if ($state.queueAfterSymbol) {
+      $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
+    }
 
     $state.executionsCompleted = [int]$state.executionsCompleted + 1
     $state.providerReservedUncertain = [int]$state.providerReservedUncertain + $MaxProviderPerRun
@@ -127,14 +133,15 @@ try {
       if ($PollSeconds -gt 0) { Start-Sleep -Seconds $PollSeconds } else { break }
       $list = Get-FlyMachines -FlyExe $FlyExe -App $App
       $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
-      if ($logsTail -match "$machineId.*catch_up_partial_stop" `
-        -or $logsTail -match "$machineId.*rollout_complete" `
-        -or $logsTail -match "$machineId.*catch_up_stop") {
+      if (Test-AuthoritativeCatchUpTerminalInLogs -LogsTail $logsTail -MachineId $machineId) {
         if ($LogSettleSeconds -gt 0) { Start-Sleep -Seconds $LogSettleSeconds }
+        $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
         $outcomeKnown = $true
         break
       }
       if ($list.Count -eq 0 -and $logsTail -match "$machineId.*Main child exited") {
+        if ($LogSettleSeconds -gt 0) { Start-Sleep -Seconds $LogSettleSeconds }
+        $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
         $outcomeKnown = $true
         break
       }
@@ -142,16 +149,14 @@ try {
 
     if (-not $outcomeKnown -and $MaxWaitMinutes -le 0) {
       $logsTail = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("logs", "-a", $App, "--no-tail")
-      if ($logsTail -match "$machineId.*catch_up_partial_stop" `
-        -or $logsTail -match "$machineId.*rollout_complete" `
-        -or $logsTail -match "$machineId.*catch_up_stop" `
+      if ((Test-AuthoritativeCatchUpTerminalInLogs -LogsTail $logsTail -MachineId $machineId) `
         -or $logsTail -match "$machineId.*Main child exited") {
         $outcomeKnown = $true
       }
     }
 
     $events = Get-LatestRunEvents -MachineId $machineId
-    $terminal = $events | Where-Object { $_.event -in @('catch_up_partial_stop','rollout_complete','catch_up_stop') } | Select-Object -Last 1
+    $terminal = $events | Where-Object { $_.event -in @('catch_up_partial_stop','rollout_complete') } | Select-Object -Last 1
     $queueState = $events | Where-Object { $_.event -eq 'catch_up_queue_state' } | Select-Object -Last 1
 
     $exitCode = $null
@@ -163,12 +168,14 @@ try {
 
     $runProvider = Get-ProviderTotal $terminal.provider
     $providerReliable = $false
-    if ($null -ne $runProvider -and $runProvider -gt 0) {
+    if ($terminal -and $null -ne $runProvider -and $runProvider -gt 0) {
       $providerReliable = $true
     }
 
     if (-not $outcomeKnown -and $null -eq $exitCode) {
       $haltReason = "unknown_machine_outcome"
+    } elseif ($outcomeKnown -and -not $terminal) {
+      $haltReason = "incomplete_terminal_evidence"
     }
 
     Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
@@ -187,7 +194,34 @@ try {
       $state.queueAfterSymbol = [string]$queueState.queueAfterSymbol
       Ensure-FlyScaleZero -FlyExe $FlyExe -App $App -SettleSeconds $ScaleZeroSettleSeconds
       $null = Invoke-FlyNative -FlyExe $FlyExe -FlyArgs @("secrets", "set", "-a", $App, "HISTORICAL_CATCHUP_QUEUE_AFTER_SYMBOL=$($state.queueAfterSymbol)")
+    } elseif ($terminal -and $terminal.queueAfterSymbol) {
+      $state.queueAfterSymbol = [string]$terminal.queueAfterSymbol
     }
+
+    $resolvedAny = $false
+    if ($terminal -and [int]$terminal.symbolsResolved -gt 0) { $resolvedAny = $true }
+    if ($terminal -and [int]$terminal.batchesRun -gt 0) { $resolvedAny = $true }
+    $fingerprint = $null
+    if ($terminal -and $terminal.emptyWindowFingerprint) {
+      $fingerprint = [string]$terminal.emptyWindowFingerprint
+    } elseif ($terminal -and $terminal.stopReason -in @('unresolvable_queue_window','queue_cycle_exhausted') -and $terminal.unresolvedDeferred) {
+      $kindParts = @()
+      foreach ($p in $terminal.unresolvedDeferred.PSObject.Properties) {
+        $kindParts += "$($p.Name):$($p.Value)"
+      }
+      $kindKey = ($kindParts | Sort-Object) -join ","
+      $fingerprint = "$($state.queueAfterSymbol)|$($terminal.symbolsAttempted)|$($terminal.eligibleSymbolsRemaining)|$kindKey"
+    }
+    if ($resolvedAny -or -not $fingerprint) {
+      $state.lastEmptyWindowFingerprint = $null
+      $state.consecutiveIdenticalEmptyRuns = 0
+    } elseif ($fingerprint -eq $state.lastEmptyWindowFingerprint) {
+      $state.consecutiveIdenticalEmptyRuns = [int]$state.consecutiveIdenticalEmptyRuns + 1
+    } else {
+      $state.lastEmptyWindowFingerprint = $fingerprint
+      $state.consecutiveIdenticalEmptyRuns = 1
+    }
+
     Save-CatchupCampaignStateFile -StatePath $StatePath -State $state
 
     $record = @{
@@ -198,11 +232,13 @@ try {
       providerReliable = $providerReliable
       providerBudget = [int]$state.providerUsed + [int]$state.providerReservedUncertain
       terminal = $terminal
+      emptyWindowFingerprint = $fingerprint
+      consecutiveIdenticalEmptyRuns = [int]$state.consecutiveIdenticalEmptyRuns
     }
     Add-Content -Path $LogOut -Value ($record | ConvertTo-Json -Compress -Depth 8)
 
-    if ($haltReason -eq "unknown_machine_outcome") {
-      throw "machine $machineId outcome unknown after $MaxWaitMinutes minutes"
+    if ($haltReason -in @("unknown_machine_outcome","incomplete_terminal_evidence")) {
+      throw "machine $machineId requires reconciliation: $haltReason"
     }
     if ($null -ne $exitCode -and $exitCode -ne 0) {
       $haltReason = "worker_exit_$exitCode"
@@ -210,7 +246,16 @@ try {
     }
     if ($terminal -and $terminal.event -eq 'rollout_complete') { $haltReason = "queue_exhausted"; break }
     if ($terminal -and $terminal.eligibleSymbolsRemaining -eq 0) { $haltReason = "queue_exhausted"; break }
-    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','unresolvable_queue_window','provider_rate_limited','provider_transient','provider_entitlement_failure','provider_invalid_response')) {
+    if ([int]$state.consecutiveIdenticalEmptyRuns -ge $StuckEmptyRunLimit) {
+      $haltReason = "stuck_queue_cursor"
+      break
+    }
+    if ($terminal -and $terminal.stopReason -eq 'queue_cycle_exhausted') {
+      $haltReason = "queue_cycle_exhausted"
+      break
+    }
+    # Soft empty window: cursor should have advanced; continue campaign unless hard provider/job stops.
+    if ($terminal -and $terminal.stopReason -in @('no_progress','job_paused','provider_request_limit','provider_rate_limited','provider_transient','provider_entitlement_failure','provider_invalid_response')) {
       $haltReason = $terminal.stopReason
       break
     }
@@ -246,11 +291,15 @@ finally {
   }
 }
 
+if ($null -eq $state -and (Test-Path -LiteralPath $StatePath)) {
+  try { $state = Import-CatchupCampaignStateWithDefaults -StatePath $StatePath } catch {}
+}
+
 $summary = @{
   event = "campaign_summary"
   haltReason = $haltReason
   state = $state
-  lastEligibleRemaining = $terminal.eligibleSymbolsRemaining
+  lastEligibleRemaining = if ($terminal) { $terminal.eligibleSymbolsRemaining } else { $null }
   cleanupFailed = $cleanupFailed
   cleanupError = $cleanupError
 } | ConvertTo-Json -Compress -Depth 8
@@ -260,7 +309,7 @@ if ($cleanupFailed) {
   [Console]::Error.WriteLine("CLEANUP FAILED: $cleanupError")
   exit 3
 }
-if ($haltReason -eq "unknown_machine_outcome") { exit 2 }
+if ($haltReason -in @("unknown_machine_outcome","incomplete_terminal_evidence")) { exit 2 }
 if ($haltReason -match '^worker_exit_') { exit 1 }
 if ($haltReason -eq "scale_up_failed") { exit 1 }
 if ($runError) { throw $runError }

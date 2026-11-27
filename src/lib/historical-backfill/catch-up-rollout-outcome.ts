@@ -10,6 +10,8 @@ export type CatchUpStopReason =
   | "no_progress"
   | "interrupted_job_incomplete"
   | "unresolvable_queue_window"
+  /** Full eligible queue wrapped once with zero resolved identities this run. */
+  | "queue_cycle_exhausted"
   | "provider_rate_limited"
   | "provider_transient"
   | "provider_entitlement_failure"
@@ -30,4 +32,12 @@ export function resolveCatchUpRolloutOutcome(input: {
 
 export function catchUpRolloutEventName(outcome: CatchUpRolloutOutcome): "rollout_complete" | "catch_up_partial_stop" {
   return outcome === "complete" ? "rollout_complete" : "catch_up_partial_stop";
+}
+
+const AUTHORITATIVE_CATCH_UP_TERMINAL_EVENTS = new Set(["catch_up_partial_stop", "rollout_complete"]);
+
+/** Authoritative Fly worker completion events (diagnostic `catch_up_stop` is excluded). */
+export function isAuthoritativeCatchUpTerminalEvent(event: string | null | undefined): boolean {
+  const name = event?.trim();
+  return Boolean(name && AUTHORITATIVE_CATCH_UP_TERMINAL_EVENTS.has(name));
 }
